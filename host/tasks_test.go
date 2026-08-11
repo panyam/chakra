@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/panyam/mcpkit/agent"
+	"github.com/panyam/mcpkit/experimental/agent"
 	"github.com/panyam/mcpkit/core"
 	tasksext "github.com/panyam/mcpkit/ext/tasks"
 	"github.com/panyam/mcpkit/server"

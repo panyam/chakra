@@ -1,4 +1,4 @@
-module github.com/panyam/mcpkit/agent/surfaces/chat
+module github.com/panyam/mcpkit/experimental/agent/surfaces/chat
 
 go 1.26.5
 
@@ -10,8 +10,8 @@ require (
 	github.com/charmbracelet/x/ansi v0.11.7
 	github.com/muesli/termenv v0.16.0
 	github.com/panyam/mcpkit v0.5.1
-	github.com/panyam/mcpkit/agent/host v0.0.0
-	github.com/panyam/mcpkit/agent/surfaces v0.0.0-00010101000000-000000000000
+	github.com/panyam/mcpkit/experimental/agent/host v0.0.0
+	github.com/panyam/mcpkit/experimental/agent/surfaces v0.0.0-00010101000000-000000000000
 	github.com/panyam/mcpkit/ext/otel v0.3.1
 	github.com/redis/go-redis/v9 v9.21.0
 	github.com/spf13/cobra v1.10.2
@@ -95,9 +95,9 @@ require (
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/panyam/gocurrent v0.1.2 // indirect
 	github.com/panyam/goutils v0.1.8 // indirect
-	github.com/panyam/mcpkit/agent v0.0.0
-	github.com/panyam/mcpkit/agent/store/gorm v0.0.0
-	github.com/panyam/mcpkit/agent/store/redis v0.0.0
+	github.com/panyam/mcpkit/experimental/agent v0.0.0
+	github.com/panyam/mcpkit/experimental/agent/store/gorm v0.0.0
+	github.com/panyam/mcpkit/experimental/agent/store/redis v0.0.0
 	github.com/panyam/mcpkit/experimental/ext/events v0.0.0 // indirect
 	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.0.0 // indirect
 	github.com/panyam/mcpkit/ext/auth v0.0.0 // indirect
@@ -134,30 +134,30 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/panyam/mcpkit => ../../..
+replace github.com/panyam/mcpkit => ../../../..
 
-replace github.com/panyam/mcpkit/agent => ../..
+replace github.com/panyam/mcpkit/experimental/agent => ../..
 
-replace github.com/panyam/mcpkit/agent/surfaces => ..
+replace github.com/panyam/mcpkit/experimental/agent/surfaces => ..
 
-replace github.com/panyam/mcpkit/ext/auth => ../../../ext/auth
+replace github.com/panyam/mcpkit/ext/auth => ../../../../ext/auth
 
-replace github.com/panyam/mcpkit/ext/skills => ../../../ext/skills
+replace github.com/panyam/mcpkit/ext/skills => ../../../../ext/skills
 
-replace github.com/panyam/mcpkit/ext/otel => ../../../ext/otel
+replace github.com/panyam/mcpkit/ext/otel => ../../../../ext/otel
 
-replace github.com/panyam/mcpkit/experimental/ext/agents => ../../../experimental/ext/agents
+replace github.com/panyam/mcpkit/experimental/ext/agents => ../../../../experimental/ext/agents
 
-replace github.com/panyam/mcpkit/experimental/ext/agents/clients/go => ../../../experimental/ext/agents/clients/go
+replace github.com/panyam/mcpkit/experimental/ext/agents/clients/go => ../../../../experimental/ext/agents/clients/go
 
-replace github.com/panyam/mcpkit/experimental/ext/events => ../../../experimental/ext/events
+replace github.com/panyam/mcpkit/experimental/ext/events => ../../../../experimental/ext/events
 
-replace github.com/panyam/mcpkit/experimental/ext/events/clients/go => ../../../experimental/ext/events/clients/go
+replace github.com/panyam/mcpkit/experimental/ext/events/clients/go => ../../../../experimental/ext/events/clients/go
 
-replace github.com/panyam/mcpkit/ext/tasks => ../../../ext/tasks
+replace github.com/panyam/mcpkit/ext/tasks => ../../../../ext/tasks
 
-replace github.com/panyam/mcpkit/agent/host => ../../host
+replace github.com/panyam/mcpkit/experimental/agent/host => ../../host
 
-replace github.com/panyam/mcpkit/agent/store/redis => ../../store/redis
+replace github.com/panyam/mcpkit/experimental/agent/store/redis => ../../store/redis
 
-replace github.com/panyam/mcpkit/agent/store/gorm => ../../store/gorm
+replace github.com/panyam/mcpkit/experimental/agent/store/gorm => ../../store/gorm

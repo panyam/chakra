@@ -16,8 +16,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/panyam/mcpkit/agent"
-	"github.com/panyam/mcpkit/agent/host"
+	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/mcpkit/experimental/agent/host"
 )
 
 // The notebook surface (--ui notebook) is the opt-in alt-screen alternative to

@@ -1,11 +1,11 @@
-module github.com/panyam/mcpkit/agent/surfaces
+module github.com/panyam/mcpkit/experimental/agent/surfaces
 
 go 1.26.5
 
 require (
-	github.com/panyam/mcpkit/agent v0.0.0
-	github.com/panyam/mcpkit/agent/store/gorm v0.0.0
-	github.com/panyam/mcpkit/agent/store/redis v0.0.0
+	github.com/panyam/mcpkit/experimental/agent v0.0.0
+	github.com/panyam/mcpkit/experimental/agent/store/gorm v0.0.0
+	github.com/panyam/mcpkit/experimental/agent/store/redis v0.0.0
 	github.com/redis/go-redis/v9 v9.21.0
 	gorm.io/driver/postgres v1.6.2
 	gorm.io/driver/sqlite v1.6.0
@@ -44,10 +44,10 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 )
 
-replace github.com/panyam/mcpkit => ../..
+replace github.com/panyam/mcpkit => ../../..
 
-replace github.com/panyam/mcpkit/agent => ..
+replace github.com/panyam/mcpkit/experimental/agent => ..
 
-replace github.com/panyam/mcpkit/agent/store/gorm => ../store/gorm
+replace github.com/panyam/mcpkit/experimental/agent/store/gorm => ../store/gorm
 
-replace github.com/panyam/mcpkit/agent/store/redis => ../store/redis
+replace github.com/panyam/mcpkit/experimental/agent/store/redis => ../store/redis

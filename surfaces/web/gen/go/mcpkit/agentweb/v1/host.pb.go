@@ -960,7 +960,7 @@ const file_mcpkit_agentweb_v1_host_proto_rawDesc = "" +
 	"\tGetStatus\x12$.mcpkit.agentweb.v1.GetStatusRequest\x1a%.mcpkit.agentweb.v1.GetStatusResponse\x12d\n" +
 	"\rCreateSession\x12(.mcpkit.agentweb.v1.CreateSessionRequest\x1a).mcpkit.agentweb.v1.CreateSessionResponse\x12j\n" +
 	"\x0fListWebSessions\x12*.mcpkit.agentweb.v1.ListWebSessionsRequest\x1a+.mcpkit.agentweb.v1.ListWebSessionsResponse\x12a\n" +
-	"\fCloseSession\x12'.mcpkit.agentweb.v1.CloseSessionRequest\x1a(.mcpkit.agentweb.v1.CloseSessionResponseBIZGgithub.com/panyam/mcpkit/agent/web/gen/go/mcpkit/agentweb/v1;agentwebv1b\x06proto3"
+	"\fCloseSession\x12'.mcpkit.agentweb.v1.CloseSessionRequest\x1a(.mcpkit.agentweb.v1.CloseSessionResponseB_Z]github.com/panyam/mcpkit/experimental/agent/surfaces/web/gen/go/mcpkit/agentweb/v1;agentwebv1b\x06proto3"
 
 var (
 	file_mcpkit_agentweb_v1_host_proto_rawDescOnce sync.Once

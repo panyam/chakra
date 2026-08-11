@@ -1,33 +1,33 @@
-module github.com/panyam/mcpkit/agent/ext/files
+module github.com/panyam/mcpkit/experimental/agent/ext/files
 
 go 1.26.5
 
-replace github.com/panyam/mcpkit => ../../..
+replace github.com/panyam/mcpkit => ../../../..
 
-replace github.com/panyam/mcpkit/agent => ../..
+replace github.com/panyam/mcpkit/experimental/agent => ../..
 
-replace github.com/panyam/mcpkit/agent/host => ../../host
+replace github.com/panyam/mcpkit/experimental/agent/host => ../../host
 
-replace github.com/panyam/mcpkit/ext/auth => ../../../ext/auth
+replace github.com/panyam/mcpkit/ext/auth => ../../../../ext/auth
 
-replace github.com/panyam/mcpkit/ext/skills => ../../../ext/skills
+replace github.com/panyam/mcpkit/ext/skills => ../../../../ext/skills
 
-replace github.com/panyam/mcpkit/ext/otel => ../../../ext/otel
+replace github.com/panyam/mcpkit/ext/otel => ../../../../ext/otel
 
-replace github.com/panyam/mcpkit/ext/tasks => ../../../ext/tasks
+replace github.com/panyam/mcpkit/ext/tasks => ../../../../ext/tasks
 
-replace github.com/panyam/mcpkit/experimental/ext/agents => ../../../experimental/ext/agents
+replace github.com/panyam/mcpkit/experimental/ext/agents => ../../../../experimental/ext/agents
 
-replace github.com/panyam/mcpkit/experimental/ext/agents/clients/go => ../../../experimental/ext/agents/clients/go
+replace github.com/panyam/mcpkit/experimental/ext/agents/clients/go => ../../../../experimental/ext/agents/clients/go
 
-replace github.com/panyam/mcpkit/experimental/ext/events => ../../../experimental/ext/events
+replace github.com/panyam/mcpkit/experimental/ext/events => ../../../../experimental/ext/events
 
-replace github.com/panyam/mcpkit/experimental/ext/events/clients/go => ../../../experimental/ext/events/clients/go
+replace github.com/panyam/mcpkit/experimental/ext/events/clients/go => ../../../../experimental/ext/events/clients/go
 
 require (
 	github.com/panyam/mcpkit v0.5.1
-	github.com/panyam/mcpkit/agent v0.0.0
-	github.com/panyam/mcpkit/agent/host v0.0.0-00010101000000-000000000000
+	github.com/panyam/mcpkit/experimental/agent v0.0.0
+	github.com/panyam/mcpkit/experimental/agent/host v0.0.0-00010101000000-000000000000
 )
 
 require (

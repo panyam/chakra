@@ -7,7 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/panyam/mcpkit/agent/host"
+	"github.com/panyam/mcpkit/experimental/agent/host"
 	"github.com/panyam/mcpkit/client"
 )
 

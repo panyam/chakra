@@ -7,8 +7,8 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/panyam/mcpkit/agent"
-	"github.com/panyam/mcpkit/agent/host"
+	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/mcpkit/experimental/agent/host"
 )
 
 // DefaultSessionID is the id of the session an empty session_id routes to. One

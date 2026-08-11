@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/panyam/mcpkit/agent"
+	"github.com/panyam/mcpkit/experimental/agent"
 	"github.com/panyam/mcpkit/client"
 	"github.com/panyam/mcpkit/core"
 	skills "github.com/panyam/mcpkit/ext/skills"

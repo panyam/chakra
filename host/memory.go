@@ -3,7 +3,7 @@ package host
 import (
 	"context"
 
-	"github.com/panyam/mcpkit/agent"
+	"github.com/panyam/mcpkit/experimental/agent"
 )
 
 // memorySourceID is the MultiSource id the working-memory tools register

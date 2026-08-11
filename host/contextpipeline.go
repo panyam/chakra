@@ -3,7 +3,7 @@ package host
 import (
 	"context"
 
-	"github.com/panyam/mcpkit/agent"
+	"github.com/panyam/mcpkit/experimental/agent"
 )
 
 // ContextStage is one named step of pre-turn context assembly: it takes the
