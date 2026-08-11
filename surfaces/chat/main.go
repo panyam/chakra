@@ -18,11 +18,11 @@ import (
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 
-	"github.com/panyam/mcpkit/agent"
-	"github.com/panyam/mcpkit/agent/host"
-	gormstore "github.com/panyam/mcpkit/agent/store/gorm"
-	redisstore "github.com/panyam/mcpkit/agent/store/redis"
-	"github.com/panyam/mcpkit/agent/surfaces"
+	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/mcpkit/experimental/agent/host"
+	gormstore "github.com/panyam/mcpkit/experimental/agent/store/gorm"
+	redisstore "github.com/panyam/mcpkit/experimental/agent/store/redis"
+	"github.com/panyam/mcpkit/experimental/agent/surfaces"
 	"github.com/panyam/mcpkit/core"
 
 	"github.com/spf13/cobra"

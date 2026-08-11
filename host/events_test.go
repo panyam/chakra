@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/panyam/mcpkit/agent"
+	"github.com/panyam/mcpkit/experimental/agent"
 	"github.com/panyam/mcpkit/experimental/ext/events"
 	"github.com/panyam/mcpkit/server"
 	"github.com/panyam/mcpkit/testutil"

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/panyam/mcpkit/agent"
+	"github.com/panyam/mcpkit/experimental/agent"
 	skills "github.com/panyam/mcpkit/ext/skills"
 )
 

@@ -11,7 +11,7 @@ package checkpoint
 import (
 	"context"
 
-	"github.com/panyam/mcpkit/agent"
+	"github.com/panyam/mcpkit/experimental/agent"
 )
 
 // Reverser knows how to undo one tool's effects. It is supplied per tool by

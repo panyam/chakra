@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/panyam/mcpkit/agent"
+	"github.com/panyam/mcpkit/experimental/agent"
 )
 
 // TestRenderer_ThinkingStreamsText pins that reasoning deltas render as the

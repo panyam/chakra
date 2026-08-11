@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/panyam/mcpkit/agent"
-	"github.com/panyam/mcpkit/agent/host"
+	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/mcpkit/experimental/agent/host"
 )
 
 // Extension contributes the file tools and the prompt that tells a model how

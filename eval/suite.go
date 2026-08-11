@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/panyam/mcpkit/agent"
+	"github.com/panyam/mcpkit/experimental/agent"
 )
 
 // Suite runs each Case against every Scorer and folds the verdicts into a

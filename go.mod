@@ -1,4 +1,4 @@
-module github.com/panyam/mcpkit/agent
+module github.com/panyam/mcpkit/experimental/agent
 
 go 1.26.5
 
@@ -26,4 +26,4 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 )
 
-replace github.com/panyam/mcpkit => ../
+replace github.com/panyam/mcpkit => ../../

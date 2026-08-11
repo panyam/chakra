@@ -21,10 +21,10 @@ import (
 
 	skhttp "github.com/panyam/servicekit/http"
 
-	"github.com/panyam/mcpkit/agent"
-	"github.com/panyam/mcpkit/agent/host"
-	agentsurfaces "github.com/panyam/mcpkit/agent/surfaces"
-	web "github.com/panyam/mcpkit/agent/surfaces/web"
+	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/mcpkit/experimental/agent/host"
+	agentsurfaces "github.com/panyam/mcpkit/experimental/agent/surfaces"
+	web "github.com/panyam/mcpkit/experimental/agent/surfaces/web"
 )
 
 func main() {

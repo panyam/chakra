@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/panyam/mcpkit/agent"
+	"github.com/panyam/mcpkit/experimental/agent"
 )
 
 func sec(s string) PromptSection { return PromptSectionFunc(func(context.Context) string { return s }) }

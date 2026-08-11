@@ -1,11 +1,11 @@
-module github.com/panyam/mcpkit/agent/host
+module github.com/panyam/mcpkit/experimental/agent/host
 
 go 1.26.5
 
 require (
 	github.com/panyam/gocurrent v0.1.2
 	github.com/panyam/mcpkit v0.5.1
-	github.com/panyam/mcpkit/agent v0.0.0
+	github.com/panyam/mcpkit/experimental/agent v0.0.0
 	github.com/panyam/mcpkit/experimental/ext/agents v0.0.0
 	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.0.0
 	github.com/panyam/mcpkit/experimental/ext/events v0.0.0
@@ -48,20 +48,20 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/panyam/mcpkit => ../..
+replace github.com/panyam/mcpkit => ../../..
 
-replace github.com/panyam/mcpkit/agent => ../
+replace github.com/panyam/mcpkit/experimental/agent => ../
 
-replace github.com/panyam/mcpkit/ext/auth => ../../ext/auth
+replace github.com/panyam/mcpkit/ext/auth => ../../../ext/auth
 
-replace github.com/panyam/mcpkit/ext/skills => ../../ext/skills
+replace github.com/panyam/mcpkit/ext/skills => ../../../ext/skills
 
-replace github.com/panyam/mcpkit/ext/tasks => ../../ext/tasks
+replace github.com/panyam/mcpkit/ext/tasks => ../../../ext/tasks
 
-replace github.com/panyam/mcpkit/experimental/ext/agents => ../../experimental/ext/agents
+replace github.com/panyam/mcpkit/experimental/ext/agents => ../../../experimental/ext/agents
 
-replace github.com/panyam/mcpkit/experimental/ext/agents/clients/go => ../../experimental/ext/agents/clients/go
+replace github.com/panyam/mcpkit/experimental/ext/agents/clients/go => ../../../experimental/ext/agents/clients/go
 
-replace github.com/panyam/mcpkit/experimental/ext/events => ../../experimental/ext/events
+replace github.com/panyam/mcpkit/experimental/ext/events => ../../../experimental/ext/events
 
-replace github.com/panyam/mcpkit/experimental/ext/events/clients/go => ../../experimental/ext/events/clients/go
+replace github.com/panyam/mcpkit/experimental/ext/events/clients/go => ../../../experimental/ext/events/clients/go

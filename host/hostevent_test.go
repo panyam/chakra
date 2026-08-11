@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/panyam/mcpkit/agent"
+	"github.com/panyam/mcpkit/experimental/agent"
 )
 
 // recordObserver captures the HostEvent stream so a test can assert what the

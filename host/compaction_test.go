@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/panyam/mcpkit/agent"
+	"github.com/panyam/mcpkit/experimental/agent"
 )
 
 func compactionConfig(url string, maxTokens, keepRecent int) *Config {

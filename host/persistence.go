@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/panyam/mcpkit/agent"
+	"github.com/panyam/mcpkit/experimental/agent"
 )
 
 // WithRunStore enables session persistence: every completed turn's

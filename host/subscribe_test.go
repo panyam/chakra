@@ -9,7 +9,7 @@ import (
 	"time"
 
 	gocurrent "github.com/panyam/gocurrent"
-	"github.com/panyam/mcpkit/agent"
+	"github.com/panyam/mcpkit/experimental/agent"
 )
 
 // TestEventLog_BoundedEvicts pins the bounded-log semantics Config.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/panyam/mcpkit/agent"
+	"github.com/panyam/mcpkit/experimental/agent"
 )
 
 // Extension contributes capability to an App across every seam at once.
