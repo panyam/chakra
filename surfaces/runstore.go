@@ -15,9 +15,9 @@ import (
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 
-	"github.com/panyam/mcpkit/experimental/agent"
-	gormstore "github.com/panyam/mcpkit/experimental/agent/store/gorm"
-	redisstore "github.com/panyam/mcpkit/experimental/agent/store/redis"
+	"github.com/panyam/chakra"
+	gormstore "github.com/panyam/chakra/store/gorm"
+	redisstore "github.com/panyam/chakra/store/redis"
 )
 
 // RunStoreFromSpec maps a session-store spec to an agent.RunStore backend.

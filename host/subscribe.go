@@ -3,7 +3,7 @@ package host
 import (
 	"context"
 
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 // subscribeBuffer smooths bursts on a Subscribe channel. It is not a

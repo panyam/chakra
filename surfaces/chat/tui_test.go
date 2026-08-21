@@ -14,8 +14,8 @@ import (
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/panyam/mcpkit/experimental/agent"
-	"github.com/panyam/mcpkit/experimental/agent/host"
+	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/host"
 	"github.com/panyam/mcpkit/server"
 	"github.com/panyam/mcpkit/testutil"
 )

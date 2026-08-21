@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 // Scenario is a multi-turn eval input: a sequence of user turns that share

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 // Adapter turns an external benchmark into cases this harness can run.

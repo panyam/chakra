@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/panyam/mcpkit/core"
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 // Source serves one tool per allowlisted command over agent.ToolSource.

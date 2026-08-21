@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 func newPersistedApp(t *testing.T, store agent.RunStore, stub *agent.StubProvider, out *strings.Builder) *App {

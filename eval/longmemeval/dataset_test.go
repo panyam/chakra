@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/panyam/mcpkit/experimental/agent"
-	"github.com/panyam/mcpkit/experimental/agent/eval"
+	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/eval"
 )
 
 const samplePath = "testdata/longmemeval_sample.json"

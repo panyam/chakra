@@ -6,7 +6,7 @@ into a runnable host without committing to any particular UI. A terminal CLI and
 a future web-chat surface both build on it; the only thing that differs is the
 reader/writer you hand it (stdin/stdout versus a socket).
 
-Nested Go module (`github.com/panyam/mcpkit/experimental/agent/host`) under `agent/`, so its
+Nested Go module (`github.com/panyam/chakra/host`) under `agent/`, so its
 heavier dependencies (ext/auth, ext/skills, ext/tasks, events client, gocurrent)
 stay out of the lean `agent/` module.
 

@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/panyam/mcpkit/core"
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 // Config configures the tool source.

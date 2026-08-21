@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/panyam/mcpkit/core"
-	"github.com/panyam/mcpkit/experimental/agent"
-	"github.com/panyam/mcpkit/experimental/agent/host"
+	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/host"
 )
 
 func mustExtension(t *testing.T, cfg Config) *Extension {

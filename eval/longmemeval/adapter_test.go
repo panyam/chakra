@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/panyam/mcpkit/experimental/agent"
-	"github.com/panyam/mcpkit/experimental/agent/eval"
+	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/eval"
 )
 
 // TestSmokeAdapterYieldsEveryCase pins that the adapter maps the whole smoke

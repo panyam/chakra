@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 func TestOverlayPathFor(t *testing.T) {

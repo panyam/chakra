@@ -32,7 +32,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 // DefaultKeyPrefix namespaces every key this store writes. Deployments

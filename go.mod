@@ -1,9 +1,9 @@
-module github.com/panyam/mcpkit/experimental/agent
+module github.com/panyam/chakra
 
 go 1.26.5
 
 require (
-	github.com/panyam/mcpkit v0.5.1
+	github.com/panyam/mcpkit v0.5.2-0.20260821231041-d045ab9a9323
 	github.com/panyam/servicekit v0.1.4
 )
 
@@ -25,5 +25,3 @@ require (
 	google.golang.org/grpc v1.83.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
-
-replace github.com/panyam/mcpkit => ../../

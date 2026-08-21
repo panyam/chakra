@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 // SuiteCase is one graded unit: a scenario to run and the scorers that grade

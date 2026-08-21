@@ -3,8 +3,8 @@
 package longmemeval
 
 import (
-	"github.com/panyam/mcpkit/experimental/agent"
-	"github.com/panyam/mcpkit/experimental/agent/eval"
+	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/eval"
 )
 
 // appendRubric adds the LLM-as-judge scorer for a case that has a rubric, for

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 // Extension contributes capability to an App across every seam at once.

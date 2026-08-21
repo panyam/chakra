@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/panyam/mcpkit/core"
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 func renderCall(name, args string) (string, bool) {

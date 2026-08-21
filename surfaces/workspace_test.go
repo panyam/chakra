@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/panyam/mcpkit/experimental/agent"
-	"github.com/panyam/mcpkit/experimental/agent/ext/lsp"
-	"github.com/panyam/mcpkit/experimental/agent/host"
+	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/ext/lsp"
+	"github.com/panyam/chakra/host"
 )
 
 // TestWorkspaceExtensionsDisabledByDefault pins that an empty Roots produces no

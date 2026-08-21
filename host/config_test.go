@@ -3,7 +3,7 @@ package host
 import (
 	"testing"
 
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 func TestConfigValidate_ConnectionsSupersedeModel(t *testing.T) {

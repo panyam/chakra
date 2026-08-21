@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 	"github.com/panyam/mcpkit/client"
 	"github.com/panyam/mcpkit/experimental/ext/events"
 	eventsclient "github.com/panyam/mcpkit/experimental/ext/events/clients/go"

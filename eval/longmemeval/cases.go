@@ -24,8 +24,8 @@
 package longmemeval
 
 import (
-	"github.com/panyam/mcpkit/experimental/agent"
-	"github.com/panyam/mcpkit/experimental/agent/eval"
+	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/eval"
 )
 
 // Category names the LongMemEval-style skill a case exercises.

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/panyam/mcpkit/experimental/agent"
-	"github.com/panyam/mcpkit/experimental/agent/host"
+	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/host"
 )
 
 // Extension contributes the allowlisted command tools, the prompt that tells a

@@ -3,10 +3,10 @@ package surfaces
 import (
 	"fmt"
 
-	"github.com/panyam/mcpkit/experimental/agent/ext/checkpoint"
-	"github.com/panyam/mcpkit/experimental/agent/ext/files"
-	"github.com/panyam/mcpkit/experimental/agent/ext/lsp"
-	"github.com/panyam/mcpkit/experimental/agent/host"
+	"github.com/panyam/chakra/ext/checkpoint"
+	"github.com/panyam/chakra/ext/files"
+	"github.com/panyam/chakra/ext/lsp"
+	"github.com/panyam/chakra/host"
 )
 
 // WorkspaceConfig describes the workspace tool set a surface exposes.

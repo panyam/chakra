@@ -12,10 +12,10 @@ import (
 
 	"connectrpc.com/connect"
 
-	"github.com/panyam/mcpkit/experimental/agent"
-	"github.com/panyam/mcpkit/experimental/agent/host"
-	agentwebv1 "github.com/panyam/mcpkit/experimental/agent/surfaces/web/gen/go/mcpkit/agentweb/v1"
-	"github.com/panyam/mcpkit/experimental/agent/surfaces/web/gen/go/mcpkit/agentweb/v1/agentwebv1connect"
+	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/host"
+	agentwebv1 "github.com/panyam/chakra/surfaces/web/gen/go/mcpkit/agentweb/v1"
+	"github.com/panyam/chakra/surfaces/web/gen/go/mcpkit/agentweb/v1/agentwebv1connect"
 	"github.com/panyam/mcpkit/core"
 )
 

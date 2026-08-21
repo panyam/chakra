@@ -3,8 +3,8 @@ package web
 import (
 	"encoding/json"
 
-	"github.com/panyam/mcpkit/experimental/agent/host"
-	agentwebv1 "github.com/panyam/mcpkit/experimental/agent/surfaces/web/gen/go/mcpkit/agentweb/v1"
+	"github.com/panyam/chakra/host"
+	agentwebv1 "github.com/panyam/chakra/surfaces/web/gen/go/mcpkit/agentweb/v1"
 )
 
 // eventToFrame projects a HostEvent onto its wire Frame: kind is the

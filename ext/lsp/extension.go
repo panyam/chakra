@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/panyam/mcpkit/core"
-	"github.com/panyam/mcpkit/experimental/agent"
-	"github.com/panyam/mcpkit/experimental/agent/host"
+	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/host"
 )
 
 // Extension runs language servers alongside the agent and reports what they

@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 // Case is one eval input: a name, the conversation to run, and any per-case

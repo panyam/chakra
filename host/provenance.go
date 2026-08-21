@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 // Built-in source ids whose output the host vouches for. These are the only

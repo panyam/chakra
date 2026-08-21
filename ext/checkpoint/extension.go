@@ -8,8 +8,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/panyam/mcpkit/experimental/agent"
-	"github.com/panyam/mcpkit/experimental/agent/host"
+	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/host"
 	"github.com/panyam/mcpkit/core"
 )
 

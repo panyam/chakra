@@ -15,8 +15,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/panyam/mcpkit/experimental/agent"
-	"github.com/panyam/mcpkit/experimental/agent/eval"
+	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/eval"
 )
 
 // liveProvider builds a provider from the LONGMEMEVAL_* env, skipping the

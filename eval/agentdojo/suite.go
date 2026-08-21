@@ -3,8 +3,8 @@ package agentdojo
 import (
 	"strings"
 
-	"github.com/panyam/mcpkit/experimental/agent"
-	"github.com/panyam/mcpkit/experimental/agent/eval"
+	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/eval"
 )
 
 // Scorer names. They are the dimensions SuiteReport.Dimensions aggregates, so

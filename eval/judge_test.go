@@ -5,7 +5,7 @@ package eval
 import (
 	"testing"
 
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 // TestJudgeParsesVerdict drives the LLM-judge scorer with a StubProvider

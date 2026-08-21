@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 // TestSuitePerCaseScorers covers the thing the old Suite could not express:

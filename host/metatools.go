@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 // registerMetaTools installs the async control-plane tools as a host-local

@@ -10,7 +10,7 @@ import (
 	"github.com/pgvector/pgvector-go"
 	"gorm.io/gorm"
 
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 // DefaultMemoryTable is the table a SemanticMemoryStore uses when

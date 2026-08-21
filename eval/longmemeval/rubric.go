@@ -3,8 +3,8 @@
 package longmemeval
 
 import (
-	"github.com/panyam/mcpkit/experimental/agent"
-	"github.com/panyam/mcpkit/experimental/agent/eval"
+	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/eval"
 )
 
 // appendRubric marks a rubric case as ungraded in the default build.

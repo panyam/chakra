@@ -48,7 +48,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 // Payment is one transfer the agent made through the pay tool.

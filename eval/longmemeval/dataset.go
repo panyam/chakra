@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/panyam/mcpkit/experimental/agent"
-	"github.com/panyam/mcpkit/experimental/agent/eval"
+	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/eval"
 )
 
 // DataPathEnv names the environment variable holding the downloaded dataset.
