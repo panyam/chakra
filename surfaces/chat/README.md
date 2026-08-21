@@ -3,7 +3,7 @@
 A terminal chat harness over any set of MCP servers: point it at a config (or
 a server URL) plus an OpenAI-compatible model, and converse with live tool
 calls, streamed output, and in-terminal elicitation prompts. agentchat is the
-reference in-process surface for the `agent/` module (see
+reference in-process surface for the `chakra` module (see
 `docs/AGENT_DESIGN.md`, Surfaces).
 
 ## Quick start

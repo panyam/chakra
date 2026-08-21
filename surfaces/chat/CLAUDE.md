@@ -1,6 +1,6 @@
-# agent/surfaces/chat — read before editing here
+# surfaces/chat — read before editing here
 
-The terminal surface over `agent/host`. Formerly `cmd/agentchat`; the binary is still named
+The terminal surface over `host`. Formerly `cmd/agentchat`; the binary is still named
 `agentchat`.
 
 - **How to use it:** `README.md`
@@ -13,7 +13,7 @@ The terminal surface over `agent/host`. Formerly `cmd/agentchat`; the binary is 
   surface observers, off the raw event stream.
 - **Markdown renders once at commit, never per token.** Glamour mangles a half-written fence and
   flickers if re-run while streaming.
-- **No charm/lipgloss may leak into `agent/host`.** Host stays surface-agnostic so the web
+- **No charm/lipgloss may leak into `host`.** Host stays surface-agnostic so the web
   surface can render the same `CmdResult`. `App.Dispatch` is data-only: an overlay yields a
   command *line* for the surface to dispatch, it never calls the host.
 - **Never write to scrollback for anything that belongs in the managed live region** (A4). The

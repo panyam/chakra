@@ -194,10 +194,10 @@ being refused, so shipping the tools alone would make the contract
 discoverable only by failing.
 
 `files.NewSource` returns the bare `agent.ToolSource` instead, for a `Runner`
-with no `agent/host`. Prefer `New` wherever there is a host, for the reason
+with no `host`. Prefer `New` wherever there is a host, for the reason
 above.
 
-To get `/undo` over these writes, pair it with `agent/ext/checkpoint`,
+To get `/undo` over these writes, pair it with `ext/checkpoint`,
 registered **first** so its snapshot is taken before the write lands.
 `surfaces.WorkspaceExtensions` does that pairing, and is what `agentchat
 --workspace` and `agentweb --workspace` use.
@@ -231,7 +231,7 @@ package does not own falls through to the host default untouched.
 
 ## Undo, and why there is no Reverser here
 
-An edit is checkpointable through `agent/ext/checkpoint`, but this package
+An edit is checkpointable through `ext/checkpoint`, but this package
 contains no reversal code and does not import that one:
 
 ```go

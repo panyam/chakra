@@ -213,7 +213,7 @@ command it attaches to.
 ```
 Run test?
 
-  go test ./experimental/agent/...
+  go test ./...
   in /work/mcpkit
   confined by sandbox-exec, no network
 ```

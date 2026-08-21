@@ -1,12 +1,24 @@
-# agent/ Constraints
+# chakra Constraints
 
-Module-specific rules. Project-wide constraints in the root `CONSTRAINTS.md` also apply (notably C1 typed contexts and C2 consolidated entry structs).
+Enforceable rules for this repository. Two conventions carried over from mcpkit still hold
+wherever this code touches the protocol layer: typed contexts rather than bare `context.Context`
+values, and consolidated entry structs rather than long positional parameter lists.
 
-## A1: LLM-provider dependencies stay in agent/
+## A1: the dependency runs one way, and providers stay in the root module
 
-No package outside `agent/` (root module, other sub-modules, examples that do not embed the agent) may import an LLM-provider SDK or this module. `agent/` depends downward on `core/`, `client/`, and optionally sibling sub-modules; nothing depends upward on it except applications and examples that embed the host.
+chakra depends on mcpkit. mcpkit must never depend on chakra.
 
-**Verify:** `grep -rn "panyam/mcpkit/experimental/agent" core/ server/ client/ ext/ stores/ experimental/ext/ --include='*.go'` returns nothing. (`experimental/ext/`, not `experimental/`, or the recipe matches this module's own imports and reports its every file as a violation.)
+This used to need a grep. Both trees lived in one repository, so an upward import would have
+compiled and the only thing stopping it was a recipe nobody ran. The repository split enforces it
+structurally: mcpkit has no requirement on this module, and adding one would be a deliberate,
+reviewable act rather than an accidental import line.
+
+What still needs enforcing is internal. LLM-provider integrations belong in the root module. No
+sub-module (`host/`, `surfaces/`, `store/`, `ext/*`) may take a dependency on an LLM-provider SDK.
+The providers here speak raw HTTP and carry no vendor SDK at all, which is the stronger form of the
+same rule and is checked by A9's requires recipe below.
+
+**Verify:** from mcpkit, `grep -rn "panyam/chakra" --include='go.mod' .` returns nothing.
 
 ## A2: Runner events are wire-serializable
 
@@ -18,31 +30,31 @@ Every event type the Runner emits carries JSON tags, a stable `kind` discriminat
 
 All vendor-namespaced `_meta` keys this module reads or writes use `io.github.panyam.mcpkit/` (pinned in `docs/AGENT_DESIGN.md`). No ad-hoc prefixes.
 
-**Verify:** `grep -rn '_meta\|Meta\[' experimental/agent/ --include='*.go' | grep -i 'io\.github\|dev\.\|com\.'` shows only the pinned prefix. Manual; read the hits.
+**Verify:** `grep -rn '_meta\|Meta\[' ./ --include='*.go' | grep -i 'io\.github\|dev\.\|com\.'` shows only the pinned prefix. Manual; read the hits.
 
 ## A4: The loop never owns the user interface or process-global output
 
 The Runner exposes callbacks and event streams; it never prints, prompts, or renders. Logging is the same: agent code logs only through an injected *slog.Logger (nil discards), never fmt, os.Stdout/Stderr, log, or slog.Default. Anything user-facing lives in surfaces (agentchat, web hosts) built on the module.
 
-**Verify:** `grep -rn "fmt.Print\|os.Stdout\|os.Stdin\|slog.Default\|log.Print" experimental/agent/ --include='*.go' | grep -v _test.go | grep -v '/surfaces/'` returns nothing. The surfaces exclusion is the constraint, not a fudge: printing is what a surface is for, and without it the recipe returns 30 legitimate hits and gets ignored.
+**Verify:** `grep -rn "fmt.Print\|os.Stdout\|os.Stdin\|slog.Default\|log.Print" ./ --include='*.go' | grep -v _test.go | grep -v '/surfaces/'` returns nothing. The surfaces exclusion is the constraint, not a fudge: printing is what a surface is for, and without it the recipe returns 30 legitimate hits and gets ignored.
 
 ## A5: core.RawJSON for JSON-valued public fields
 
 JSON-valued fields in this module's public types use `core.RawJSON` (wire-transparent, parse-once, typed Bind), never bare `json.RawMessage`. JSON-fragment fields (streamed argument pieces in Deltas) stay strings; the Accumulator's fold is the promotion boundary where fragments become a RawJSON value.
 
-**Verify:** `grep -n "json.RawMessage" experimental/agent/*.go | grep -v _test | grep -v NewRawJSON` shows only conversion sites, no struct fields. **This currently fails**: `AgentSourceConfig.InputSchema` is a public struct field holding a whole JSON document, which is what A5 says should be `core.RawJSON`. Found when the path was corrected during a checkpoint, having been unrunnable since #1290 moved the tree. Tracked in #1326.
+**Verify:** `grep -n "json.RawMessage" *.go | grep -v _test | grep -v NewRawJSON` shows only conversion sites, no struct fields. **This currently fails**: `AgentSourceConfig.InputSchema` is a public struct field holding a whole JSON document, which is what A5 says should be `core.RawJSON`. Found when the path was corrected during a checkpoint, having been unrunnable since #1290 moved the tree. Tracked in #1326.
 
 ## A6: Mechanisms in the client, policy in the agent
 
-A primitive belongs in `client/` (or an events/skills SDK) if any non-agent consumer would want it (a script, a service, a poller, `cmd/testclient`); it belongs in `agent/` only if it requires a model and a turn to make sense. The decidable tell is the natural return type: functions returning protocol objects (`core.DetailedTask`, `events.Event`, `core.InputResponses`) are client-layer; functions returning model-facing objects (`core.ToolResult`, injected context, a proactive turn) are agent-layer. When adding a helper to agent code, check this first — task polling, `BackgroundTask`, and event stream consumption were all initially over-kept in the agent and moved to `client/`.
+A primitive belongs in `client/` (or an events/skills SDK) if any non-agent consumer would want it (a script, a service, a poller, `cmd/testclient`); it belongs in `chakra` only if it requires a model and a turn to make sense. The decidable tell is the natural return type: functions returning protocol objects (`core.DetailedTask`, `events.Event`, `core.InputResponses`) are client-layer; functions returning model-facing objects (`core.ToolResult`, injected context, a proactive turn) are agent-layer. When adding a helper to agent code, check this first — task polling, `BackgroundTask`, and event stream consumption were all initially over-kept in the agent and moved to `client/`.
 
-**Verify:** no `agent/` exported type or function returns a value that a non-agent caller could use standalone without also depending on the Runner/policies; conversely, agent public API that returns `core.ToolResult` / injected context stays here.
+**Verify:** no `chakra` exported type or function returns a value that a non-agent caller could use standalone without also depending on the Runner/policies; conversely, agent public API that returns `core.ToolResult` / injected context stays here.
 
 ## A7: Sub-agents get no ambient parent state (memory is not shared)
 
 A sub-agent receives only what crosses the parent-to-child boundary explicitly: the task arguments and injected context. It gets no working memory and no shared handle to the parent's stores. A child's location is not guaranteed — the in-process `AgentSource` is the degenerate co-located case; the general case is a child on another host, provider, or model — so shared parent memory would assume a co-location that A2 wire-serializability forbids (a store pointer can't cross a wire). A child that needs memory owns its own (configured on its own Runner, opaque to the parent, like a stateful MCP tool's database), never a namespace into the parent's store. Hierarchy (parent recall across children) waits on a prefix/hierarchical namespace query the `MemoryStore` seam does not have (exact-match today). Rationale and the full decision: issue 1151, `docs/AGENT_COMPOSITION.md` § Sub-agents and memory.
 
-**Verify:** host personas are built over the server-only `serverTools`, never the memory-bearing aggregate; guarded by `TestSubAgentCannotReachParentMemory` in `agent/host` (a persona's `remember` hits an unknown tool and the parent store stays empty).
+**Verify:** host personas are built over the server-only `serverTools`, never the memory-bearing aggregate; guarded by `TestSubAgentCannotReachParentMemory` in `host` (a persona's `remember` hits an unknown tool and the parent store stays empty).
 
 ## A8: No in-repo workflow engine — orchestration is model-driven or integrated
 
@@ -65,15 +77,15 @@ Never thread provider-specific opaque state (e.g. Anthropic signed thinking bloc
 
 Two rules, and the second is the one that gets broken by accident.
 
-**Seam interfaces live in `agent/`, with the Runner that consumes them.** `Provider`, `ToolSource`, `MemoryStore`, `RunStore`, `ToolResultStore`, `Embedder`, and `Compactor` are all defined where they are used, per the Go convention that an interface belongs to its consumer rather than its implementors. There is no `agent/api` or interface-only package, and there should not be: it would separate every seam from the only code that depends on it, and implementations satisfy these structurally without importing anything.
+**Seam interfaces live in `chakra`, with the Runner that consumes them.** `Provider`, `ToolSource`, `MemoryStore`, `RunStore`, `ToolResultStore`, `Embedder`, and `Compactor` are all defined where they are used, per the Go convention that an interface belongs to its consumer rather than its implementors. There is no `api` or interface-only package, and there should not be: it would separate every seam from the only code that depends on it, and implementations satisfy these structurally without importing anything.
 
-**A satellite module is for dependency weight, not for layering.** An implementation lives beside its interface in `agent/` when it costs no third-party dependency, and moves to its own module when it needs a driver or SDK. That is why `InMemoryRunStore`, `InMemoryMemoryStore`, `InMemorySemanticStore`, `FileToolResultStore`, and the no-SDK `OpenAIProvider` / `AnthropicProvider` all sit next to their interfaces, while redis, gorm, and pgvector implementations are `agent/store/redis` and `agent/store/gorm` with their own `go.mod`.
+**A satellite module is for dependency weight, not for layering.** An implementation lives beside its interface in `chakra` when it costs no third-party dependency, and moves to its own module when it needs a driver or SDK. That is why `InMemoryRunStore`, `InMemoryMemoryStore`, `InMemorySemanticStore`, `FileToolResultStore`, and the no-SDK `OpenAIProvider` / `AnthropicProvider` all sit next to their interfaces, while redis, gorm, and pgvector implementations are `store/redis` and `store/gorm` with their own `go.mod`.
 
-The property this protects is that `agent/` is cheap to embed: it pulls mcpkit's own modules and nothing else, so depending on the agent SDK never drags in a database driver or a vendor SDK a consumer does not use. A1 governs the *outward* direction (nothing outside `agent/` may import an LLM SDK or this module); this governs the inward one. A9 depends on it too — "wrap the vendor's official SDK behind the seam" means in a satellite module, not here.
+The property this protects is that `chakra` is cheap to embed: it pulls mcpkit's own modules and nothing else, so depending on the agent SDK never drags in a database driver or a vendor SDK a consumer does not use. A1 governs the *outward* direction (nothing outside `chakra` may import an LLM SDK or this module); this governs the inward one. A9 depends on it too — "wrap the vendor's official SDK behind the seam" means in a satellite module, not here.
 
 Adding a dependency-free implementation beside its interface is always fine. Adding one that carries a driver is the violation, and the fix is a new satellite module rather than a new direct require.
 
-**Verify:** `cd experimental/agent && go mod edit -json | jq -r '.Require[] | select(.Indirect|not) | .Path'` lists only `github.com/panyam/mcpkit` and `github.com/panyam/servicekit`. Any other entry means a dependency landed in the core agent module: justify it as genuinely dep-free infrastructure, or move the code to a satellite module.
+**Verify:** `go mod edit -json | jq -r '.Require[] | select(.Indirect|not) | .Path'` lists only `github.com/panyam/mcpkit` and `github.com/panyam/servicekit`. Any other entry means a dependency landed in the core agent module: justify it as genuinely dep-free infrastructure, or move the code to a satellite module.
 
 ## A11: Only a true inverse runs unattended
 
@@ -101,6 +113,6 @@ A corollary that is easy to lose: a reversal path must **report what it could no
 that says "3 files restored" while a created issue goes unmentioned is a safety net with an unreported
 hole, and an unreported hole stops being checked.
 
-**Verify:** `grep -n "func (r Reversal) Reversible" experimental/agent/ext/checkpoint/reverser.go` returns a body
+**Verify:** `grep -n "func (r Reversal) Reversible" ./ext/checkpoint/reverser.go` returns a body
 testing `Restore` only; `TestCompensateAloneIsNotReversible` and `TestProposalNeverRunsWithoutApproval`
 pin both halves.

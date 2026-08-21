@@ -20,8 +20,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/panyam/mcpkit/experimental/agent"
-	"github.com/panyam/mcpkit/experimental/agent/host"
+	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/host"
 	"github.com/panyam/mcpkit/core"
 	"github.com/panyam/mcpkit/experimental/ext/events"
 	tasksext "github.com/panyam/mcpkit/ext/tasks"

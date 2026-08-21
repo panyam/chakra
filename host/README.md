@@ -1,14 +1,14 @@
-# agent/host
+# host
 
-The reusable host application core for the mcpkit agent module. It assembles
-`agent/` (Provider, Runner, ToolSource, elicitation, injection/trigger policies)
+The reusable host application core for the chakra agent SDK. It assembles
+`chakra` (Provider, Runner, ToolSource, elicitation, injection/trigger policies)
 into a runnable host without committing to any particular UI. A terminal CLI and
 a future web-chat surface both build on it; the only thing that differs is the
 reader/writer you hand it (stdin/stdout versus a socket).
 
-Nested Go module (`github.com/panyam/chakra/host`) under `agent/`, so its
+Nested Go module (`github.com/panyam/chakra/host`) under `chakra`, so its
 heavier dependencies (ext/auth, ext/skills, ext/tasks, events client, gocurrent)
-stay out of the lean `agent/` module.
+stay out of the lean `chakra` module.
 
 ## What lives here
 
@@ -36,13 +36,13 @@ stay out of the lean `agent/` module.
 - `WithLogger(l)` — structured logging.
 - `WithRunStore(store)` — session persistence. Every completed turn's messages
   and event stream append to a run in the store (`agent.NewInMemoryRunStore`
-  for in-process resume/fork; `agent/store/redis` or `agent/store/gorm` —
+  for in-process resume/fork; `store/redis` or `store/gorm` —
   Postgres, or a serverless SQLite file — for restart-surviving sessions).
 - `WithToolResultStore(store)` — backing store for tool-result offloading
   (`Config.Offload`). Over-threshold results are stored out of band and the
   model gets a compact stub plus a `read_tool_result` tool; omit the option and
   offloading uses an in-memory store, pass a durable one for blobs that survive
-  restarts. Durable options: `agent/store/redis`, `agent/store/gorm`, or the
+  restarts. Durable options: `store/redis`, `store/gorm`, or the
   dependency-free `agent.NewFileToolResultStore(dir)` — the no-server local path
   where blobs are files the agent can also read directly. `Config.Offload`
   (nil = off) sets the byte threshold, preview length, and per-tool overrides. `App.AttachRun` names or resumes a session at startup;
@@ -82,7 +82,7 @@ Renderers are consulted in registration order and the first claim wins; the
 built-in format is the fallback, so a renderer only has to handle what it
 knows. Truncation becomes the renderer's decision, which is the point.
 
-`agent/ext/files` is the worked example: it renders an edit as a diff and a
+`ext/files` is the worked example: it renders an edit as a diff and a
 whole-file write as a capped preview.
 
 Two properties worth knowing. The `info` carries the call **as it will
@@ -107,7 +107,7 @@ authority. See the `SkillsMode` godoc in `config.go`.
 
 Fully offline: real in-process mcpkit servers plus a scripted `StubProvider` plus
 a canned reader. See `examples/agent-async` for a golden-transcript scenario and
-`agent/surfaces/chat` for the terminal CLI built on this package.
+`surfaces/chat` for the terminal CLI built on this package.
 
 Run the module's tests with `just test-agent` from the repo root, or
 `cd agent/host && go test ./...` directly.

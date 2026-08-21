@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 	"github.com/panyam/mcpkit/core"
 )
 

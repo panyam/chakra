@@ -103,7 +103,7 @@ A refusal is per path, so one tampered file does not cost you the rest of the
 turn. It is deliberately not a containment check: this package has no workspace
 root and does not want one, because a checkpointed tool may legitimately write
 to a cache or temp directory outside any single tree. Confining paths is the
-**tool's** job, and `agent/ext/files` is the worked example of doing it with an
+**tool's** job, and `ext/files` is the worked example of doing it with an
 `os.Root` handle. What this adds is narrower and needs no root: restoring
 through a thing that is not what you captured is not something any caller
 wants, whatever their layout.
@@ -150,7 +150,7 @@ never captured, which is not the same as being ignored: see below.
 
 Because a `WriteSpec` is keyed by **tool name** and supplied by whoever builds
 the host, a tool becomes checkpointable without either package importing the
-other. `agent/ext/files` is the worked example: it exports a plain
+other. `ext/files` is the worked example: it exports a plain
 `func(map[string]any) []string` and this package keeps its own struct.
 
 ```go

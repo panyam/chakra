@@ -3,11 +3,11 @@
 Why the agent layer is shaped the way it is, and what bit us building it. Written for
 whoever touches this code next, not for someone learning to use it.
 
-- **How to use it:** `agent/host/README.md`, `agent/surfaces/chat/README.md`
-- **Invariants:** `agent/CONSTRAINTS.md` (A1–A9)
+- **How to use it:** `host/README.md`, `surfaces/chat/README.md`
+- **Invariants:** `CONSTRAINTS.md` (A1–A9)
 - **Design frames:** `docs/AGENT_DESIGN.md`, `docs/AGENT_COMPOSITION.md`, `docs/AGENT_MEMORY_FLOW.md`
 - **Roadmap:** `docs/AGENT_SDK_ROADMAP.md`
-- **Terminal surface lore:** `agent/surfaces/chat/NOTES.md`
+- **Terminal surface lore:** `surfaces/chat/NOTES.md`
 
 Phases 0–3 of the SDK roadmap have shipped. Phase 4 (durable workflows) was dropped as a
 non-goal, recorded as constraint A8. Phases 5–7 remain open as epics 1050 / 1051 / 1052.
@@ -17,7 +17,7 @@ non-goal, recorded as constraint A8. Phases 5–7 remain open as epics 1050 / 10
 ## The layering rule (A6)
 
 Put a primitive in `client/` (or an events/skills SDK) if any non-agent consumer would want
-it: a script, a service, a dashboard poller, `cmd/testclient`. Put it in `agent/` only if it
+it: a script, a service, a dashboard poller, `cmd/testclient`. Put it in `chakra` only if it
 needs a model and a turn to make sense.
 
 The tell is the natural return type. A protocol object (`core.DetailedTask`, `events.Event`,
@@ -26,7 +26,7 @@ a proactive turn) is agent-layer.
 
 This is why task polling, `BackgroundTask`, and `StreamChan` live in `client/` while
 `EventInjectionPolicy`, `TriggerPolicy`, and the Runner live here. It is also why `RunStore`,
-`ToolResultStore`, and `MemoryStore` live in `agent/` rather than a root `stores/`: they
+`ToolResultStore`, and `MemoryStore` live in `chakra` rather than a root `stores/`: they
 traffic in `agent.Message` / `core.ToolResult` / `MemoryItem`, so hoisting them would force a
 root→agent dependency.
 
@@ -262,7 +262,7 @@ on `toolResultText`, **text only**, so a large base64 blob will not trip it yet 
 **Retention is deliberately not in the interface.** The graceful unknown-ref read
 (`read_tool_result` → "no longer available", `IsError:false`) is what makes any backend eviction
 safe, so redis uses native TTL and gorm a caller-driven `PruneExpired`. The dep-free
-`FileToolResultStore` lives in `agent/` itself — stdlib only, one JSON file per ref,
+`FileToolResultStore` lives in `chakra` itself — stdlib only, one JSON file per ref,
 temp-then-rename, injective ref→filename escaping — and is the natural no-server store for a
 local coding agent, where blobs are files the agent can read directly. The gorm backend supports
 bring-your-own-table via `WithToolResultTableName`, resolved through `db.Table`.
@@ -392,7 +392,7 @@ as `sourceID_name` while the code has always joined with `/` — and `Add` rejec
 
 ### Reversal: restore and compensate are different operations (#1267, PRs 1270/1271/1272)
 
-`agent/ext/checkpoint` holds the seam. The design mistake it was rewritten to avoid: putting undo
+`ext/checkpoint` holds the seam. The design mistake it was rewritten to avoid: putting undo
 in the host is only possible if you first restrict undo to files, which assumes the conclusion. The
 host cannot know how to undo `create_issue`; the tool author can. Files are the first
 implementation, not the definition.
@@ -438,7 +438,7 @@ producer, they collapse into one mechanism with two entry points.
 
 ### Confining a path is not a check, it is a handle (#1275, PR 1278)
 
-`agent/ext/files` shipped an escape and the fix is worth keeping, because the reasoning generalises
+`ext/files` shipped an escape and the fix is worth keeping, because the reasoning generalises
 to anything that takes a path from tool arguments.
 
 The first version resolved symlinks on a path's **parent directory** and then appended the basename
@@ -492,7 +492,7 @@ which deletes that target outright.
 An `os.Root` handle was the wrong instrument, because it answers *containment* and checkpoint has
 no root to be contained by. A checkpointed tool may legitimately write to a cache or temp directory
 outside any one tree, so imposing a workspace root would break honest callers to stop a dishonest
-one. Confining paths stays the **tool's** job; `agent/ext/files` is the worked example.
+one. Confining paths stays the **tool's** job; `ext/files` is the worked example.
 
 What checkpoint gained instead is an *integrity* check, which needs no root: the manifest records
 what `Add` found (`kindRegular` / `kindAbsent` / `kindUnsupported`, via `Lstat` so a link is
@@ -517,7 +517,7 @@ perfectly normal and write the wrong content into it.
 
 ### Two extensions compose at the wiring layer, not by importing each other (#1275)
 
-`agent/ext/files` is checkpointable and contains no reversal code, because
+`ext/files` is checkpointable and contains no reversal code, because
 `checkpoint.WriteSpec{Tool, Paths}` is a declaration keyed by **tool name**, supplied by whoever
 builds the host. `files.EditPaths` is deliberately a plain `func(map[string]any) []string` rather
 than a `checkpoint.WriteSpec`, so neither module imports the other.
@@ -525,7 +525,7 @@ than a `checkpoint.WriteSpec`, so neither module imports the other.
 The alternative, an edit tool declaring its own `checkpoint.Reverser`, is the obvious thing to reach
 for and is what C4 exists to prevent: checkpoint's API would become implicitly stabilized for the
 edit tool's benefit with no design decision saying the two must interoperate. This is now enforced
-for `agent/ext/` as well, by `make check-ext-isolation` in CI (#1277); before that, C4's verifier
+for `ext/` as well, by `make check-ext-isolation` in CI (#1277); before that, C4's verifier
 was a snippet inside `CONSTRAINTS.md` that walked two trees and that nothing ran.
 
 ---
@@ -806,14 +806,14 @@ capability-optionally on the seam.
 
 ## Host wiring
 
-Reusable host application core in `agent/host/`: config loading (providers, servers, policies,
+Reusable host application core in `host/`: config loading (providers, servers, policies,
 skills), meta-tools, App/REPL wiring. Surface-agnostic — a CLI and a web chat both build on it.
 
 ### The Extension contract had no lifecycle hook (#1250 / #1267, PR 1271)
 
 `Extension` shipped five seams and all five are *contributions*: tools, middleware, prompt
 sections, commands, context stages. None is a lifecycle hook. The first real extension
-(`agent/ext/checkpoint`) needed to know a turn had begun, and the only workaround available was a
+(`ext/checkpoint`) needed to know a turn had begun, and the only workaround available was a
 `ContextStage` that returns its input unchanged and exists for its side effect — a producer that
 produces nothing, which is a hook in disguise.
 
@@ -832,7 +832,7 @@ freeze rather than after.
 
 ### ContextStage is per-turn; the loop it serves is per-step (#1301)
 
-The prediction above held. Building the first `ContextStage` consumer (`agent/ext/lsp`) found four
+The prediction above held. Building the first `ContextStage` consumer (`ext/lsp`) found four
 more gaps, and the first one changed the design before any code was written.
 
 **Stages run once per turn, at `RunTurn`. A coding agent's edit-check-fix cycle runs across the
@@ -1004,7 +1004,7 @@ server, so a cross-language rename is `search_files` and judgement.
 
 ### The repo map could not be its own module (#1311)
 
-#1311 specified a new `agent/ext/repomap` drawing symbols from `ext/lsp`. Constraint C4 forbids that
+#1311 specified a new `ext/repomap` drawing symbols from `ext/lsp`. Constraint C4 forbids that
 import, and `make check-ext-isolation` enforces it in CI.
 
 The constraint turned out to be pointing at a real cost rather than a bureaucratic one. Two modules
@@ -1034,7 +1034,7 @@ what actually pins the behaviour.
 
 ### Running a command, and what an allowlist actually constrains (#1312)
 
-`agent/ext/exec` is the first thing in the tree that runs a command. Two findings from building it
+`ext/exec` is the first thing in the tree that runs a command. Two findings from building it
 are worth more than the module.
 
 **The approval gate decided the tool shape.** The obvious design is one `run_command` tool whose
@@ -1285,7 +1285,7 @@ also does not reuse `delimitMark`, whose sentence names a tool and says the cont
 from outside, neither true of a verdict written in-process. A fence whose explanation is false is
 the failure mode #1273 is about.
 
-This is what forced `ToolDeniedError.ModelReason`. A fence is several lines, and `agent/host`
+This is what forced `ToolDeniedError.ModelReason`. A fence is several lines, and `host`
 renders a denial as one truncated line against the call, so pushing the fence through the surface
 showed the user boilerplate and cut the actual reason off. `Reason` is now the legible attributed
 line surfaces show and `ModelReason` is what the model is told; empty means they are the same,
@@ -1305,11 +1305,11 @@ denial whose reason is not the host's own words, but a third-party middleware co
 
 ## Eval
 
-`agent/eval/`: multi-turn `Scenario` plus `RunScenario`, which threads history and a shared
+`eval/`: multi-turn `Scenario` plus `RunScenario`, which threads history and a shared
 `MemorySource` across turns. **One Runner is reused** — it is stateless over history, and the
 store is what persists.
 
-`agent/eval/longmemeval` `SmokeScenarios()` are **hand-authored, not the LongMemEval dataset**:
+`eval/longmemeval` `SmokeScenarios()` are **hand-authored, not the LongMemEval dataset**:
 short turns, not ~100k-token histories. The real dataset loader is #1014.
 
 `MemCase.NewCompactor` and `Scenario.NewMemoryStore` are factories, so the harness can grade
@@ -1396,7 +1396,7 @@ that will actually stress it, and reshaping is free while the agent track is unr
   background child both pull from it. So host tests assert *wiring* and the *behavior* is
   agent-layer-tested with isolated per-child providers. `blockingProvider{}` in
   `agent/runner_test.go` is the "child that blocks until cancelled".
-- `make test-agent` covers `agent/`, `agent/host/`, the surfaces, and the agent examples.
+- `make test-agent` covers `chakra`, `host/`, the surfaces, and the agent examples.
 - **The CI `test-agent` job runs example tests as explicit hardcoded steps in
   `.github/workflows/test.yml`**, not via `make test-agent`. Moving or adding an example needs
   the workflow updated too, not just the Makefile.
@@ -1434,7 +1434,7 @@ The failure mutation testing exists to catch, and it turned up four times in one
 (2026-08-10) in four different disguises. Each looked like coverage of a class and exercised only
 the member that already worked:
 
-- **`agent/ext/files` symlink containment.** The test used a symlinked *parent directory*, which is
+- **`ext/files` symlink containment.** The test used a symlinked *parent directory*, which is
   exactly what parent-resolution catches. A symlink as the *final* component escaped the root, and
   the suite was green while the property did not hold.
 - **Malformed `edit_file` arguments.** Every case was an *entirely* malformed list, so dropping a
@@ -1508,7 +1508,7 @@ a sub-agent).
 parameter since team mode has no memory.
 
 **Two operational gotchas that bit hard here**, both also covered in
-`agent/surfaces/chat/NOTES.md`:
+`surfaces/chat/NOTES.md`:
 
 1. **Server readiness must be a TCP probe, not `curl GET /mcp`.** A GET to an MCP endpoint opens
    the server's SSE stream and never returns, so a curl-based check hangs the launch forever. Use

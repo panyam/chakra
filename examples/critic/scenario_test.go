@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 // TestCriticSteersAndSurfacesTheWall is the proof for issue 1148: it shows the

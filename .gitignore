@@ -1,0 +1,62 @@
+# Binaries
+__pycache__
+.venv/
+bin
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test
+*.test
+*.out
+coverage.html
+
+# Session handoff notes — written by the /handoff workflow, transient by
+# design and personal to whoever generated them. Twice swept into unrelated
+# commits by `git add -A` before this entry existed. Use `git add -f` to
+# commit one deliberately.
+HANDOFF.md
+HANDOFF_*.md
+
+# Test-run reports — written by `make test*`, transient by design.
+# Kept untracked so re-running locally doesn't show up as drift.
+tests/reports/*.log
+tests/reports/*.html
+tests/reports/*.out
+
+# Go
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local dev
+locallinks/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Binaries from `go build .` in a main-package directory. The output takes
+# the directory's name and carries no extension, so `git add -A` sweeps it
+# into an unrelated commit. Nine accumulated that way in mcpkit before a
+# filter-repo purge took .git from 466 MB to 23 MB. scripts/check-no-binaries.sh
+# is the real gate and detects by magic bytes rather than by name; these
+# entries just keep the common cases out of `git status`.
+surfaces/chat/chat
+surfaces/chat/agentchat
+surfaces/chat/bin/
+surfaces/web/cmd/agentweb/agentweb
+examples/agent-async/agent-async
+examples/critic/critic
+examples/multi-agent/multi-agent
+
+# Node artifacts for the agentweb frontend.
+node_modules/
+surfaces/web/web/dist/

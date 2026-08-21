@@ -3,7 +3,7 @@
 Language servers in the agent loop, so the model works against what the
 compiler thinks rather than against what it remembers writing.
 
-`agent/ext/files` gave the agent byte-exact edits and `search_files`. Neither
+`ext/files` gave the agent byte-exact edits and `search_files`. Neither
 knows what a symbol is. An agent renaming a method greps for the name, gets the
 string matches, and cannot tell a call site from a comment that mentions it.
 
@@ -269,7 +269,7 @@ The `lsp_live` tag runs the same surface against real servers and is not wired
 into CI:
 
 ```bash
-go test -tags lsp_live ./experimental/agent/ext/lsp/ -v
+go test -tags lsp_live ./ext/lsp/ -v
 ```
 
 `TestLive*` drives one server, defaulting to `gopls` and overridable with

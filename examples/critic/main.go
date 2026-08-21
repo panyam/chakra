@@ -6,7 +6,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/panyam/mcpkit/experimental/agent"
+	"github.com/panyam/chakra"
 )
 
 func main() {

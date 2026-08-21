@@ -1,23 +1,23 @@
-# agent/surfaces/chat — implementation notes
+# surfaces/chat — implementation notes
 
 Why the terminal surface is shaped the way it is, and the bugs that shaped it. For how to *use*
 agentchat (flags, keys, `--ui` modes, walkthroughs) see `README.md`.
 
-Formerly `cmd/agentchat`; moved here 2026-08-05 alongside `agent/surfaces/web`.
+Formerly `cmd/agentchat`; moved here 2026-08-05 alongside `surfaces/web`.
 
 ---
 
 ## The layering rule this surface exists to prove
 
-**Host concerns live in `agent/host`; only CLI concerns live here.** Anything a web surface would
+**Host concerns live in `host`; only CLI concerns live here.** Anything a web surface would
 also want belongs in the host. Only stdin/stdout plus bubbletea wiring belongs here.
 
 Concretely: the slash-command registry, `ConnectionRegistry`, `HostEvent`/`Observer`, and every
-`CmdResult` shape are host-layer. Zero charm/lipgloss may appear in `agent/host`. `App.Dispatch`
+`CmdResult` shape are host-layer. Zero charm/lipgloss may appear in `host`. `App.Dispatch`
 stays **data-only** — an overlay yields a command *line* that the surface dispatches; it never
 calls the host directly.
 
-This is what lets `agent/surfaces/web` render the same `CmdResult` as a side panel.
+This is what lets `surfaces/web` render the same `CmdResult` as a side panel.
 
 ---
 
@@ -102,7 +102,7 @@ Typing `/mcp` (an alias of `/servers`) or `/sessions` opens a modal dialog in th
 instead of printing a static list: selectable rows, per-row actions, Enter acts, Esc dismisses,
 ↑↓/jk move.
 
-The widget lives **entirely here** (`overlay.go`), with zero charm/lipgloss in `agent/host`.
+The widget lives **entirely here** (`overlay.go`), with zero charm/lipgloss in `host`.
 
 **The reusability seam** is the point: a `focusLayer` interface (`handleKey` / `setWidth` /
 `View`) plus a `modalHost` embed carry "open, route keys to the modal, close" **once**, so both

@@ -1,10 +1,10 @@
-module github.com/panyam/mcpkit/examples/agents/multi-agent
+module github.com/panyam/chakra/examples/multi-agent
 
 go 1.26.5
 
 require (
-	github.com/panyam/mcpkit v0.5.1
-	github.com/panyam/mcpkit/experimental/agent v0.0.0
+	github.com/panyam/chakra v0.0.0
+	github.com/panyam/mcpkit v0.5.2-0.20260821231041-d045ab9a9323
 )
 
 require (
@@ -27,6 +27,4 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 )
 
-replace github.com/panyam/mcpkit => ../../..
-
-replace github.com/panyam/mcpkit/experimental/agent => ../../../experimental/agent
+replace github.com/panyam/chakra => ../..

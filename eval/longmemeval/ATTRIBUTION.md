@@ -8,7 +8,7 @@ the spirit of and adapting the task categories from **LongMemEval**:
 
 We borrow the *shape* of the benchmark — the five skill categories
 (information extraction, multi-session reasoning, knowledge updates, temporal
-reasoning, abstention) — and grade with our own `agent/eval` harness, which is
+reasoning, abstention) — and grade with our own `eval` harness, which is
 the differentiator. We do **not** vendor the LongMemEval dataset: the cases in
 `cases.go` are original, short scenarios written to exercise the same skills
 against mcpkit's working-memory tools.
@@ -31,7 +31,7 @@ The corpus is released under the **MIT license** at
 ```bash
 export LONGMEMEVAL_DATA_PATH=/path/to/longmemeval_s.json
 export LONGMEMEVAL_LIMIT=20          # a full pass is 500 x ~115k tokens
-go test -tags eval_llm ./experimental/agent/eval/longmemeval/ -run TestLive -v
+go test -tags eval_llm ./eval/longmemeval/ -run TestLive -v
 ```
 
 **Two modes, measuring different systems, not comparable to each other.**

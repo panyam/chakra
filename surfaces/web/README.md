@@ -1,10 +1,10 @@
-# agent/web — Connect bridge over the agent host
+# web — Connect bridge over the agent host
 
-`agent/web` exposes `agent/host.App` (the surface-agnostic host the terminal
+`web` exposes `agent/host.App` (the surface-agnostic host the terminal
 `cmd/agentchat` drives) over a Connect RPC bridge with a live event stream, so a
 browser can be another surface on the same running agent. It is a thin
 projection: it holds only an `*App` and maps each RPC to an App method. No web or
-proto type leaks back into `agent/host` (agent/CONSTRAINTS A4/A6).
+proto type leaks back into `host` (agent/CONSTRAINTS A4/A6).
 
 This is E3 of the web-UI epic (issue 1196, epic 1193). E4 (issue 1197) adds the
 DockView + Solid frontend that consumes this bridge — see "Frontend" below.
