@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/panyam/chakra/host"
-	agentwebv1 "github.com/panyam/chakra/surfaces/web/gen/go/mcpkit/agentweb/v1"
+	webv1 "github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1"
 )
 
 // eventToFrame projects a HostEvent onto its wire Frame: kind is the
@@ -18,9 +18,9 @@ import (
 // task events) — that is the already-filed issue 994. On a marshal failure the
 // frame carries a minimal {kind} payload so one un-serializable event never
 // stalls the stream; the client still learns the event happened by its kind.
-func eventToFrame(ev host.HostEvent) *agentwebv1.Frame {
+func eventToFrame(ev host.HostEvent) *webv1.Frame {
 	payload := marshalOrMinimal(ev, ev.Kind)
-	return &agentwebv1.Frame{Kind: string(ev.Kind), Payload: payload}
+	return &webv1.Frame{Kind: string(ev.Kind), Payload: payload}
 }
 
 // marshalOrMinimal returns json.Marshal(v), or a minimal {kind, _note} document

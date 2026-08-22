@@ -6,7 +6,7 @@ replace github.com/panyam/chakra => ../..
 
 require (
 	github.com/panyam/chakra v0.0.0
-	github.com/panyam/mcpkit v0.5.2-0.20260821231041-d045ab9a9323
+	github.com/panyam/mcpkit v0.5.2
 	github.com/pgvector/pgvector-go v0.4.1
 	gorm.io/driver/postgres v1.6.2
 	gorm.io/driver/sqlite v1.6.0

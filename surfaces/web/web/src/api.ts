@@ -1,6 +1,6 @@
 import { createClient, type Client } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
-import { HostService } from "./gen/mcpkit/agentweb/v1/host_pb.js";
+import { HostService } from "./gen/chakra/web/v1/host_pb.js";
 
 // hostClient returns a Connect client for HostService. baseUrl defaults to the
 // page's own origin ("/"), where serve.go mounts the Connect handlers, so there

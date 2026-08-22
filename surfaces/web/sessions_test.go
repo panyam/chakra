@@ -15,8 +15,8 @@ import (
 
 	"github.com/panyam/chakra"
 	"github.com/panyam/chakra/host"
-	agentwebv1 "github.com/panyam/chakra/surfaces/web/gen/go/mcpkit/agentweb/v1"
-	"github.com/panyam/chakra/surfaces/web/gen/go/mcpkit/agentweb/v1/agentwebv1connect"
+	webv1 "github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1"
+	"github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect"
 	"github.com/panyam/mcpkit/core"
 )
 
@@ -36,9 +36,9 @@ func stubApp(t *testing.T, turns ...agent.StubTurn) *host.App {
 
 // startWatchSession drives a Watch stream for a specific session in the
 // background and records frames (the session-aware sibling of startWatch).
-func startWatchSession(t *testing.T, ctx context.Context, client agentwebv1connect.HostServiceClient, sessionID string) *watcher {
+func startWatchSession(t *testing.T, ctx context.Context, client webv1connect.HostServiceClient, sessionID string) *watcher {
 	t.Helper()
-	stream, err := client.Watch(ctx, connect.NewRequest(&agentwebv1.WatchRequest{SessionId: sessionID}))
+	stream, err := client.Watch(ctx, connect.NewRequest(&webv1.WatchRequest{SessionId: sessionID}))
 	if err != nil {
 		t.Fatalf("Watch(%q): %v", sessionID, err)
 	}
@@ -64,7 +64,7 @@ func TestBridge_SessionsAreIsolated(t *testing.T) {
 	srv := httptest.NewServer(HandlerWithSessions(mgr))
 	defer srv.Close()
 	defer mgr.CloseAll()
-	client := agentwebv1connect.NewHostServiceClient(srv.Client(), srv.URL)
+	client := webv1connect.NewHostServiceClient(srv.Client(), srv.URL)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -79,7 +79,7 @@ func TestBridge_SessionsAreIsolated(t *testing.T) {
 	wb := startWatchSession(t, ctx, client, idB)
 
 	// A turn on session A.
-	if _, err := client.Submit(ctx, connect.NewRequest(&agentwebv1.SubmitRequest{Input: "hi A", SessionId: idA})); err != nil {
+	if _, err := client.Submit(ctx, connect.NewRequest(&webv1.SubmitRequest{Input: "hi A", SessionId: idA})); err != nil {
 		t.Fatalf("Submit A: %v", err)
 	}
 	wa.waitForKind(t, string(host.HostTurnDone))
@@ -91,7 +91,7 @@ func TestBridge_SessionsAreIsolated(t *testing.T) {
 	}
 
 	// B runs its own turn independently.
-	if _, err := client.Submit(ctx, connect.NewRequest(&agentwebv1.SubmitRequest{Input: "hi B", SessionId: idB})); err != nil {
+	if _, err := client.Submit(ctx, connect.NewRequest(&webv1.SubmitRequest{Input: "hi B", SessionId: idB})); err != nil {
 		t.Fatalf("Submit B: %v", err)
 	}
 	wb.waitForKind(t, string(host.HostTurnDone))
@@ -119,7 +119,7 @@ func TestBridge_RespondToAskTargetsSession(t *testing.T) {
 	srv := httptest.NewServer(HandlerWithSessions(mgr))
 	defer srv.Close()
 	defer mgr.CloseAll()
-	client := agentwebv1connect.NewHostServiceClient(srv.Client(), srv.URL)
+	client := webv1connect.NewHostServiceClient(srv.Client(), srv.URL)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -132,7 +132,7 @@ func TestBridge_RespondToAskTargetsSession(t *testing.T) {
 
 	submitErr := make(chan error, 1)
 	go func() {
-		_, err := client.Submit(ctx, connect.NewRequest(&agentwebv1.SubmitRequest{Input: "please act", SessionId: idAsk}))
+		_, err := client.Submit(ctx, connect.NewRequest(&webv1.SubmitRequest{Input: "please act", SessionId: idAsk}))
 		submitErr <- err
 	}()
 
@@ -153,7 +153,7 @@ func TestBridge_RespondToAskTargetsSession(t *testing.T) {
 	// A RespondToAsk aimed at the wrong session is refused (the offset is not a
 	// pending ask in the idle session's log).
 	result, _ := json.Marshal(core.ElicitationResult{Action: "accept", Content: map[string]any{"confirm": true}})
-	_, err := client.RespondToAsk(ctx, connect.NewRequest(&agentwebv1.RespondToAskRequest{
+	_, err := client.RespondToAsk(ctx, connect.NewRequest(&webv1.RespondToAskRequest{
 		AskId: reqEv.AskID, Result: result, By: "web", SessionId: idIdle,
 	}))
 	if err == nil {
@@ -164,7 +164,7 @@ func TestBridge_RespondToAskTargetsSession(t *testing.T) {
 	}
 
 	// The correctly targeted respond wins the ask.
-	if _, err := client.RespondToAsk(ctx, connect.NewRequest(&agentwebv1.RespondToAskRequest{
+	if _, err := client.RespondToAsk(ctx, connect.NewRequest(&webv1.RespondToAskRequest{
 		AskId: reqEv.AskID, Result: result, By: "web", SessionId: idAsk,
 	})); err != nil {
 		t.Fatalf("RespondToAsk on the ask session: %v", err)
@@ -222,18 +222,18 @@ func TestBridge_EmptySessionRoutesToDefault(t *testing.T) {
 	srv := httptest.NewServer(HandlerWithSessions(mgr))
 	defer srv.Close()
 	defer mgr.CloseAll()
-	client := agentwebv1connect.NewHostServiceClient(srv.Client(), srv.URL)
+	client := webv1connect.NewHostServiceClient(srv.Client(), srv.URL)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	w := startWatch(t, ctx, client) // empty session_id
-	if _, err := client.Submit(ctx, connect.NewRequest(&agentwebv1.SubmitRequest{Input: "x"})); err != nil {
+	if _, err := client.Submit(ctx, connect.NewRequest(&webv1.SubmitRequest{Input: "x"})); err != nil {
 		t.Fatalf("Submit (default): %v", err)
 	}
 	w.waitForKind(t, string(host.HostTurnDone))
 
-	st, err := client.GetStatus(ctx, connect.NewRequest(&agentwebv1.GetStatusRequest{}))
+	st, err := client.GetStatus(ctx, connect.NewRequest(&webv1.GetStatusRequest{}))
 	if err != nil {
 		t.Fatalf("GetStatus (default): %v", err)
 	}
@@ -242,7 +242,7 @@ func TestBridge_EmptySessionRoutesToDefault(t *testing.T) {
 	}
 
 	// The default session is on the roster under its well-known id.
-	lw, err := client.ListWebSessions(ctx, connect.NewRequest(&agentwebv1.ListWebSessionsRequest{}))
+	lw, err := client.ListWebSessions(ctx, connect.NewRequest(&webv1.ListWebSessionsRequest{}))
 	if err != nil {
 		t.Fatalf("ListWebSessions: %v", err)
 	}
@@ -260,7 +260,7 @@ func TestBridge_SessionLifecycle(t *testing.T) {
 	srv := httptest.NewServer(HandlerWithSessions(mgr))
 	defer srv.Close()
 	defer mgr.CloseAll()
-	client := agentwebv1connect.NewHostServiceClient(srv.Client(), srv.URL)
+	client := webv1connect.NewHostServiceClient(srv.Client(), srv.URL)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -280,7 +280,7 @@ func TestBridge_SessionLifecycle(t *testing.T) {
 	}
 
 	// The created session is a live, fresh App (its status reads back).
-	st, err := client.GetStatus(ctx, connect.NewRequest(&agentwebv1.GetStatusRequest{SessionId: id}))
+	st, err := client.GetStatus(ctx, connect.NewRequest(&webv1.GetStatusRequest{SessionId: id}))
 	if err != nil {
 		t.Fatalf("GetStatus on created session: %v", err)
 	}
@@ -289,7 +289,7 @@ func TestBridge_SessionLifecycle(t *testing.T) {
 	}
 
 	// CloseSession removes it from the roster.
-	if _, err := client.CloseSession(ctx, connect.NewRequest(&agentwebv1.CloseSessionRequest{SessionId: id})); err != nil {
+	if _, err := client.CloseSession(ctx, connect.NewRequest(&webv1.CloseSessionRequest{SessionId: id})); err != nil {
 		t.Fatalf("CloseSession: %v", err)
 	}
 	if got := roster(t, ctx, client); !equalSet(got, []string{DefaultSessionID}) {
@@ -297,12 +297,12 @@ func TestBridge_SessionLifecycle(t *testing.T) {
 	}
 
 	// The closed session no longer routes (App closed and dropped).
-	if _, err := client.GetStatus(ctx, connect.NewRequest(&agentwebv1.GetStatusRequest{SessionId: id})); connect.CodeOf(err) != connect.CodeNotFound {
+	if _, err := client.GetStatus(ctx, connect.NewRequest(&webv1.GetStatusRequest{SessionId: id})); connect.CodeOf(err) != connect.CodeNotFound {
 		t.Fatalf("GetStatus on closed session code = %v, want NotFound", connect.CodeOf(err))
 	}
 
 	// Closing it again is a no-op miss.
-	if _, err := client.CloseSession(ctx, connect.NewRequest(&agentwebv1.CloseSessionRequest{SessionId: id})); connect.CodeOf(err) != connect.CodeNotFound {
+	if _, err := client.CloseSession(ctx, connect.NewRequest(&webv1.CloseSessionRequest{SessionId: id})); connect.CodeOf(err) != connect.CodeNotFound {
 		t.Fatalf("second CloseSession code = %v, want NotFound", connect.CodeOf(err))
 	}
 }
@@ -315,20 +315,20 @@ func TestBridge_UnknownSession(t *testing.T) {
 	srv := httptest.NewServer(HandlerWithSessions(mgr))
 	defer srv.Close()
 	defer mgr.CloseAll()
-	client := agentwebv1connect.NewHostServiceClient(srv.Client(), srv.URL)
+	client := webv1connect.NewHostServiceClient(srv.Client(), srv.URL)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if _, err := client.GetStatus(ctx, connect.NewRequest(&agentwebv1.GetStatusRequest{SessionId: "nope"})); connect.CodeOf(err) != connect.CodeNotFound {
+	if _, err := client.GetStatus(ctx, connect.NewRequest(&webv1.GetStatusRequest{SessionId: "nope"})); connect.CodeOf(err) != connect.CodeNotFound {
 		t.Fatalf("GetStatus unknown code = %v, want NotFound", connect.CodeOf(err))
 	}
-	if _, err := client.Submit(ctx, connect.NewRequest(&agentwebv1.SubmitRequest{Input: "x", SessionId: "nope"})); connect.CodeOf(err) != connect.CodeNotFound {
+	if _, err := client.Submit(ctx, connect.NewRequest(&webv1.SubmitRequest{Input: "x", SessionId: "nope"})); connect.CodeOf(err) != connect.CodeNotFound {
 		t.Fatalf("Submit unknown code = %v, want NotFound", connect.CodeOf(err))
 	}
 
 	// Watch surfaces the not-found on the first Receive.
-	stream, err := client.Watch(ctx, connect.NewRequest(&agentwebv1.WatchRequest{SessionId: "nope"}))
+	stream, err := client.Watch(ctx, connect.NewRequest(&webv1.WatchRequest{SessionId: "nope"}))
 	if err == nil {
 		stream.Receive()
 		err = stream.Err()
@@ -346,28 +346,28 @@ func TestBridge_CreateSessionWithoutFactory(t *testing.T) {
 	srv := httptest.NewServer(HandlerWithSessions(mgr))
 	defer srv.Close()
 	defer mgr.CloseAll()
-	client := agentwebv1connect.NewHostServiceClient(srv.Client(), srv.URL)
+	client := webv1connect.NewHostServiceClient(srv.Client(), srv.URL)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if _, err := client.CreateSession(ctx, connect.NewRequest(&agentwebv1.CreateSessionRequest{})); connect.CodeOf(err) != connect.CodeFailedPrecondition {
+	if _, err := client.CreateSession(ctx, connect.NewRequest(&webv1.CreateSessionRequest{})); connect.CodeOf(err) != connect.CodeFailedPrecondition {
 		t.Fatalf("CreateSession without factory code = %v, want FailedPrecondition", connect.CodeOf(err))
 	}
 }
 
-func mustCreate(t *testing.T, ctx context.Context, client agentwebv1connect.HostServiceClient) string {
+func mustCreate(t *testing.T, ctx context.Context, client webv1connect.HostServiceClient) string {
 	t.Helper()
-	res, err := client.CreateSession(ctx, connect.NewRequest(&agentwebv1.CreateSessionRequest{}))
+	res, err := client.CreateSession(ctx, connect.NewRequest(&webv1.CreateSessionRequest{}))
 	if err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
 	return res.Msg.GetSessionId()
 }
 
-func roster(t *testing.T, ctx context.Context, client agentwebv1connect.HostServiceClient) []string {
+func roster(t *testing.T, ctx context.Context, client webv1connect.HostServiceClient) []string {
 	t.Helper()
-	res, err := client.ListWebSessions(ctx, connect.NewRequest(&agentwebv1.ListWebSessionsRequest{}))
+	res, err := client.ListWebSessions(ctx, connect.NewRequest(&webv1.ListWebSessionsRequest{}))
 	if err != nil {
 		t.Fatalf("ListWebSessions: %v", err)
 	}

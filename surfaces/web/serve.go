@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/panyam/chakra/host"
-	"github.com/panyam/chakra/surfaces/web/gen/go/mcpkit/agentweb/v1/agentwebv1connect"
+	"github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect"
 )
 
 // Handler builds the one mux the web surface serves, mirroring the Agni /
@@ -32,7 +32,7 @@ func HandlerWithSessions(mgr *SessionManager) http.Handler {
 func handlerFor(svc *HostService) http.Handler {
 	mux := http.NewServeMux()
 
-	path, h := agentwebv1connect.NewHostServiceHandler(svc)
+	path, h := webv1connect.NewHostServiceHandler(svc)
 	mux.Handle(path, h)
 
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticAssets()))))

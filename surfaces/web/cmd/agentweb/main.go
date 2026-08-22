@@ -75,7 +75,7 @@ func main() {
 	defer mgr.CloseAll()
 
 	srv := &http.Server{Addr: *addr, Handler: web.HandlerWithSessions(mgr)}
-	fmt.Fprintf(os.Stderr, "agentweb serving at http://%s/ (Connect: /%s, Ctrl-C to stop)\n", *addr, "mcpkit.agentweb.v1.HostService")
+	fmt.Fprintf(os.Stderr, "agentweb serving at http://%s/ (Connect: /%s, Ctrl-C to stop)\n", *addr, "chakra.web.v1.HostService")
 	if err := skhttp.ListenAndServeGraceful(srv); err != nil {
 		log.Fatalf("agentweb: serve: %v", err)
 	}

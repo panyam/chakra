@@ -11,7 +11,7 @@ DockView + Solid frontend that consumes this bridge — see "Frontend" below.
 
 ## Surface
 
-Proto `mcpkit.agentweb.v1.HostService` (`protos/`, generated Go + Connect under
+Proto `chakra.web.v1.HostService` (`protos/`, generated Go + Connect under
 `gen/go/`):
 
 | RPC | App method | Shape |

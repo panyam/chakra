@@ -14,8 +14,8 @@ import (
 
 	"github.com/panyam/chakra"
 	"github.com/panyam/chakra/host"
-	agentwebv1 "github.com/panyam/chakra/surfaces/web/gen/go/mcpkit/agentweb/v1"
-	"github.com/panyam/chakra/surfaces/web/gen/go/mcpkit/agentweb/v1/agentwebv1connect"
+	webv1 "github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1"
+	"github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect"
 	"github.com/panyam/mcpkit/core"
 )
 
@@ -42,12 +42,12 @@ func (r *recObserver) snapshot() []host.HostEventKind {
 // can wait for a given kind and inspect payloads.
 type watcher struct {
 	mu     sync.Mutex
-	frames []*agentwebv1.Frame
+	frames []*webv1.Frame
 }
 
-func startWatch(t *testing.T, ctx context.Context, client agentwebv1connect.HostServiceClient) *watcher {
+func startWatch(t *testing.T, ctx context.Context, client webv1connect.HostServiceClient) *watcher {
 	t.Helper()
-	stream, err := client.Watch(ctx, connect.NewRequest(&agentwebv1.WatchRequest{}))
+	stream, err := client.Watch(ctx, connect.NewRequest(&webv1.WatchRequest{}))
 	if err != nil {
 		t.Fatalf("Watch: %v", err)
 	}
@@ -75,7 +75,7 @@ func (w *watcher) kinds() []string {
 
 // waitForKind polls the recorded frames until one of kind appears (returning it)
 // or the deadline passes.
-func (w *watcher) waitForKind(t *testing.T, kind string) *agentwebv1.Frame {
+func (w *watcher) waitForKind(t *testing.T, kind string) *webv1.Frame {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
@@ -122,13 +122,13 @@ func TestBridge_WatchReplaysAndSubmitRunsTurn(t *testing.T) {
 
 	srv := httptest.NewServer(Handler(app))
 	defer srv.Close()
-	client := agentwebv1connect.NewHostServiceClient(srv.Client(), srv.URL)
+	client := webv1connect.NewHostServiceClient(srv.Client(), srv.URL)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// Turn 1 runs over the wire BEFORE any Watch client connects.
-	if _, err := client.Submit(ctx, connect.NewRequest(&agentwebv1.SubmitRequest{Input: "hi"})); err != nil {
+	if _, err := client.Submit(ctx, connect.NewRequest(&webv1.SubmitRequest{Input: "hi"})); err != nil {
 		t.Fatalf("Submit#1: %v", err)
 	}
 
@@ -137,7 +137,7 @@ func TestBridge_WatchReplaysAndSubmitRunsTurn(t *testing.T) {
 	w.waitForKind(t, string(host.HostTurnDone))
 
 	// Turn 2 runs while Watch is live.
-	if _, err := client.Submit(ctx, connect.NewRequest(&agentwebv1.SubmitRequest{Input: "again"})); err != nil {
+	if _, err := client.Submit(ctx, connect.NewRequest(&webv1.SubmitRequest{Input: "again"})); err != nil {
 		t.Fatalf("Submit#2: %v", err)
 	}
 
@@ -169,7 +169,7 @@ func TestBridge_WatchReplaysAndSubmitRunsTurn(t *testing.T) {
 	}
 
 	// GetStatus is a trivial query over the wire.
-	st, err := client.GetStatus(ctx, connect.NewRequest(&agentwebv1.GetStatusRequest{}))
+	st, err := client.GetStatus(ctx, connect.NewRequest(&webv1.GetStatusRequest{}))
 	if err != nil {
 		t.Fatalf("GetStatus: %v", err)
 	}
@@ -210,7 +210,7 @@ func TestBridge_RespondToAskWinsOverWire(t *testing.T) {
 
 	srv := httptest.NewServer(Handler(app))
 	defer srv.Close()
-	client := agentwebv1connect.NewHostServiceClient(srv.Client(), srv.URL)
+	client := webv1connect.NewHostServiceClient(srv.Client(), srv.URL)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -220,7 +220,7 @@ func TestBridge_RespondToAskWinsOverWire(t *testing.T) {
 	// Submit runs on its own goroutine because it blocks until the ask resolves.
 	submitErr := make(chan error, 1)
 	go func() {
-		_, err := client.Submit(ctx, connect.NewRequest(&agentwebv1.SubmitRequest{Input: "please act"}))
+		_, err := client.Submit(ctx, connect.NewRequest(&webv1.SubmitRequest{Input: "please act"}))
 		submitErr <- err
 	}()
 
@@ -236,7 +236,7 @@ func TestBridge_RespondToAskWinsOverWire(t *testing.T) {
 
 	// The web surface answers first (confirm=true), winning the ask.
 	result, _ := json.Marshal(core.ElicitationResult{Action: "accept", Content: map[string]any{"confirm": true}})
-	if _, err := client.RespondToAsk(ctx, connect.NewRequest(&agentwebv1.RespondToAskRequest{
+	if _, err := client.RespondToAsk(ctx, connect.NewRequest(&webv1.RespondToAskRequest{
 		AskId:  reqEv.AskID,
 		Result: result,
 		By:     "web",

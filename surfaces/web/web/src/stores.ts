@@ -1,5 +1,5 @@
 import type { Client } from "@connectrpc/connect";
-import type { HostService } from "./gen/mcpkit/agentweb/v1/host_pb.js";
+import type { HostService } from "./gen/chakra/web/v1/host_pb.js";
 import type { HostEvent } from "./hostevent.js";
 import { createConversationStore, type ConversationStore } from "./conversation.js";
 import { createSubAgentStore, type SubAgentStore } from "./subagents.js";

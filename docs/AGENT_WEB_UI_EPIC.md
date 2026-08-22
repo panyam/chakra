@@ -188,7 +188,7 @@ fact is the coordinator invariant; the barrier does not depend on it.
 ### E3 (1196) — `surfaces/web` submodule + Connect bridge — SHIPPED
 New submodule (`surfaces/web`, own go.mod, module `github.com/panyam/mcpkit/surfaces/web`) + a thin
 `cmd/agentweb` serve binary (inside the module, mirroring how `surfaces/chat` is thin over the host).
-**Transport: Connect + buf.** Proto `mcpkit.agentweb.v1.HostService` (in `surfaces/web/protos/`, generated
+**Transport: Connect + buf.** Proto `chakra.web.v1.HostService` (in `surfaces/web/protos/`, generated
 Go + Connect committed under `surfaces/web/gen/go/`): a server-streaming `Watch` (drains the E1 log via the
 new `App.Subscribe` seam), unary `Submit` (turn), `Dispatch` (command → `CmdResult`), `RespondToAsk`
 (the E2 offset barrier), and two trivial queries `ListSessions` + `GetStatus`. `servicekit/http` serves

@@ -30,8 +30,8 @@ github.com/panyam/gocurrent v0.1.2 h1:MtD98xJKVvGGdMrxIvUqhVA7AxA6rr9eU1ZUo5pNoy
 github.com/panyam/gocurrent v0.1.2/go.mod h1:jIIhcNfNnnIe2JXH8aY2+ba+/5G1fzwCWoZXdcMNw6o=
 github.com/panyam/goutils v0.1.8 h1:5UscYTP892k54+Nyb01tKGGwZxczZ5k7BC+c0nXmcoc=
 github.com/panyam/goutils v0.1.8/go.mod h1:ntucs8GJOHQ0LmlRGRjeup3aDC2t7xPMudrRwUHrJNM=
-github.com/panyam/mcpkit v0.5.2-0.20260821231041-d045ab9a9323 h1:YUcQSN4USgF3bocIwhL3AMMolNMZzlgHniAUDb0ZJ1k=
-github.com/panyam/mcpkit v0.5.2-0.20260821231041-d045ab9a9323/go.mod h1:boTzyIxyBUERcHQfhXbvoHC220kaltIjo+GeUtp4wDM=
+github.com/panyam/mcpkit v0.5.2 h1:62NIhSSDdHB27pHPPK5Zv789Ro6yFbFz3eQvVITcx4I=
+github.com/panyam/mcpkit v0.5.2/go.mod h1:boTzyIxyBUERcHQfhXbvoHC220kaltIjo+GeUtp4wDM=
 github.com/panyam/servicekit v0.1.4 h1:U7y2QqFyzhRkFa+/QCKH0tEoWmi3WlmgAf6Ip0tdwcw=
 github.com/panyam/servicekit v0.1.4/go.mod h1:wk/9hY9Vgl83WuYJt7n4NYPvV6nbxnZwpKpNRIAPoR8=
 github.com/pb33f/ordered-map/v2 v2.3.1 h1:5319HDO0aw4DA4gzi+zv4FXU9UlSs3xGZ40wcP1nBjY=

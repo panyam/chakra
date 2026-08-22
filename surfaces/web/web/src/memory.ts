@@ -1,6 +1,6 @@
 import { createSignal, type Accessor } from "solid-js";
 import type { Client } from "@connectrpc/connect";
-import type { HostService } from "./gen/mcpkit/agentweb/v1/host_pb.js";
+import type { HostService } from "./gen/chakra/web/v1/host_pb.js";
 import { EventKind, HostEventKind, type HostEvent } from "./hostevent.js";
 
 // memory.ts is the memory inspector projection. Two sources feed it: the

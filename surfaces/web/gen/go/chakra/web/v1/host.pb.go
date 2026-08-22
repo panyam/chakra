@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: mcpkit/agentweb/v1/host.proto
+// source: chakra/web/v1/host.proto
 
-package agentwebv1
+package webv1
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -32,7 +32,7 @@ type WatchRequest struct {
 
 func (x *WatchRequest) Reset() {
 	*x = WatchRequest{}
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[0]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -44,7 +44,7 @@ func (x *WatchRequest) String() string {
 func (*WatchRequest) ProtoMessage() {}
 
 func (x *WatchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[0]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -57,7 +57,7 @@ func (x *WatchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchRequest.ProtoReflect.Descriptor instead.
 func (*WatchRequest) Descriptor() ([]byte, []int) {
-	return file_mcpkit_agentweb_v1_host_proto_rawDescGZIP(), []int{0}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *WatchRequest) GetSessionId() string {
@@ -84,7 +84,7 @@ type Frame struct {
 
 func (x *Frame) Reset() {
 	*x = Frame{}
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[1]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -96,7 +96,7 @@ func (x *Frame) String() string {
 func (*Frame) ProtoMessage() {}
 
 func (x *Frame) ProtoReflect() protoreflect.Message {
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[1]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -109,7 +109,7 @@ func (x *Frame) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Frame.ProtoReflect.Descriptor instead.
 func (*Frame) Descriptor() ([]byte, []int) {
-	return file_mcpkit_agentweb_v1_host_proto_rawDescGZIP(), []int{1}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Frame) GetKind() string {
@@ -137,7 +137,7 @@ type SubmitRequest struct {
 
 func (x *SubmitRequest) Reset() {
 	*x = SubmitRequest{}
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[2]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -149,7 +149,7 @@ func (x *SubmitRequest) String() string {
 func (*SubmitRequest) ProtoMessage() {}
 
 func (x *SubmitRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[2]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -162,7 +162,7 @@ func (x *SubmitRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitRequest.ProtoReflect.Descriptor instead.
 func (*SubmitRequest) Descriptor() ([]byte, []int) {
-	return file_mcpkit_agentweb_v1_host_proto_rawDescGZIP(), []int{2}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *SubmitRequest) GetInput() string {
@@ -187,7 +187,7 @@ type SubmitResponse struct {
 
 func (x *SubmitResponse) Reset() {
 	*x = SubmitResponse{}
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[3]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -199,7 +199,7 @@ func (x *SubmitResponse) String() string {
 func (*SubmitResponse) ProtoMessage() {}
 
 func (x *SubmitResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[3]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -212,7 +212,7 @@ func (x *SubmitResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitResponse.ProtoReflect.Descriptor instead.
 func (*SubmitResponse) Descriptor() ([]byte, []int) {
-	return file_mcpkit_agentweb_v1_host_proto_rawDescGZIP(), []int{3}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{3}
 }
 
 type DispatchRequest struct {
@@ -226,7 +226,7 @@ type DispatchRequest struct {
 
 func (x *DispatchRequest) Reset() {
 	*x = DispatchRequest{}
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[4]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -238,7 +238,7 @@ func (x *DispatchRequest) String() string {
 func (*DispatchRequest) ProtoMessage() {}
 
 func (x *DispatchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[4]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -251,7 +251,7 @@ func (x *DispatchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DispatchRequest.ProtoReflect.Descriptor instead.
 func (*DispatchRequest) Descriptor() ([]byte, []int) {
-	return file_mcpkit_agentweb_v1_host_proto_rawDescGZIP(), []int{4}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *DispatchRequest) GetLine() string {
@@ -282,7 +282,7 @@ type DispatchResponse struct {
 
 func (x *DispatchResponse) Reset() {
 	*x = DispatchResponse{}
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[5]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -294,7 +294,7 @@ func (x *DispatchResponse) String() string {
 func (*DispatchResponse) ProtoMessage() {}
 
 func (x *DispatchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[5]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -307,7 +307,7 @@ func (x *DispatchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DispatchResponse.ProtoReflect.Descriptor instead.
 func (*DispatchResponse) Descriptor() ([]byte, []int) {
-	return file_mcpkit_agentweb_v1_host_proto_rawDescGZIP(), []int{5}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *DispatchResponse) GetKind() string {
@@ -346,7 +346,7 @@ type RespondToAskRequest struct {
 
 func (x *RespondToAskRequest) Reset() {
 	*x = RespondToAskRequest{}
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[6]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -358,7 +358,7 @@ func (x *RespondToAskRequest) String() string {
 func (*RespondToAskRequest) ProtoMessage() {}
 
 func (x *RespondToAskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[6]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -371,7 +371,7 @@ func (x *RespondToAskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RespondToAskRequest.ProtoReflect.Descriptor instead.
 func (*RespondToAskRequest) Descriptor() ([]byte, []int) {
-	return file_mcpkit_agentweb_v1_host_proto_rawDescGZIP(), []int{6}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RespondToAskRequest) GetAskId() int64 {
@@ -410,7 +410,7 @@ type RespondToAskResponse struct {
 
 func (x *RespondToAskResponse) Reset() {
 	*x = RespondToAskResponse{}
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[7]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -422,7 +422,7 @@ func (x *RespondToAskResponse) String() string {
 func (*RespondToAskResponse) ProtoMessage() {}
 
 func (x *RespondToAskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[7]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -435,7 +435,7 @@ func (x *RespondToAskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RespondToAskResponse.ProtoReflect.Descriptor instead.
 func (*RespondToAskResponse) Descriptor() ([]byte, []int) {
-	return file_mcpkit_agentweb_v1_host_proto_rawDescGZIP(), []int{7}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{7}
 }
 
 type ListSessionsRequest struct {
@@ -450,7 +450,7 @@ type ListSessionsRequest struct {
 
 func (x *ListSessionsRequest) Reset() {
 	*x = ListSessionsRequest{}
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[8]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -462,7 +462,7 @@ func (x *ListSessionsRequest) String() string {
 func (*ListSessionsRequest) ProtoMessage() {}
 
 func (x *ListSessionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[8]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -475,7 +475,7 @@ func (x *ListSessionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSessionsRequest.ProtoReflect.Descriptor instead.
 func (*ListSessionsRequest) Descriptor() ([]byte, []int) {
-	return file_mcpkit_agentweb_v1_host_proto_rawDescGZIP(), []int{8}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ListSessionsRequest) GetCursor() string {
@@ -504,7 +504,7 @@ type ListSessionsResponse struct {
 
 func (x *ListSessionsResponse) Reset() {
 	*x = ListSessionsResponse{}
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[9]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -516,7 +516,7 @@ func (x *ListSessionsResponse) String() string {
 func (*ListSessionsResponse) ProtoMessage() {}
 
 func (x *ListSessionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[9]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -529,7 +529,7 @@ func (x *ListSessionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSessionsResponse.ProtoReflect.Descriptor instead.
 func (*ListSessionsResponse) Descriptor() ([]byte, []int) {
-	return file_mcpkit_agentweb_v1_host_proto_rawDescGZIP(), []int{9}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ListSessionsResponse) GetRuns() []byte {
@@ -563,7 +563,7 @@ type GetStatusRequest struct {
 
 func (x *GetStatusRequest) Reset() {
 	*x = GetStatusRequest{}
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[10]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -575,7 +575,7 @@ func (x *GetStatusRequest) String() string {
 func (*GetStatusRequest) ProtoMessage() {}
 
 func (x *GetStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[10]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -588,7 +588,7 @@ func (x *GetStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetStatusRequest) Descriptor() ([]byte, []int) {
-	return file_mcpkit_agentweb_v1_host_proto_rawDescGZIP(), []int{10}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetStatusRequest) GetSessionId() string {
@@ -608,7 +608,7 @@ type GetStatusResponse struct {
 
 func (x *GetStatusResponse) Reset() {
 	*x = GetStatusResponse{}
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[11]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -620,7 +620,7 @@ func (x *GetStatusResponse) String() string {
 func (*GetStatusResponse) ProtoMessage() {}
 
 func (x *GetStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[11]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -633,7 +633,7 @@ func (x *GetStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetStatusResponse) Descriptor() ([]byte, []int) {
-	return file_mcpkit_agentweb_v1_host_proto_rawDescGZIP(), []int{11}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetStatusResponse) GetModelLabel() string {
@@ -658,7 +658,7 @@ type CreateSessionRequest struct {
 
 func (x *CreateSessionRequest) Reset() {
 	*x = CreateSessionRequest{}
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[12]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -670,7 +670,7 @@ func (x *CreateSessionRequest) String() string {
 func (*CreateSessionRequest) ProtoMessage() {}
 
 func (x *CreateSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[12]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -683,7 +683,7 @@ func (x *CreateSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSessionRequest.ProtoReflect.Descriptor instead.
 func (*CreateSessionRequest) Descriptor() ([]byte, []int) {
-	return file_mcpkit_agentweb_v1_host_proto_rawDescGZIP(), []int{12}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{12}
 }
 
 type CreateSessionResponse struct {
@@ -696,7 +696,7 @@ type CreateSessionResponse struct {
 
 func (x *CreateSessionResponse) Reset() {
 	*x = CreateSessionResponse{}
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[13]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -708,7 +708,7 @@ func (x *CreateSessionResponse) String() string {
 func (*CreateSessionResponse) ProtoMessage() {}
 
 func (x *CreateSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[13]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -721,7 +721,7 @@ func (x *CreateSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSessionResponse.ProtoReflect.Descriptor instead.
 func (*CreateSessionResponse) Descriptor() ([]byte, []int) {
-	return file_mcpkit_agentweb_v1_host_proto_rawDescGZIP(), []int{13}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *CreateSessionResponse) GetSessionId() string {
@@ -739,7 +739,7 @@ type ListWebSessionsRequest struct {
 
 func (x *ListWebSessionsRequest) Reset() {
 	*x = ListWebSessionsRequest{}
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[14]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -751,7 +751,7 @@ func (x *ListWebSessionsRequest) String() string {
 func (*ListWebSessionsRequest) ProtoMessage() {}
 
 func (x *ListWebSessionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[14]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -764,7 +764,7 @@ func (x *ListWebSessionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWebSessionsRequest.ProtoReflect.Descriptor instead.
 func (*ListWebSessionsRequest) Descriptor() ([]byte, []int) {
-	return file_mcpkit_agentweb_v1_host_proto_rawDescGZIP(), []int{14}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{14}
 }
 
 type ListWebSessionsResponse struct {
@@ -777,7 +777,7 @@ type ListWebSessionsResponse struct {
 
 func (x *ListWebSessionsResponse) Reset() {
 	*x = ListWebSessionsResponse{}
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[15]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -789,7 +789,7 @@ func (x *ListWebSessionsResponse) String() string {
 func (*ListWebSessionsResponse) ProtoMessage() {}
 
 func (x *ListWebSessionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[15]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -802,7 +802,7 @@ func (x *ListWebSessionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWebSessionsResponse.ProtoReflect.Descriptor instead.
 func (*ListWebSessionsResponse) Descriptor() ([]byte, []int) {
-	return file_mcpkit_agentweb_v1_host_proto_rawDescGZIP(), []int{15}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ListWebSessionsResponse) GetSessionIds() []string {
@@ -822,7 +822,7 @@ type CloseSessionRequest struct {
 
 func (x *CloseSessionRequest) Reset() {
 	*x = CloseSessionRequest{}
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[16]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -834,7 +834,7 @@ func (x *CloseSessionRequest) String() string {
 func (*CloseSessionRequest) ProtoMessage() {}
 
 func (x *CloseSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[16]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -847,7 +847,7 @@ func (x *CloseSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloseSessionRequest.ProtoReflect.Descriptor instead.
 func (*CloseSessionRequest) Descriptor() ([]byte, []int) {
-	return file_mcpkit_agentweb_v1_host_proto_rawDescGZIP(), []int{16}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *CloseSessionRequest) GetSessionId() string {
@@ -865,7 +865,7 @@ type CloseSessionResponse struct {
 
 func (x *CloseSessionResponse) Reset() {
 	*x = CloseSessionResponse{}
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[17]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -877,7 +877,7 @@ func (x *CloseSessionResponse) String() string {
 func (*CloseSessionResponse) ProtoMessage() {}
 
 func (x *CloseSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mcpkit_agentweb_v1_host_proto_msgTypes[17]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -890,14 +890,14 @@ func (x *CloseSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloseSessionResponse.ProtoReflect.Descriptor instead.
 func (*CloseSessionResponse) Descriptor() ([]byte, []int) {
-	return file_mcpkit_agentweb_v1_host_proto_rawDescGZIP(), []int{17}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{17}
 }
 
-var File_mcpkit_agentweb_v1_host_proto protoreflect.FileDescriptor
+var File_chakra_web_v1_host_proto protoreflect.FileDescriptor
 
-const file_mcpkit_agentweb_v1_host_proto_rawDesc = "" +
+const file_chakra_web_v1_host_proto_rawDesc = "" +
 	"\n" +
-	"\x1dmcpkit/agentweb/v1/host.proto\x12\x12mcpkit.agentweb.v1\"-\n" +
+	"\x18chakra/web/v1/host.proto\x12\rchakra.web.v1\"-\n" +
 	"\fWatchRequest\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\"5\n" +
@@ -950,70 +950,70 @@ const file_mcpkit_agentweb_v1_host_proto_rawDesc = "" +
 	"\x13CloseSessionRequest\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\"\x16\n" +
-	"\x14CloseSessionResponse2\xd2\x06\n" +
-	"\vHostService\x12F\n" +
-	"\x05Watch\x12 .mcpkit.agentweb.v1.WatchRequest\x1a\x19.mcpkit.agentweb.v1.Frame0\x01\x12O\n" +
-	"\x06Submit\x12!.mcpkit.agentweb.v1.SubmitRequest\x1a\".mcpkit.agentweb.v1.SubmitResponse\x12U\n" +
-	"\bDispatch\x12#.mcpkit.agentweb.v1.DispatchRequest\x1a$.mcpkit.agentweb.v1.DispatchResponse\x12a\n" +
-	"\fRespondToAsk\x12'.mcpkit.agentweb.v1.RespondToAskRequest\x1a(.mcpkit.agentweb.v1.RespondToAskResponse\x12a\n" +
-	"\fListSessions\x12'.mcpkit.agentweb.v1.ListSessionsRequest\x1a(.mcpkit.agentweb.v1.ListSessionsResponse\x12X\n" +
-	"\tGetStatus\x12$.mcpkit.agentweb.v1.GetStatusRequest\x1a%.mcpkit.agentweb.v1.GetStatusResponse\x12d\n" +
-	"\rCreateSession\x12(.mcpkit.agentweb.v1.CreateSessionRequest\x1a).mcpkit.agentweb.v1.CreateSessionResponse\x12j\n" +
-	"\x0fListWebSessions\x12*.mcpkit.agentweb.v1.ListWebSessionsRequest\x1a+.mcpkit.agentweb.v1.ListWebSessionsResponse\x12a\n" +
-	"\fCloseSession\x12'.mcpkit.agentweb.v1.CloseSessionRequest\x1a(.mcpkit.agentweb.v1.CloseSessionResponseBLZJgithub.com/panyam/chakra/surfaces/web/gen/go/mcpkit/agentweb/v1;agentwebv1b\x06proto3"
+	"\x14CloseSessionResponse2\xf8\x05\n" +
+	"\vHostService\x12<\n" +
+	"\x05Watch\x12\x1b.chakra.web.v1.WatchRequest\x1a\x14.chakra.web.v1.Frame0\x01\x12E\n" +
+	"\x06Submit\x12\x1c.chakra.web.v1.SubmitRequest\x1a\x1d.chakra.web.v1.SubmitResponse\x12K\n" +
+	"\bDispatch\x12\x1e.chakra.web.v1.DispatchRequest\x1a\x1f.chakra.web.v1.DispatchResponse\x12W\n" +
+	"\fRespondToAsk\x12\".chakra.web.v1.RespondToAskRequest\x1a#.chakra.web.v1.RespondToAskResponse\x12W\n" +
+	"\fListSessions\x12\".chakra.web.v1.ListSessionsRequest\x1a#.chakra.web.v1.ListSessionsResponse\x12N\n" +
+	"\tGetStatus\x12\x1f.chakra.web.v1.GetStatusRequest\x1a .chakra.web.v1.GetStatusResponse\x12Z\n" +
+	"\rCreateSession\x12#.chakra.web.v1.CreateSessionRequest\x1a$.chakra.web.v1.CreateSessionResponse\x12`\n" +
+	"\x0fListWebSessions\x12%.chakra.web.v1.ListWebSessionsRequest\x1a&.chakra.web.v1.ListWebSessionsResponse\x12W\n" +
+	"\fCloseSession\x12\".chakra.web.v1.CloseSessionRequest\x1a#.chakra.web.v1.CloseSessionResponseBBZ@github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1;webv1b\x06proto3"
 
 var (
-	file_mcpkit_agentweb_v1_host_proto_rawDescOnce sync.Once
-	file_mcpkit_agentweb_v1_host_proto_rawDescData []byte
+	file_chakra_web_v1_host_proto_rawDescOnce sync.Once
+	file_chakra_web_v1_host_proto_rawDescData []byte
 )
 
-func file_mcpkit_agentweb_v1_host_proto_rawDescGZIP() []byte {
-	file_mcpkit_agentweb_v1_host_proto_rawDescOnce.Do(func() {
-		file_mcpkit_agentweb_v1_host_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_mcpkit_agentweb_v1_host_proto_rawDesc), len(file_mcpkit_agentweb_v1_host_proto_rawDesc)))
+func file_chakra_web_v1_host_proto_rawDescGZIP() []byte {
+	file_chakra_web_v1_host_proto_rawDescOnce.Do(func() {
+		file_chakra_web_v1_host_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_chakra_web_v1_host_proto_rawDesc), len(file_chakra_web_v1_host_proto_rawDesc)))
 	})
-	return file_mcpkit_agentweb_v1_host_proto_rawDescData
+	return file_chakra_web_v1_host_proto_rawDescData
 }
 
-var file_mcpkit_agentweb_v1_host_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
-var file_mcpkit_agentweb_v1_host_proto_goTypes = []any{
-	(*WatchRequest)(nil),            // 0: mcpkit.agentweb.v1.WatchRequest
-	(*Frame)(nil),                   // 1: mcpkit.agentweb.v1.Frame
-	(*SubmitRequest)(nil),           // 2: mcpkit.agentweb.v1.SubmitRequest
-	(*SubmitResponse)(nil),          // 3: mcpkit.agentweb.v1.SubmitResponse
-	(*DispatchRequest)(nil),         // 4: mcpkit.agentweb.v1.DispatchRequest
-	(*DispatchResponse)(nil),        // 5: mcpkit.agentweb.v1.DispatchResponse
-	(*RespondToAskRequest)(nil),     // 6: mcpkit.agentweb.v1.RespondToAskRequest
-	(*RespondToAskResponse)(nil),    // 7: mcpkit.agentweb.v1.RespondToAskResponse
-	(*ListSessionsRequest)(nil),     // 8: mcpkit.agentweb.v1.ListSessionsRequest
-	(*ListSessionsResponse)(nil),    // 9: mcpkit.agentweb.v1.ListSessionsResponse
-	(*GetStatusRequest)(nil),        // 10: mcpkit.agentweb.v1.GetStatusRequest
-	(*GetStatusResponse)(nil),       // 11: mcpkit.agentweb.v1.GetStatusResponse
-	(*CreateSessionRequest)(nil),    // 12: mcpkit.agentweb.v1.CreateSessionRequest
-	(*CreateSessionResponse)(nil),   // 13: mcpkit.agentweb.v1.CreateSessionResponse
-	(*ListWebSessionsRequest)(nil),  // 14: mcpkit.agentweb.v1.ListWebSessionsRequest
-	(*ListWebSessionsResponse)(nil), // 15: mcpkit.agentweb.v1.ListWebSessionsResponse
-	(*CloseSessionRequest)(nil),     // 16: mcpkit.agentweb.v1.CloseSessionRequest
-	(*CloseSessionResponse)(nil),    // 17: mcpkit.agentweb.v1.CloseSessionResponse
+var file_chakra_web_v1_host_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_chakra_web_v1_host_proto_goTypes = []any{
+	(*WatchRequest)(nil),            // 0: chakra.web.v1.WatchRequest
+	(*Frame)(nil),                   // 1: chakra.web.v1.Frame
+	(*SubmitRequest)(nil),           // 2: chakra.web.v1.SubmitRequest
+	(*SubmitResponse)(nil),          // 3: chakra.web.v1.SubmitResponse
+	(*DispatchRequest)(nil),         // 4: chakra.web.v1.DispatchRequest
+	(*DispatchResponse)(nil),        // 5: chakra.web.v1.DispatchResponse
+	(*RespondToAskRequest)(nil),     // 6: chakra.web.v1.RespondToAskRequest
+	(*RespondToAskResponse)(nil),    // 7: chakra.web.v1.RespondToAskResponse
+	(*ListSessionsRequest)(nil),     // 8: chakra.web.v1.ListSessionsRequest
+	(*ListSessionsResponse)(nil),    // 9: chakra.web.v1.ListSessionsResponse
+	(*GetStatusRequest)(nil),        // 10: chakra.web.v1.GetStatusRequest
+	(*GetStatusResponse)(nil),       // 11: chakra.web.v1.GetStatusResponse
+	(*CreateSessionRequest)(nil),    // 12: chakra.web.v1.CreateSessionRequest
+	(*CreateSessionResponse)(nil),   // 13: chakra.web.v1.CreateSessionResponse
+	(*ListWebSessionsRequest)(nil),  // 14: chakra.web.v1.ListWebSessionsRequest
+	(*ListWebSessionsResponse)(nil), // 15: chakra.web.v1.ListWebSessionsResponse
+	(*CloseSessionRequest)(nil),     // 16: chakra.web.v1.CloseSessionRequest
+	(*CloseSessionResponse)(nil),    // 17: chakra.web.v1.CloseSessionResponse
 }
-var file_mcpkit_agentweb_v1_host_proto_depIdxs = []int32{
-	0,  // 0: mcpkit.agentweb.v1.HostService.Watch:input_type -> mcpkit.agentweb.v1.WatchRequest
-	2,  // 1: mcpkit.agentweb.v1.HostService.Submit:input_type -> mcpkit.agentweb.v1.SubmitRequest
-	4,  // 2: mcpkit.agentweb.v1.HostService.Dispatch:input_type -> mcpkit.agentweb.v1.DispatchRequest
-	6,  // 3: mcpkit.agentweb.v1.HostService.RespondToAsk:input_type -> mcpkit.agentweb.v1.RespondToAskRequest
-	8,  // 4: mcpkit.agentweb.v1.HostService.ListSessions:input_type -> mcpkit.agentweb.v1.ListSessionsRequest
-	10, // 5: mcpkit.agentweb.v1.HostService.GetStatus:input_type -> mcpkit.agentweb.v1.GetStatusRequest
-	12, // 6: mcpkit.agentweb.v1.HostService.CreateSession:input_type -> mcpkit.agentweb.v1.CreateSessionRequest
-	14, // 7: mcpkit.agentweb.v1.HostService.ListWebSessions:input_type -> mcpkit.agentweb.v1.ListWebSessionsRequest
-	16, // 8: mcpkit.agentweb.v1.HostService.CloseSession:input_type -> mcpkit.agentweb.v1.CloseSessionRequest
-	1,  // 9: mcpkit.agentweb.v1.HostService.Watch:output_type -> mcpkit.agentweb.v1.Frame
-	3,  // 10: mcpkit.agentweb.v1.HostService.Submit:output_type -> mcpkit.agentweb.v1.SubmitResponse
-	5,  // 11: mcpkit.agentweb.v1.HostService.Dispatch:output_type -> mcpkit.agentweb.v1.DispatchResponse
-	7,  // 12: mcpkit.agentweb.v1.HostService.RespondToAsk:output_type -> mcpkit.agentweb.v1.RespondToAskResponse
-	9,  // 13: mcpkit.agentweb.v1.HostService.ListSessions:output_type -> mcpkit.agentweb.v1.ListSessionsResponse
-	11, // 14: mcpkit.agentweb.v1.HostService.GetStatus:output_type -> mcpkit.agentweb.v1.GetStatusResponse
-	13, // 15: mcpkit.agentweb.v1.HostService.CreateSession:output_type -> mcpkit.agentweb.v1.CreateSessionResponse
-	15, // 16: mcpkit.agentweb.v1.HostService.ListWebSessions:output_type -> mcpkit.agentweb.v1.ListWebSessionsResponse
-	17, // 17: mcpkit.agentweb.v1.HostService.CloseSession:output_type -> mcpkit.agentweb.v1.CloseSessionResponse
+var file_chakra_web_v1_host_proto_depIdxs = []int32{
+	0,  // 0: chakra.web.v1.HostService.Watch:input_type -> chakra.web.v1.WatchRequest
+	2,  // 1: chakra.web.v1.HostService.Submit:input_type -> chakra.web.v1.SubmitRequest
+	4,  // 2: chakra.web.v1.HostService.Dispatch:input_type -> chakra.web.v1.DispatchRequest
+	6,  // 3: chakra.web.v1.HostService.RespondToAsk:input_type -> chakra.web.v1.RespondToAskRequest
+	8,  // 4: chakra.web.v1.HostService.ListSessions:input_type -> chakra.web.v1.ListSessionsRequest
+	10, // 5: chakra.web.v1.HostService.GetStatus:input_type -> chakra.web.v1.GetStatusRequest
+	12, // 6: chakra.web.v1.HostService.CreateSession:input_type -> chakra.web.v1.CreateSessionRequest
+	14, // 7: chakra.web.v1.HostService.ListWebSessions:input_type -> chakra.web.v1.ListWebSessionsRequest
+	16, // 8: chakra.web.v1.HostService.CloseSession:input_type -> chakra.web.v1.CloseSessionRequest
+	1,  // 9: chakra.web.v1.HostService.Watch:output_type -> chakra.web.v1.Frame
+	3,  // 10: chakra.web.v1.HostService.Submit:output_type -> chakra.web.v1.SubmitResponse
+	5,  // 11: chakra.web.v1.HostService.Dispatch:output_type -> chakra.web.v1.DispatchResponse
+	7,  // 12: chakra.web.v1.HostService.RespondToAsk:output_type -> chakra.web.v1.RespondToAskResponse
+	9,  // 13: chakra.web.v1.HostService.ListSessions:output_type -> chakra.web.v1.ListSessionsResponse
+	11, // 14: chakra.web.v1.HostService.GetStatus:output_type -> chakra.web.v1.GetStatusResponse
+	13, // 15: chakra.web.v1.HostService.CreateSession:output_type -> chakra.web.v1.CreateSessionResponse
+	15, // 16: chakra.web.v1.HostService.ListWebSessions:output_type -> chakra.web.v1.ListWebSessionsResponse
+	17, // 17: chakra.web.v1.HostService.CloseSession:output_type -> chakra.web.v1.CloseSessionResponse
 	9,  // [9:18] is the sub-list for method output_type
 	0,  // [0:9] is the sub-list for method input_type
 	0,  // [0:0] is the sub-list for extension type_name
@@ -1021,26 +1021,26 @@ var file_mcpkit_agentweb_v1_host_proto_depIdxs = []int32{
 	0,  // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_mcpkit_agentweb_v1_host_proto_init() }
-func file_mcpkit_agentweb_v1_host_proto_init() {
-	if File_mcpkit_agentweb_v1_host_proto != nil {
+func init() { file_chakra_web_v1_host_proto_init() }
+func file_chakra_web_v1_host_proto_init() {
+	if File_chakra_web_v1_host_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mcpkit_agentweb_v1_host_proto_rawDesc), len(file_mcpkit_agentweb_v1_host_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chakra_web_v1_host_proto_rawDesc), len(file_chakra_web_v1_host_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_mcpkit_agentweb_v1_host_proto_goTypes,
-		DependencyIndexes: file_mcpkit_agentweb_v1_host_proto_depIdxs,
-		MessageInfos:      file_mcpkit_agentweb_v1_host_proto_msgTypes,
+		GoTypes:           file_chakra_web_v1_host_proto_goTypes,
+		DependencyIndexes: file_chakra_web_v1_host_proto_depIdxs,
+		MessageInfos:      file_chakra_web_v1_host_proto_msgTypes,
 	}.Build()
-	File_mcpkit_agentweb_v1_host_proto = out.File
-	file_mcpkit_agentweb_v1_host_proto_goTypes = nil
-	file_mcpkit_agentweb_v1_host_proto_depIdxs = nil
+	File_chakra_web_v1_host_proto = out.File
+	file_chakra_web_v1_host_proto_goTypes = nil
+	file_chakra_web_v1_host_proto_depIdxs = nil
 }
