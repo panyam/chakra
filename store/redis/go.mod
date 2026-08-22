@@ -6,7 +6,7 @@ replace github.com/panyam/chakra => ../..
 
 require (
 	github.com/alicebob/miniredis/v2 v2.38.0
-	github.com/panyam/chakra v0.0.0
+	github.com/panyam/chakra v0.1.0
 	github.com/panyam/mcpkit v0.5.2
 	github.com/redis/go-redis/v9 v9.21.0
 )

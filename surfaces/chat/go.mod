@@ -9,8 +9,8 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834
 	github.com/charmbracelet/x/ansi v0.11.7
 	github.com/muesli/termenv v0.16.0
-	github.com/panyam/chakra/host v0.0.0
-	github.com/panyam/chakra/surfaces v0.0.0-00010101000000-000000000000
+	github.com/panyam/chakra/host v0.1.0
+	github.com/panyam/chakra/surfaces v0.1.0
 	github.com/panyam/mcpkit v0.5.2
 	github.com/panyam/mcpkit/ext/otel v0.5.2
 	github.com/redis/go-redis/v9 v9.21.0
@@ -62,7 +62,7 @@ require (
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/reflow v0.3.0 // indirect
-	github.com/panyam/chakra/ext/lsp v0.0.0-00010101000000-000000000000 // indirect
+	github.com/panyam/chakra/ext/lsp v0.1.0 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents v0.5.2 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.5.2 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
@@ -94,11 +94,11 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
-	github.com/panyam/chakra v0.0.0
-	github.com/panyam/chakra/ext/checkpoint v0.0.0 // indirect
-	github.com/panyam/chakra/ext/files v0.0.0 // indirect
-	github.com/panyam/chakra/store/gorm v0.0.0
-	github.com/panyam/chakra/store/redis v0.0.0
+	github.com/panyam/chakra v0.1.0
+	github.com/panyam/chakra/ext/checkpoint v0.1.0 // indirect
+	github.com/panyam/chakra/ext/files v0.1.0 // indirect
+	github.com/panyam/chakra/store/gorm v0.1.0
+	github.com/panyam/chakra/store/redis v0.1.0
 	github.com/panyam/gocurrent v0.1.2 // indirect
 	github.com/panyam/goutils v0.1.8 // indirect
 	github.com/panyam/mcpkit/experimental/ext/events v0.5.2 // indirect

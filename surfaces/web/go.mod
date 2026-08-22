@@ -4,9 +4,9 @@ go 1.26.5
 
 require (
 	connectrpc.com/connect v1.19.2
-	github.com/panyam/chakra v0.0.0
-	github.com/panyam/chakra/host v0.0.0
-	github.com/panyam/chakra/surfaces v0.0.0
+	github.com/panyam/chakra v0.1.0
+	github.com/panyam/chakra/host v0.1.0
+	github.com/panyam/chakra/surfaces v0.1.0
 	github.com/panyam/mcpkit v0.5.2
 	github.com/panyam/servicekit v0.1.4
 	google.golang.org/protobuf v1.36.11
@@ -29,11 +29,11 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
-	github.com/panyam/chakra/ext/checkpoint v0.0.0 // indirect
-	github.com/panyam/chakra/ext/files v0.0.0 // indirect
-	github.com/panyam/chakra/ext/lsp v0.0.0-00010101000000-000000000000 // indirect
-	github.com/panyam/chakra/store/gorm v0.0.0 // indirect
-	github.com/panyam/chakra/store/redis v0.0.0 // indirect
+	github.com/panyam/chakra/ext/checkpoint v0.1.0 // indirect
+	github.com/panyam/chakra/ext/files v0.1.0 // indirect
+	github.com/panyam/chakra/ext/lsp v0.1.0 // indirect
+	github.com/panyam/chakra/store/gorm v0.1.0 // indirect
+	github.com/panyam/chakra/store/redis v0.1.0 // indirect
 	github.com/panyam/gocurrent v0.1.2 // indirect
 	github.com/panyam/goutils v0.1.8 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents v0.5.2 // indirect

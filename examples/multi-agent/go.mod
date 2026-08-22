@@ -3,7 +3,7 @@ module github.com/panyam/chakra/examples/multi-agent
 go 1.26.5
 
 require (
-	github.com/panyam/chakra v0.0.0
+	github.com/panyam/chakra v0.1.0
 	github.com/panyam/mcpkit v0.5.2
 )
 
