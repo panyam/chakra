@@ -116,3 +116,41 @@ hole, and an unreported hole stops being checked.
 **Verify:** `grep -n "func (r Reversal) Reversible" ./ext/checkpoint/reverser.go` returns a body
 testing `Restore` only; `TestCompensateAloneIsNotReversible` and `TestProposalNeverRunsWithoutApproval`
 pin both halves.
+
+## A12: MCP server lifecycle is decoupled from the agent
+
+The agent (`host/` and the surfaces built on it, e.g. `surfaces/chat/`) is a **pure MCP client**. It connects to servers by URL and does not own their process lifecycle: it MUST NOT spawn, supervise, restart, or kill the MCP servers it talks to. Bringing servers up and down is an operator/launcher concern — a `just servers-up` recipe, docker, systemd — not something the agent process does as a side effect of starting or stopping.
+
+The rule prevents two failure modes:
+
+- **Lifetime coupling**: if the launcher boots the servers as children of the agent (and traps-kills them on exit), restarting the chat kills the servers and vice versa. Decoupled, servers survive chat restarts — you can reconnect a fresh agent to already-running servers, which is also how every real MCP client (Claude Code, Cursor) treats remote servers.
+- **Boot coupling**: one unreachable server should not take the whole agent down. The target is that the agent connects asynchronously and degrades per-server (a down server shows as failed/paused/needs-login), rather than fail-fast aborting boot.
+
+The reference decoupling is mcpkit's `examples/agents/kitchen-sink`, which stayed there when this tree was extracted: `servers.sh` (`just servers-up` / `servers-down` / `servers`) owns the server processes; `run.sh` only *checks* the ports and points at `servers-up` if any are down — it never boots or kills them.
+
+Sanctioned exception: the client's stdio transport (`client.CommandTransport`) owns the subprocess it speaks to — that is the standard, opt-in, per-connection ownership every MCP client has for `command`-style servers (the `.mcp.json` shape). It lives in mcpkit's `client/`, is chosen explicitly, and is not the host spawning servers behind the user's back. The host wiring for it (a `ServerConfig.command` surface) is a deferred follow-up, not a violation.
+
+Second sanctioned exception, on the same reasoning: **an extension may spawn the subprocess it
+owns.** `ext/lsp` starts a language server from `ServerSpec.Command`, and `agent/ext/exec` runs
+the commands in `Config.Commands`. Both come from operator configuration and neither is reachable
+from a tool argument, so no model, and no instruction injected into content a model read, can name
+the process that starts. That property is what the exception rests on, and it is the whole reason
+`exec` refuses to let the model compose a command line. An extension that took a binary path from a
+tool argument would be a violation of this constraint whatever it called itself.
+
+The corollary is that extension-owned subprocesses are outside whatever sandbox the exec extension
+applies: a wrapper around a `ToolSource` never sees a process an extension spawned for itself, and
+a convention asking every extension to route its spawns through a shared helper would be
+enforcement in name only. Decided and recorded on issue 1312, with the rationale in
+`experimental/agent/ext/exec/README.md`.
+
+**Note:** the async graceful-degrade half of this constraint is a target, not yet implemented — `NewApp` today still connects synchronously and fail-fast. The enforced half is: the host does not manage server *processes*.
+
+**Verify:** the host must not spawn or kill processes. Must print nothing:
+
+```bash
+grep -rn 'os/exec\|exec\.Command\|\.Process\b\|syscall\.\(Kill\|Exec\)\|StartProcess' experimental/agent/host/ --include='*.go' | grep -v '_test.go'
+```
+
+*Carried over from mcpkit's project-wide `CONSTRAINTS.md` (C6) when the agent SDK was extracted. It
+constrains the host, so it followed the host.*

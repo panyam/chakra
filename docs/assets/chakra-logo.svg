@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="chakra">
+  <defs>
+    <!-- userSpaceOnUse, not the default objectBoundingBox: a perfectly
+         horizontal or vertical line has a zero-area bbox, and a bbox-relative
+         gradient paints nothing on it. The four cardinal spokes vanished. -->
+    <linearGradient id="cg" gradientUnits="userSpaceOnUse" x1="12" y1="12" x2="116" y2="116">
+      <stop offset="0%" stop-color="#7C5CFF"/>
+      <stop offset="55%" stop-color="#4F7BFF"/>
+      <stop offset="100%" stop-color="#22C3B4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- outer ring: the loop -->
+  <circle cx="64" cy="64" r="52" fill="none" stroke="url(#cg)" stroke-width="7"/>
+
+  <!-- eight spokes: the primitives the loop turns through -->
+  <g stroke="url(#cg)" stroke-width="6" stroke-linecap="round">
+    <line x1="84.0"  y1="64.0"  x2="116.0" y2="64.0"/>
+    <line x1="78.1"  y1="78.1"  x2="100.8" y2="100.8"/>
+    <line x1="64.0"  y1="84.0"  x2="64.0"  y2="116.0"/>
+    <line x1="49.9"  y1="78.1"  x2="27.2"  y2="100.8"/>
+    <line x1="44.0"  y1="64.0"  x2="12.0"  y2="64.0"/>
+    <line x1="49.9"  y1="49.9"  x2="27.2"  y2="27.2"/>
+    <line x1="64.0"  y1="44.0"  x2="64.0"  y2="12.0"/>
+    <line x1="78.1"  y1="49.9"  x2="100.8" y2="27.2"/>
+  </g>
+
+  <!-- hub: the for loop, the one thing that stays put -->
+  <circle cx="64" cy="64" r="17" fill="url(#cg)"/>
+</svg>

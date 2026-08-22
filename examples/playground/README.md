@@ -1,20 +1,20 @@
 # agentchat playground
 
-One command to feel the mcpkit agent SDK: `just pg` from the repo root boots a
-demo MCP server (`examples/getting-started/server`, a `greet` tool on
+One command to feel the chakra agent SDK: `make pg` from the repo root boots a
+demo MCP server (`examples/agent-async`, the events + tasks app domain, on
 `:8787`) and launches `agentchat` in its TUI, wired to a local model, a
 SQLite session store, and a filesystem offload dir.
 
 ```bash
-just pg
+make pg
 ```
 
-`just pg` is the batteries-included wrapper (sqlite session store + offload
+`make pg` is the batteries-included wrapper (sqlite session store + offload
 dir). For the plain config-driven surfaces, this directory also has a justfile
 that runs both surfaces off `playground.json`:
 
 ```bash
-just serve   # the demo MCP server (getting-started 'greet') on :8787
+just serve   # the demo MCP server (agent-async app domain) on :8787
 just chat    # agentchat CLI against playground.json (another terminal)
 just web     # agentweb browser surface against playground.json (another terminal)
 ```

@@ -8,12 +8,23 @@ on:
 jobs:
   # Whole-tree scan, by magic bytes rather than filename. The local pre-commit
   # hook is opt-in and bypassable with --no-verify, so this is the actual gate.
-  no-binaries:
+  gates:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+
+      # Whole-tree scan by magic bytes rather than filename. The local
+      # pre-commit hook is opt-in and bypassable with --no-verify, so this is
+      # the actual gate.
       - run: sh scripts/check-no-binaries.sh
+
       - run: sh scripts/check-ext-isolation.sh
+
+      # MVS resolves to the maximum required version, so a split pin means the
+      # lower modules silently build against the higher version. Catching it on
+      # the PR that introduces it beats an unexplained failure weeks later in a
+      # module nobody edited. Stdlib-only Python, so no install step.
+      - run: python3 scripts/check_dep_consistency.py
 
   test:
     runs-on: ubuntu-latest

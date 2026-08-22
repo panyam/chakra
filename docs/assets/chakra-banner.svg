@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-label="chakra — a Go agent SDK built on MCP">
+  <defs>
+    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1280" y2="640">
+      <stop offset="0%" stop-color="#0B0E17"/>
+      <stop offset="100%" stop-color="#141A2B"/>
+    </linearGradient>
+    <!-- Coordinates are in the LOGO's local space, not the banner's: a
+         userSpaceOnUse gradient resolves against the transform in effect where
+         it is referenced, and the mark below is translated and scaled. -->
+    <linearGradient id="cg" gradientUnits="userSpaceOnUse" x1="12" y1="12" x2="116" y2="116">
+      <stop offset="0%" stop-color="#7C5CFF"/>
+      <stop offset="55%" stop-color="#4F7BFF"/>
+      <stop offset="100%" stop-color="#22C3B4"/>
+    </linearGradient>
+    <linearGradient id="tg" gradientUnits="userSpaceOnUse" x1="520" y1="250" x2="1100" y2="400">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#9FB4FF"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="640" fill="url(#bg)"/>
+
+  <g transform="translate(160,190) scale(2.03)">
+    <circle cx="64" cy="64" r="52" fill="none" stroke="url(#cg)" stroke-width="7"/>
+    <g stroke="url(#cg)" stroke-width="6" stroke-linecap="round">
+      <line x1="84.0" y1="64.0" x2="116.0" y2="64.0"/>
+      <line x1="78.1" y1="78.1" x2="100.8" y2="100.8"/>
+      <line x1="64.0" y1="84.0" x2="64.0"  y2="116.0"/>
+      <line x1="49.9" y1="78.1" x2="27.2"  y2="100.8"/>
+      <line x1="44.0" y1="64.0" x2="12.0"  y2="64.0"/>
+      <line x1="49.9" y1="49.9" x2="27.2"  y2="27.2"/>
+      <line x1="64.0" y1="44.0" x2="64.0"  y2="12.0"/>
+      <line x1="78.1" y1="49.9" x2="100.8" y2="27.2"/>
+    </g>
+    <circle cx="64" cy="64" r="17" fill="url(#cg)"/>
+  </g>
+
+  <text x="530" y="322" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Inter, Helvetica, Arial, sans-serif"
+        font-size="132" font-weight="700" letter-spacing="-3" fill="url(#tg)">chakra</text>
+  <text x="536" y="392" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Inter, Helvetica, Arial, sans-serif"
+        font-size="38" font-weight="400" fill="#8FA3C8">A Go agent SDK built on MCP</text>
+  <text x="536" y="446" font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+        font-size="26" fill="#5C6E92">github.com/panyam/chakra</text>
+</svg>
