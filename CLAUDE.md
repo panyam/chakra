@@ -55,10 +55,11 @@ integrated with a dedicated engine.
   the agent layer with isolated per-child providers.
 - **Memory injection never writes into `a.history`.** Summary and recall are transient per-turn
   producers; appending them to history stacks them up in both history and the RunStore log.
-- **The CI `test` job hardcodes its steps** in `.github/workflows/test.yml` rather than walking the
-  Makefile's module list. Adding or moving an example needs the workflow updated too, and so does
-  **adding a sub-module**, which otherwise builds fine locally and never runs in CI. A new
-  sub-module needs two edits: `MODULES` in the `Makefile`, and a step in that workflow.
+- **Adding a module is one edit: `MODULES` in the `Makefile`.** CI runs `make test` and
+  `make test-examples` rather than restating the list, so the two cannot drift. It used to
+  hardcode a step per module, and the failure mode that ordering produced is worth remembering
+  even now that it is fixed: a module absent from the workflow builds fine locally and never runs
+  in CI, so the gap reports itself as a pass.
 - **A tool's safety annotations are per `ToolDef`, so they constrain tool shape.** `toolHints`
   resolves `readOnlyHint` / `destructiveHint` by tool name, which means one tool covering N
   operations gives all N the same approval disposition. An extension cannot work around it:
