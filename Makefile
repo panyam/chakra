@@ -12,6 +12,26 @@ MODULES := . host surfaces surfaces/chat surfaces/web \
 
 EXAMPLES := examples/agent-async examples/critic examples/multi-agent
 
+# CI runs these same targets rather than restating the module list, so adding a
+# module is one edit here. It overrides GOTESTFLAGS only to add -v.
+#
+# -race is not optional and not per-module. The signal, pool and interruptible
+# tests exist to catch races and they live in the root module, which was the one
+# place CI ran without it. The whole tree costs about 100s under -race.
+#
+# The timeout is a diagnostic, not a budget: past it, a hang arrives as a
+# goroutine dump naming the blocked call instead of a bare line at the 600s
+# default. 300s leaves headroom over ext/lsp, the slowest module at ~55s under
+# -race, whose stub language server is this test binary re-executed. Its
+# lsp_live tag drives a real gopls and is deliberately not wired into CI.
+#
+# ext/exec is the other module worth knowing about here: its commands are also
+# this test binary re-executed, so nothing needs installing. Its exec_live tag
+# runs the same surface under a real sandbox-exec and is darwin-only, so no
+# sandbox backend is exercised on a Linux runner. The tests name Unconfined
+# explicitly and the platform's own backend refuses. See the module README.
+GOTESTFLAGS ?= -race -timeout 300s
+
 .PHONY: help build test test-examples testall vet fmt cover tidy-all bump-siblings tag tag-push pg \
         check-no-binaries check-ext-isolation check-dep-consistency setup-hooks
 
@@ -27,13 +47,13 @@ build: ## Build every module
 test: ## Test every module (not the examples)
 	@for m in $(MODULES); do \
 		echo "==> test $$m"; \
-		(cd $$m && go test ./... -timeout 180s) || exit 1; \
+		(cd $$m && go test ./... $(GOTESTFLAGS)) || exit 1; \
 	done
 
 test-examples: ## Test the three SDK examples
 	@for m in $(EXAMPLES); do \
 		echo "==> test $$m"; \
-		(cd $$m && go test ./... -timeout 180s) || exit 1; \
+		(cd $$m && go test ./... $(GOTESTFLAGS)) || exit 1; \
 	done
 
 testall: test test-examples check-no-binaries check-ext-isolation check-dep-consistency ## Everything CI runs

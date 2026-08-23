@@ -1390,16 +1390,19 @@ that will actually stress it, and reshaping is free while the agent track is unr
 
 ## Testing
 
-- **Run agent tests with `-race`.** The concurrency-shaped tests (`agent/signal_test.go`,
-  `agent_pool_test.go`, `interruptible_test.go`) are the point.
+- **Run agent tests with `-race`.** The concurrency-shaped tests (`signal_test.go`,
+  `agent_pool_test.go`, `interruptible_test.go`) are the point. It is the default in
+  `GOTESTFLAGS` rather than a per-module opt-in, because those three live in the root module,
+  which was the one place CI ran without it. The whole tree costs about 100s under `-race`.
 - **Host behavioral tests race on a shared sequential StubProvider** when the main turn and a
   background child both pull from it. So host tests assert *wiring* and the *behavior* is
   agent-layer-tested with isolated per-child providers. `blockingProvider{}` in
-  `agent/runner_test.go` is the "child that blocks until cancelled".
-- `make test-agent` covers `chakra`, `host/`, the surfaces, and the agent examples.
-- **The CI `test-agent` job runs example tests as explicit hardcoded steps in
-  `.github/workflows/test.yml`**, not via `make test-agent`. Moving or adding an example needs
-  the workflow updated too, not just the Makefile.
+  `runner_test.go` is the "child that blocks until cancelled".
+- `make test` covers every module and `make test-examples` the examples. CI runs those same two
+  targets, overriding `GOTESTFLAGS` only to add `-v`, so the module list lives in the `Makefile`
+  and nowhere else. **Adding a module is one edit.** Before the split it was three, in three
+  files, and a module missing from the workflow builds fine locally while never running in CI,
+  which is a gap that reports itself as a pass.
 
 ### Reading a mutation run (learned on #1275, #1284)
 

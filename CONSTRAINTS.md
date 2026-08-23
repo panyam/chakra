@@ -36,13 +36,15 @@ All vendor-namespaced `_meta` keys this module reads or writes use `io.github.pa
 
 The Runner exposes callbacks and event streams; it never prints, prompts, or renders. Logging is the same: agent code logs only through an injected *slog.Logger (nil discards), never fmt, os.Stdout/Stderr, log, or slog.Default. Anything user-facing lives in surfaces (agentchat, web hosts) built on the module.
 
-**Verify:** `grep -rn "fmt.Print\|os.Stdout\|os.Stdin\|slog.Default\|log.Print" ./ --include='*.go' | grep -v _test.go | grep -v '/surfaces/'` returns nothing. The surfaces exclusion is the constraint, not a fudge: printing is what a surface is for, and without it the recipe returns 30 legitimate hits and gets ignored.
+**Verify:** `grep -rn "fmt.Print\|os.Stdout\|os.Stdin\|slog.Default\|log.Print" ./ --include='*.go' | grep -v _test.go | grep -vE '(^|/)(surfaces|examples)/'` returns nothing. The exclusions are the constraint, not a fudge: printing is what a surface is for, and an example is a surface with a `main`. Without them the recipe returns 37 legitimate hits and gets ignored.
+
+The anchoring is load-bearing and was not, until the repository split. The exclusion read `'/surfaces/'` while the tree lived at `agent/surfaces/`, and at the root the path is `surfaces/chat/...` with no leading slash, so it stopped matching and the recipe reported every legitimate print in the tree. It failed in the direction that looks like diligence, which is the harder one to notice.
 
 ## A5: core.RawJSON for JSON-valued public fields
 
 JSON-valued fields in this module's public types use `core.RawJSON` (wire-transparent, parse-once, typed Bind), never bare `json.RawMessage`. JSON-fragment fields (streamed argument pieces in Deltas) stay strings; the Accumulator's fold is the promotion boundary where fragments become a RawJSON value.
 
-**Verify:** `grep -n "json.RawMessage" *.go | grep -v _test | grep -v NewRawJSON` shows only conversion sites, no struct fields. **This currently fails**: `AgentSourceConfig.InputSchema` is a public struct field holding a whole JSON document, which is what A5 says should be `core.RawJSON`. Found when the path was corrected during a checkpoint, having been unrunnable since #1290 moved the tree. Tracked in #1326.
+**Verify:** `grep -n "json.RawMessage" *.go | grep -v _test | grep -v NewRawJSON` shows only conversion sites, no struct fields. **This currently fails, at two sites rather than the one first reported**: `AgentSourceConfig.InputSchema` (`agent_source.go:67`) and `AsyncAgentSourceConfig.InputSchema` (`async_agent_source.go:31`) are both public struct fields holding a whole JSON document, which is what A5 says should be `core.RawJSON`. Found when the path was corrected during a checkpoint, having been unrunnable since panyam/mcpkit#1290 moved the tree. Tracked in #35.
 
 ## A6: Mechanisms in the client, policy in the agent
 

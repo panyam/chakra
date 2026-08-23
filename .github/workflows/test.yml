@@ -26,6 +26,10 @@ jobs:
       # module nobody edited. Stdlib-only Python, so no install step.
       - run: python3 scripts/check_dep_consistency.py
 
+  # Both jobs below walk the Makefile's MODULES and EXAMPLES rather than listing
+  # modules again here. A restated list is a list that goes stale: a new module
+  # builds fine locally, is absent from CI, and nothing says so. The per-module
+  # reasoning that used to sit in these steps moved next to those variables.
   test:
     runs-on: ubuntu-latest
     steps:
@@ -38,49 +42,8 @@ jobs:
       - name: Vet
         run: make vet
 
-      - name: Run chakra tests
-        run: go test ./... -v
-
-      - name: Run host tests
-        run: cd host && go test ./... -v
-
-      - name: Run ext/checkpoint tests
-        run: cd ext/checkpoint && go test ./... -v -race
-
-      - name: Run ext/files tests
-        run: cd ext/files && go test ./... -v -race
-
-      # Commands here are this test binary re-executed, so nothing needs
-      # installing. The exec_live tag runs the same surface under a real
-      # sandbox-exec and is darwin-only, so no sandbox backend is exercised on
-      # this runner: the platform's own backend refuses and the tests name
-      # Unconfined explicitly. See the module README.
-      - name: Run ext/exec tests
-        run: cd ext/exec && go test ./... -v -race -timeout 180s
-
-      # The lsp suite drives a stub language server that is this test binary
-      # re-executed, so it needs no server installed. The lsp_live tag runs the
-      # same surface against a real gopls and is deliberately not wired here.
-      # Explicit timeout, well above the ~45s this takes, so a hang produces a
-      # goroutine dump naming the blocked call instead of a bare line at the
-      # 600s default.
-      - name: Run ext/lsp tests
-        run: cd ext/lsp && go test ./... -v -race -timeout 180s
-
-      - name: Run surfaces shared-module tests
-        run: cd surfaces && go test ./... -v
-
-      - name: Run agentchat (surfaces/chat) tests
-        run: cd surfaces/chat && go test ./... -v
-
-      - name: Run agentweb (surfaces/web) tests
-        run: cd surfaces/web && go test ./... -v
-
-      - name: Run store/redis tests
-        run: cd store/redis && go test ./... -v
-
-      - name: Run store/gorm tests
-        run: cd store/gorm && go test ./... -v
+      - name: Test every module
+        run: make test GOTESTFLAGS='-v -race -timeout 300s'
 
   test-examples:
     runs-on: ubuntu-latest
@@ -91,11 +54,5 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Run agent-async example test
-        run: cd examples/agent-async && go test ./... -v
-
-      - name: Run critic example test
-        run: cd examples/critic && go test ./... -v
-
-      - name: Run multi-agent example test
-        run: cd examples/multi-agent && go test ./... -v
+      - name: Test every example
+        run: make test-examples GOTESTFLAGS='-v -race -timeout 300s'
