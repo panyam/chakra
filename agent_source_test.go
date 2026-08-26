@@ -212,7 +212,7 @@ func TestAgentSource_TypedInput(t *testing.T) {
 	child, _ := NewRunner(RunnerConfig{Provider: childStub})
 	schema := json.RawMessage(`{"type":"object","properties":{"topic":{"type":"string"},"depth":{"type":"integer"}},"required":["topic"]}`)
 	as, err := NewAgentSource(AgentSourceConfig{
-		Name: "researcher", Description: "typed research", Runner: child, InputSchema: schema,
+		Name: "researcher", Description: "typed research", Runner: child, InputSchema: core.NewRawJSON(schema),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -232,6 +232,27 @@ func TestAgentSource_TypedInput(t *testing.T) {
 	seed := childStub.Requests()[0].Messages[0].Text
 	if !strings.Contains(seed, "caching") || !strings.Contains(seed, "depth") {
 		t.Fatalf("child seed should carry the typed args, got %q", seed)
+	}
+}
+
+// TestAgentSource_ZeroInputSchemaIsAbsent pins the boundary the core.RawJSON
+// change moved (#35). Presence used to be `InputSchema == nil`; on a struct
+// type that test cannot be written, so it is now Len() == 0. An unset field
+// must still mean the default {task} schema rather than an empty typed one,
+// which would advertise a schema no caller can satisfy.
+func TestAgentSource_ZeroInputSchemaIsAbsent(t *testing.T) {
+	ctx := context.Background()
+	child, _ := NewRunner(RunnerConfig{Provider: NewStubProvider(StubTurn{Text: "done"})})
+	as, err := NewAgentSource(AgentSourceConfig{
+		Name: "plain", Description: "untyped", Runner: child,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defs, _ := as.Tools(ctx)
+	sj, _ := json.Marshal(defs[0].InputSchema)
+	if !strings.Contains(string(sj), "task") {
+		t.Fatalf("zero InputSchema should advertise the default {task} schema, got %s", sj)
 	}
 }
 

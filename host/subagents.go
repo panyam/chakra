@@ -80,7 +80,7 @@ func (a *App) buildAsyncPersonaSource(sub SubAgentConfig, serverTools *agent.Mul
 		Description: sub.Description,
 		Runner:      child,
 		MaxDepth:    sub.MaxDepth,
-		InputSchema: sub.InputSchema,
+		InputSchema: core.NewRawJSON(sub.InputSchema),
 		OnEvent:     func(e agent.SubAgentEvent) { a.emit(HostEvent{Kind: HostSubAgentEvent, SubAgent: e}) },
 		OnComplete:  a.onAsyncComplete,
 	})
@@ -132,7 +132,7 @@ func (a *App) buildPersonaSource(sub SubAgentConfig, serverTools *agent.MultiSou
 		Description: sub.Description,
 		Runner:      child,
 		MaxDepth:    sub.MaxDepth,
-		InputSchema: sub.InputSchema,
+		InputSchema: core.NewRawJSON(sub.InputSchema),
 		OnEvent:     func(e agent.SubAgentEvent) { a.emit(HostEvent{Kind: HostSubAgentEvent, SubAgent: e}) },
 	})
 }

@@ -28,7 +28,7 @@ type AsyncAgentSourceConfig struct {
 	// InputSchema, when set, replaces the default {task} schema so a parent
 	// spawns a TYPED subtask; the child is seeded with the raw args JSON. Nil
 	// keeps {task: string} (mirrors AgentSourceConfig.InputSchema).
-	InputSchema json.RawMessage
+	InputSchema core.RawJSON
 
 	// OnEvent, when set, receives the child's event stream (scoped/depth in a
 	// SubAgentEvent) WHILE it runs in the background, so a surface can still
@@ -77,8 +77,8 @@ func NewAsyncAgentSource(cfg AsyncAgentSourceConfig) (*AsyncAgentSource, error) 
 	if cfg.OnComplete == nil {
 		return nil, fmt.Errorf("agent: AsyncAgentSource %q requires an OnComplete (else the result is dropped)", cfg.Name)
 	}
-	schemaJSON := cfg.InputSchema
-	if schemaJSON == nil {
+	schemaJSON := cfg.InputSchema.Raw()
+	if len(schemaJSON) == 0 {
 		schemaJSON = core.GenerateSchema[agentTaskArgs]()
 	}
 	var schema any
@@ -121,7 +121,7 @@ func (s *AsyncAgentSource) Call(ctx context.Context, name string, args map[strin
 		return nil, fmt.Errorf("agent: encode args for sub-agent %q: %w", s.cfg.Name, err)
 	}
 	seed := string(raw)
-	if s.cfg.InputSchema == nil {
+	if s.cfg.InputSchema.Len() == 0 {
 		var in agentTaskArgs
 		if err := json.Unmarshal(raw, &in); err != nil || strings.TrimSpace(in.Task) == "" {
 			return errorToolResult(fmt.Sprintf("sub-agent %q requires a non-empty 'task'", s.cfg.Name)), nil
