@@ -32,7 +32,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent
 # explicitly and the platform's own backend refuses. See the module README.
 GOTESTFLAGS ?= -race -timeout 300s
 
-.PHONY: help build test test-examples testall vet fmt cover tidy-all bump-siblings tag tag-push pg \
+.PHONY: help build test test-examples testall vet fmt check-fmt cover tidy-all bump-siblings tag tag-push pg \
         check-no-binaries check-ext-isolation check-dep-consistency setup-hooks
 
 help: ## Show this help
