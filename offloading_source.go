@@ -82,7 +82,25 @@ type readToolResultArgs struct {
 	Offset  int    `json:"offset,omitempty"`
 	Limit   int    `json:"limit,omitempty"`
 	Pattern string `json:"pattern,omitempty"`
+
+	// Context keeps N lines either side of each Pattern match, like
+	// grep -C. Ignored when Pattern is empty.
+	//
+	// Two-sided rather than separate before/after knobs. The line a
+	// caller can name is often not the line carrying the information:
+	// `go test -v` prints an assertion ABOVE the "--- FAIL" marker and
+	// plain `go test` prints it BELOW, so a caller grepping for the
+	// marker needs the opposite side in the two cases and cannot tell
+	// which it is looking at. One knob that always reaches the detail
+	// beats two that need knowledge the caller does not have.
+	Context int `json:"context,omitempty"`
 }
+
+// DefaultGrepMaxLines bounds how many lines a Pattern read returns when
+// Limit does not. Grep used to return every match however many there
+// were, which for a big transcript and a loose pattern is the whole
+// payload re-inlined — the exact thing offloading exists to avoid.
+const DefaultGrepMaxLines = 200
 
 // NewOffloadingSource wraps src, offloading over-threshold results into
 // store. Store is required; a nil store panics at construction rather
@@ -101,7 +119,7 @@ func NewOffloadingSource(src ToolSource, store ToolResultStore, cfg OffloadConfi
 	// Registration cannot fail for a fresh FuncSource with one unique
 	// name; ignore the error to keep the constructor total.
 	_ = AddFunc(o.read, ReadToolResultName,
-		"Fetch a previously offloaded tool result by its ref. Give offset+limit for a character window, or pattern (a regular expression) to return only matching lines. Refs appear in tool-result stubs like [tool result 52KB, stored as res:ab12].",
+		"Fetch a previously offloaded tool result by its ref. Give offset+limit for a character window, or pattern (a regular expression) to return only matching lines. With pattern, add context=N to also get N lines either side of each match, which is how you see why something failed rather than only that it did. Refs appear in tool-result stubs like [tool result 52KB, stored as res:ab12].",
 		o.readToolResult)
 	return o
 }
@@ -176,7 +194,7 @@ func (o *OffloadingSource) stub(ref, text string) string {
 	if truncated {
 		ellipsis = "…"
 	}
-	return fmt.Sprintf("[tool result %dB, stored as %s]\npreview: %s%s\ncall %s(ref=%q) for the full output — add offset+limit for a window or pattern to grep.",
+	return fmt.Sprintf("[tool result %dB, stored as %s]\npreview: %s%s\ncall %s(ref=%q) for the full output — add offset+limit for a window, or pattern to grep (with context=N for the lines around each match).",
 		len(text), ref, preview, ellipsis, ReadToolResultName, ref)
 }
 
@@ -198,16 +216,7 @@ func (o *OffloadingSource) readToolResult(ctx context.Context, in readToolResult
 		if err != nil {
 			return "", fmt.Errorf("invalid pattern %q: %w", in.Pattern, err)
 		}
-		var matches []string
-		for _, line := range strings.Split(text, "\n") {
-			if re.MatchString(line) {
-				matches = append(matches, line)
-			}
-		}
-		if len(matches) == 0 {
-			return fmt.Sprintf("no lines in %s match %q.", in.Ref, in.Pattern), nil
-		}
-		return strings.Join(matches, "\n"), nil
+		return grepLines(strings.Split(text, "\n"), re, in.Context, in.Limit, in.Ref, in.Pattern), nil
 	}
 
 	offset := in.Offset
@@ -230,6 +239,77 @@ func (o *OffloadingSource) readToolResult(ctx context.Context, in readToolResult
 		window += fmt.Sprintf("\n… (%d more chars; call again with offset=%d)", len(text)-end, end)
 	}
 	return window, nil
+}
+
+// grepLines returns the lines matching re, each widened by ctx lines on
+// both sides, with overlapping windows merged and a "--" between blocks
+// that are not contiguous (the separator grep uses, for the same reason:
+// otherwise two distant failures read as one).
+//
+// The result is bounded. limit caps the lines returned, defaulting to
+// DefaultGrepMaxLines, and what got cut is stated rather than silently
+// dropped — a caller that cannot tell a complete answer from a truncated
+// one will read the first as the second.
+func grepLines(lines []string, re *regexp.Regexp, ctx, limit int, ref, pattern string) string {
+	if ctx < 0 {
+		ctx = 0
+	}
+	if limit <= 0 {
+		limit = DefaultGrepMaxLines
+	}
+
+	var hits []int
+	for i, line := range lines {
+		if re.MatchString(line) {
+			hits = append(hits, i)
+		}
+	}
+	if len(hits) == 0 {
+		return fmt.Sprintf("no lines in %s match %q.", ref, pattern)
+	}
+
+	// Widen each hit, then merge. Ranges are half-open [start, end).
+	type span struct{ start, end int }
+	var spans []span
+	for _, h := range hits {
+		s := span{start: max(0, h-ctx), end: min(len(lines), h+ctx+1)}
+		// Merge when this span touches or overlaps the previous one.
+		// Touching counts: there is no gap to mark with a separator.
+		if n := len(spans); n > 0 && s.start <= spans[n-1].end {
+			if s.end > spans[n-1].end {
+				spans[n-1].end = s.end
+			}
+			continue
+		}
+		spans = append(spans, s)
+	}
+
+	var out []string
+	shown, blocks := 0, 0
+	for _, s := range spans {
+		if shown+(s.end-s.start) > limit {
+			break
+		}
+		if blocks > 0 {
+			out = append(out, "--")
+		}
+		out = append(out, lines[s.start:s.end]...)
+		shown += s.end - s.start
+		blocks++
+	}
+
+	// Every block over the limit is reported, including the case where
+	// even the first one does not fit.
+	if blocks < len(spans) {
+		var hidden int
+		for _, s := range spans[blocks:] {
+			hidden += s.end - s.start
+		}
+		out = append(out, fmt.Sprintf(
+			"… %d more matching line(s) in %d more block(s) not shown (limit %d); narrow the pattern or raise limit.",
+			hidden, len(spans)-blocks, limit))
+	}
+	return strings.Join(out, "\n")
 }
 
 // newResultRef mints an opaque, collision-resistant ref for a stored

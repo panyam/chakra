@@ -1,0 +1,16 @@
+--- PASS: TestSelectorNarrowsOfferedTools (0.00s)
+=== RUN   TestSelectorErrorAbortsTurn
+--- PASS: TestSelectorErrorAbortsTurn (0.00s)
+=== RUN   TestSelectorSeesFreshListEachStep
+--- PASS: TestSelectorSeesFreshListEachStep (0.00s)
+=== RUN   TestFilterSourceIsACapabilityBoundary
+    routing_test.go:95: filter let "secret_tool" through, want it blocked
+--- FAIL: TestFilterSourceIsACapabilityBoundary (0.00s)
+=== RUN   TestFilterSourceComposesUnderMultiSource
+--- PASS: TestFilterSourceComposesUnderMultiSource (0.00s)
+=== RUN   TestListChangedInvalidatesMultiSourceIndex
+2026/08/26 15:29:16 Starting MCP-GET-SSE SSE connection: a850e8b9eb0ca89f57bda92eb24a37e1
+2026/08/26 15:29:16 SSEHub: registered connection a850e8b9eb0ca89f57bda92eb24a37e1 (total: 1)
+2026/08/26 15:29:17 SSEHub: unregistered connection a850e8b9eb0ca89f57bda92eb24a37e1 (total: 0)
+2026/08/26 15:29:17 Received kill signal.  Quitting Writer. stop 0x29c9e25ac230
+2026/08/26 15:29:17 Cleaning up writer...
