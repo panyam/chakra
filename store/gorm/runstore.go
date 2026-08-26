@@ -277,7 +277,7 @@ func (s *RunStore) ListRuns(ctx context.Context, req agent.ListRunsRequest) (age
 	// fetch limit+1 to know whether a next page exists
 	err := s.db.WithContext(ctx).
 		Table("agent_runs AS r").
-		Select("r.id, r.parent_id, r.fork_point, r.created_at, "+
+		Select("r.id, r.parent_id, r.fork_point, r.created_at, " +
 			"(SELECT COUNT(*) FROM agent_run_messages m WHERE m.run_id = r.id) AS message_count").
 		Order("r.created_at DESC, r.id ASC").
 		Limit(limit + 1).Offset(offset).

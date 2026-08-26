@@ -253,20 +253,20 @@ func (s *tuiObserver) fold(ev host.HostEvent) []tea.Msg {
 // behavior routes through the App (Dispatch / RunTurn); the model is pure
 // presentation.
 type tuiModel struct {
-	app     *host.App
-	surface *tuiObserver
-	ta      textarea.Model
-	keys    appKeys
-	help    help.Model
-	modalHost // an open interactive dialog (/mcp, /sessions) as the focused layer
-	showAll bool // ? toggled the full-help view
-	history []string
-	histIdx int // len(history) == "not navigating"
-	running bool
-	pending string
-	usage   usageMsg // last turn's tokens, for the status line
-	window  int      // context window for the "N% left" gauge (0 = off)
-	session string   // cached RunID for the status line (refreshed off the render path)
+	app       *host.App
+	surface   *tuiObserver
+	ta        textarea.Model
+	keys      appKeys
+	help      help.Model
+	modalHost      // an open interactive dialog (/mcp, /sessions) as the focused layer
+	showAll   bool // ? toggled the full-help view
+	history   []string
+	histIdx   int // len(history) == "not navigating"
+	running   bool
+	pending   string
+	usage     usageMsg // last turn's tokens, for the status line
+	window    int      // context window for the "N% left" gauge (0 = off)
+	session   string   // cached RunID for the status line (refreshed off the render path)
 }
 
 // newPromptArea builds the shared input textarea used by both TUI surfaces

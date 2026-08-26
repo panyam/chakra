@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/panyam/mcpkit/core"
 	"github.com/panyam/chakra"
+	"github.com/panyam/mcpkit/core"
 )
 
 // Config configures the tool source.

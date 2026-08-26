@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	gocurrent "github.com/panyam/gocurrent"
 	"github.com/panyam/chakra"
+	gocurrent "github.com/panyam/gocurrent"
 )
 
 // TestEventLog_BoundedEvicts pins the bounded-log semantics Config.

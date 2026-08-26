@@ -32,7 +32,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent
 # explicitly and the platform's own backend refuses. See the module README.
 GOTESTFLAGS ?= -race -timeout 300s
 
-.PHONY: help build test test-examples testall vet fmt cover tidy-all bump-siblings tag tag-push pg \
+.PHONY: help build test test-examples testall vet fmt check-fmt cover tidy-all bump-siblings tag tag-push pg \
         check-no-binaries check-ext-isolation check-dep-consistency setup-hooks
 
 help: ## Show this help
@@ -56,7 +56,7 @@ test-examples: ## Test the three SDK examples
 		(cd $$m && go test ./... $(GOTESTFLAGS)) || exit 1; \
 	done
 
-testall: test test-examples check-no-binaries check-ext-isolation check-dep-consistency ## Everything CI runs
+testall: test test-examples check-fmt check-no-binaries check-ext-isolation check-dep-consistency ## Everything CI runs
 
 vet: ## go vet every module
 	@for m in $(MODULES) $(EXAMPLES); do \
@@ -66,6 +66,12 @@ vet: ## go vet every module
 
 fmt: ## gofmt every module
 	@gofmt -l -w $$(git ls-files '*.go')
+
+check-fmt: ## Fail if any tracked Go file is not gofmt-clean
+	@out=$$(gofmt -l $$(git ls-files '*.go')); \
+	if [ -n "$$out" ]; then \
+		echo "not gofmt-clean, run 'make fmt':"; echo "$$out"; exit 1; \
+	fi
 
 tidy-all: ## go mod tidy every module. Required after touching a shared import.
 	@for m in $(MODULES) $(EXAMPLES); do \

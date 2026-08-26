@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/panyam/mcpkit/core"
 	"github.com/panyam/chakra"
 	"github.com/panyam/chakra/eval"
+	"github.com/panyam/mcpkit/core"
 )
 
 // simulatedAgent is a deterministic stand-in for a model, so the harness can
