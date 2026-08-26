@@ -44,7 +44,11 @@ The anchoring is load-bearing and was not, until the repository split. The exclu
 
 JSON-valued fields in this module's public types use `core.RawJSON` (wire-transparent, parse-once, typed Bind), never bare `json.RawMessage`. JSON-fragment fields (streamed argument pieces in Deltas) stay strings; the Accumulator's fold is the promotion boundary where fragments become a RawJSON value.
 
-**Verify:** `grep -n "json.RawMessage" *.go | grep -v _test | grep -v NewRawJSON` shows only conversion sites, no struct fields. **This currently fails, at two sites rather than the one first reported**: `AgentSourceConfig.InputSchema` (`agent_source.go:67`) and `AsyncAgentSourceConfig.InputSchema` (`async_agent_source.go:31`) are both public struct fields holding a whole JSON document, which is what A5 says should be `core.RawJSON`. Found when the path was corrected during a checkpoint, having been unrunnable since panyam/mcpkit#1290 moved the tree. Tracked in #35.
+**Verify:** `grep -n "json.RawMessage" *.go | grep -v _test | grep -v NewRawJSON` shows no field on an **exported** struct. Read the hits; four are expected and none is a violation. Three are conversion sites (`anthropic_provider.go:149`, `elicitation.go:67`, `stages.go:231`). The fourth, `anthropicContentBlock.Input` (`anthropic_provider.go:340`), is a field but its struct is unexported: it is an internal DTO for Anthropic's wire format, and A5 governs the public surface.
+
+The recipe is deliberately root-only. A `host` config struct read from a user's JSON file stays `json.RawMessage` and is wrapped at the seam that hands it to this module (`host/subagents.go` does this for both `InputSchema` and `ResponseSchema`), so a hit in `host/` would be the pattern working rather than a violation.
+
+This failed at two sites until #35: `AgentSourceConfig.InputSchema` and `AsyncAgentSourceConfig.InputSchema` both held a whole JSON schema document as `json.RawMessage`, while `ResponseSchema` on the same structs was already `core.RawJSON`. Found by correcting the recipe's path during a checkpoint, having been unrunnable since panyam/mcpkit#1290 moved the tree.
 
 ## A6: Mechanisms in the client, policy in the agent
 

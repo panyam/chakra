@@ -64,7 +64,7 @@ type AgentSourceConfig struct {
 	// parent model must pass; the child reads it as its instruction). Nil keeps
 	// the {task: string} shape. Structured OUTPUT is orthogonal: build the child
 	// Runner with a ResponseSchema and Call returns its coerced JSON.
-	InputSchema json.RawMessage
+	InputSchema core.RawJSON
 }
 
 // SubAgentEvent is the envelope that carries a sub-agent's event to the
@@ -97,8 +97,8 @@ func NewAgentSource(cfg AgentSourceConfig) (*AgentSource, error) {
 	if cfg.Runner == nil {
 		return nil, fmt.Errorf("agent: AgentSource %q requires a Runner", cfg.Name)
 	}
-	schemaJSON := cfg.InputSchema
-	if schemaJSON == nil {
+	schemaJSON := cfg.InputSchema.Raw()
+	if len(schemaJSON) == 0 {
 		schemaJSON = core.GenerateSchema[agentTaskArgs]()
 	}
 	var schema any
@@ -149,7 +149,7 @@ func (s *AgentSource) Call(ctx context.Context, name string, args map[string]any
 	// seed is the child's user turn: the raw typed arguments when InputSchema is
 	// set (a typed subtask), else the required {task} string.
 	seed := string(raw)
-	if s.cfg.InputSchema == nil {
+	if s.cfg.InputSchema.Len() == 0 {
 		var in agentTaskArgs
 		if err := json.Unmarshal(raw, &in); err != nil || strings.TrimSpace(in.Task) == "" {
 			return errorToolResult(fmt.Sprintf("sub-agent %q requires a non-empty 'task'", s.cfg.Name)), nil
