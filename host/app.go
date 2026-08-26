@@ -11,8 +11,8 @@ import (
 	"strings"
 	"sync"
 
-	gocurrent "github.com/panyam/gocurrent"
 	"github.com/panyam/chakra"
+	gocurrent "github.com/panyam/gocurrent"
 	"github.com/panyam/mcpkit/client"
 	"github.com/panyam/mcpkit/core"
 )

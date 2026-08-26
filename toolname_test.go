@@ -13,10 +13,10 @@ var validProviderToolName = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,64}$`)
 func TestSanitizeToolName(t *testing.T) {
 	cases := map[string]string{
 		"read_file":       "read_file",       // already valid → identity
-		"list-runs":       "list-runs",        // hyphen is allowed → identity
-		"weather.current": "weather_current",  // dot → _
-		"a/b:c d":         "a_b_c_d",           // a run of invalid chars → a single _
-		"":                "tool",              // empty → placeholder
+		"list-runs":       "list-runs",       // hyphen is allowed → identity
+		"weather.current": "weather_current", // dot → _
+		"a/b:c d":         "a_b_c_d",         // a run of invalid chars → a single _
+		"":                "tool",            // empty → placeholder
 	}
 	for in, want := range cases {
 		if got := sanitizeToolName(in); got != want {
@@ -31,9 +31,9 @@ func TestSanitizeToolName(t *testing.T) {
 
 func TestToolNameMaps_RoundTripAndCollisions(t *testing.T) {
 	tools := []core.ToolDef{
-		{Name: "read_file"},        // valid
-		{Name: "weather.current"},  // → weather_current
-		{Name: "weather/current"},  // also → weather_current → must disambiguate
+		{Name: "read_file"},       // valid
+		{Name: "weather.current"}, // → weather_current
+		{Name: "weather/current"}, // also → weather_current → must disambiguate
 	}
 	realToSafe, safeToReal := toolNameMaps(tools)
 

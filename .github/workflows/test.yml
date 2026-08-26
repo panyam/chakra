@@ -39,6 +39,12 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # Lives here rather than in `gates` because it needs the Go toolchain
+      # that job deliberately does without. First step, so a formatting failure
+      # reports before the suite spends five minutes getting to the same place.
+      - name: Formatting
+        run: make check-fmt
+
       - name: Vet
         run: make vet
 

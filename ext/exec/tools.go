@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/panyam/mcpkit/core"
 	"github.com/panyam/chakra"
+	"github.com/panyam/mcpkit/core"
 )
 
 // Source serves one tool per allowlisted command over agent.ToolSource.

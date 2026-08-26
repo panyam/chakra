@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	gocurrent "github.com/panyam/gocurrent"
 	"github.com/panyam/chakra"
+	gocurrent "github.com/panyam/gocurrent"
 	"github.com/panyam/mcpkit/client"
 	eventsclient "github.com/panyam/mcpkit/experimental/ext/events/clients/go"
 )

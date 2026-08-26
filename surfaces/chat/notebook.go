@@ -249,10 +249,10 @@ type notebookModel struct {
 	cells []nbCell
 	live  string // the in-flight turn, always shown expanded at the bottom
 
-	keys    appKeys
-	help    help.Model
-	modalHost // an open interactive dialog (/mcp, /sessions) as the focused layer
-	showAll bool // ? toggled the full-help view
+	keys      appKeys
+	help      help.Model
+	modalHost      // an open interactive dialog (/mcp, /sessions) as the focused layer
+	showAll   bool // ? toggled the full-help view
 
 	nav           bool // false = insert, true = nav
 	raw           bool // ctrl+o: show cells as raw markdown, not glamour-rendered (1083)

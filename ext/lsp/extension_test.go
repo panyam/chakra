@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/panyam/mcpkit/core"
 	"github.com/panyam/chakra"
+	"github.com/panyam/mcpkit/core"
 )
 
 // pathArg is the WriteSpec reader for a tool that names its target in "path",
