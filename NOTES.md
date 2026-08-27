@@ -267,8 +267,29 @@ temp-then-rename, injective ref→filename escaping — and is the natural no-se
 local coding agent, where blobs are files the agent can read directly. The gorm backend supports
 bring-your-own-table via `WithToolResultTableName`, resolved through `db.Table`.
 
-`read_tool_result` takes `{ref, offset?, limit?, pattern?}`: a char window or a regex grep *into*
-the blob. Query, don't page. Text-only today.
+`read_tool_result` takes `{ref, offset?, limit?, pattern?, context?}`: a char window or a regex grep
+*into* the blob. Query, don't page. Text-only today.
+
+**`context` is two-sided, and that is not symmetry for its own sake** (#41). Grep returns lines that
+match, and the line a caller can name is often not the line carrying the information. `go test -v`
+prints the assertion *above* the `--- FAIL` marker; plain `go test` prints it *below*. A caller
+grepping the marker needs the opposite side in the two cases and has no way to tell which it is
+looking at, so one knob that always reaches the detail beats two that need knowledge the caller does
+not have. Both shapes are pinned by real captured transcripts in `testdata/`.
+
+Grep is also **bounded** now (`DefaultGrepMaxLines`, overridable by `limit`) and says what it cut.
+It used to return every match however many there were, which for a loose pattern over a big
+transcript re-inlines the payload offloading just removed. Context makes that worse by `2N+1`, so
+the bound stopped being optional at the same moment the field was added.
+
+**The cap has to be downstream, and in `ext/exec` it is not** (#41, measured). The paragraph below
+about not reinventing truncation is exactly what `ext/exec`'s `capBuffer` does: it keeps 32 KiB
+head+tail and drops the middle *inside* `Source.Call`, so `OffloadingSource` — which only ever sees
+the returned `ToolResult` — never gets the dropped bytes and cannot serve them. Fed a real 42 KB
+`go test ./... -v` transcript with one failure, what survives is the trailing summary word `FAIL`
+while both the assertion and the `--- FAIL: TestX` line are gone: the model is told something broke
+and given nothing to act on. Raising `exec.Config.MaxOutput` so the full transcript reaches the store
+is what makes grep reachable at all. Ordering beats tuning here.
 
 Deferred: binary offloading (#979), and streaming/handle-based results for hundreds of MB via
 MCP resource links plus a ranged store (#980 — `Put` is not the bottleneck, upstream

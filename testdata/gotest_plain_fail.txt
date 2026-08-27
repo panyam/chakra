@@ -1,0 +1,4 @@
+--- FAIL: TestMemorySource_RememberRecallForget (0.00s)
+    memory_test.go:101: recall returned "alpha", want "beta"
+2026/08/26 15:28:45 Starting MCP-GET-SSE SSE connection: 643d7f9b8207acc517977ee5447e50fd
+2026/08/26 15:28:45 SSEHub: registered connection 643d7f9b8207acc517977ee5447e50fd (total: 1)

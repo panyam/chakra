@@ -2,6 +2,9 @@ package agent
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -203,4 +206,129 @@ func extractRef(t *testing.T, stub string) string {
 
 func isHexish(b byte) bool {
 	return (b >= '0' && b <= '9') || (b >= 'a' && b <= 'f')
+}
+
+// The two fixtures under testdata/ are real captured `go test` output from
+// this module, one run with -v and one without, each carrying a single
+// genuine failure. They exist because the position of a failure's detail
+// relative to the line a caller can grep for is not a design choice we
+// made, it is what the tool emits, and it differs between the two modes.
+const (
+	verboseFixture = "testdata/gotest_verbose_fail.txt"
+	plainFixture   = "testdata/gotest_plain_fail.txt"
+)
+
+// TestReadToolResult_GrepContextRecoversFailureDetail is the regression for
+// chakra#41. Grepping "--- FAIL" finds which test failed and never why: in
+// -v output the assertion is printed ABOVE that marker, and without -v it is
+// printed BELOW. Context has to reach both, which is why it is two-sided.
+func TestReadToolResult_GrepContextRecoversFailureDetail(t *testing.T) {
+	cases := []struct {
+		name    string
+		fixture string
+		detail  string // the assertion text, on a line the pattern cannot match
+		side    string
+	}{
+		{"verbose, detail above the marker", verboseFixture, `filter let "secret_tool" through`, "above"},
+		{"plain, detail below the marker", plainFixture, `recall returned "alpha", want "beta"`, "below"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			raw, err := os.ReadFile(tc.fixture)
+			if err != nil {
+				t.Fatal(err)
+			}
+			o, _ := newOffloader(t, textResult(string(raw)), OffloadConfig{Threshold: 1})
+			ref := extractRef(t, toolResultText(callDump(t, o)))
+
+			grep := func(ctxLines int) string {
+				args := map[string]any{"ref": ref, "pattern": "--- FAIL"}
+				if ctxLines > 0 {
+					args["context"] = float64(ctxLines)
+				}
+				res, err := o.Call(context.Background(), ReadToolResultName, args)
+				if err != nil {
+					t.Fatalf("read: %v", err)
+				}
+				return toolResultText(res)
+			}
+
+			// Without context the caller learns the test name and nothing
+			// actionable. This half is the bug, and it must keep failing
+			// if someone "helpfully" makes context default to non-zero.
+			bare := grep(0)
+			if !strings.Contains(bare, "--- FAIL") {
+				t.Fatalf("grep did not even find the marker: %q", bare)
+			}
+			if strings.Contains(bare, tc.detail) {
+				t.Fatalf("context=0 should not reach the detail %s the marker, got %q", tc.side, bare)
+			}
+
+			// With context it reaches the assertion, whichever side it is on.
+			withCtx := grep(2)
+			if !strings.Contains(withCtx, tc.detail) {
+				t.Fatalf("context=2 should have reached the detail %s the marker, got %q", tc.side, withCtx)
+			}
+		})
+	}
+}
+
+func TestGrepLines_MergesOverlappingAndSeparatesDistantBlocks(t *testing.T) {
+	lines := []string{
+		"0 hit", "1", "2 hit", // two hits close enough that ctx=1 overlaps
+		"3", "4", "5", "6", "7", "8", "9",
+		"10 hit", // far away: its own block
+	}
+	got := grepLines(lines, regexp.MustCompile("hit"), 1, 0, "res:x", "hit")
+
+	// The first two hits merge into one contiguous run, so no separator
+	// appears between them and line 1 is not emitted twice.
+	if strings.Count(got, "1\n") != 1 {
+		t.Fatalf("overlapping windows should merge, not repeat lines: %q", got)
+	}
+	if n := strings.Count(got, "\n--\n"); n != 1 {
+		t.Fatalf("want exactly one separator between the two distant blocks, got %d: %q", n, got)
+	}
+	// The gap itself must not be included.
+	if strings.Contains(got, "5") || strings.Contains(got, "7") {
+		t.Fatalf("lines outside every context window leaked in: %q", got)
+	}
+}
+
+func TestGrepLines_BoundedByLimit(t *testing.T) {
+	var lines []string
+	for i := range 500 {
+		lines = append(lines, fmt.Sprintf("line %d hit", i))
+	}
+	got := grepLines(lines, regexp.MustCompile("hit"), 0, 10, "res:x", "hit")
+
+	body, _, _ := strings.Cut(got, "… ")
+	if n := len(strings.Split(strings.TrimSpace(body), "\n")); n > 10 {
+		t.Fatalf("limit=10 returned %d lines: %q", n, body)
+	}
+	if !strings.Contains(got, "not shown") {
+		t.Fatalf("truncation must be stated, got %q", got)
+	}
+
+	// The default bound applies when the caller sets no limit, so a loose
+	// pattern cannot re-inline the whole payload offloading just removed.
+	unbounded := grepLines(lines, regexp.MustCompile("hit"), 0, 0, "res:x", "hit")
+	if n := strings.Count(unbounded, "\n"); n > DefaultGrepMaxLines+1 {
+		t.Fatalf("unbounded grep returned %d lines, want <= %d", n, DefaultGrepMaxLines)
+	}
+}
+
+func TestGrepLines_ContextClampsAtEdges(t *testing.T) {
+	lines := []string{"first hit", "middle", "last hit"}
+	got := grepLines(lines, regexp.MustCompile("hit"), 50, 0, "res:x", "hit")
+	if !strings.Contains(got, "first hit") || !strings.Contains(got, "last hit") {
+		t.Fatalf("context past both ends should clamp, not drop: %q", got)
+	}
+}
+
+func TestGrepLines_NoMatchIsGraceful(t *testing.T) {
+	got := grepLines([]string{"a", "b"}, regexp.MustCompile("zzz"), 3, 0, "res:x", "zzz")
+	if !strings.Contains(got, "no lines") {
+		t.Fatalf("want the graceful no-match answer, got %q", got)
+	}
 }
