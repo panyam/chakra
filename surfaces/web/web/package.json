@@ -16,7 +16,7 @@
     "@panyam/tsappkit": "^0.0.5",
     "@panyam/tsappkit-solid": "^0.0.1",
     "dockview-core": "^8.1.0",
-    "solid-js": "^1.9.7"
+    "solid-js": "^1.9.17"
   },
   "devDependencies": {
     "@bufbuild/protoc-gen-es": "^2.14.0",
