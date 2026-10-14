@@ -84,6 +84,10 @@ integrated with a dedicated engine.
   changes the wording. This is why `ext/exec` emits one tool per allowlisted command.
 - **Tools are re-listed every step**, not once per turn, and `RunnerConfig.Selector` narrows the
   offered set per step. A context-varying tool set is already supported, and needs nothing new.
+- **An exec command's `argv[0]` resolves from the launching process, not the workspace root.**
+  `exec` looks it up on PATH at construction, so `scripts/foo.sh` only works if agentchat was
+  started in the repo. Write `["sh", "scripts/foo.sh"]`: `sh` is on PATH, and the script path
+  is an argument resolved against the command's `Dir` (the first root).
 - **A sandbox profile is only checked by a tagged live test.** `ext/exec`'s golden test covers
   profile generation and runs anywhere. CI is Linux and the backend is darwin-only, so **nothing in
   CI exercises a real sandbox**. Run `go test -tags exec_live ./...` in that module before believing
