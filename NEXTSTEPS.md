@@ -16,7 +16,7 @@ Maintained by /checkpoint: one thread per branch, pruned when the branch merges.
 
 ## chore/chakra-main-layout
 
-- **Last touched**: 2026-10-14 11:39 (Sris-MacBook:~/newstack/chakra/main)
+- **Last touched**: 2026-10-14 11:39 (Mac:~/newstack/chakra/main)
 - **Ticket**: no issue; PR #62
 - **Why**: the repo moved from `~/newstack/chakra` to `~/newstack/chakra/main` to mirror mcpkit's layout. Replaces and CI paths gain one `../`.
 - **Where it stopped**: rebased onto main after #60. The three surfaces go.mod conflicts were resolved by taking main and deepening the mcpkit replace. All replace paths resolve, `make vet` is clean, and the surfaces tests pass. Also carries the checkpoint (NOTES.md, CLAUDE.md, NEXTSTEPS.md).
