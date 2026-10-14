@@ -57,6 +57,12 @@ integrated with a dedicated engine.
 
 ## Traps
 
+- **Checkout layout is load-bearing.** Every `go.mod` replaces mcpkit with a relative path to
+  `~/newstack/mcpkit/main`, written for a checkout at `~/newstack/chakra/<branch>` (this one is
+  `chakra/main`). A worktree has to sit at the same depth, e.g. `git worktree add
+  ~/newstack/chakra/feat-x`, or nothing resolves. CI recreates the layout by checking out
+  `chakra/main` and `mcpkit/main` side by side. The replace is invisible to importers, so tag
+  mcpkit and repoint the requires before tagging chakra.
 - **Background goroutines use `core.DetachForBackground(ctx)`, never `context.WithoutCancel`.**
   Anything that outlives a turn *and* calls MCP server tools needs the session-level persistent
   push. Applies to async sub-agents, the agent pool, and task dispatch.

@@ -41,4 +41,4 @@ require (
 	google.golang.org/protobuf v1.36.12 // indirect
 )
 
-replace github.com/panyam/mcpkit => ../../../mcpkit/main
+replace github.com/panyam/mcpkit => ../../../../mcpkit/main
