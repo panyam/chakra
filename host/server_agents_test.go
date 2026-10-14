@@ -23,10 +23,10 @@ func (f *fakeBacking) Call(ctx context.Context, name string, args map[string]any
 	return &core.ToolResult{Content: []core.Content{{Type: "text", Text: "server:" + name}}}, nil
 }
 
-func rosterFixture() []agents.AgentSummary {
-	return []agents.AgentSummary{
-		{AgentID: "research", Description: "a researcher", Capabilities: []string{"search"}, ExampleTasks: []string{"look things up"}},
-		{AgentID: "writer", Description: "a writer"},
+func rosterFixture() []agents.AgentCard {
+	return []agents.AgentCard{
+		{Name: "research", Description: "a researcher", Capabilities: []string{"search"}},
+		{Name: "writer", Description: "a writer"},
 	}
 }
 
@@ -36,10 +36,10 @@ func rosterFixture() []agents.AgentSummary {
 // fail if discovery eager-resolved the roster.
 func TestServerAgentSource_LazyResolution(t *testing.T) {
 	var gets int32
-	get := func(ctx context.Context, id string) (agents.AgentDetail, error) {
+	get := func(ctx context.Context, id string) (agents.GetAgentResult, error) {
 		atomic.AddInt32(&gets, 1)
-		return agents.AgentDetail{
-			AgentSummary: agents.AgentSummary{AgentID: id},
+		return agents.GetAgentResult{
+			Agent:        id,
 			Instructions: "you are " + id,
 			Tools:        []core.ToolDef{{Name: "search", InputSchema: map[string]any{"type": "object"}}},
 		}, nil
@@ -78,9 +78,9 @@ func TestServerAgentSource_LazyResolution(t *testing.T) {
 // tool call loops back through the backing (the advertising server).
 func TestServerAgentSource_DelegatesToServer(t *testing.T) {
 	backing := &fakeBacking{}
-	get := func(ctx context.Context, id string) (agents.AgentDetail, error) {
-		return agents.AgentDetail{
-			AgentSummary: agents.AgentSummary{AgentID: id},
+	get := func(ctx context.Context, id string) (agents.GetAgentResult, error) {
+		return agents.GetAgentResult{
+			Agent:        id,
 			Instructions: "you are " + id,
 			Tools:        []core.ToolDef{{Name: "search", InputSchema: map[string]any{"type": "object"}}},
 		}, nil
@@ -111,9 +111,11 @@ func TestServerAgentSource_DelegatesToServer(t *testing.T) {
 func TestServerAgentSource_UnknownDelegate(t *testing.T) {
 	src := newServerAgentSource(serverAgentDeps{
 		summaries: rosterFixture(),
-		get:       func(ctx context.Context, id string) (agents.AgentDetail, error) { return agents.AgentDetail{}, nil },
-		backing:   &fakeBacking{},
-		provider:  agent.NewStubProvider(),
+		get: func(ctx context.Context, id string) (agents.GetAgentResult, error) {
+			return agents.GetAgentResult{}, nil
+		},
+		backing:  &fakeBacking{},
+		provider: agent.NewStubProvider(),
 	})
 	if _, err := src.Call(context.Background(), "nope", map[string]any{"task": "x"}); err == nil {
 		t.Fatal("expected ErrUnknownTool for an unknown delegate name")
@@ -134,10 +136,10 @@ func agentsIntegrationServer(t *testing.T) *httptest.Server {
 		},
 	)
 	_, err := agents.Register(agents.Config{Server: srv, Agents: []agents.AgentDef{{
-		AgentID:      "workflow-agent",
+		Name:         "workflow-agent",
 		Description:  "operates CI/CD pipelines",
 		Instructions: "You operate CI/CD pipelines. Use list_pipelines then answer.",
-		Tools:        []core.ToolDef{{Name: "list_pipelines", Description: "List pipelines", InputSchema: map[string]any{"type": "object"}}},
+		Tools:        []string{"list_pipelines"},
 	}}})
 	if err != nil {
 		t.Fatalf("agents.Register: %v", err)
@@ -223,9 +225,9 @@ func (p *hostRecTP) StartSpan(ctx context.Context, name string, attrs ...core.At
 // second delegation does not emit another (only the resolving call is spanned).
 func TestServerAgentSource_ResolveSpan(t *testing.T) {
 	tp := &hostRecTP{}
-	get := func(ctx context.Context, id string) (agents.AgentDetail, error) {
-		return agents.AgentDetail{
-			AgentSummary: agents.AgentSummary{AgentID: id},
+	get := func(ctx context.Context, id string) (agents.GetAgentResult, error) {
+		return agents.GetAgentResult{
+			Agent:        id,
 			Instructions: "you are " + id,
 			Tools:        []core.ToolDef{{Name: "search", InputSchema: map[string]any{"type": "object"}}},
 		}, nil

@@ -10,13 +10,23 @@ import (
 	skills "github.com/panyam/mcpkit/ext/skills"
 )
 
-func TestResolveSkillsMode(t *testing.T) {
-	small := skills.NewIndex(skills.IndexEntry{Type: skills.SkillTypeSkillMD, Name: "a"})
-	var entries []skills.IndexEntry
-	for i := 0; i < defaultCatalogThreshold; i++ {
-		entries = append(entries, skills.IndexEntry{Type: skills.SkillTypeSkillMD, Name: fmt.Sprintf("s%d", i)})
+// skillEntry builds a skills/list entry with the frontmatter fields the host
+// reads. An optional description fills frontmatter.description.
+func skillEntry(name, uri string, desc ...string) skills.SkillEntry {
+	fm := map[string]any{"name": name}
+	if len(desc) > 0 {
+		fm["description"] = desc[0]
 	}
-	big := skills.NewIndex(entries...)
+	return skills.SkillEntry{URI: uri, Frontmatter: fm}
+}
+
+func TestResolveSkillsMode(t *testing.T) {
+	small := []skills.SkillEntry{skillEntry("a", "")}
+	var entries []skills.SkillEntry
+	for i := 0; i < defaultCatalogThreshold; i++ {
+		entries = append(entries, skillEntry(fmt.Sprintf("s%d", i), ""))
+	}
+	big := entries
 
 	if resolveSkillsMode("", small) != "eager" {
 		t.Fatal("auto below threshold should be eager")
@@ -33,16 +43,16 @@ func TestResolveSkillsMode(t *testing.T) {
 }
 
 func TestFilterSkillsAllow(t *testing.T) {
-	idx := skills.NewIndex(
-		skills.IndexEntry{Type: skills.SkillTypeSkillMD, Name: "alpha"},
-		skills.IndexEntry{Type: skills.SkillTypeSkillMD, Name: "beta"},
-		skills.IndexEntry{Type: skills.SkillTypeSkillMD, Name: "gamma"},
-	)
+	idx := []skills.SkillEntry{
+		skillEntry("alpha", ""),
+		skillEntry("beta", ""),
+		skillEntry("gamma", ""),
+	}
 
-	names := func(i skills.Index) []string {
+	names := func(es []skills.SkillEntry) []string {
 		var out []string
-		for _, e := range i.Skills {
-			out = append(out, e.Name)
+		for _, e := range es {
+			out = append(out, e.Name())
 		}
 		return out
 	}
@@ -78,12 +88,7 @@ func TestFilterSkillsAllow(t *testing.T) {
 
 	// allow that matches nothing yields an empty skill set
 	if got := names(filterSkillsAllow(idx, []string{"nope"})); len(got) != 0 {
-		t.Fatalf("no matches should yield empty index, got %v", got)
-	}
-
-	// the schema URI survives the rebuild
-	if filterSkillsAllow(idx, []string{"alpha"}).Schema != idx.Schema {
-		t.Fatal("filtered index should keep the index schema URI")
+		t.Fatalf("no matches should yield an empty listing, got %v", got)
 	}
 }
 
@@ -123,13 +128,13 @@ func TestAllCatalogSkills(t *testing.T) {
 	a := &App{skills: &skillSet{
 		blocks: map[string]string{},
 		catalog: map[string][]catalogSkill{
-			"s1": {{serverID: "s1", entry: skills.IndexEntry{Name: "a"}}},
-			"s2": {{serverID: "s2", entry: skills.IndexEntry{Name: "b"}}},
+			"s1": {{serverID: "s1", entry: skillEntry("a", "")}},
+			"s2": {{serverID: "s2", entry: skillEntry("b", "")}},
 		},
 		order: []string{"s1", "s2"},
 	}}
 	got := a.allCatalogSkills()
-	if len(got) != 2 || got[0].entry.Name != "a" || got[1].entry.Name != "b" {
+	if len(got) != 2 || got[0].entry.Name() != "a" || got[1].entry.Name() != "b" {
 		t.Fatalf("flatten order wrong: %+v", got)
 	}
 }
@@ -137,7 +142,7 @@ func TestAllCatalogSkills(t *testing.T) {
 func TestRegisterLoadSkill(t *testing.T) {
 	app := &App{skills: &skillSet{
 		blocks:  map[string]string{},
-		catalog: map[string][]catalogSkill{"s": {{serverID: "s", entry: skills.IndexEntry{Name: "alpha", URL: "skill://a/SKILL.md"}}}},
+		catalog: map[string][]catalogSkill{"s": {{serverID: "s", entry: skillEntry("alpha", "skill://a/SKILL.md")}}},
 		order:   []string{"s"},
 	}}
 	multi := agent.NewMultiSource()
@@ -195,7 +200,7 @@ func TestOriginHeaderAndWrap(t *testing.T) {
 }
 
 func TestOriginHeaderWrapsInjectedBlocks(t *testing.T) {
-	idx := skills.NewIndex(skills.IndexEntry{Type: skills.SkillTypeSkillMD, Name: "deploy", Description: "ship it"})
+	idx := []skills.SkillEntry{skillEntry("deploy", "", "ship it")}
 	block := withOriginHeader("prod", skills.CatalogBlock(idx))
 	if !strings.HasPrefix(block, originHeader("prod")) {
 		t.Fatalf("catalog block must be origin-headed: %q", block)
@@ -207,9 +212,9 @@ func TestOriginHeaderWrapsInjectedBlocks(t *testing.T) {
 
 func TestResolveCatalogSkill(t *testing.T) {
 	cat := []catalogSkill{
-		{serverID: "a", entry: skills.IndexEntry{Name: "deploy", URL: "skill://a/deploy"}},
-		{serverID: "b", entry: skills.IndexEntry{Name: "deploy", URL: "skill://b/deploy"}},
-		{serverID: "a", entry: skills.IndexEntry{Name: "lint", URL: "skill://a/lint"}},
+		{serverID: "a", entry: skillEntry("deploy", "skill://a/deploy")},
+		{serverID: "b", entry: skillEntry("deploy", "skill://b/deploy")},
+		{serverID: "a", entry: skillEntry("lint", "skill://a/lint")},
 	}
 
 	// unique name → single match, no collisions
@@ -238,8 +243,8 @@ func TestResolveCatalogSkill(t *testing.T) {
 	}
 	// same name twice from one origin → that origin reported (point model at URL)
 	dup := []catalogSkill{
-		{serverID: "a", entry: skills.IndexEntry{Name: "x", URL: "skill://a/x1"}},
-		{serverID: "a", entry: skills.IndexEntry{Name: "x", URL: "skill://a/x2"}},
+		{serverID: "a", entry: skillEntry("x", "skill://a/x1")},
+		{serverID: "a", entry: skillEntry("x", "skill://a/x2")},
 	}
 	if m, c := resolveCatalogSkill(dup, "x", ""); m != nil || len(c) != 1 || c[0] != "a" {
 		t.Fatalf("intra-origin dup: got %+v, %v", m, c)
@@ -252,8 +257,8 @@ func TestLoadSkillCollisionNoSilentShadow(t *testing.T) {
 	app := &App{skills: &skillSet{
 		blocks: map[string]string{},
 		catalog: map[string][]catalogSkill{
-			"alpha": {{serverID: "alpha", entry: skills.IndexEntry{Name: "deploy", URL: "skill://alpha/deploy"}}},
-			"beta":  {{serverID: "beta", entry: skills.IndexEntry{Name: "deploy", URL: "skill://beta/deploy"}}},
+			"alpha": {{serverID: "alpha", entry: skillEntry("deploy", "skill://alpha/deploy")}},
+			"beta":  {{serverID: "beta", entry: skillEntry("deploy", "skill://beta/deploy")}},
 		},
 		order: []string{"alpha", "beta"},
 	}}
@@ -273,15 +278,15 @@ func TestLoadSkillCollisionNoSilentShadow(t *testing.T) {
 
 func TestDetectSkillCollisionsLocked(t *testing.T) {
 	a := &App{skills: &skillSet{catalog: map[string][]catalogSkill{
-		"a": {{serverID: "a", entry: skills.IndexEntry{Name: "deploy"}}, {serverID: "a", entry: skills.IndexEntry{Name: "lint"}}},
-		"b": {{serverID: "b", entry: skills.IndexEntry{Name: "deploy"}}},
+		"a": {{serverID: "a", entry: skillEntry("deploy", "")}, {serverID: "a", entry: skillEntry("lint", "")}},
+		"b": {{serverID: "b", entry: skillEntry("deploy", "")}},
 	}}}
 	got := a.skills.collisionsLocked("b")
 	if len(got) != 1 || !strings.Contains(got[0], `"deploy"`) || !strings.Contains(got[0], "a") {
 		t.Fatalf("expected a deploy collision with server a: %v", got)
 	}
 	// a server whose names are all unique reports nothing
-	a.skills.catalog["c"] = []catalogSkill{{serverID: "c", entry: skills.IndexEntry{Name: "unique"}}}
+	a.skills.catalog["c"] = []catalogSkill{{serverID: "c", entry: skillEntry("unique", "")}}
 	if got := a.skills.collisionsLocked("c"); got != nil {
 		t.Fatalf("no collision expected: %v", got)
 	}

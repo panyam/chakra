@@ -96,7 +96,7 @@ func (s *skillSet) collisionsLocked(newID string) []string {
 	var out []string
 	seenName := map[string]struct{}{}
 	for _, cs := range s.catalog[newID] {
-		name := cs.entry.Name
+		name := cs.entry.Name()
 		if name == "" {
 			continue
 		}
@@ -110,7 +110,7 @@ func (s *skillSet) collisionsLocked(newID string) []string {
 				continue
 			}
 			for _, e := range entries {
-				if e.entry.Name == name {
+				if e.entry.Name() == name {
 					others = append(others, id)
 					break
 				}
