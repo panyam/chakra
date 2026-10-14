@@ -18,6 +18,17 @@ commit messages and docs below 1330 or so refer to `panyam/mcpkit`.
 | Roadmap and phase status | `docs/AGENT_SDK_ROADMAP.md` |
 | How to use the host / the CLI | `host/README.md`, `surfaces/chat/README.md` |
 
+## Issues and missions
+
+Work is ranked by the mission it serves, not by how recently it was filed. The active mission is
+#57 (`mission_dogfood_coding`): use agentchat to make a real, tested change in a real repo. Its
+exercise is `make dogfood` (landing with #58). Run it after each merge on the mission and log the
+result on #57.
+
+A new issue gets one of `P0`–`P3` (P1 is capped at 5 per mission), plus either a `mission_<slug>`
+label with a blocked-by link from the mission, or `waiting` with its trigger named in the body.
+Trackers are `epic`. `~/.claude/skills/retriage/queue.sh` computes the order.
+
 ## The invariants that cause wrong edits when missed
 
 Full text in `CONSTRAINTS.md`. These four are the ones that get violated by accident:
