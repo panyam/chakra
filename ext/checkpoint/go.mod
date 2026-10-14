@@ -50,16 +50,16 @@ require (
 
 replace github.com/panyam/chakra/host => ../../host
 
-replace github.com/panyam/mcpkit => ../../../mcpkit/main
+replace github.com/panyam/mcpkit => ../../../../mcpkit/main
 
-replace github.com/panyam/mcpkit/experimental/ext/agents => ../../../mcpkit/main/experimental/ext/agents
+replace github.com/panyam/mcpkit/experimental/ext/agents => ../../../../mcpkit/main/experimental/ext/agents
 
-replace github.com/panyam/mcpkit/experimental/ext/agents/clients/go => ../../../mcpkit/main/experimental/ext/agents/clients/go
+replace github.com/panyam/mcpkit/experimental/ext/agents/clients/go => ../../../../mcpkit/main/experimental/ext/agents/clients/go
 
-replace github.com/panyam/mcpkit/experimental/ext/events => ../../../mcpkit/main/experimental/ext/events
+replace github.com/panyam/mcpkit/experimental/ext/events => ../../../../mcpkit/main/experimental/ext/events
 
-replace github.com/panyam/mcpkit/experimental/ext/events/clients/go => ../../../mcpkit/main/experimental/ext/events/clients/go
+replace github.com/panyam/mcpkit/experimental/ext/events/clients/go => ../../../../mcpkit/main/experimental/ext/events/clients/go
 
-replace github.com/panyam/mcpkit/ext/auth => ../../../mcpkit/main/ext/auth
+replace github.com/panyam/mcpkit/ext/auth => ../../../../mcpkit/main/ext/auth
 
-replace github.com/panyam/mcpkit/ext/skills => ../../../mcpkit/main/ext/skills
+replace github.com/panyam/mcpkit/ext/skills => ../../../../mcpkit/main/ext/skills

@@ -34,14 +34,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: chakra
+        working-directory: chakra/main
     steps:
-      # Every module replaces mcpkit with ../mcpkit/main so local work tracks
-      # mcpkit's main branch. Lay the runner out the same way: chakra and
-      # mcpkit/main as siblings under the workspace.
+      # Every module replaces mcpkit with ../../mcpkit/main so local work
+      # tracks mcpkit's main branch. Lay the runner out the same way as a
+      # local checkout: chakra/main and mcpkit/main side by side.
       - uses: actions/checkout@v7
         with:
-          path: chakra
+          path: chakra/main
       - uses: actions/checkout@v7
         with:
           repository: panyam/mcpkit
@@ -50,8 +50,8 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          go-version-file: chakra/go.mod
-          cache-dependency-path: chakra/**/go.sum
+          go-version-file: chakra/main/go.mod
+          cache-dependency-path: chakra/main/**/go.sum
 
       # Lives here rather than in `gates` because it needs the Go toolchain
       # that job deliberately does without. First step, so a formatting failure
@@ -69,14 +69,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: chakra
+        working-directory: chakra/main
     steps:
-      # Every module replaces mcpkit with ../mcpkit/main so local work tracks
-      # mcpkit's main branch. Lay the runner out the same way: chakra and
-      # mcpkit/main as siblings under the workspace.
+      # Every module replaces mcpkit with ../../mcpkit/main so local work
+      # tracks mcpkit's main branch. Lay the runner out the same way as a
+      # local checkout: chakra/main and mcpkit/main side by side.
       - uses: actions/checkout@v7
         with:
-          path: chakra
+          path: chakra/main
       - uses: actions/checkout@v7
         with:
           repository: panyam/mcpkit
@@ -85,8 +85,8 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          go-version-file: chakra/go.mod
-          cache-dependency-path: chakra/**/go.sum
+          go-version-file: chakra/main/go.mod
+          cache-dependency-path: chakra/main/**/go.sum
 
       - name: Test every example
         run: make test-examples GOTESTFLAGS='-v -race -timeout 300s'

@@ -57,6 +57,12 @@ integrated with a dedicated engine.
 
 ## Traps
 
+- **Checkout layout is load-bearing.** Every `go.mod` replaces mcpkit with a relative path to
+  `~/newstack/mcpkit/main`, written for a checkout at `~/newstack/chakra/<branch>` (this one is
+  `chakra/main`). A worktree has to sit at the same depth, e.g. `git worktree add
+  ~/newstack/chakra/feat-x`, or nothing resolves. CI recreates the layout by checking out
+  `chakra/main` and `mcpkit/main` side by side. The replace is invisible to importers, so tag
+  mcpkit and repoint the requires before tagging chakra.
 - **Background goroutines use `core.DetachForBackground(ctx)`, never `context.WithoutCancel`.**
   Anything that outlives a turn *and* calls MCP server tools needs the session-level persistent
   push. Applies to async sub-agents, the agent pool, and task dispatch.
@@ -78,6 +84,10 @@ integrated with a dedicated engine.
   changes the wording. This is why `ext/exec` emits one tool per allowlisted command.
 - **Tools are re-listed every step**, not once per turn, and `RunnerConfig.Selector` narrows the
   offered set per step. A context-varying tool set is already supported, and needs nothing new.
+- **An exec command's `argv[0]` resolves from the launching process, not the workspace root.**
+  `exec` looks it up on PATH at construction, so `scripts/foo.sh` only works if agentchat was
+  started in the repo. Write `["sh", "scripts/foo.sh"]`: `sh` is on PATH, and the script path
+  is an argument resolved against the command's `Dir` (the first root).
 - **A sandbox profile is only checked by a tagged live test.** `ext/exec`'s golden test covers
   profile generation and runs anywhere. CI is Linux and the backend is darwin-only, so **nothing in
   CI exercises a real sandbox**. Run `go test -tags exec_live ./...` in that module before believing

@@ -29,4 +29,4 @@ require (
 
 replace github.com/panyam/chakra => ../..
 
-replace github.com/panyam/mcpkit => ../../../mcpkit/main
+replace github.com/panyam/mcpkit => ../../../../mcpkit/main

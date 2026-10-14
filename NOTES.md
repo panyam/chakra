@@ -1409,6 +1409,26 @@ that will actually stress it, and reshaping is free while the agent track is unr
 
 ---
 
+## Tracking mcpkit main (PR 56, PR 62)
+
+Every module `replace`s each mcpkit module it uses with a relative path into
+`~/newstack/mcpkit/main`, so chakra builds against mcpkit's working tree rather than a tag. The
+first consumer was the agents-wg#22 wire change, which landed in mcpkit the same day chakra
+needed it.
+
+- **Relative, not absolute.** `go.mod` expands neither `~` nor environment variables, so an
+  absolute path would name one home directory and break CI and every other clone. The relative
+  path holds for any checkout at `<dir>/chakra/<branch>` beside `<dir>/mcpkit/main`, which is why
+  the repo moved to the `chakra/<branch>` layout and CI recreates it.
+- **Not go.work.** A workspace file solves the same problem, but its `use` lines are paths too,
+  so each worktree needs its own copy. The replace costs less while the layout rule holds.
+- **Invisible to importers.** Go ignores `replace` outside the main module, so anyone importing
+  chakra gets the required tag, while chakra's code may already use newer API (the agents port
+  did). Tag mcpkit and repoint the requires before tagging chakra.
+- **Dependabot PRs against the old pins go stale fast.** PR 55 failed because it bumped modules
+  unevenly against v0.5.2: `check_dep_consistency` caught the split, and `otel/log` moved ahead
+  of the `otelslog` bridge. Re-tidying every module against mcpkit main superseded it.
+
 ## Testing
 
 - **Run agent tests with `-race`.** The concurrency-shaped tests (`signal_test.go`,
