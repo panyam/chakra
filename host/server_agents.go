@@ -89,8 +89,8 @@ func (a *App) registerServerAgents(multi *agent.MultiSource, provider agent.Prov
 
 // serverAgentDeps bundles what one server's lazy delegate source needs.
 type serverAgentDeps struct {
-	summaries []agents.AgentSummary
-	get       func(ctx context.Context, agentID string) (agents.AgentDetail, error)
+	summaries []agents.AgentCard
+	get       func(ctx context.Context, name string) (agents.GetAgentResult, error)
 	backing   agent.ToolSource
 	provider  agent.Provider
 	maxSteps  int
@@ -106,8 +106,8 @@ type serverAgentDeps struct {
 // half of the issue-1144 bridge; agent.NewServerAgentSource is the adapter.
 type serverAgentSource struct {
 	deps   serverAgentDeps
-	defs   []core.ToolDef                 // one delegate tool per agent
-	byTool map[string]agents.AgentSummary // delegate tool name -> summary
+	defs   []core.ToolDef              // one delegate tool per agent
+	byTool map[string]agents.AgentCard // delegate tool name -> card
 
 	mu    sync.Mutex
 	built map[string]*agent.AgentSource // agentID -> resolved child (cache)
@@ -119,15 +119,13 @@ func newServerAgentSource(deps serverAgentDeps) *serverAgentSource {
 	}
 	s := &serverAgentSource{
 		deps:   deps,
-		byTool: make(map[string]agents.AgentSummary, len(deps.summaries)),
+		byTool: make(map[string]agents.AgentCard, len(deps.summaries)),
 		built:  make(map[string]*agent.AgentSource, len(deps.summaries)),
 	}
 	for _, sum := range deps.summaries {
-		// AgentID (unique within a server, per the extension) is the delegate
-		// tool name, so names never collide within this source. DelegateTool is
-		// the WG's server-side-execution entry point and stays advisory here —
-		// this is the local-build path.
-		name := sum.AgentID
+		// Name (unique within a server, per the extension) is the delegate tool
+		// name, so names never collide within this source.
+		name := sum.Name
 		if _, dup := s.byTool[name]; dup {
 			continue
 		}
@@ -138,9 +136,9 @@ func newServerAgentSource(deps serverAgentDeps) *serverAgentSource {
 }
 
 // describeAgent folds a roster entry's routing fields (description + capability
-// labels + example tasks) into the delegate tool's description, so the
+// labels) into the delegate tool's description, so the
 // supervisor model can route without the agent's tool schemas.
-func describeAgent(sum agents.AgentSummary) string {
+func describeAgent(sum agents.AgentCard) string {
 	var b strings.Builder
 	b.WriteString(sum.Description)
 	if len(sum.Capabilities) > 0 {
@@ -148,12 +146,6 @@ func describeAgent(sum agents.AgentSummary) string {
 			b.WriteString(" ")
 		}
 		b.WriteString("Capabilities: " + strings.Join(sum.Capabilities, ", ") + ".")
-	}
-	if len(sum.ExampleTasks) > 0 {
-		if b.Len() > 0 {
-			b.WriteString(" ")
-		}
-		b.WriteString("Example tasks: " + strings.Join(sum.ExampleTasks, "; ") + ".")
 	}
 	return b.String()
 }
@@ -181,7 +173,7 @@ func (s *serverAgentSource) Call(ctx context.Context, name string, args map[stri
 	if err != nil {
 		return &core.ToolResult{
 			IsError: true,
-			Content: []core.Content{{Type: "text", Text: fmt.Sprintf("could not resolve agent %q: %v", summary.AgentID, err)}},
+			Content: []core.Content{{Type: "text", Text: fmt.Sprintf("could not resolve agent %q: %v", summary.Name, err)}},
 		}, nil
 	}
 	return child.Call(ctx, name, args)
@@ -192,8 +184,8 @@ func (s *serverAgentSource) Call(ctx context.Context, name string, args map[stri
 // so concurrent delegations to different agents don't serialize on the network;
 // a lost race (two calls resolving the same agent) rebuilds harmlessly and the
 // first stored wins.
-func (s *serverAgentSource) resolve(ctx context.Context, summary agents.AgentSummary) (*agent.AgentSource, error) {
-	id := summary.AgentID
+func (s *serverAgentSource) resolve(ctx context.Context, summary agents.AgentCard) (*agent.AgentSource, error) {
+	id := summary.Name
 	s.mu.Lock()
 	if a, ok := s.built[id]; ok {
 		s.mu.Unlock()
@@ -214,7 +206,7 @@ func (s *serverAgentSource) resolve(ctx context.Context, summary agents.AgentSum
 		return nil, err
 	}
 	child, err := agent.NewServerAgentSource(agent.ServerAgentConfig{
-		Name:           summary.AgentID,
+		Name:           summary.Name,
 		Description:    describeAgent(summary),
 		Instructions:   detail.Instructions,
 		Tools:          detail.Tools,

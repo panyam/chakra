@@ -21,12 +21,12 @@ const defaultCatalogThreshold = 10
 // registers under (distinct from any per-server id).
 const skillLoaderSourceID = "skills-loader"
 
-// catalogSkill pairs a catalog-mode server's skills client with one index entry,
+// catalogSkill pairs a catalog-mode server's skills client with one skills/list entry,
 // so the load_skill tool can ReadAndVerify that skill's body on demand.
 type catalogSkill struct {
 	serverID string
 	client   *skills.Client
-	entry    skills.IndexEntry
+	entry    skills.SkillEntry
 }
 
 // originHeader is the untrusted-origin banner prepended to a server's injected
@@ -60,19 +60,19 @@ func wrapSkillOrigin(label, name, body string) string {
 
 // resolveCatalogSkill finds the catalog entry a load_skill call names, within a
 // per-origin namespace (SEP-2640 L183/L234). name matches an entry's Name or its
-// globally unique URL; a non-empty server narrows the search to that origin's
+// globally unique URI; a non-empty server narrows the search to that origin's
 // host-assigned label. It returns a single match, or — when a bare name is
 // served by more than one origin — a nil match plus the distinct colliding
 // origin labels, so the caller disambiguates instead of silently shadowing one
 // origin. A name served more than once by a single origin returns that one
-// label (the caller then points the model at the unique URL).
+// label (the caller then points the model at the unique URI).
 func resolveCatalogSkill(cat []catalogSkill, name, server string) (*catalogSkill, []string) {
 	var matches []catalogSkill
 	for _, cs := range cat {
 		if server != "" && cs.serverID != server {
 			continue
 		}
-		if cs.entry.Name == name || cs.entry.URL == name {
+		if cs.entry.Name() == name || cs.entry.URI == name {
 			matches = append(matches, cs)
 		}
 	}
@@ -97,53 +97,46 @@ func resolveCatalogSkill(cat []catalogSkill, name, server string) (*catalogSkill
 }
 
 // resolveSkillsMode maps the config mode to "eager" or "catalog". An explicit
-// value wins; "" auto-selects by skill-md count against defaultCatalogThreshold.
-func resolveSkillsMode(mode string, idx skills.Index) string {
+// value wins; "" auto-selects by skill count against defaultCatalogThreshold.
+func resolveSkillsMode(mode string, entries []skills.SkillEntry) string {
 	switch mode {
 	case "eager", "catalog":
 		return mode
 	default:
-		n := 0
-		for _, e := range idx.Skills {
-			if e.Type == skills.SkillTypeSkillMD {
-				n++
-			}
-		}
-		if n >= defaultCatalogThreshold {
+		if len(entries) >= defaultCatalogThreshold {
 			return "catalog"
 		}
 		return "eager"
 	}
 }
 
-// filterSkillsAllow narrows an index to only the entries whose Name is in the
+// filterSkillsAllow narrows a listing to only the entries whose Name is in the
 // allow list, a hard capability boundary applied before mode resolution so both
 // the injected block and the load_skill tool see only allowed skills. An empty
-// (or nil) allow list is a passthrough that returns the index unchanged. The
-// match is exact by Name and covers every entry type, though only skill-md
-// entries reach the model downstream. Original entry order is preserved.
-func filterSkillsAllow(idx skills.Index, allow []string) skills.Index {
+// (or nil) allow list is a passthrough that returns the entries unchanged. The
+// match is exact by frontmatter name. Original entry order is preserved.
+func filterSkillsAllow(entries []skills.SkillEntry, allow []string) []skills.SkillEntry {
 	if len(allow) == 0 {
-		return idx
+		return entries
 	}
 	want := make(map[string]struct{}, len(allow))
 	for _, name := range allow {
 		want[name] = struct{}{}
 	}
-	var kept []skills.IndexEntry
-	for _, e := range idx.Skills {
-		if _, ok := want[e.Name]; ok {
+	var kept []skills.SkillEntry
+	for _, e := range entries {
+		if _, ok := want[e.Name()]; ok {
 			kept = append(kept, e)
 		}
 	}
-	return skills.NewIndex(kept...)
+	return kept
 }
 
-// loadSkillsForServer fetches a server's skill index and returns the system-
+// loadSkillsForServer fetches a server's skills/list and returns the system-
 // prompt block plus, in catalog mode, the entries the load_skill tool serves.
 // Servers without the skills capability return empty silently; a fetchable
-// index that fails is a startup error (the server advertised skills and the
-// host could not honor them). When skillsAllow is non-empty the index is
+// listing that fails is a startup error (the server advertised skills and the
+// host could not honor them). When skillsAllow is non-empty the listing is
 // narrowed to those skills first, so every downstream step (mode resolution,
 // eager bodies, catalog, load_skill) operates on the allowed set only. Eager
 // mode injects full bodies (digest-verified; per-skill failures warn and are
@@ -154,30 +147,28 @@ func loadSkillsForServer(c *client.Client, serverID, mode string, skillsAllow []
 	if !sc.SupportsSkills() {
 		return "", nil, nil
 	}
-	idx, err := sc.ListSkills(context.Background())
+	entries, err := sc.ListSkillEntries(context.Background())
 	if err != nil {
-		return "", nil, fmt.Errorf("agentchat: skills index from %s: %w", serverID, err)
+		return "", nil, fmt.Errorf("agentchat: skills/list from %s: %w", serverID, err)
 	}
-	idx = filterSkillsAllow(idx, skillsAllow)
+	entries = filterSkillsAllow(entries, skillsAllow)
 
-	if resolveSkillsMode(mode, idx) == "catalog" {
+	if resolveSkillsMode(mode, entries) == "catalog" {
 		var cat []catalogSkill
-		for _, e := range idx.Skills {
-			if e.Type == skills.SkillTypeSkillMD {
-				cat = append(cat, catalogSkill{serverID: serverID, client: sc, entry: e})
-			}
+		for _, e := range entries {
+			cat = append(cat, catalogSkill{serverID: serverID, client: sc, entry: e})
 		}
 		if len(cat) > 0 {
 			emit(HostEvent{Kind: HostSkillsLoaded, ServerID: serverID, Loaded: len(cat)})
 		}
-		return withOriginHeader(serverID, skills.CatalogBlock(idx)), cat, nil
+		return withOriginHeader(serverID, skills.CatalogBlock(entries)), cat, nil
 	}
 
-	loaded := sc.LoadIndex(context.Background(), idx)
+	loaded := sc.LoadEntries(context.Background(), entries)
 	var ok int
 	for _, ls := range loaded {
 		if ls.Err != nil {
-			emit(HostEvent{Kind: HostSkillSkipped, ServerID: serverID, URI: ls.Entry.URL, Err: ls.Err.Error()})
+			emit(HostEvent{Kind: HostSkillSkipped, ServerID: serverID, URI: ls.Entry.URI, Err: ls.Err.Error()})
 			continue
 		}
 		ok++
@@ -202,7 +193,7 @@ type loadSkillArgs struct {
 // the skills a conversation actually uses. The handler resolves the name within
 // a per-origin namespace (SEP-2640 L183: a same-named skill from one server
 // never silently shadows another's — a cross-origin collision asks the model to
-// pass server=<label> instead), ReadAndVerifies the body (laziness never
+// pass server=<label> instead), reads the body through ReadFromEntry (laziness never
 // bypasses digest verification; the activation hook fires so hosts learn which
 // skills earn their tokens), and tags it with its originating server before it
 // enters context (L179/L185). An unknown name is an app-state result, not an
@@ -222,16 +213,16 @@ func (a *App) registerLoadSkill(multi *agent.MultiSource) error {
 				case len(collisions) > 1:
 					return "skill " + name + " is served by multiple servers: " + strings.Join(collisions, ", ") + " — re-call load_skill with server set to one of these labels", nil
 				case len(collisions) == 1:
-					return "skill " + name + " is served more than once by server " + collisions[0] + " — re-call load_skill with the skill's full URL to disambiguate", nil
+					return "skill " + name + " is served more than once by server " + collisions[0] + " — re-call load_skill with the skill's full URI to disambiguate", nil
 				default:
 					return "no skill named " + name + " — use a name from the skills catalog", nil
 				}
 			}
-			res, err := match.client.ReadAndVerify(ctx, match.entry.URL, match.entry.Digest)
+			res, err := match.client.ReadFromEntry(ctx, match.entry, match.entry.URI)
 			if err != nil {
 				return "", err
 			}
-			return wrapSkillOrigin(match.serverID, match.entry.Name, string(res.Bytes)), nil
+			return wrapSkillOrigin(match.serverID, match.entry.Name(), string(res.Bytes)), nil
 		})
 	if err != nil {
 		return err
