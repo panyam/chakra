@@ -183,6 +183,7 @@ func newRoot() (*cobra.Command, *viper.Viper) {
 	fl.StringSlice("workspace", nil, "expose file tools (read/edit/write/list/search) confined to these directories, plus checkpoint /undo. Repeatable: a session that spans repositories passes each one. The first is primary, so a relative path resolves against it (empty = off; there is no default directory on purpose)")
 	fl.StringSlice("workspace-exclude", nil, "with --workspace, directories list_files/search_files skip, by base name or path.Match pattern (empty = built-in defaults)")
 	fl.Bool("no-checkpoint", false, "with --workspace, skip the file snapshot taken before each write, disabling /undo and /checkpoints")
+	fl.String("workspace-config", "", "with --workspace, a JSON file adding what flags cannot express: the exec allowlist (commands the agent may run, sandboxed), language servers, and the repo map. See examples/dogfood/workspace.json")
 	fl.String("checkpoint-store", "", "with --workspace, where snapshots live (empty = under the first workspace directory). Worth setting when there are several, since a store inside a workspace is a directory the agent can also read and edit)")
 	fl.String("exporter", "", "telemetry exporter: stdout | otlp | auto (empty = off)")
 	fl.String("otlp-endpoint", "", "OTLP gRPC endpoint (default localhost:4317)")
@@ -339,24 +340,13 @@ func runChat(v *viper.Viper) error {
 	}
 
 	// --workspace turns on the file tools and the checkpoint that guards their
-	// writes. Nil extensions when the flag is unset, so the no-workspace path
-	// is byte-for-byte what it was before.
-	//
-	// An unset --workspace-exclude arrives from viper as an empty slice, which
-	// files.Config would read as "exclude nothing" rather than "use the
-	// defaults". Passing nil for the empty case keeps the built-in list; the
-	// cost is that excluding nothing is not expressible from the CLI, which is
-	// the better of the two things to lose.
-	var wsExclude []string
-	if ex := v.GetStringSlice("workspace-exclude"); len(ex) > 0 {
-		wsExclude = ex
+	// writes, and --workspace-config adds exec and LSP. Nil extensions when
+	// --workspace is unset, so the no-workspace path is what it was before.
+	wsCfg, err := workspaceConfig(v)
+	if err != nil {
+		return err
 	}
-	wsExts, err := surfaces.WorkspaceExtensions(surfaces.WorkspaceConfig{
-		Roots:           v.GetStringSlice("workspace"),
-		Exclude:         wsExclude,
-		CheckpointStore: v.GetString("checkpoint-store"),
-		NoCheckpoint:    v.GetBool("no-checkpoint"),
-	})
+	wsExts, err := surfaces.WorkspaceExtensions(wsCfg)
 	if err != nil {
 		return err
 	}
@@ -434,6 +424,29 @@ func main() {
 
 // buildConfig merges the config file with quick-start settings: a config
 // file wins for everything it specifies; url/model cover the no-file case.
+// workspaceConfig assembles the workspace from its flags and the optional
+// --workspace-config file.
+//
+// An unset --workspace-exclude arrives from viper as an empty slice, which
+// files.Config would read as "exclude nothing" rather than "use the defaults".
+// Passing nil for the empty case keeps the built-in list; the cost is that
+// excluding nothing is not expressible from the CLI, which is the better of
+// the two things to lose.
+func workspaceConfig(v *viper.Viper) (surfaces.WorkspaceConfig, error) {
+	var exclude []string
+	if ex := v.GetStringSlice("workspace-exclude"); len(ex) > 0 {
+		exclude = ex
+	}
+	cfg := surfaces.WorkspaceConfig{
+		Roots:           v.GetStringSlice("workspace"),
+		Exclude:         exclude,
+		CheckpointStore: v.GetString("checkpoint-store"),
+		NoCheckpoint:    v.GetBool("no-checkpoint"),
+	}
+	err := cfg.LoadFile(v.GetString("workspace-config"))
+	return cfg, err
+}
+
 func buildConfig(path string, persist bool, urls []string, baseURL, model, apiKeyEnv, instructions string, maxSteps int) (*host.Config, error) {
 	if path != "" {
 		if persist {

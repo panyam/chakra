@@ -29,6 +29,7 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/panyam/chakra/ext/checkpoint v0.1.0 // indirect
+	github.com/panyam/chakra/ext/exec v0.1.0 // indirect
 	github.com/panyam/chakra/ext/files v0.1.0 // indirect
 	github.com/panyam/chakra/ext/lsp v0.1.0 // indirect
 	github.com/panyam/chakra/store/gorm v0.1.0 // indirect
@@ -96,3 +97,5 @@ replace github.com/panyam/mcpkit/experimental/ext/events/clients/go => ../../../
 replace github.com/panyam/mcpkit/ext/auth => ../../../mcpkit/main/ext/auth
 
 replace github.com/panyam/mcpkit/ext/skills => ../../../mcpkit/main/ext/skills
+
+replace github.com/panyam/chakra/ext/exec => ../../ext/exec

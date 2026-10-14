@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/ext/exec"
 	"github.com/panyam/chakra/ext/lsp"
 	"github.com/panyam/chakra/host"
 )
@@ -49,6 +50,44 @@ func TestWorkspaceExtensionsCheckpointFirst(t *testing.T) {
 	}
 	if got := exts[1].Name(); !strings.Contains(got, "file") {
 		t.Errorf("expected the files extension second, got %q", got)
+	}
+}
+
+// goExec is a one-command exec config that constructs on every platform: "go"
+// is on PATH wherever these tests run, and Unconfined sidesteps Linux having no
+// sandbox backend.
+func goExec() *exec.Config {
+	return &exec.Config{
+		Sandbox:  exec.Unconfined(),
+		Commands: []exec.CommandSpec{{Name: "vet", Argv: []string{"go", "vet", "./..."}, Description: "Vet.", ReadOnly: true}},
+	}
+}
+
+// TestWorkspaceExtensionsExecOrder pins exec between files and lsp: after the
+// checkpoint and file tools whose ordering the test above guards, and ahead of
+// lsp, which has to sit innermost to see writes after they land.
+func TestWorkspaceExtensionsExecOrder(t *testing.T) {
+	exts, err := WorkspaceExtensions(WorkspaceConfig{Roots: []string{t.TempDir()}, Exec: goExec()})
+	if err != nil {
+		t.Fatalf("WorkspaceExtensions: %v", err)
+	}
+	var names []string
+	for _, e := range exts {
+		names = append(names, e.Name())
+	}
+	if len(exts) != 3 || !strings.Contains(names[0], "checkpoint") || !strings.Contains(names[1], "file") || names[2] != "exec" {
+		t.Fatalf("want checkpoint, files, exec; got %v", names)
+	}
+}
+
+// TestWorkspaceExtensionsExecNeedsRoots pins that asking for exec or language
+// servers without a root is an error, not the silent nil an empty config gets.
+func TestWorkspaceExtensionsExecNeedsRoots(t *testing.T) {
+	if _, err := WorkspaceExtensions(WorkspaceConfig{Exec: goExec()}); err == nil {
+		t.Error("exec without roots must be an error")
+	}
+	if _, err := WorkspaceExtensions(WorkspaceConfig{LanguageServers: []lsp.ServerSpec{{Command: []string{"gopls"}}}}); err == nil {
+		t.Error("language servers without roots must be an error")
 	}
 }
 
