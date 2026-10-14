@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/panyam/chakra/ext/checkpoint"
+	"github.com/panyam/chakra/ext/exec"
 	"github.com/panyam/chakra/ext/files"
 	"github.com/panyam/chakra/ext/lsp"
 	"github.com/panyam/chakra/host"
@@ -73,13 +74,26 @@ type WorkspaceConfig struct {
 	// unavoidable: nothing here can guess which languages the workspace holds
 	// or which server the caller wants driving them.
 	LanguageServers []lsp.ServerSpec
+
+	// Exec adds the allowlisted command tools. Nil adds nothing. Its Roots
+	// are overwritten with this config's Roots, so commands run in, and write
+	// to, the same directories the file tools are confined to.
+	//
+	// Checkpoint does not cover exec. It snapshots the paths a tool names in
+	// its arguments, and a command's writes are whatever the process does,
+	// so an /undo after a command restores only the file-tool edits around
+	// it. Mark commands ReadOnly only when that is true of them.
+	Exec *exec.Config
 }
 
-// WorkspaceExtensions builds the file and checkpoint extensions for cfg.
+// WorkspaceExtensions builds the file and checkpoint extensions for cfg, plus
+// exec and LSP when configured.
 //
-// Returns nil when cfg.Root is empty, so a caller can pass the result to
+// Returns nil when cfg.Roots is empty, so a caller can pass the result to
 // host.WithExtension unconditionally and get today's behaviour when no
-// workspace was requested.
+// workspace was requested. Exec or language servers without Roots is an
+// error rather than nil: they were asked for, and dropping them silently
+// would leave a session missing tools nobody is told about.
 //
 // # Order is load-bearing
 //
@@ -105,6 +119,9 @@ type WorkspaceConfig struct {
 // neither module imports the other.
 func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 	if len(cfg.Roots) == 0 {
+		if cfg.Exec != nil || len(cfg.LanguageServers) > 0 {
+			return nil, fmt.Errorf("workspace: exec and language servers need at least one workspace root")
+		}
 		return nil, nil
 	}
 
@@ -139,11 +156,21 @@ func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 	}
 	exts = append(exts, fx)
 
+	if cfg.Exec != nil {
+		ec := *cfg.Exec
+		ec.Roots = cfg.Roots
+		ex, err := exec.New(ec)
+		if err != nil {
+			return nil, fmt.Errorf("workspace exec: %w", err)
+		}
+		exts = append(exts, ex)
+	}
+
 	if len(cfg.LanguageServers) > 0 {
 		// Last, and for the mirror image of checkpoint's reason. Checkpoint
 		// must see a file before it is written; this must see it after. Its
-		// middleware therefore has to sit innermost of the three, which
-		// registration order gives it.
+		// middleware therefore has to sit innermost, which registration order
+		// gives it.
 		var mapCfg *lsp.RepoMapConfig
 		if cfg.RepoMap {
 			mapCfg = &lsp.RepoMapConfig{}

@@ -32,7 +32,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent
 # explicitly and the platform's own backend refuses. See the module README.
 GOTESTFLAGS ?= -race -timeout 300s
 
-.PHONY: help build test test-examples testall vet fmt check-fmt cover tidy-all bump-siblings tag tag-push pg \
+.PHONY: help build test test-examples testall vet fmt check-fmt cover tidy-all bump-siblings tag tag-push pg dogfood \
         check-no-binaries check-ext-isolation check-dep-consistency setup-hooks
 
 help: ## Show this help
@@ -93,6 +93,24 @@ cover: ## Coverage across the root module
 
 pg: ## Playground: boot a demo MCP server + launch agentchat's TUI (needs a local OpenAI-compatible model)
 	@bash scripts/playground.sh
+
+# The mission exercise (issue 57): agentchat as a coding agent on this repo,
+# with the file tools, checkpoint, exec allowlist and gopls from
+# examples/dogfood. Snapshots and sessions live outside the tree, so the agent
+# cannot read or edit its own undo history.
+DOGFOOD_DIR ?= $(HOME)/.agentchat/dogfood
+
+dogfood: ## Mission exercise: agentchat on this repo with files, exec, LSP (needs gopls + ANTHROPIC_API_KEY or a local model)
+	@command -v gopls >/dev/null || { echo "make dogfood needs gopls on PATH: go install golang.org/x/tools/gopls@latest"; exit 1; }
+	@[ -n "$$ANTHROPIC_API_KEY" ] || echo "note: ANTHROPIC_API_KEY is unset; switch to the local connection with /provider local"
+	@mkdir -p $(DOGFOOD_DIR)
+	cd surfaces/chat && go run . \
+		--config $(CURDIR)/examples/dogfood/config.json \
+		--workspace $(CURDIR) \
+		--workspace-config $(CURDIR)/examples/dogfood/workspace.json \
+		--checkpoint-store $(DOGFOOD_DIR)/checkpoints \
+		--session-store sqlite://$(DOGFOOD_DIR)/sessions.db \
+		--ui tui
 
 # ---------------------------------------------------------------------------
 # Release

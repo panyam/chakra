@@ -1,0 +1,40 @@
+{
+  "repoMap": true,
+  "languageServers": [
+    { "command": ["gopls"], "extensions": [".go"], "languageId": "go" }
+  ],
+  "exec": {
+    "sandbox": "platform",
+    "commands": [
+      {
+        "name": "test",
+        "argv": ["sh", "scripts/test-pkg.sh"],
+        "description": "Run the Go tests (under -race) for the named package paths, in whichever module holds each one, e.g. ./host or ./ext/files/... Pass package paths only.",
+        "args": { "max": 3, "match": "\\./[\\w./-]*(\\.\\.\\.)?", "paths": true },
+        "readOnly": true,
+        "timeout": "5m"
+      },
+      {
+        "name": "test_all",
+        "argv": ["make", "test"],
+        "description": "Run every module's tests under -race, as CI does. Slow (a few minutes): use it to confirm a finished change, and run_test while iterating.",
+        "readOnly": true,
+        "timeout": "10m"
+      },
+      {
+        "name": "vet",
+        "argv": ["make", "vet"],
+        "description": "go vet every module and example.",
+        "readOnly": true,
+        "timeout": "5m"
+      },
+      {
+        "name": "build",
+        "argv": ["make", "build"],
+        "description": "Compile every module and example.",
+        "readOnly": true,
+        "timeout": "5m"
+      }
+    ]
+  }
+}
