@@ -1,7 +1,7 @@
 import { build } from "esbuild";
 import { solidPlugin } from "esbuild-plugin-solid";
 import { createRequire } from "module";
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync } from "fs";
+import { existsSync, mkdirSync, readdirSync, rmSync } from "fs";
 
 const require = createRequire(import.meta.url);
 
@@ -14,7 +14,7 @@ if (!existsSync(OUT)) mkdirSync(OUT, { recursive: true });
 
 // Clear previously emitted bundles first. splitting names lazy chunks with a
 // content hash, so a rebuild would otherwise leave orphaned chunks beside the
-// new ones. Only .js/.js.map are removed; dockview.css is recopied below.
+// new ones. Only .js/.js.map are removed.
 for (const f of readdirSync(OUT)) {
   if (f.endsWith(".js") || f.endsWith(".js.map")) rmSync(`${OUT}/${f}`);
 }
@@ -48,7 +48,6 @@ await build({
   logLevel: "info",
 });
 
-// Dockview's structural CSS is copied verbatim (not bundled) so the shell links
-// it only on the dockview layout; the mobile page never requests it. Themes are
-// applied in JS (themeLight/themeDark), not via CSS files.
-copyFileSync(require.resolve("dockview-core/dist/styles/dockview.css"), `${OUT}/dockview.css`);
+// Dockview 8 ships its structural CSS inside the JS and injects it on load, so
+// it lands in the lazy Dockview chunk and the mobile page still never fetches
+// it. Themes are applied in JS (themeLight/themeDark), not via CSS files.

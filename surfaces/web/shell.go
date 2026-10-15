@@ -25,8 +25,7 @@ func staticAssets() fs.FS {
 
 // shellData is the server-rendered shell's template model. Layout is the chosen
 // surface ("dockview" or "mobile"), stamped onto #workspace[data-layout] where
-// main.ts reads it back; Dockview links the dockview stylesheet only on that
-// layout (the mobile page never requests it).
+// main.ts reads it back; Dockview marks that layout as selected in the picker.
 type shellData struct {
 	Layout   string
 	Dockview bool
@@ -64,7 +63,6 @@ const shellHTML = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>agentweb — mcpkit</title>
-{{if .Dockview}}<link rel="stylesheet" href="/static/dockview.css">{{end}}
 <style>
 :root {
   --bg: #ffffff; --fg: #1a1a1a; --muted: #6b7280; --line: #e5e7eb;
