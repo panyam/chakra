@@ -100,9 +100,13 @@ pg: ## Playground: boot a demo MCP server + launch agentchat's TUI (needs a loca
 # cannot read or edit its own undo history.
 DOGFOOD_DIR ?= $(HOME)/.agentchat/dogfood
 
-dogfood: ## Mission exercise: agentchat on this repo with files, exec, LSP (needs gopls + ANTHROPIC_API_KEY or a local model)
+# DOGFOOD_ACTIVE picks the starting connection from examples/dogfood/config.json
+# (claude, deepseek, openrouter, local); empty keeps the config's own.
+DOGFOOD_ACTIVE ?=
+
+dogfood: ## Mission exercise: agentchat on this repo with files, exec, LSP (needs gopls and a model; DOGFOOD_ACTIVE=deepseek etc.)
 	@command -v gopls >/dev/null || { echo "make dogfood needs gopls on PATH: go install golang.org/x/tools/gopls@latest"; exit 1; }
-	@[ -n "$$ANTHROPIC_API_KEY" ] || echo "note: ANTHROPIC_API_KEY is unset; switch to the local connection with /provider local"
+	@[ -n "$(DOGFOOD_ACTIVE)" ] || [ -n "$$ANTHROPIC_API_KEY" ] || echo "note: ANTHROPIC_API_KEY is unset; pick another connection with DOGFOOD_ACTIVE=deepseek (or openrouter, local)"
 	@mkdir -p $(DOGFOOD_DIR)
 	cd surfaces/chat && go run . \
 		--config $(CURDIR)/examples/dogfood/config.json \
@@ -110,6 +114,7 @@ dogfood: ## Mission exercise: agentchat on this repo with files, exec, LSP (need
 		--workspace-config $(CURDIR)/examples/dogfood/workspace.json \
 		--checkpoint-store $(DOGFOOD_DIR)/checkpoints \
 		--session-store sqlite://$(DOGFOOD_DIR)/sessions.db \
+		$(if $(DOGFOOD_ACTIVE),--active $(DOGFOOD_ACTIVE)) \
 		--ui tui
 
 # ---------------------------------------------------------------------------

@@ -18,9 +18,9 @@ require (
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/panyam/mcpkit/experimental/ext/agents v0.7.1 // indirect
+	github.com/panyam/mcpkit/experimental/ext/agents v0.7.2 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.7.1 // indirect
-	github.com/panyam/mcpkit/experimental/ext/events v0.7.1 // indirect
+	github.com/panyam/mcpkit/experimental/ext/events v0.7.2 // indirect
 	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.7.1 // indirect
 	github.com/panyam/mcpkit/ext/auth v0.7.1 // indirect
 	github.com/panyam/mcpkit/ext/skills v0.7.1 // indirect
@@ -53,7 +53,7 @@ require (
 	github.com/panyam/chakra/host v0.1.0
 	github.com/panyam/gocurrent v0.1.2 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
-	github.com/panyam/mcpkit v0.7.1 // indirect
+	github.com/panyam/mcpkit v0.7.2 // indirect
 	github.com/panyam/servicekit v0.1.5 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pgvector/pgvector-go v0.4.1 // indirect

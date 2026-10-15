@@ -13,8 +13,11 @@ make dogfood
 - `gopls` on PATH (`go install golang.org/x/tools/gopls@latest`). It drives the
   diagnostics after each edit and the repo map in the system prompt.
 - A model. `config.json` makes Claude the active connection and reads
-  `ANTHROPIC_API_KEY`. Without the key, `/provider local` switches to an LM
-  Studio model on `http://localhost:1234/v1`; edit `connections` to match yours.
+  `ANTHROPIC_API_KEY`. `DOGFOOD_ACTIVE` starts on another one instead:
+  `make dogfood DOGFOOD_ACTIVE=deepseek` (reads `DEEPSEEK_API_KEY`),
+  `openrouter` (reads `OPENROUTER_API_KEY`), or `local` (an LM Studio model on
+  `http://localhost:1234/v1`). `/provider <name>` switches mid-session. Edit
+  `connections` to change the models.
 - macOS for the sandbox. `workspace.json` asks for the platform sandbox, and
   only darwin has one so far (issue 32). On Linux, set `"sandbox": "unconfined"`
   in a copy of the file if you accept running the commands without one.
