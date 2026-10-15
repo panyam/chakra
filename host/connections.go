@@ -9,6 +9,7 @@ import (
 
 	"github.com/panyam/chakra"
 	"github.com/panyam/mcpkit/core"
+	"github.com/panyam/mcpkit/experimental/ext/agents"
 )
 
 // ConnectionsConfig is a named registry of model connections with one
@@ -35,6 +36,16 @@ type ConnectionsConfig struct {
 
 	// Connections maps a caller-chosen name to its endpoint + model.
 	Connections map[string]ConnectionConfig `json:"connections"`
+
+	// AgentRoles assigns connections to the model roles a server-advertised
+	// agent can hint at (experimental/ext/agents modelRoutingHint): "small",
+	// "medium" and "large", each naming a key in Connections. A delegated
+	// agent runs on the connection for its hinted role, or on a larger one
+	// when that role is unassigned or lacks vision the hint asks for, and
+	// never on a smaller one. When nothing fits, or the agent sends no hint,
+	// it runs on the active connection. Optional; empty runs every agent on
+	// the active connection.
+	AgentRoles map[string]string `json:"agentRoles,omitempty"`
 }
 
 // EmbedderConnection returns the connection named by Embedder and true, or a
@@ -86,6 +97,11 @@ type ConnectionConfig struct {
 	// re-tagged as reasoning (agent.NewThinkingProvider). A nil hint or empty
 	// CloseTag leaves the provider unwrapped.
 	ThinkingHint *ThinkingHint `json:"thinkingHint,omitempty"`
+
+	// Vision marks a model that accepts image input. It is read only when
+	// this connection is assigned an agent role (ConnectionsConfig.AgentRoles),
+	// where an agent hinting vision skips connections without it.
+	Vision bool `json:"vision,omitempty"`
 }
 
 // ThinkingHint delimits a model's inline reasoning. An empty OpenTag
@@ -229,6 +245,10 @@ type ConnectionRegistry struct {
 	active string
 	build  ProviderBuilder
 	cache  map[string]agent.Provider
+
+	// agentRoles is ConnectionsConfig.AgentRoles, validated. Read-only after
+	// construction.
+	agentRoles map[string]string
 }
 
 // NewConnectionRegistry validates cfg (Active must name a connection,
@@ -273,12 +293,23 @@ func NewConnectionRegistry(cfg *ConnectionsConfig, build ProviderBuilder) (*Conn
 			return nil, fmt.Errorf("host: embedder connection %q: %w", cfg.Embedder, err)
 		}
 	}
+	for role, name := range cfg.AgentRoles {
+		switch agents.ModelRole(role) {
+		case agents.ModelRoleSmall, agents.ModelRoleMedium, agents.ModelRoleLarge:
+		default:
+			return nil, fmt.Errorf("host: agentRoles has unknown role %q (want small, medium or large)", role)
+		}
+		if _, ok := cfg.Connections[name]; !ok {
+			return nil, fmt.Errorf("host: agentRoles %q names undefined connection %q", role, name)
+		}
+	}
 	return &ConnectionRegistry{
-		conns:  cfg.Connections,
-		names:  names,
-		active: active,
-		build:  build,
-		cache:  map[string]agent.Provider{},
+		conns:      cfg.Connections,
+		names:      names,
+		active:     active,
+		build:      build,
+		cache:      map[string]agent.Provider{},
+		agentRoles: cfg.AgentRoles,
 	}, nil
 }
 
@@ -308,6 +339,18 @@ func (r *ConnectionRegistry) providerLocked(name string) (agent.Provider, error)
 	}
 	r.cache[name] = p
 	return p, nil
+}
+
+// Provider builds (or returns the cached) provider for the named connection,
+// without making it active. Server-advertised agents use it to run on the
+// connection their routing hint resolves to. An unknown name is an error.
+func (r *ConnectionRegistry) Provider(name string) (agent.Provider, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.conns[name]; !ok {
+		return nil, fmt.Errorf("host: unknown connection %q", name)
+	}
+	return r.providerLocked(name)
 }
 
 // ActiveProvider builds (or returns the cached) provider for the active

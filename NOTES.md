@@ -1177,6 +1177,32 @@ bypasses digest verification. An unknown name is app state, not an error.
 Per-server mode was chosen over a connect-time `SkillsPolicy` hook (embedder-first; the two can
 coexist). Byte-threshold, body caching, and the policy hook are deferred.
 
+### Server-advertised agents stay fresh through the cache, not the index
+
+`host/server_agents.go` reads every roster and definition through mcpkit's `agentsclient.Cache`,
+one per server. Three things about the wiring were not obvious from the cache's own docs.
+
+**`WatchListChanged` does not apply here.** It opens a `subscriptions/listen` stream, which only
+exists on the 2026-07-28 stateless wire, and chakra's clients use the session wire with a GET
+stream. The notification still arrives there, through `client.WithNotificationCallback`, so the
+callback is installed when each client is built and looks up the server's handler in
+`agentWatchers` by id, since the cache it invalidates does not exist until discovery runs.
+
+**The aggregate memoizes the delegate list, so a roster TTL running out changes nothing by
+itself.** `MultiSource` asks `serverAgentSource.Tools` again only after its index is dropped,
+which happens on `notifications/agents/list_changed`, on `agent_not_found` during a delegation,
+on any server's `tools/list_changed`, and on a call miss. A server that neither declares
+`listChanged` nor removes agents through `agent_not_found` keeps its boot-time delegates until one
+of those fires. That is mostly fine, because definitions (`agents/get`) do honor their TTL on
+every delegation.
+
+**A child is rebuilt only when its definition changes.** Building one per delegation would have
+been less code, but it would have put an `agents.resolve` span on every delegation and broken the
+existing assertions that a warm delegation is not spanned. So the source keeps the definition each
+child was built from and compares. The first resolution of an agent spans the `agents/get`; a
+rebuild after an edit spans only the build, because by the time we know the definition changed the
+get has already happened.
+
 ### Connections
 
 `ConnectionsConfig` is data, `ConnectionRegistry` is runtime (`agent/host/connections.go`).
@@ -1194,6 +1220,14 @@ an embedding connection and `ConnectionConfig.Dim` is its vector width.
 `host.BuildEmbedder(conn, tp)` builds an OpenAI-wire `agent.Embedder`. **`anthropic` is rejected
 — there is no embeddings API** (both in `BuildEmbedder` and in registry validation). This is what
 makes semantic memory usable against a cloud embedder with just an API key and no local model.
+
+**Agent roles are a third assignment over the same set.** `ConnectionsConfig.AgentRoles` maps the
+`small` / `medium` / `large` roles a server-advertised agent can hint at to connection names, and
+`ConnectionConfig.Vision` marks the ones that take images. The host feeds them to mcpkit's
+`agentsclient.RoleTable`, which moves up a size when it has to and never down. The table holds
+connection *names* rather than providers, so a role connection is only built when an agent first
+resolves to it, and the table's default is the empty name, meaning the main provider. That keeps
+`/provider` switching in force for every agent that does not hint elsewhere.
 
 ### Commands, events, and observers
 
