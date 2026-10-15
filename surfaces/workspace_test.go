@@ -13,6 +13,7 @@ import (
 	"github.com/panyam/chakra/ext/exec"
 	"github.com/panyam/chakra/ext/lsp"
 	"github.com/panyam/chakra/host"
+	"github.com/panyam/mcpkit/core"
 )
 
 // TestWorkspaceExtensionsDisabledByDefault pins that an empty Roots produces no
@@ -220,5 +221,63 @@ func TestWorkspaceRepoMapNeedsALanguageServer(t *testing.T) {
 		if e.Name() == "lsp" {
 			t.Fatal("RepoMap alone must not start a language server")
 		}
+	}
+}
+
+// TestCheckpointedWritesAreReversible pins that the files extension's writes
+// count as reversible exactly when a checkpoint covers them. Under
+// reversible-auto an edit /undo can restore runs unasked, and the same edit
+// with --no-checkpoint asks, since nothing could take it back.
+func TestCheckpointedWritesAreReversible(t *testing.T) {
+	for _, c := range []struct {
+		name         string
+		noCheckpoint bool
+		wantAsk      bool
+	}{
+		{"checkpoint on", false, false},
+		{"no checkpoint", true, true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			exts, err := WorkspaceExtensions(WorkspaceConfig{Roots: []string{t.TempDir()}, CheckpointStore: t.TempDir(), NoCheckpoint: c.noCheckpoint})
+			if err != nil {
+				t.Fatalf("WorkspaceExtensions: %v", err)
+			}
+			var src agent.ToolSource
+			for _, e := range exts {
+				if strings.Contains(e.Name(), "file") {
+					if src, err = e.Tools(); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			if src == nil {
+				t.Fatal("no files extension")
+			}
+
+			asked := false
+			ask := func(context.Context, agent.ToolCallInfo) (bool, error) {
+				asked = true
+				return false, nil
+			}
+			r, err := agent.NewRunner(agent.RunnerConfig{
+				Provider: agent.NewStubProvider(
+					agent.StubTurn{ToolCalls: []agent.ToolCall{{ID: "c1", Name: "write_file", Args: core.NewRawJSON([]byte(`{"path":"a.txt","content":"x"}`))}}},
+					agent.StubTurn{Text: "done"},
+				),
+				Tools: src,
+				ToolMiddleware: []agent.ToolMiddleware{
+					agent.NewTieredApproval(agent.WithDefaultMode(agent.ModeReversibleAuto), agent.WithAsk(ask)).WrapToolCall,
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := r.Run(context.Background(), []agent.Message{{Role: agent.RoleUser, Text: "go"}}, nil); err != nil {
+				t.Fatal(err)
+			}
+			if asked != c.wantAsk {
+				t.Errorf("write_file under reversible-auto, %s: asked = %v, want %v", c.name, asked, c.wantAsk)
+			}
+		})
 	}
 }
