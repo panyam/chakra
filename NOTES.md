@@ -579,8 +579,10 @@ it for free.
 
 Host wiring is `agent/host/persistence.go`: `WithRunStore` plus `AttachRun` (create-or-resume),
 `Resume` (must-exist), and `Fork`. It persists at the `RunTurn` append site, and `PersistingEmit`
-buffers the event stream into one `AppendEvents` per turn. Failed turns persist nothing;
-persistence failures render a warning and never fail the turn.
+buffers the event stream into one `AppendEvents` per turn. A failed turn persists its events
+(tool calls, the error) but no messages, since `RunTurn` rolls the history back and the message log
+has to match it; before #71 it persisted nothing, so a restart lost the record of edits a failed
+turn had made. Persistence failures render a warning and never fail the turn.
 
 Retention and GC are still open (#999).
 

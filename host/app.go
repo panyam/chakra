@@ -829,6 +829,9 @@ func (a *App) RunTurn(ctx context.Context, input string) error {
 	}
 	if err != nil {
 		a.history = a.history[:len(a.history)-1]
+		if pe != nil {
+			a.persistFailedTurnLocked(ctx, pe)
+		}
 		a.emit(HostEvent{Kind: HostTurnFailed, Err: err.Error()})
 		return err
 	}
