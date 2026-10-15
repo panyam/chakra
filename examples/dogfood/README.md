@@ -29,8 +29,10 @@ agentchat if you want a terminal anyway.
 
 ## What is in the files
 
-- `config.json` holds the host settings: instructions, connections, and
-  `read-only-auto` approval. Under that mode reads, searches and the test, vet
+- `config.json` holds the host settings: instructions, connections, a step
+  budget, and `read-only-auto` approval. `maxSteps` is 40 because a coding
+  turn reads, edits, runs a test, reads the failure and fixes it, and the
+  agent's default of 8 ran out halfway through that on the first run. Under that mode reads, searches and the test, vet
   and build commands run without asking, while edits and writes ask.
 - `workspace.json` holds what the CLI flags cannot express. That is the exec
   allowlist (`run_test`, `run_test_all`, `run_vet`, `run_build`), gopls, and

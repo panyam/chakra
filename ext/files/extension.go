@@ -41,6 +41,29 @@ func (e *Extension) Name() string { return "files" }
 // list_files, and search_files.
 func (e *Extension) Tools() (agent.ToolSource, error) { return e.src, nil }
 
+// WritePaths reports the file a writing call is about to touch, as the
+// absolute path the tool itself will write. It is the Paths function a
+// checkpoint or language-server WriteSpec should use for these tools:
+//
+//	checkpoint.WriteSpec{Tool: "edit_file", Paths: fx.WritePaths}
+//
+// A relative path resolves against the workspace roots exactly as the tools
+// resolve it, never against the process's working directory, so a snapshot
+// covers the file the write lands on wherever the process was started. A
+// path the tools would refuse (empty, or outside every root) yields nothing,
+// since that call writes nothing.
+func (e *Extension) WritePaths(args map[string]any) []string {
+	p, ok := args["path"].(string)
+	if !ok {
+		return nil
+	}
+	r, rel, err := e.src.resolve(p)
+	if err != nil {
+		return nil
+	}
+	return []string{r.abs(rel)}
+}
+
 // PromptSections states the edit discipline the tools enforce.
 func (e *Extension) PromptSections() []host.PromptSection {
 	return []host.PromptSection{host.PromptSectionFunc(func(context.Context) string {

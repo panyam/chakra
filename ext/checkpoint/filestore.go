@@ -240,18 +240,23 @@ func (c *Checkpoint) Paths() []string {
 // whatever the call went on to create. Without that, undoing a file creation
 // would silently leave the new file in place.
 //
-// Paths are stored as given after resolving to absolute, so a checkpoint is
-// valid on the machine that took it and is not portable off it.
+// Paths must be absolute, and a relative one is an error rather than being
+// resolved against the process's working directory. The tool that writes the
+// file resolves it against its own root, which is rarely the cwd, so guessing
+// here snapshots a different file and a restore later deletes or rewrites
+// that one while reporting success (issue 69). A WriteSpec's Paths function
+// is where the tool's resolution belongs. A checkpoint is valid on the
+// machine that took it and is not portable off it.
 func (c *Checkpoint) Add(paths ...string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	changed := false
 	for _, p := range paths {
-		abs, err := filepath.Abs(p)
-		if err != nil {
-			return fmt.Errorf("checkpoint: resolve %q: %w", p, err)
+		if !filepath.IsAbs(p) {
+			return fmt.Errorf("checkpoint: %q is a relative path; WriteSpec.Paths must resolve it to the file the tool writes", p)
 		}
+		abs := filepath.Clean(p)
 		if _, seen := c.files[abs]; seen {
 			continue
 		}

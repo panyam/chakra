@@ -3,6 +3,7 @@ package host
 import (
 	"context"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 
@@ -287,5 +288,38 @@ func TestApp_SessionsNoStoreErrors(t *testing.T) {
 	defer app.Close()
 	if _, err := app.Sessions(context.Background()); err == nil {
 		t.Fatal("Sessions without a store should error")
+	}
+}
+
+// TestApp_DispatchApproveStatesTheMode pins the half of issue 71 a web surface
+// sees: CmdResult.Approval is an *agent.TieredApproval with unexported fields,
+// so over Dispatch it serializes to nothing, and Message is all the browser
+// can show.
+func TestApp_DispatchApproveStatesTheMode(t *testing.T) {
+	noGate, _ := newCmdApp(t)
+	if res, _ := noGate.Dispatch(context.Background(), "/approve"); res.Message != "approval gate off" {
+		t.Errorf("/approve with no gate: Message = %q, want %q", res.Message, "approval gate off")
+	}
+
+	ts := startTestServer(t)
+	cfg := testConfig(ts.URL)
+	cfg.Approval = &ApprovalConfig{Mode: "ask"}
+	app, err := NewApp(cfg, io.Discard, strings.NewReader(""), WithProviderBuilder(stubBuilder(t)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(app.Close)
+	for _, c := range []struct{ line, want string }{
+		{"/approve reversible-auto", "approval mode: reversible-auto"},
+		{"/approve", "approval mode: reversible-auto"},
+		{"/approve ask", "approval mode: ask"},
+	} {
+		res, err := app.Dispatch(context.Background(), c.line)
+		if err != nil {
+			t.Fatalf("%s: %v", c.line, err)
+		}
+		if res.Message != c.want {
+			t.Errorf("%s: Message = %q, want %q", c.line, res.Message, c.want)
+		}
 	}
 }

@@ -2,6 +2,8 @@ package checkpoint
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strconv"
@@ -27,8 +29,11 @@ type WriteSpec struct {
 	Tool string
 
 	// Paths returns the files the call is about to write, given its
-	// arguments. A path that does not exist yet is fine and is the normal
-	// case for a create: it is recorded as absent so undoing deletes it.
+	// arguments, as absolute paths resolved the way the tool resolves them.
+	// A relative path is refused rather than resolved against the process's
+	// working directory, which would snapshot a different file (issue 69).
+	// A path that does not exist yet is fine and is the normal case for a
+	// create: it is recorded as absent so undoing deletes it.
 	Paths func(args map[string]any) []string
 }
 
@@ -78,6 +83,11 @@ type Extension struct {
 	approve  func(ctx context.Context, p Proposal) (bool, error)
 	tools    agent.ToolSource
 
+	// session tags this instance's checkpoint ids. The turn counter restarts
+	// with the process but the store persists, so "turn-1" alone would reopen
+	// an earlier session's checkpoint and merge into it (issue 69).
+	session string
+
 	mu         sync.Mutex
 	turn       int
 	current    *Checkpoint
@@ -100,12 +110,17 @@ func New(cfg Config) (*Extension, error) {
 		}
 		writes[w.Tool] = w
 	}
+	var tag [3]byte
+	if _, err := rand.Read(tag[:]); err != nil {
+		return nil, fmt.Errorf("checkpoint: session tag: %w", err)
+	}
 	return &Extension{
 		store:    store,
 		writes:   writes,
 		proposer: cfg.Proposer,
 		approve:  cfg.Approve,
 		tools:    cfg.Tools,
+		session:  hex.EncodeToString(tag[:]),
 	}, nil
 }
 
@@ -194,7 +209,7 @@ func (e *Extension) checkpoint() (*Checkpoint, error) {
 	if e.current != nil {
 		return e.current, nil
 	}
-	cp, err := e.store.Open("turn-" + strconv.Itoa(e.turn))
+	cp, err := e.store.Open("turn-" + strconv.Itoa(e.turn) + "-" + e.session)
 	if err != nil {
 		return nil, err
 	}

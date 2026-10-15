@@ -585,18 +585,16 @@ func toolError(msg string) *core.ToolResult {
 	}
 }
 
-// PathArg reports the file a call is about to write, in the shape a
-// checkpoint WriteSpec wants. Every writing tool here names its target in the
-// same `path` argument, so one function serves them all:
+// PathArg returns a call's `path` argument exactly as the model sent it,
+// which for these tools is usually relative to the workspace root. It does
+// not resolve it, so it is the wrong Paths function for a checkpoint
+// WriteSpec: the checkpoint would resolve the path against the process's
+// working directory and snapshot a different file (issue 69). Use
+// Extension.WritePaths, which resolves the way the tools do.
 //
-//	checkpoint.WriteSpec{Tool: "edit_file", Paths: files.PathArg}
-//	checkpoint.WriteSpec{Tool: "write_file", Paths: files.PathArg}
-//
-// It is a plain function rather than a WriteSpec so that this package does
+// Both are plain functions rather than WriteSpecs so that this package does
 // not import the checkpoint package and checkpoint does not import this one.
-// The two features compose at the wiring layer, keyed by tool name, which is
-// what keeps either free to change without the other's API stabilizing around
-// it.
+// The two features compose at the wiring layer, keyed by tool name.
 func PathArg(args map[string]any) []string {
 	p, ok := args["path"].(string)
 	if !ok || p == "" {

@@ -1,6 +1,7 @@
 {
   "instructions": "You are a careful coding agent working in the chakra repository. Read before you edit, keep changes small, and run the tests for what you touched before saying you are done. If a test fails, read the failure and fix the cause.",
   "approval": { "mode": "read-only-auto" },
+  "maxSteps": 40,
   "connections": {
     "active": "claude",
     "connections": {

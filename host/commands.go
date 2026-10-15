@@ -246,7 +246,14 @@ func (a *App) registerBuiltinCommands() {
 					return o.setApprovalMode(approvalModeName(mode))
 				})
 			}
-			return CmdResult{Kind: CmdApproval, Approval: a.approval}, nil
+			// Message carries the mode as text for surfaces that receive the
+			// result serialized: Approval's fields are unexported, so over
+			// Dispatch it arrives empty (issue 71).
+			msg := "approval gate off"
+			if a.approval != nil {
+				msg = "approval mode: " + approvalModeName(a.approval.DefaultMode())
+			}
+			return CmdResult{Kind: CmdApproval, Approval: a.approval, Message: msg}, nil
 		}})
 
 	r.Register(&Command{Name: "servers", Aliases: []string{"mcp"}, Help: "list MCP servers and their state; /servers reconnect <name> retries one; /servers tools <name> lists one server's tools",

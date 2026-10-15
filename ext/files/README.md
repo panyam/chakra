@@ -238,18 +238,23 @@ contains no reversal code and does not import that one:
 cp, _ := checkpoint.New(checkpoint.Config{
     Root:   ".mcpkit/checkpoints",
     Writes: []checkpoint.WriteSpec{
-        {Tool: "edit_file", Paths: files.PathArg},
-        {Tool: "write_file", Paths: files.PathArg},
+        {Tool: "edit_file", Paths: ext.WritePaths},
+        {Tool: "write_file", Paths: ext.WritePaths},
     },
 })
-app, _ := host.NewApp(cfg, out, in, host.WithExtension(ext, cp))
+// Checkpoint first, so it snapshots before the write rather than after.
+app, _ := host.NewApp(cfg, out, in, host.WithExtension(cp, ext))
 ```
 
 `checkpoint.WriteSpec` is a declaration keyed by tool name, supplied by the
 wiring, so the two features compose at the config layer with no import edge in
 either direction. Every writing tool here names its target in the same `path` argument, so one
-`PathArg` serves them all. It is a plain function rather than a `WriteSpec`
-precisely to keep it that way. The alternative, this package declaring its own
+`WritePaths` serves them all. It resolves that argument against the workspace
+roots the way the tools do, and returns an absolute path, because the
+checkpoint refuses a relative one: resolving it against the process's working
+directory snapshotted the wrong file (issue 69). `PathArg` still returns the
+raw argument for anything that wants it. Both are plain functions rather than
+a `WriteSpec` precisely to keep it that way. The alternative, this package declaring its own
 `checkpoint.Reverser`, would stabilize checkpoint's API for this package's
 benefit with no design decision saying the two must interoperate, which is the
 coupling constraint C4 exists to prevent.

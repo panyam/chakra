@@ -2,6 +2,8 @@ package files
 
 import (
 	"context"
+	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -58,5 +60,28 @@ func TestNewRejectsBadConfig(t *testing.T) {
 	}
 	if _, err := New(Config{Roots: []string{"/no/such/directory/anywhere"}}); err == nil {
 		t.Fatal("New should refuse a Root that does not exist")
+	}
+}
+
+func TestWritePathsResolvesAgainstTheRootNotTheCwd(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(t.TempDir())
+	e, err := New(Config{Roots: []string{root}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		path string
+		want []string
+	}{
+		{"sub/a.go", []string{filepath.Join(root, "sub", "a.go")}},
+		{filepath.Join(root, "b.go"), []string{filepath.Join(root, "b.go")}},
+		{"../escape.go", nil},
+		{"", nil},
+	} {
+		got := e.WritePaths(map[string]any{"path": c.path})
+		if fmt.Sprint(got) != fmt.Sprint(c.want) {
+			t.Errorf("WritePaths(%q) = %v, want %v", c.path, got, c.want)
+		}
 	}
 }

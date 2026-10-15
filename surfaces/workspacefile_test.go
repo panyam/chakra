@@ -184,3 +184,21 @@ func TestDogfoodWorkspaceFileBuilds(t *testing.T) {
 		}
 	}
 }
+
+// TestDogfoodFilesLoad keeps the mission exercise's files loadable: a field
+// typo in either fails here rather than at the start of a dogfood run. It
+// also pins the step budget, since run 1 (issue 70) died on the agent's
+// default of 8 halfway through writing a test.
+func TestDogfoodFilesLoad(t *testing.T) {
+	cfg, err := host.LoadConfig("../examples/dogfood/config.json")
+	if err != nil {
+		t.Fatalf("dogfood config: %v", err)
+	}
+	if cfg.MaxSteps < 30 {
+		t.Errorf("dogfood maxSteps = %d; a read-edit-test-fix turn needs room, want at least 30", cfg.MaxSteps)
+	}
+	var ws WorkspaceConfig
+	if err := ws.LoadFile("../examples/dogfood/workspace.json"); err != nil {
+		t.Fatalf("dogfood workspace file: %v", err)
+	}
+}

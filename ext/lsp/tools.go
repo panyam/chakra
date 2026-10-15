@@ -48,9 +48,9 @@ type ServerSpec struct {
 //
 // Declared rather than detected, and shaped like checkpoint.WriteSpec on
 // purpose: both packages need the same fact about the same tools, and neither
-// should import the other to get it. files.PathArg satisfies Paths for every
-// tool in that package, so the wiring layer joins the three with no import
-// edge between them (constraint C4).
+// should import the other to get it. files.Extension.WritePaths satisfies
+// Paths for every writing tool in that package, so the wiring layer joins the
+// three with no import edge between them (constraint C4).
 type WriteSpec struct {
 	// Tool is the tool name to watch, as the model calls it.
 	Tool string
@@ -322,8 +322,9 @@ func toolDefs() []core.ToolDef {
 	}
 	return []core.ToolDef{
 		{
-			Name:  "goto_definition",
-			Title: "Go to definition",
+			Name:        "goto_definition",
+			Annotations: map[string]any{"readOnlyHint": true},
+			Title:       "Go to definition",
 			Description: "Find where a symbol is defined, using the language server rather than a text search. " +
 				"Use this instead of search_files when you need the declaration of a name and not every mention of it.",
 			InputSchema: map[string]any{
@@ -333,8 +334,9 @@ func toolDefs() []core.ToolDef {
 			},
 		},
 		{
-			Name:  "find_references",
-			Title: "Find references",
+			Name:        "find_references",
+			Annotations: map[string]any{"readOnlyHint": true},
+			Title:       "Find references",
 			Description: "Find every use of a symbol across the workspace, using the language server. " +
 				"Unlike search_files this returns real uses: a comment mentioning the name is not a reference, " +
 				"and a different symbol with the same name is not either. Use it before renaming or deleting something.",

@@ -117,9 +117,10 @@ type WorkspaceConfig struct {
 // checkpoint exists to provide. Wiring them separately would let a surface
 // enable half of a safety property.
 //
-// files.PathArg is the seam that joins them: checkpoint needs to know which
-// argument names a path, files exports the reader for its own tools, and
-// neither module imports the other.
+// fx.WritePaths joins them: checkpoint and lsp need the file a call will
+// write, and files exports the resolver its own tools use, so all three agree
+// on which file that is whatever the process's working directory (issue 69).
+// Neither module imports the other.
 func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 	if len(cfg.Roots) == 0 {
 		if cfg.Exec != nil || len(cfg.LanguageServers) > 0 {
@@ -135,10 +136,20 @@ func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 		store = cfg.Roots[0]
 	}
 
+	// files.New rather than files.NewSource: the extension carries the prompt
+	// section describing the read-then-edit contract along with the tools.
+	// Registering the tools alone leaves that contract discoverable only by
+	// failing an edit. Built first because checkpoint and lsp resolve paths
+	// through it; registration order below is unchanged.
+	fx, err := files.New(files.Config{Roots: cfg.Roots, Exclude: cfg.Exclude})
+	if err != nil {
+		return nil, fmt.Errorf("workspace files: %w", err)
+	}
+
 	if !cfg.NoCheckpoint {
 		var writes []checkpoint.WriteSpec
 		for _, tool := range fileWrites {
-			writes = append(writes, checkpoint.WriteSpec{Tool: tool, Paths: files.PathArg})
+			writes = append(writes, checkpoint.WriteSpec{Tool: tool, Paths: fx.WritePaths})
 		}
 		cx, err := checkpoint.New(checkpoint.Config{Root: store, Writes: writes})
 		if err != nil {
@@ -147,14 +158,6 @@ func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 		exts = append(exts, cx)
 	}
 
-	// files.New rather than files.NewSource: the extension carries the prompt
-	// section describing the read-then-edit contract along with the tools.
-	// Registering the tools alone leaves that contract discoverable only by
-	// failing an edit.
-	fx, err := files.New(files.Config{Roots: cfg.Roots, Exclude: cfg.Exclude})
-	if err != nil {
-		return nil, fmt.Errorf("workspace files: %w", err)
-	}
 	if cfg.NoCheckpoint {
 		exts = append(exts, fx)
 	} else {
@@ -185,8 +188,8 @@ func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 			RepoMap: mapCfg,
 			Servers: cfg.LanguageServers,
 			Writes: []lsp.WriteSpec{
-				{Tool: "write_file", Paths: files.PathArg},
-				{Tool: "edit_file", Paths: files.PathArg},
+				{Tool: "write_file", Paths: fx.WritePaths},
+				{Tool: "edit_file", Paths: fx.WritePaths},
 			},
 		})
 		if lspErr != nil {

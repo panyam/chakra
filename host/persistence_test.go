@@ -3,6 +3,7 @@ package host
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -390,5 +391,37 @@ func TestPersistingEmitRedactsTurnEndMessages(t *testing.T) {
 	}
 	if end.Result.Text != "done" || end.Result.Steps != 2 || end.Result.FinishReason != "stop" {
 		t.Fatalf("redaction dropped non-message fields: %+v", end.Result)
+	}
+}
+
+// TestAppFailedTurnPersistsItsEvents is issue 71: a turn that fails after
+// running tools leaves its tool calls and the error in the event
+// log, so a restarted host can still show what it did. Messages stay out
+// (TestAppFailedTurnPersistsNothing), since the history rolls back.
+func TestAppFailedTurnPersistsItsEvents(t *testing.T) {
+	ctx := context.Background()
+	store := agent.NewInMemoryRunStore()
+	stub := agent.NewStubProvider(
+		agent.StubTurn{Text: "ok"},
+		agent.StubTurn{Err: errors.New("model down")},
+	)
+	var out strings.Builder
+	app := newPersistedApp(t, store, stub, &out)
+	if err := app.RunTurn(ctx, "one"); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := store.LoadRun(ctx, agent.LoadRunRequest{RunID: app.RunID()})
+	if err := app.RunTurn(ctx, "two"); err == nil {
+		t.Fatal("second turn succeeded, want provider error")
+	}
+
+	after, _ := store.LoadRun(ctx, agent.LoadRunRequest{RunID: app.RunID()})
+	added := after.Run.Events[len(before.Run.Events):]
+	var kinds []agent.EventKind
+	for _, e := range added {
+		kinds = append(kinds, e.Kind)
+	}
+	if len(kinds) == 0 || kinds[0] != agent.EventTurnBegin || !slices.Contains(kinds, agent.EventError) {
+		t.Fatalf("failed turn's events = %v, want its turn-begin and the error persisted", kinds)
 	}
 }

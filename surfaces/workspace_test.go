@@ -339,3 +339,48 @@ func TestEditApprovalBroadcastsTheDiff(t *testing.T) {
 		}
 	}
 }
+
+// TestUndoRestoresWhenTheProcessRunsElsewhere is issue 69. make dogfood-web
+// runs agentweb from surfaces/web, so the process's working directory is not
+// the workspace root. The model names a file relative to the root; the
+// checkpoint has to snapshot that file, not one under the process cwd, or
+// /undo restores nothing while reporting success.
+func TestUndoRestoresWhenTheProcessRunsElsewhere(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(t.TempDir())
+
+	exts, err := WorkspaceExtensions(WorkspaceConfig{Roots: []string{ws}, CheckpointStore: t.TempDir()})
+	if err != nil {
+		t.Fatalf("WorkspaceExtensions: %v", err)
+	}
+	cfg := &host.Config{
+		Model:        host.ModelConfig{BaseURL: "http://127.0.0.1:1", Model: "test"},
+		Instructions: "test",
+		Approval:     &host.ApprovalConfig{Mode: "allow"},
+	}
+	app, err := host.NewApp(cfg, io.Discard, strings.NewReader(""),
+		host.WithProvider(agent.NewStubProvider(
+			agent.StubTurn{ToolCalls: []agent.ToolCall{{ID: "c1", Name: "write_file", Args: core.NewRawJSON([]byte(`{"path":"new.txt","content":"created\n"}`))}}},
+			agent.StubTurn{Text: "done"},
+		)),
+		host.WithExtension(exts...),
+	)
+	if err != nil {
+		t.Fatalf("NewApp: %v", err)
+	}
+	if err := app.RunTurn(context.Background(), "go"); err != nil {
+		t.Fatalf("RunTurn: %v", err)
+	}
+	created := filepath.Join(ws, "new.txt")
+	if got, err := os.ReadFile(created); err != nil || string(got) != "created\n" {
+		t.Fatalf("the write did not land: %q (%v)", got, err)
+	}
+
+	res, err := app.Dispatch(context.Background(), "/undo")
+	if err != nil {
+		t.Fatalf("/undo: %v", err)
+	}
+	if _, err := os.Stat(created); !os.IsNotExist(err) {
+		t.Errorf("/undo said %q but new.txt is still in the workspace (stat err %v)", res.Message, err)
+	}
+}
