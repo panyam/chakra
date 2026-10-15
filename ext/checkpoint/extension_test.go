@@ -308,3 +308,48 @@ func TestNewRejectsBadConfig(t *testing.T) {
 		t.Fatal("a WriteSpec without Paths should error")
 	}
 }
+
+// TestARestartDoesNotReopenAnEarlierSessionsCheckpoint is the restart half of
+// issue 69. The turn counter restarts with the process while the store
+// persists, so turn 1 of a second host used to reopen the first host's turn-1
+// manifest and merge into it: /undo then also restored the earlier session's
+// files, and the merged checkpoint kept the older timestamp, so /undo picked a
+// different checkpoint as the newest.
+func TestARestartDoesNotReopenAnEarlierSessionsCheckpoint(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "cp")
+	work := t.TempDir()
+	host := func() *Extension {
+		e, err := New(Config{Root: root, Writes: []WriteSpec{{Tool: "write_file", Paths: pathArg}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return e
+	}
+	writeIn := func(e *Extension, f, content string) {
+		if err := e.TurnStart(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		if err := dispatch(t, e, agent.ToolCallInfo{Call: call("write_file", map[string]any{"path": f})},
+			func() { write(t, f, content) }); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	earlier := filepath.Join(work, "earlier.txt")
+	write(t, earlier, "kept")
+	writeIn(host(), earlier, "first session's edit")
+
+	later := filepath.Join(work, "later.txt")
+	second := host()
+	writeIn(second, later, "second session's file")
+
+	if _, err := second.runUndo(context.Background(), ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(later); !os.IsNotExist(err) {
+		t.Errorf("/undo in the second session left later.txt behind (stat err %v)", err)
+	}
+	if got := read(t, earlier); got != "first session's edit" {
+		t.Errorf("/undo in the second session rewrote the first session's file to %q", got)
+	}
+}
