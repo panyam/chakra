@@ -3,7 +3,7 @@ module github.com/panyam/chakra
 go 1.26.6
 
 require (
-	github.com/panyam/mcpkit v0.7.1
+	github.com/panyam/mcpkit v0.7.2
 	github.com/panyam/servicekit v0.1.5
 )
 
