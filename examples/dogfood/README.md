@@ -5,16 +5,24 @@ agent on this repository. It finds code, edits it, runs the tests, reads the
 failures and fixes them, with `/undo` available if a change goes wrong.
 
 ```bash
-make dogfood
+make dogfood-web DOGFOOD_ACTIVE=deepseek   # then open http://localhost:8090/
 ```
+
+The browser is where the exercise runs for now. `make dogfood` runs the same
+setup in the agentchat TUI, which is parked: it hangs on parallel tool calls
+and drops keystrokes (issue 66). `DOGFOOD_UI=plain` gets a line-based
+agentchat if you want a terminal anyway.
 
 ## What you need
 
 - `gopls` on PATH (`go install golang.org/x/tools/gopls@latest`). It drives the
   diagnostics after each edit and the repo map in the system prompt.
 - A model. `config.json` makes Claude the active connection and reads
-  `ANTHROPIC_API_KEY`. Without the key, `/provider local` switches to an LM
-  Studio model on `http://localhost:1234/v1`; edit `connections` to match yours.
+  `ANTHROPIC_API_KEY`. `DOGFOOD_ACTIVE` starts on another one instead:
+  `make dogfood DOGFOOD_ACTIVE=deepseek` (reads `DEEPSEEK_API_KEY`),
+  `openrouter` (reads `OPENROUTER_API_KEY`), or `local` (an LM Studio model on
+  `http://localhost:1234/v1`). `/provider <name>` switches mid-session. Edit
+  `connections` to change the models.
 - macOS for the sandbox. `workspace.json` asks for the platform sandbox, and
   only darwin has one so far (issue 32). On Linux, set `"sandbox": "unconfined"`
   in a copy of the file if you accept running the commands without one.
@@ -22,8 +30,8 @@ make dogfood
 ## What is in the files
 
 - `config.json` holds the host settings: instructions, connections, and
-  `read-only-auto` approval. Under that mode the test, vet and build commands
-  run without asking, while edits and writes ask.
+  `read-only-auto` approval. Under that mode reads, searches and the test, vet
+  and build commands run without asking, while edits and writes ask.
 - `workspace.json` holds what the CLI flags cannot express. That is the exec
   allowlist (`run_test`, `run_test_all`, `run_vet`, `run_build`), gopls, and
   the repo map. The model picks one of those tools and can pass package paths
@@ -35,7 +43,8 @@ they sit outside anything the agent can edit.
 
 ## Running the exercise
 
-Ask for a small, real change that has a test, then watch:
+Ask for a small, real change that has a test, then watch. Slash commands
+(`/undo`, `/checkpoints`, `/provider`) work from the browser's input box.
 
 1. Did it find the right files without being told the paths?
 2. Did it run `run_test` on what it touched without being asked?

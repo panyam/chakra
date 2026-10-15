@@ -1,13 +1,16 @@
 package surfaces
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/panyam/chakra"
 	"github.com/panyam/chakra/ext/checkpoint"
 	"github.com/panyam/chakra/ext/exec"
 	"github.com/panyam/chakra/ext/files"
 	"github.com/panyam/chakra/ext/lsp"
 	"github.com/panyam/chakra/host"
+	"github.com/panyam/mcpkit/core"
 )
 
 // WorkspaceConfig describes the workspace tool set a surface exposes.
@@ -133,13 +136,11 @@ func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 	}
 
 	if !cfg.NoCheckpoint {
-		cx, err := checkpoint.New(checkpoint.Config{
-			Root: store,
-			Writes: []checkpoint.WriteSpec{
-				{Tool: "write_file", Paths: files.PathArg},
-				{Tool: "edit_file", Paths: files.PathArg},
-			},
-		})
+		var writes []checkpoint.WriteSpec
+		for _, tool := range fileWrites {
+			writes = append(writes, checkpoint.WriteSpec{Tool: tool, Paths: files.PathArg})
+		}
+		cx, err := checkpoint.New(checkpoint.Config{Root: store, Writes: writes})
 		if err != nil {
 			return nil, fmt.Errorf("workspace checkpoint: %w", err)
 		}
@@ -154,7 +155,11 @@ func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 	if err != nil {
 		return nil, fmt.Errorf("workspace files: %w", err)
 	}
-	exts = append(exts, fx)
+	if cfg.NoCheckpoint {
+		exts = append(exts, fx)
+	} else {
+		exts = append(exts, restorable{Extension: fx})
+	}
 
 	if cfg.Exec != nil {
 		ec := *cfg.Exec
@@ -194,4 +199,51 @@ func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 	}
 
 	return exts, nil
+}
+
+// fileWrites are the files tools that write, which the checkpoint snapshots
+// and which restorable therefore marks reversible. One list, so a tool cannot
+// be marked reversible without also being snapshotted.
+var fileWrites = []string{"write_file", "edit_file"}
+
+// restorable wraps the files extension when a checkpoint covers its writes,
+// and declares those writes reversible (destructiveHint false) so
+// reversible-auto runs them unasked. files cannot say this itself: whether
+// /undo can take a write back depends on the checkpoint this wiring adds, and
+// --no-checkpoint leaves the writes unwrapped, so they stay destructive.
+// A checkpoint restore is a true inverse, which is what A11 asks of anything
+// that runs unattended.
+type restorable struct{ host.Extension }
+
+func (r restorable) Tools() (agent.ToolSource, error) {
+	src, err := r.Extension.Tools()
+	if err != nil || src == nil {
+		return src, err
+	}
+	return restorableSource{src}, nil
+}
+
+type restorableSource struct{ agent.ToolSource }
+
+func (s restorableSource) Tools(ctx context.Context) ([]core.ToolDef, error) {
+	defs, err := s.ToolSource.Tools(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]core.ToolDef, len(defs))
+	for i, d := range defs {
+		for _, w := range fileWrites {
+			if d.Name != w {
+				continue
+			}
+			ann := make(map[string]any, len(d.Annotations)+1)
+			for k, v := range d.Annotations {
+				ann[k] = v
+			}
+			ann["destructiveHint"] = false
+			d.Annotations = ann
+		}
+		out[i] = d
+	}
+	return out, nil
 }

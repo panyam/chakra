@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createRoot } from "solid-js";
+import { Code, ConnectError } from "@connectrpc/connect";
 import { createConversationStore, type ConversationStore } from "./conversation.js";
 import type { HostEvent } from "./hostevent.js";
 
@@ -170,4 +171,84 @@ describe("ConversationStore symmetric turn submission", () => {
       expect(store.streaming()).toBe("streaming");
       dispose();
     }));
+});
+
+describe("ConversationStore slash commands", () => {
+  const cmdPayload = (cmd: object) => new TextEncoder().encode(JSON.stringify(cmd));
+
+  function recordingClient(dispatch: (line: string) => Promise<{ kind: string; payload: Uint8Array }>) {
+    const calls = { dispatched: [] as string[], submitted: [] as string[] };
+    const client = {
+      dispatch: async (req: { line: string }) => {
+        calls.dispatched.push(req.line);
+        return dispatch(req.line);
+      },
+      submit: async (req: { input: string }) => {
+        calls.submitted.push(req.input);
+        return {};
+      },
+      respondToAsk: async () => ({}),
+    } as unknown as Parameters<typeof createConversationStore>[0];
+    return { client, calls };
+  }
+
+  it("runs a slash command through Dispatch and shows its message", async () => {
+    const { client, calls } = recordingClient(async () => ({
+      kind: "message",
+      payload: cmdPayload({ Kind: "message", Message: "restored 2 files" }),
+    }));
+    await createRoot(async (dispose) => {
+      const store = createConversationStore(client);
+      await store.submit("/undo");
+      expect(calls.dispatched).toEqual(["/undo"]);
+      expect(calls.submitted).toEqual([]);
+      expect(store.turns()).toEqual([
+        { role: "user", text: "/undo" },
+        { role: "system", text: "restored 2 files" },
+      ]);
+      expect(store.busy()).toBe(false);
+      dispose();
+    });
+  });
+
+  it("lists the connections for /provider, marking the active one", async () => {
+    const { client } = recordingClient(async () => ({
+      kind: "providers",
+      payload: cmdPayload({ Kind: "providers", Providers: ["claude", "deepseek"], ActiveProvider: "deepseek" }),
+    }));
+    await createRoot(async (dispose) => {
+      const store = createConversationStore(client);
+      await store.submit("/provider");
+      expect(store.turns()[1]).toEqual({ role: "system", text: "connections: claude, deepseek (active)" });
+      dispose();
+    });
+  });
+
+  it("runs an unknown command as a turn, as the host asks", async () => {
+    const { client, calls } = recordingClient(async () => {
+      throw new ConnectError("unknown command", Code.InvalidArgument);
+    });
+    await createRoot(async (dispose) => {
+      const store = createConversationStore(client);
+      await store.submit("/etc/hosts is odd, why?");
+      expect(calls.submitted).toEqual(["/etc/hosts is odd, why?"]);
+      expect(store.turns()).toEqual([{ role: "user", text: "/etc/hosts is odd, why?" }]);
+      expect(store.error()).toBe("");
+      dispose();
+    });
+  });
+
+  it("shows a command that fails on the host as an error", async () => {
+    const { client, calls } = recordingClient(async () => {
+      throw new ConnectError("checkpoint: no such checkpoint", Code.Internal);
+    });
+    await createRoot(async (dispose) => {
+      const store = createConversationStore(client);
+      await store.submit("/undo nope");
+      expect(calls.submitted).toEqual([]);
+      expect(store.error()).toContain("no such checkpoint");
+      expect(store.busy()).toBe(false);
+      dispose();
+    });
+  });
 });

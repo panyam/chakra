@@ -32,7 +32,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent
 # explicitly and the platform's own backend refuses. See the module README.
 GOTESTFLAGS ?= -race -timeout 300s
 
-.PHONY: help build test test-examples testall vet fmt check-fmt cover tidy-all bump-siblings tag tag-push pg dogfood \
+.PHONY: help build test test-examples test-web testall vet fmt check-fmt cover tidy-all bump-siblings tag tag-push pg dogfood dogfood-web \
         check-no-binaries check-ext-isolation check-dep-consistency setup-hooks
 
 help: ## Show this help
@@ -73,6 +73,9 @@ check-fmt: ## Fail if any tracked Go file is not gofmt-clean
 		echo "not gofmt-clean, run 'make fmt':"; echo "$$out"; exit 1; \
 	fi
 
+test-web: ## Run the web frontend's unit tests (vitest; needs Node)
+	cd surfaces/web/web && npm ci --silent && npm test
+
 tidy-all: ## go mod tidy every module. Required after touching a shared import.
 	@for m in $(MODULES) $(EXAMPLES); do \
 		echo "==> tidy $$m"; \
@@ -100,9 +103,15 @@ pg: ## Playground: boot a demo MCP server + launch agentchat's TUI (needs a loca
 # cannot read or edit its own undo history.
 DOGFOOD_DIR ?= $(HOME)/.agentchat/dogfood
 
-dogfood: ## Mission exercise: agentchat on this repo with files, exec, LSP (needs gopls + ANTHROPIC_API_KEY or a local model)
+# DOGFOOD_ACTIVE picks the starting connection from examples/dogfood/config.json
+# (claude, deepseek, openrouter, local); empty keeps the config's own.
+DOGFOOD_ACTIVE ?=
+# DOGFOOD_UI is agentchat's --ui: tui, notebook or plain (line-based, no TTY tricks).
+DOGFOOD_UI ?= tui
+
+dogfood: ## Mission exercise: agentchat on this repo with files, exec, LSP (needs gopls and a model; DOGFOOD_ACTIVE=deepseek etc.)
 	@command -v gopls >/dev/null || { echo "make dogfood needs gopls on PATH: go install golang.org/x/tools/gopls@latest"; exit 1; }
-	@[ -n "$$ANTHROPIC_API_KEY" ] || echo "note: ANTHROPIC_API_KEY is unset; switch to the local connection with /provider local"
+	@[ -n "$(DOGFOOD_ACTIVE)" ] || [ -n "$$ANTHROPIC_API_KEY" ] || echo "note: ANTHROPIC_API_KEY is unset; pick another connection with DOGFOOD_ACTIVE=deepseek (or openrouter, local)"
 	@mkdir -p $(DOGFOOD_DIR)
 	cd surfaces/chat && go run . \
 		--config $(CURDIR)/examples/dogfood/config.json \
@@ -110,7 +119,25 @@ dogfood: ## Mission exercise: agentchat on this repo with files, exec, LSP (need
 		--workspace-config $(CURDIR)/examples/dogfood/workspace.json \
 		--checkpoint-store $(DOGFOOD_DIR)/checkpoints \
 		--session-store sqlite://$(DOGFOOD_DIR)/sessions.db \
-		--ui tui
+		$(if $(DOGFOOD_ACTIVE),--active $(DOGFOOD_ACTIVE)) \
+		--ui $(DOGFOOD_UI)
+
+# The same exercise in the browser, which is where the mission runs while the
+# TUI is parked (#66). Shares the config, connections and store with dogfood.
+DOGFOOD_ADDR ?= localhost:8090
+
+dogfood-web: ## Mission exercise in the browser: agentweb on this repo (open http://$(DOGFOOD_ADDR)/)
+	@command -v gopls >/dev/null || { echo "make dogfood-web needs gopls on PATH: go install golang.org/x/tools/gopls@latest"; exit 1; }
+	@[ -n "$(DOGFOOD_ACTIVE)" ] || [ -n "$$ANTHROPIC_API_KEY" ] || echo "note: ANTHROPIC_API_KEY is unset; pick another connection with DOGFOOD_ACTIVE=deepseek (or openrouter, local)"
+	@mkdir -p $(DOGFOOD_DIR)
+	cd surfaces/web && go run ./cmd/agentweb \
+		--addr $(DOGFOOD_ADDR) \
+		--config $(CURDIR)/examples/dogfood/config.json \
+		--workspace $(CURDIR) \
+		--workspace-config $(CURDIR)/examples/dogfood/workspace.json \
+		--checkpoint-store $(DOGFOOD_DIR)/checkpoints \
+		--session-store sqlite://$(DOGFOOD_DIR)/sessions.db \
+		$(if $(DOGFOOD_ACTIVE),--active $(DOGFOOD_ACTIVE))
 
 # ---------------------------------------------------------------------------
 # Release

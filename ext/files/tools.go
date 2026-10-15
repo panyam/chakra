@@ -112,10 +112,18 @@ func (s *Source) Close() error {
 	return firstErr
 }
 
+// readOnly marks a tool that changes nothing, so read-only-auto and the modes
+// above it run it without asking. The writes stay unannotated, which reads as
+// destructive: whether one can be undone depends on a checkpoint this package
+// does not wire, so only the wiring can say so. A fresh map per tool, since a
+// caller may write into a ToolDef's annotations.
+func readOnly() map[string]any { return map[string]any{"readOnlyHint": true} }
+
 func toolDefs() []core.ToolDef {
 	return []core.ToolDef{
 		{
 			Name:        "read_file",
+			Annotations: readOnly(),
 			Title:       "Read a file",
 			Description: "Read a text file. Returns its content and a hash of that content. Pass the hash to edit_file as expect_hash so the edit is refused if the file changed in between.",
 			InputSchema: map[string]any{
@@ -197,6 +205,7 @@ func toolDefs() []core.ToolDef {
 		},
 		{
 			Name:        "list_files",
+			Annotations: readOnly(),
 			Title:       "List files",
 			Description: "List files in the workspace, recursively. Use this to find what is there before reading or editing.",
 			InputSchema: map[string]any{
@@ -214,8 +223,9 @@ func toolDefs() []core.ToolDef {
 			},
 		},
 		{
-			Name:  "search_files",
-			Title: "Search file contents",
+			Name:        "search_files",
+			Annotations: readOnly(),
+			Title:       "Search file contents",
 			Description: "Search the workspace for a regular expression, returning matching lines as path:line: text. " +
 				"The query is a regex (RE2 syntax): escape it, or pass literal:true, to search for text containing regex characters.",
 			InputSchema: map[string]any{

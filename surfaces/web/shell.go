@@ -25,8 +25,7 @@ func staticAssets() fs.FS {
 
 // shellData is the server-rendered shell's template model. Layout is the chosen
 // surface ("dockview" or "mobile"), stamped onto #workspace[data-layout] where
-// main.ts reads it back; Dockview links the dockview stylesheet only on that
-// layout (the mobile page never requests it).
+// main.ts reads it back; Dockview marks that layout as selected in the picker.
 type shellData struct {
 	Layout   string
 	Dockview bool
@@ -64,7 +63,6 @@ const shellHTML = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>agentweb — mcpkit</title>
-{{if .Dockview}}<link rel="stylesheet" href="/static/dockview.css">{{end}}
 <style>
 :root {
   --bg: #ffffff; --fg: #1a1a1a; --muted: #6b7280; --line: #e5e7eb;
@@ -111,7 +109,7 @@ body { font: 14px/1.5 system-ui, -apple-system, sans-serif; background: var(--bg
 .conv-resolved { display: flex; align-items: center; gap: .5rem; align-self: center; color: var(--muted); font-size: 12px; font-style: italic; padding: .1rem .2rem; }
 .conv-resolved-dismiss { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 12px; line-height: 1; padding: 0 .2rem; }
 .conv-ask { border-top: 1px solid var(--line); background: var(--sys); padding: .7rem 1rem; display: flex; flex-direction: column; gap: .5rem; }
-.conv-ask-msg { font-weight: 500; }
+.conv-ask-msg { font-weight: 500; white-space: pre-wrap; overflow-wrap: anywhere; }
 .conv-ask-actions { display: flex; gap: .5rem; }
 .conv-approve, .conv-decline { border: 1px solid var(--line); border-radius: 6px; padding: .3rem .8rem; cursor: pointer; }
 .conv-approve { background: var(--accent); color: #fff; border-color: var(--accent); }

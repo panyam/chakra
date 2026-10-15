@@ -13,6 +13,7 @@ import (
 	"github.com/panyam/chakra/ext/exec"
 	"github.com/panyam/chakra/ext/lsp"
 	"github.com/panyam/chakra/host"
+	"github.com/panyam/mcpkit/core"
 )
 
 // TestWorkspaceExtensionsDisabledByDefault pins that an empty Roots produces no
@@ -219,6 +220,122 @@ func TestWorkspaceRepoMapNeedsALanguageServer(t *testing.T) {
 	for _, e := range exts {
 		if e.Name() == "lsp" {
 			t.Fatal("RepoMap alone must not start a language server")
+		}
+	}
+}
+
+// TestCheckpointedWritesAreReversible pins that the files extension's writes
+// count as reversible exactly when a checkpoint covers them. Under
+// reversible-auto an edit /undo can restore runs unasked, and the same edit
+// with --no-checkpoint asks, since nothing could take it back.
+func TestCheckpointedWritesAreReversible(t *testing.T) {
+	for _, c := range []struct {
+		name         string
+		noCheckpoint bool
+		wantAsk      bool
+	}{
+		{"checkpoint on", false, false},
+		{"no checkpoint", true, true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			exts, err := WorkspaceExtensions(WorkspaceConfig{Roots: []string{t.TempDir()}, CheckpointStore: t.TempDir(), NoCheckpoint: c.noCheckpoint})
+			if err != nil {
+				t.Fatalf("WorkspaceExtensions: %v", err)
+			}
+			var src agent.ToolSource
+			for _, e := range exts {
+				if strings.Contains(e.Name(), "file") {
+					if src, err = e.Tools(); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			if src == nil {
+				t.Fatal("no files extension")
+			}
+
+			asked := false
+			ask := func(context.Context, agent.ToolCallInfo) (bool, error) {
+				asked = true
+				return false, nil
+			}
+			r, err := agent.NewRunner(agent.RunnerConfig{
+				Provider: agent.NewStubProvider(
+					agent.StubTurn{ToolCalls: []agent.ToolCall{{ID: "c1", Name: "write_file", Args: core.NewRawJSON([]byte(`{"path":"a.txt","content":"x"}`))}}},
+					agent.StubTurn{Text: "done"},
+				),
+				Tools: src,
+				ToolMiddleware: []agent.ToolMiddleware{
+					agent.NewTieredApproval(agent.WithDefaultMode(agent.ModeReversibleAuto), agent.WithAsk(ask)).WrapToolCall,
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := r.Run(context.Background(), []agent.Message{{Role: agent.RoleUser, Text: "go"}}, nil); err != nil {
+				t.Fatal(err)
+			}
+			if asked != c.wantAsk {
+				t.Errorf("write_file under reversible-auto, %s: asked = %v, want %v", c.name, asked, c.wantAsk)
+			}
+		})
+	}
+}
+
+// TestEditApprovalBroadcastsTheDiff follows an edit_file approval from the
+// files renderer to the ask every surface receives. The browser shows only
+// HostEvent.Elicit.Message, so if the diff is not in it, a web user approves
+// an edit they cannot see.
+func TestEditApprovalBroadcastsTheDiff(t *testing.T) {
+	ws := t.TempDir()
+	if err := os.WriteFile(filepath.Join(ws, "hello.txt"), []byte("hi\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	exts, err := WorkspaceExtensions(WorkspaceConfig{Roots: []string{ws}, CheckpointStore: t.TempDir()})
+	if err != nil {
+		t.Fatalf("WorkspaceExtensions: %v", err)
+	}
+	edit := `{"path":"hello.txt","expect_hash":"x","edits":[{"old":"hi","new":"bye"}]}`
+	cfg := &host.Config{
+		Model:        host.ModelConfig{BaseURL: "http://127.0.0.1:1", Model: "test"},
+		Instructions: "test",
+		Approval:     &host.ApprovalConfig{Mode: "read-only-auto"},
+	}
+	app, err := host.NewApp(cfg, io.Discard, strings.NewReader(""),
+		host.WithProvider(agent.NewStubProvider(
+			agent.StubTurn{ToolCalls: []agent.ToolCall{{ID: "c1", Name: "edit_file", Args: core.NewRawJSON([]byte(edit))}}},
+			agent.StubTurn{Text: "done"},
+		)),
+		host.WithExtension(exts...),
+	)
+	if err != nil {
+		t.Fatalf("NewApp: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	events := app.Subscribe(ctx)
+	done := make(chan error, 1)
+	go func() { done <- app.RunTurn(ctx, "go") }()
+
+	var msg string
+	for msg == "" {
+		select {
+		case ev := <-events:
+			if ev.Kind == host.HostElicitRequest && ev.Elicit != nil {
+				msg = ev.Elicit.Message
+				// The local responder may already have declined; either way
+				// the turn ends.
+				_ = app.RespondToAsk(int(ev.AskID), core.ElicitationResult{Action: "decline"}, "web")
+			}
+		case err := <-done:
+			t.Fatalf("turn ended without an approval ask (err %v)", err)
+		}
+	}
+	<-done
+	for _, want := range []string{"hello.txt", "- hi", "+ bye"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("broadcast ask is missing %q:\n%s", want, msg)
 		}
 	}
 }

@@ -36,6 +36,8 @@ func main() {
 	flag.Var(&workspace, "workspace", "expose file tools (read/edit/write/list/search) confined to these directories, plus checkpoint /undo. Repeatable: a session that spans repositories passes each one. The first is primary (empty = off; there is no default directory on purpose)")
 	workspaceConfig := flag.String("workspace-config", "", "with --workspace, a JSON file adding the exec allowlist (commands the agent may run, sandboxed), language servers, and the repo map. See examples/dogfood/workspace.json")
 	noCheckpoint := flag.Bool("no-checkpoint", false, "with --workspace, skip the file snapshot taken before each write, disabling /undo and /checkpoints")
+	checkpointStore := flag.String("checkpoint-store", "", "with --workspace, where snapshots live (empty = under the first workspace directory). Worth setting so the store sits outside what the agent can read and edit")
+	active := flag.String("active", "", "override the active chat connection at startup (a name in the config's connections; default = the config's active)")
 	flag.Parse()
 
 	// A configured --session-store makes web sessions durable: session_id is a
@@ -51,8 +53,18 @@ func main() {
 	// attaches the same store (buildApp), so a session it hosts persists. The
 	// SessionManager holds them all; its default session (created at startup)
 	// backs an empty session_id, keeping the single-surface flow unchanged.
+	opts := appOptions{
+		configPath:      *configPath,
+		demo:            *demo,
+		active:          *active,
+		store:           store,
+		workspace:       workspace,
+		workspaceConfig: *workspaceConfig,
+		checkpointStore: *checkpointStore,
+		noCheckpoint:    *noCheckpoint,
+	}
 	factory := func(ctx context.Context) (*host.App, error) {
-		return buildApp(*configPath, *demo, store, workspace, *workspaceConfig, *noCheckpoint)
+		return buildApp(opts)
 	}
 	var mgr *web.SessionManager
 	if store != nil {
@@ -82,6 +94,19 @@ func main() {
 	}
 }
 
+// appOptions carries the flags buildApp needs, so every session the factory
+// mints is built from the same settings.
+type appOptions struct {
+	configPath      string
+	demo            bool
+	active          string
+	store           agent.RunStore
+	workspace       []string
+	workspaceConfig string
+	checkpointStore string
+	noCheckpoint    bool
+}
+
 // buildApp builds one App: the factory the SessionManager calls for the default
 // session and every CreateSession. In demo mode it wires the offline demo
 // provider; otherwise it loads the host config. The web surface renders in the
@@ -90,16 +115,16 @@ func main() {
 // non-nil store is attached to every App (host.WithRunStore) so each session,
 // including the default, persists its turns — the invariant the store-backed
 // SessionManager relies on when it rehydrates a dropped session.
-func buildApp(configPath string, demo bool, store agent.RunStore, workspace []string, workspaceConfig string, noCheckpoint bool) (*host.App, error) {
+func buildApp(o appOptions) (*host.App, error) {
 	var storeOpt []host.AppOption
-	if store != nil {
-		storeOpt = append(storeOpt, host.WithRunStore(store))
+	if o.store != nil {
+		storeOpt = append(storeOpt, host.WithRunStore(o.store))
 	}
 	// Built once and appended to whichever App this call constructs, so the
 	// demo and config paths cannot drift into offering different tools. Nil
 	// when --workspace is unset, leaving both paths as they were.
-	wsCfg := agentsurfaces.WorkspaceConfig{Roots: workspace, NoCheckpoint: noCheckpoint}
-	if err := wsCfg.LoadFile(workspaceConfig); err != nil {
+	wsCfg := agentsurfaces.WorkspaceConfig{Roots: o.workspace, NoCheckpoint: o.noCheckpoint, CheckpointStore: o.checkpointStore}
+	if err := wsCfg.LoadFile(o.workspaceConfig); err != nil {
 		return nil, err
 	}
 	wsExts, err := agentsurfaces.WorkspaceExtensions(wsCfg)
@@ -109,7 +134,7 @@ func buildApp(configPath string, demo bool, store agent.RunStore, workspace []st
 	if len(wsExts) > 0 {
 		storeOpt = append(storeOpt, host.WithExtension(wsExts...))
 	}
-	if demo {
+	if o.demo {
 		// Wire two delegate personas + a low offload threshold so a demo turn
 		// exercises the whole observability surface: the scripted provider fans
 		// out to researcher/analyst (sub-agent tree + tool calls), the
@@ -136,12 +161,21 @@ func buildApp(configPath string, demo bool, store agent.RunStore, workspace []st
 			)...,
 		)
 	}
-	if configPath == "" {
+	if o.configPath == "" {
 		return nil, fmt.Errorf("--config <path> is required (or pass --demo for the offline streaming demo)")
 	}
-	cfg, err := host.LoadConfig(configPath)
+	cfg, err := host.LoadConfig(o.configPath)
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
+	}
+	if o.active != "" {
+		if cfg.Connections == nil {
+			return nil, fmt.Errorf("--active %q: the config has no connections", o.active)
+		}
+		if _, ok := cfg.Connections.Connections[o.active]; !ok {
+			return nil, fmt.Errorf("--active %q: no such connection in the config", o.active)
+		}
+		cfg.Connections.Active = o.active
 	}
 	return host.NewApp(cfg, io.Discard, strings.NewReader(""), storeOpt...)
 }
