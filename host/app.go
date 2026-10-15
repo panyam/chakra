@@ -113,6 +113,10 @@ type App struct {
 	connections    *ConnectionRegistry
 	providerSwitch *providerSwitch
 
+	// agentWatch routes each server's notifications/agents/list_changed to
+	// the cache discovery built for it. See agentWatchers.
+	agentWatch agentWatchers
+
 	// extensions are the registered Extensions, retained past construction
 	// so per-turn lifecycle (TurnStart) can reach them.
 	extensions []Extension
@@ -372,6 +376,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 			client.WithTasksExtension(),
 			client.WithElicitationHandler(coord.Handler()),
 			client.WithToolsListChangedHandler(multi.Invalidate),
+			client.WithNotificationCallback(app.agentWatch.notify(sc.ID)),
 			client.WithTracerProvider(o.tp),
 		}
 		authOpt, loginSrc, err := authOption(sc, o.browserOpener)
@@ -520,7 +525,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	// agent to the main aggregate. Resolution (agents/get: instructions +
 	// scoped tools) is deferred to first delegation, so scoped schemas never
 	// bloat the supervisor's context. Degrades to a warning per server.
-	app.registerServerAgents(multi, provider, o.tp, o.mp, cfg.Servers, clientByID)
+	app.registerServerAgents(multi, newAgentModels(provider, app.connections), o.tp, o.mp, cfg.Servers, clientByID)
 
 	// Runner-control meta-tools: let the main model spawn/await/cancel the
 	// configured personas in the background with handles (issue 1166). Reuses

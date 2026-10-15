@@ -14,7 +14,7 @@ import (
 //
 // The deliberate non-coupling: this config takes the decoded pieces
 // (Instructions string, Tools []core.ToolDef) plus a Backing ToolSource, NOT
-// the experimental agents.AgentDetail wire type. That keeps agent/ free of the
+// the experimental agents.GetAgentResult wire type. That keeps agent/ free of the
 // experimental extension module — the host layer decodes the wire object and
 // hands the parts here (agent/CONSTRAINTS.md A6: this is agent-layer because
 // constructing a Runner needs a model + a turn).
@@ -25,8 +25,7 @@ type ServerAgentConfig struct {
 	Name string
 
 	// Description tells the parent model when to delegate to this agent. The
-	// host folds the roster fields (description, capabilities, example tasks)
-	// into it. Required.
+	// host folds the roster fields (description and capabilities) into it. Required.
 	Description string
 
 	// Instructions is the agent's system prompt from agents/get. It seeds the

@@ -260,7 +260,7 @@ Two layers, split on A6:
 - **Wire primitive → `experimental/ext/agents`** (issue 1143): the discovery
   surface. `capabilities.extensions[io.modelcontextprotocol/agents]` (level 1),
   `agents/list` returns a roster of routing tuples with no tool schemas (level
-  2), `agents/get {agentId}` resolves one agent's instructions + scoped tools
+  2), `agents/get {name}` resolves one agent's instructions + scoped tools
   (level 3). Same progressive-disclosure shape as two-tier skills (#910). It
   traffics only in protocol objects, so it is not agent-layer.
 
@@ -277,10 +277,16 @@ Two layers, split on A6:
     scope, not the server's whole `tools/list`.
   - The host (`host/server_agents.go`) discovers each connected server's
     roster and adds a **lazy delegate per agent** (`serverAgentSource`) to the
-    main aggregate. `agents/get` fires only on first delegation (cached after),
-    so the scoped schemas resolve into the *child* Runner and never enter the
-    supervisor's context — the progressive-disclosure win, mirroring
-    catalog-mode skills. Per-server, opt-out via `ServerConfig.Agents`.
+    main aggregate. `agents/get` fires only on delegation, so the scoped
+    schemas resolve into the *child* Runner and never enter the supervisor's
+    context — the progressive-disclosure win, mirroring catalog-mode skills.
+    Per-server, opt-out via `ServerConfig.Agents`.
+  - Both lookups go through an `agentsclient.Cache`, kept for the server's
+    `ttlMs` (five minutes when it sends none but declares `listChanged`).
+    `notifications/agents/list_changed` drops the roster and the aggregate's
+    index, so added and removed agents reach the supervisor without a restart.
+    An agent's `modelRoutingHint` picks its connection through
+    `ConnectionsConfig.AgentRoles`, and otherwise it runs on the active one.
 
 Invocation is not new wire surface: the child's scoped tool calls go back over
 the existing `tools/call`. The WG's server-side `delegateTool` (run the agent on
