@@ -74,6 +74,68 @@ with a directory attached.
 `--workspace-exclude` overrides the directories `list_files` and `search_files`
 skip. `--no-checkpoint` drops the snapshot, and with it `/undo`.
 
+### `--workspace-config`: commands, language servers, repo map
+
+`--workspace-config <file.json>` adds what a flag can't express: an allowlist
+of commands the model may run, language servers, and the repo map. It only
+applies alongside `--workspace`, and the file deliberately has no roots: the
+directory still comes from the flag, and the commands run in (and write to)
+the same roots as the file tools.
+
+```bash
+go run . --config chat.json --workspace ~/code/project \
+  --workspace-config workspace.json
+```
+
+```json
+{
+  "repoMap": true,
+  "languageServers": [
+    { "command": ["gopls"], "extensions": [".go"], "languageId": "go" }
+  ],
+  "exec": {
+    "sandbox": "platform",
+    "commands": [
+      {
+        "name": "test",
+        "argv": ["go", "test", "-race"],
+        "description": "Run the Go tests for the named package paths, e.g. ./host/...",
+        "args": { "max": 3, "match": "\\./[\\w./-]*(\\.\\.\\.)?", "paths": true },
+        "readOnly": true,
+        "timeout": "5m"
+      }
+    ]
+  }
+}
+```
+
+- **`exec.commands`**: each entry becomes one tool, named `run_<name>`. The
+  model picks a tool; it never composes a command line. `argv` is an argv, not
+  a shell string, and `argv[0]` resolves on PATH when agentchat starts, so
+  write `["sh", "scripts/foo.sh"]` rather than `["scripts/foo.sh"]`. `dir`
+  defaults to the first root.
+- **`args`**: without it, the tool takes no arguments. With it, the model may
+  pass up to `max` trailing arguments, each matching `match` end to end;
+  `paths` also requires each one to name a path inside a root.
+- **Approval**: `readOnly` makes a command auto-allowed under `read-only-auto`
+  and above. `reversible` makes it auto-allowed under `reversible-auto`. An
+  entry with neither is treated as destructive and always asked about.
+- **`exec.sandbox`**: `"platform"` (the default) confines every command, and
+  fails at startup where there is no backend. Today that is darwin only
+  (`sandbox-exec`). `"unconfined"` opts out, for a process already isolated
+  some other way, such as a container. Network is off per command unless
+  `allowNetwork` is set. `writePaths` and `denyRead` override the defaults
+  (build caches writable, credential directories unreadable); `[]` means none.
+- **Limits**: `timeout` (Go duration; default `2m`, per command or for all)
+  and `maxOutput` (bytes returned; default 32 KiB).
+- **`languageServers`**: LSP in the loop. Diagnostics follow each edit, and the
+  model gets `goto_definition` and `find_references`.
+- **`repoMap`**: puts a ranked map of the repository in the system prompt.
+
+Unknown fields are an error, so a misspelt `readOnly` fails at startup instead
+of quietly making a command ask (or not ask). `examples/dogfood/workspace.json`
+is a working file for this repo.
+
 ## Status line
 
 Both TUI surfaces show a persistent status line (kept in the managed live
