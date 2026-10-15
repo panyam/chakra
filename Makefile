@@ -32,7 +32,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent
 # explicitly and the platform's own backend refuses. See the module README.
 GOTESTFLAGS ?= -race -timeout 300s
 
-.PHONY: help build test test-examples testall vet fmt check-fmt cover tidy-all bump-siblings tag tag-push pg dogfood \
+.PHONY: help build test test-examples test-web testall vet fmt check-fmt cover tidy-all bump-siblings tag tag-push pg dogfood \
         check-no-binaries check-ext-isolation check-dep-consistency setup-hooks
 
 help: ## Show this help
@@ -72,6 +72,9 @@ check-fmt: ## Fail if any tracked Go file is not gofmt-clean
 	if [ -n "$$out" ]; then \
 		echo "not gofmt-clean, run 'make fmt':"; echo "$$out"; exit 1; \
 	fi
+
+test-web: ## Run the web frontend's unit tests (vitest; needs Node)
+	cd surfaces/web/web && npm ci --silent && npm test
 
 tidy-all: ## go mod tidy every module. Required after touching a shared import.
 	@for m in $(MODULES) $(EXAMPLES); do \
