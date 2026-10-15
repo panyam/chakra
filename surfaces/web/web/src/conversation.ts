@@ -1,5 +1,5 @@
 import { createSignal, type Accessor } from "solid-js";
-import type { Client } from "@connectrpc/connect";
+import { Code, ConnectError, type Client } from "@connectrpc/connect";
 import type { HostService } from "./gen/chakra/web/v1/host_pb.js";
 import { EventKind, HostEventKind, type HostEvent } from "./hostevent.js";
 
@@ -83,6 +83,32 @@ function surfaceLabel(by: string): string {
 function resolutionText(by: string): string {
   if (by === "web") return "answered in another browser tab";
   return `answered on ${surfaceLabel(by)}`;
+}
+
+// CmdResult is the subset of the host's CmdResult (json.Marshal of
+// host.CmdResult, carried as Dispatch's payload) this panel renders.
+interface CmdResult {
+  Kind?: string;
+  Message?: string;
+  Providers?: string[];
+  ActiveProvider?: string;
+}
+
+// cmdText renders a command's result as one transcript line. Most commands
+// (/undo, /checkpoints) carry a Message; /provider carries a list instead.
+export function cmdText(payload: Uint8Array, line: string): string {
+  let cmd: CmdResult;
+  try {
+    cmd = JSON.parse(new TextDecoder().decode(payload)) as CmdResult;
+  } catch {
+    return `${line}: done`;
+  }
+  if (cmd.Message) return cmd.Message;
+  if (cmd.Providers?.length) {
+    const names = cmd.Providers.map((p) => (p === cmd.ActiveProvider ? `${p} (active)` : p));
+    return `connections: ${names.join(", ")}`;
+  }
+  return `${line}: done`;
 }
 
 export function createConversationStore(client: Client<typeof HostService>): ConversationStore {
@@ -192,12 +218,33 @@ export function createConversationStore(client: Client<typeof HostService>): Con
     }
   };
 
+  // runCommand sends a leading-slash line to Dispatch and reports whether the
+  // host claimed it. An unknown command comes back as InvalidArgument, and the
+  // host's contract is that the client then runs the line as a turn, so a
+  // message that merely starts with "/" still reaches the model.
+  const runCommand = async (text: string): Promise<boolean> => {
+    try {
+      const resp = await client.dispatch({ line: text });
+      push({ role: "system", text: cmdText(resp.payload, text) });
+    } catch (e) {
+      if (ConnectError.from(e).code === Code.InvalidArgument) return false;
+      setError(e instanceof Error ? e.message : String(e));
+    }
+    return true;
+  };
+
   const submit = async (input: string): Promise<void> => {
     const text = input.trim();
     if (!text || busy()) return;
     setError("");
     setResolved(null);
     push({ role: "user", text });
+    if (text.startsWith("/")) {
+      setBusy(true);
+      const claimed = await runCommand(text);
+      setBusy(false);
+      if (claimed) return;
+    }
     pendingLocalTurns++; // this surface expects the next turn-begin
     setBusy(true);
     try {
