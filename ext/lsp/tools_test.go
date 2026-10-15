@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/panyam/chakra"
 	"github.com/panyam/mcpkit/core"
 )
 
@@ -237,5 +238,41 @@ func TestWedgedServerRefusesRatherThanHanging(t *testing.T) {
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("the tool call hung on a server that never answered")
+	}
+}
+
+// TestNavigationToolsRunUnaskedUnderReadOnlyAuto goes through a real Runner
+// and TieredApproval, so it checks what the annotation does. Dogfood run 1
+// (issue 70) had goto_definition denied, because nothing marked it read-only.
+func TestNavigationToolsRunUnaskedUnderReadOnlyAuto(t *testing.T) {
+	root := workspace(t, map[string]string{"a.go": "package a\n\nfunc F() {}\n"})
+	src := toolsFor(t, root, stubScript{})
+	for _, tool := range []string{"goto_definition", "find_references"} {
+		t.Run(tool, func(t *testing.T) {
+			asked := false
+			ask := func(context.Context, agent.ToolCallInfo) (bool, error) {
+				asked = true
+				return false, nil
+			}
+			r, err := agent.NewRunner(agent.RunnerConfig{
+				Provider: agent.NewStubProvider(
+					agent.StubTurn{ToolCalls: []agent.ToolCall{{ID: "c1", Name: tool, Args: core.NewRawJSON([]byte(`{"path":"a.go","symbol":"F"}`))}}},
+					agent.StubTurn{Text: "done"},
+				),
+				Tools: src,
+				ToolMiddleware: []agent.ToolMiddleware{
+					agent.NewTieredApproval(agent.WithDefaultMode(agent.ModeReadOnlyAuto), agent.WithAsk(ask)).WrapToolCall,
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := r.Run(context.Background(), []agent.Message{{Role: agent.RoleUser, Text: "go"}}, nil); err != nil {
+				t.Fatal(err)
+			}
+			if asked {
+				t.Errorf("%s asked for approval under read-only-auto", tool)
+			}
+		})
 	}
 }
