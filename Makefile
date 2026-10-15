@@ -103,6 +103,8 @@ DOGFOOD_DIR ?= $(HOME)/.agentchat/dogfood
 # DOGFOOD_ACTIVE picks the starting connection from examples/dogfood/config.json
 # (claude, deepseek, openrouter, local); empty keeps the config's own.
 DOGFOOD_ACTIVE ?=
+# DOGFOOD_UI is agentchat's --ui: tui, notebook or plain (line-based, no TTY tricks).
+DOGFOOD_UI ?= tui
 
 dogfood: ## Mission exercise: agentchat on this repo with files, exec, LSP (needs gopls and a model; DOGFOOD_ACTIVE=deepseek etc.)
 	@command -v gopls >/dev/null || { echo "make dogfood needs gopls on PATH: go install golang.org/x/tools/gopls@latest"; exit 1; }
@@ -115,7 +117,7 @@ dogfood: ## Mission exercise: agentchat on this repo with files, exec, LSP (need
 		--checkpoint-store $(DOGFOOD_DIR)/checkpoints \
 		--session-store sqlite://$(DOGFOOD_DIR)/sessions.db \
 		$(if $(DOGFOOD_ACTIVE),--active $(DOGFOOD_ACTIVE)) \
-		--ui tui
+		--ui $(DOGFOOD_UI)
 
 # ---------------------------------------------------------------------------
 # Release
