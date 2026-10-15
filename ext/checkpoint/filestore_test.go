@@ -363,3 +363,19 @@ func TestReversalIsRestoreOnly(t *testing.T) {
 		t.Fatal("a populated checkpoint should not be a zero Reversal")
 	}
 }
+
+// TestAddRefusesARelativePath is the guard behind issue 69. Resolving a
+// relative path here would use the process's working directory, which is
+// rarely the directory the tool wrote into, and the checkpoint would then
+// snapshot (and on restore, delete) the wrong file while reporting success.
+func TestAddRefusesARelativePath(t *testing.T) {
+	s, _ := newStore(t)
+	cp, err := s.Open("turn-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = cp.Add("surfaces/chat/main.go")
+	if err == nil || !strings.Contains(err.Error(), "relative") {
+		t.Fatalf("Add of a relative path: err = %v, want a refusal naming it relative", err)
+	}
+}

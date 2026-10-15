@@ -14,8 +14,8 @@ ext, _ := lsp.New(lsp.Config{
         {Command: []string{"gopls"}, Extensions: []string{".go"}, LanguageID: "go"},
     },
     Writes: []lsp.WriteSpec{
-        {Tool: "edit_file", Paths: files.PathArg},
-        {Tool: "write_file", Paths: files.PathArg},
+        {Tool: "edit_file", Paths: fx.WritePaths}, // fx is the files.Extension
+        {Tool: "write_file", Paths: fx.WritePaths},
     },
 })
 app, _ := host.NewApp(cfg, out, in, host.WithExtension(fx, ext))

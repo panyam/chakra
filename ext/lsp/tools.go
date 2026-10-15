@@ -48,9 +48,9 @@ type ServerSpec struct {
 //
 // Declared rather than detected, and shaped like checkpoint.WriteSpec on
 // purpose: both packages need the same fact about the same tools, and neither
-// should import the other to get it. files.PathArg satisfies Paths for every
-// tool in that package, so the wiring layer joins the three with no import
-// edge between them (constraint C4).
+// should import the other to get it. files.Extension.WritePaths satisfies
+// Paths for every writing tool in that package, so the wiring layer joins the
+// three with no import edge between them (constraint C4).
 type WriteSpec struct {
 	// Tool is the tool name to watch, as the model calls it.
 	Tool string

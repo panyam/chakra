@@ -27,8 +27,11 @@ type WriteSpec struct {
 	Tool string
 
 	// Paths returns the files the call is about to write, given its
-	// arguments. A path that does not exist yet is fine and is the normal
-	// case for a create: it is recorded as absent so undoing deletes it.
+	// arguments, as absolute paths resolved the way the tool resolves them.
+	// A relative path is refused rather than resolved against the process's
+	// working directory, which would snapshot a different file (issue 69).
+	// A path that does not exist yet is fine and is the normal case for a
+	// create: it is recorded as absent so undoing deletes it.
 	Paths func(args map[string]any) []string
 }
 
