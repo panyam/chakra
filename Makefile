@@ -32,7 +32,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent
 # explicitly and the platform's own backend refuses. See the module README.
 GOTESTFLAGS ?= -race -timeout 300s
 
-.PHONY: help build test test-examples test-web testall vet fmt check-fmt cover tidy-all bump-siblings tag tag-push pg dogfood \
+.PHONY: help build test test-examples test-web testall vet fmt check-fmt cover tidy-all bump-siblings tag tag-push pg dogfood dogfood-web \
         check-no-binaries check-ext-isolation check-dep-consistency setup-hooks
 
 help: ## Show this help
@@ -121,6 +121,23 @@ dogfood: ## Mission exercise: agentchat on this repo with files, exec, LSP (need
 		--session-store sqlite://$(DOGFOOD_DIR)/sessions.db \
 		$(if $(DOGFOOD_ACTIVE),--active $(DOGFOOD_ACTIVE)) \
 		--ui $(DOGFOOD_UI)
+
+# The same exercise in the browser, which is where the mission runs while the
+# TUI is parked (#66). Shares the config, connections and store with dogfood.
+DOGFOOD_ADDR ?= localhost:8090
+
+dogfood-web: ## Mission exercise in the browser: agentweb on this repo (open http://$(DOGFOOD_ADDR)/)
+	@command -v gopls >/dev/null || { echo "make dogfood-web needs gopls on PATH: go install golang.org/x/tools/gopls@latest"; exit 1; }
+	@[ -n "$(DOGFOOD_ACTIVE)" ] || [ -n "$$ANTHROPIC_API_KEY" ] || echo "note: ANTHROPIC_API_KEY is unset; pick another connection with DOGFOOD_ACTIVE=deepseek (or openrouter, local)"
+	@mkdir -p $(DOGFOOD_DIR)
+	cd surfaces/web && go run ./cmd/agentweb \
+		--addr $(DOGFOOD_ADDR) \
+		--config $(CURDIR)/examples/dogfood/config.json \
+		--workspace $(CURDIR) \
+		--workspace-config $(CURDIR)/examples/dogfood/workspace.json \
+		--checkpoint-store $(DOGFOOD_DIR)/checkpoints \
+		--session-store sqlite://$(DOGFOOD_DIR)/sessions.db \
+		$(if $(DOGFOOD_ACTIVE),--active $(DOGFOOD_ACTIVE))
 
 # ---------------------------------------------------------------------------
 # Release
