@@ -81,6 +81,19 @@ go run ./cmd/agentweb --addr :8090 --config path/to/host-config.json
 Connect server-streaming (`Watch`) rides the Connect protocol, which supports
 server streams over HTTP/1.1, so no h2c is needed for local dev.
 
+The API only answers pages served from localhost, and requests with no `Origin`
+only when their `Host` is localhost, so another site open in the browser cannot
+drive the agent. To use agentweb from a phone on the LAN, allow the address the
+phone opens:
+
+```
+go run ./cmd/agentweb --addr :8090 --allow-origin 192.168.1.5 --config ...
+```
+
+Ctrl-C cancels every open `Watch` and running turn, waits up to 3s for handlers
+to return, then closes what is left. There is no write timeout, because `Watch`
+lasts as long as a tab is open and `Submit` as long as a turn.
+
 ## Frontend (E4, issue 1197)
 
 The frontend lives in `web/` and follows the diffpp/Agni pattern: a server-rendered
@@ -106,7 +119,17 @@ Layout map (`web/src/`):
 | `dock.ts` | framework-neutral panel registry + saved-layout persistence + reconcile |
 | `DockviewWorkspace.ts` | dockview-core glue: adopt island hosts into panels |
 | `MobileOverlays.tsx` | mobile layout: the same Conversation panel as an overlay |
-| `main.ts` | boot: one store, start `Watch`, mount the layout the shell selected |
+| `StatusLine.tsx`, `status.ts` | the topbar status island (model and session) |
+| `page.ts` | tsappkit `IslandPage`: the island registry and the shared stores and `Watch` |
+| `main.ts` | boot: starts the page once the DOM is ready |
+
+`shell.go` writes a page spec into `#page-spec` naming the islands for the chosen
+layout and their `[data-slot]`s (`status` plus `dock` or `mobile`), and the
+registry in `page.ts` builds each one. The dock is a lazy entry, so dockview-core
+loads only on the desktop layout. The dock's own panels stay hand-mounted
+`SolidIsland`s, because dockview builds them in detached hosts rather than in
+slots the spec could name. Dockview 8 ships no CSS file, so `build.mjs` extracts
+the stylesheet from its UMD build into `static/dockview.css`.
 
 ### Run it (offline demo)
 
@@ -127,7 +150,7 @@ npm install
 npm run gen      # regenerate TS clients from ../protos (buf)
 npm run build    # esbuild bundle → ../static (committed; Go embeds it)
 npm run typecheck
-npm run test     # vitest: Frame-decode, event fold, dock reconcile
+npm run test     # vitest: Frame-decode, event fold, dock reconcile, status line
 ```
 
 The built bundle is committed under `static/` so `go build` and `just test-agent`

@@ -1,5 +1,6 @@
 import { For, Show, createSignal, type JSX } from "solid-js";
 import { SolidIsland } from "@panyam/tsappkit-solid";
+import type { EventBus } from "@panyam/tsappkit";
 import type { PanelStores } from "./stores.js";
 import { Conversation } from "./ConversationPanel.js";
 import { SubAgentTree } from "./SubAgentPanel.js";
@@ -73,10 +74,9 @@ function MobileHome(props: { store: PanelStores }) {
   );
 }
 
-// mobileOverlaysIsland mounts the mobile surface into el as a tsappkit-solid
-// SolidIsland and returns it so the caller can dispose it.
-export function mobileOverlaysIsland(el: HTMLElement, store: PanelStores): SolidIsland {
-  const island = new SolidIsland("mobile-overlays", el, () => <MobileHome store={store} />, null);
-  island.activate();
-  return island;
+// mobileOverlaysIsland builds the mobile surface as a tsappkit-solid SolidIsland
+// over el. The page spec mounts it into the "mobile" slot and the page lifecycle
+// activates it.
+export function mobileOverlaysIsland(el: HTMLElement, store: PanelStores, bus: EventBus | null): SolidIsland {
+  return new SolidIsland("mobile-overlays", el, () => <MobileHome store={store} />, bus);
 }

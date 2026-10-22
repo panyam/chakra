@@ -2,6 +2,8 @@ import { DockviewComponent, themeDark, themeLight } from "dockview-core";
 import type { DockviewApi } from "dockview-core";
 import type { PanelId } from "./panels.js";
 import type { PanelStores } from "./stores.js";
+import type { IslandSpec, LCMComponent } from "@panyam/tsappkit";
+import type { PageContext } from "./page.js";
 import { conversationIsland } from "./ConversationPanel.js";
 import { subAgentIsland } from "./SubAgentPanel.js";
 import { timelineIsland } from "./TimelinePanel.js";
@@ -20,6 +22,19 @@ import {
 } from "./dock.js";
 
 const PANELS: PanelId[] = [...DOCK_PANELS];
+
+// The "dock" island's factory, loaded lazily by the page registry. The dock
+// itself is mounted on activate, once the slot is in place; its panels stay
+// hand-mounted SolidIslands, because dockview builds them in detached hosts
+// rather than in [data-slot] elements the page spec could name.
+export default function dock(el: HTMLElement, _island: IslandSpec, ctx: PageContext): LCMComponent {
+  return {
+    performLocalInit: () => [],
+    setupDependencies: () => {},
+    activate: () => new DockviewWorkspace(el, ctx.stores).mount(),
+    deactivate: () => {},
+  };
+}
 
 // mountIsland mounts one panel's island into its detached host, handing it the
 // panel's own projection off the shared PanelStores bundle. The island renders
