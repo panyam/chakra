@@ -86,6 +86,27 @@ func TestHelperProcess(t *testing.T) {
 		conn.Close()
 		fmt.Println("connected")
 
+	case "listen":
+		// What a test suite does with httptest: serve on loopback from inside
+		// the command, then dial itself.
+		ln, err := net.Listen("tcp", args[1])
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "listen failed:", err)
+			os.Exit(7)
+		}
+		go func() {
+			if c, err := ln.Accept(); err == nil {
+				c.Close()
+			}
+		}()
+		conn, err := net.DialTimeout("tcp", ln.Addr().String(), 3*time.Second)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "dial failed:", err)
+			os.Exit(6)
+		}
+		conn.Close()
+		fmt.Println("served")
+
 	case "cwd":
 		wd, _ := os.Getwd()
 		fmt.Println(wd)

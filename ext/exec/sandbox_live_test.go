@@ -140,6 +140,19 @@ func TestLiveLoopbackStaysOpen(t *testing.T) {
 	}
 }
 
+// TestLiveCommandCanServeOnLoopback is the httptest case, where the server
+// runs inside the command. Seatbelt checks listen() as network-inbound, so a
+// profile that allows bind and outbound but not inbound passes the test above
+// and still fails every test suite that starts its own server (#74).
+func TestLiveCommandCanServeOnLoopback(t *testing.T) {
+	src := liveSource(t, workspace(t), CommandSpec{
+		Name: "serve", Argv: helperArgv(t, "listen", "127.0.0.1:0"), Description: "Serve on loopback.",
+	})
+	if got := call(t, src, "run_serve", nil); !strings.Contains(got, "served") {
+		t.Fatalf("a command must be able to serve on 127.0.0.1: %q", got)
+	}
+}
+
 // TestLiveEgressIsDenied is the one assertion here that an offline machine
 // cannot distinguish from a pass, since a denied dial and an unreachable
 // network both fail. The AllowNetwork half is what separates them, and it is

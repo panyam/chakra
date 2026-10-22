@@ -110,7 +110,9 @@ starts by establishing what a runner actually permits, before writing anything.
   denials address directly and not exhaustively.
 - **Network** is loopback only unless a command sets `AllowNetwork`. A test
   suite that starts a server on `127.0.0.1` is the ordinary case; egress is
-  what lets a build script post the workspace somewhere.
+  what lets a build script post the workspace somewhere. Outbound connections
+  are limited to loopback, but listening is not quite: Seatbelt's `localhost`
+  filter also matches a wildcard bind, so a command can listen on `0.0.0.0`.
 
 `DefaultWritePaths` covers the temp directory and the build and module caches,
 because a sandboxed `go build` fails on its build cache before it compiles
