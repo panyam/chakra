@@ -243,3 +243,60 @@ func TestTheDescriptionNamesWhatWillActuallyRun(t *testing.T) {
 		t.Errorf("the model should see the command it is invoking, got %q", defs[0].Description)
 	}
 }
+
+// spam prints one 14-byte line per count, so 20000 lines is about 280 KB: past
+// the 32 KiB view, inside the 1 MiB capture.
+const bigRun = "20000"
+
+func TestTheDefaultViewDropsTheMiddleOfALongRun(t *testing.T) {
+	src := mustSource(t, baseConfig(t, CommandSpec{Name: "spam", Argv: helperArgv(t, "spam", bigRun), Description: "Print a lot."}))
+	res, err := src.Call(context.Background(), "run_spam", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := res.Content[0].Text
+	if strings.Contains(text, "filler 010000") || !strings.Contains(text, "bytes of output dropped") {
+		t.Errorf("the model-facing view must stay near DefaultInlineOutput, got %d bytes", len(text))
+	}
+	if len(text) > 2*DefaultInlineOutput {
+		t.Errorf("view is %d bytes, want about %d", len(text), DefaultInlineOutput)
+	}
+	if out := res.StructuredContent.(map[string]any)["stdout"].(string); len(out) > 2*DefaultInlineOutput {
+		t.Errorf("structured stdout is %d bytes; it is persisted with the result and must carry the same view", len(out))
+	}
+}
+
+// A host that offloads results asks for the whole capture, so the store holds
+// the middle of the run where a failing assertion usually is (#59).
+func TestNegativeInlineOutputReturnsTheWholeCapture(t *testing.T) {
+	cfg := baseConfig(t, CommandSpec{Name: "spam", Argv: helperArgv(t, "spam", bigRun), Description: "Print a lot."})
+	cfg.InlineOutput = -1
+	res, err := mustSource(t, cfg).Call(context.Background(), "run_spam", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := res.Content[0].Text
+	if !strings.Contains(text, "filler 010000") || strings.Contains(text, "bytes of output dropped") {
+		t.Errorf("the whole capture must come back, got %d bytes", len(text))
+	}
+}
+
+// Offloading skips error results, and a timeout is one, so a timed-out run
+// would put the whole capture inline.
+func TestATimedOutRunKeepsTheShortViewEvenWhenOffloading(t *testing.T) {
+	cfg := baseConfig(t, CommandSpec{
+		Name: "hang", Argv: helperArgv(t, "spam-then-sleep", bigRun, "30s"), Description: "Print, then hang.",
+		Timeout: 2 * time.Second,
+	})
+	cfg.InlineOutput = -1
+	res, err := mustSource(t, cfg).Call(context.Background(), "run_hang", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.IsError {
+		t.Fatal("a timeout is an error result")
+	}
+	if text := res.Content[0].Text; len(text) > 2*DefaultInlineOutput {
+		t.Errorf("a timed-out run returned %d bytes inline", len(text))
+	}
+}

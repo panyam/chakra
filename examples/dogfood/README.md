@@ -30,7 +30,11 @@ agentchat if you want a terminal anyway.
 ## What is in the files
 
 - `config.json` holds the host settings: instructions, connections, a step
-  budget, and `read-only-auto` approval. `maxSteps` is 40 because a coding
+  budget, offloading, and `read-only-auto` approval. Offloading stores any
+  result over 16 KiB and hands the model a stub, which is how a long failing
+  test run reaches the model whole: it greps the stored copy with
+  `read_tool_result`. The store is in memory, so a resumed session's stubs
+  point at nothing. `maxSteps` is 40 because a coding
   turn reads, edits, runs a test, reads the failure and fixes it, and the
   agent's default of 8 ran out halfway through that on the first run. Under that mode reads, searches and the test, vet
   and build commands run without asking, while edits and writes ask.

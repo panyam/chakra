@@ -65,6 +65,14 @@ func TestHelperProcess(t *testing.T) {
 		}
 		fmt.Println("LAST LINE")
 
+	case "spam-then-sleep":
+		n, _ := strconv.Atoi(args[1])
+		for i := 0; i < n; i++ {
+			fmt.Printf("filler %06d\n", i)
+		}
+		d, _ := time.ParseDuration(args[2])
+		time.Sleep(d)
+
 	case "sleep":
 		d, _ := time.ParseDuration(args[1])
 		time.Sleep(d)

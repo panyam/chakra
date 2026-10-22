@@ -191,11 +191,18 @@ printed is a verdict. The command runs in its own process group and the whole
 group is killed, since a command is normally a launcher whose children do the
 work and outlive it.
 
-Output is capped at `MaxOutput` and dropped from the **middle**. A failing
-build states the problem in the first lines or the last ones and almost never
-in between. A capped result says how many bytes went missing, because a model
-that cannot tell a truncated run from a complete one reads a passing tail as a
-passing run.
+Output is cut from the **middle**, at two sizes. `MaxOutput` (1 MiB a stream)
+is what a command may hold in memory, a guard against a runaway process.
+`InlineOutput` (32 KiB a stream) is what the result carries, because a failing
+build usually states the problem in the first lines or the last ones. A cut
+result says how many bytes went missing, because a model that cannot tell a
+truncated run from a complete one reads a passing tail as a passing run.
+
+The 32 KiB view loses a failing assertion in the middle of a long `go test`
+run, which is where it tends to be (#59). A host that offloads large results
+sets `InlineOutput` negative, so the whole capture reaches the store and the
+model greps it with `read_tool_result`. A timed-out run keeps the short view
+either way, since offloading leaves error results inline.
 
 ## Wiring it into a host
 

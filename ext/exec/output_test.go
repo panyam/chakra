@@ -50,3 +50,25 @@ func TestCapBufferKeepsTheEndOfAStreamThatOnlyGrows(t *testing.T) {
 		t.Errorf("the cap is not holding: %d bytes", len(got))
 	}
 }
+
+func TestCapBufferViewNarrowsWhatWasKept(t *testing.T) {
+	b := newCapBuffer(100)
+	b.Write([]byte(strings.Repeat("H", 50)))
+	b.Write([]byte(strings.Repeat("M", 150)))
+	b.Write([]byte(strings.Repeat("T", 50)))
+
+	got, dropped := b.View(20)
+	if !dropped {
+		t.Error("a view smaller than the capture must report a drop")
+	}
+	if !strings.HasPrefix(got, strings.Repeat("H", 10)+"\n") || !strings.HasSuffix(got, "\n"+strings.Repeat("T", 10)) {
+		t.Errorf("the view keeps the capture's own head and tail, got %q", got)
+	}
+	// 150 bytes left the capture and 80 more left the view.
+	if !strings.Contains(got, "230 bytes of output dropped") {
+		t.Errorf("the count must cover both drops, got %q", got)
+	}
+	if whole, _ := b.View(0); whole != b.String() {
+		t.Errorf("View(0) is the whole capture, got %q", whole)
+	}
+}

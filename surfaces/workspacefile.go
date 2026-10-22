@@ -40,9 +40,14 @@ type ExecFile struct {
 	// Timeout is a Go duration string ("2m"). Empty means exec.DefaultTimeout.
 	Timeout string `json:"timeout,omitempty"`
 
-	// MaxOutput caps the bytes a command returns. Zero means
-	// exec.DefaultMaxOutput.
+	// MaxOutput caps the bytes held for each stream a command prints. Zero
+	// means exec.DefaultMaxOutput.
 	MaxOutput int `json:"maxOutput,omitempty"`
+
+	// InlineOutput caps the bytes of each stream a result carries; negative
+	// means all of it. Zero means exec.DefaultInlineOutput, or all of it when
+	// the host offloads (see WorkspaceConfig.Offloading).
+	InlineOutput int `json:"inlineOutput,omitempty"`
 
 	// WritePaths and DenyRead keep exec.Config's nil-versus-empty meaning:
 	// absent selects the package default, [] selects none.
@@ -138,9 +143,10 @@ func (f *WorkspaceFile) Apply(cfg *WorkspaceConfig) error {
 
 func (e *ExecFile) config() (*exec.Config, error) {
 	cfg := &exec.Config{
-		MaxOutput:  e.MaxOutput,
-		WritePaths: e.WritePaths,
-		DenyRead:   e.DenyRead,
+		MaxOutput:    e.MaxOutput,
+		InlineOutput: e.InlineOutput,
+		WritePaths:   e.WritePaths,
+		DenyRead:     e.DenyRead,
 	}
 	switch e.Sandbox {
 	case "", "platform":
