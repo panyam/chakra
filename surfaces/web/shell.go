@@ -24,12 +24,42 @@ func staticAssets() fs.FS {
 }
 
 // shellData is the server-rendered shell's template model. Layout is the chosen
-// surface ("dockview" or "mobile"), stamped onto #workspace[data-layout] where
-// main.ts reads it back; Dockview links the dockview stylesheet only on that
-// layout (the mobile page never requests it) and marks it selected in the picker.
+// surface ("dockview" or "mobile"); Dockview links the dockview stylesheet only
+// on that layout (the mobile page never requests it) and marks it selected in
+// the picker. Spec is written into #page-spec for the frontend's IslandPage.
 type shellData struct {
 	Layout   string
 	Dockview bool
+	Spec     pageSpec
+}
+
+// pageSpec is the JSON tsappkit's IslandPage reads from #page-spec: which
+// islands this page mounts and into which [data-slot]. It has goapplib's
+// page.Spec shape, written here rather than imported so this module does not
+// take goapplib's dependency graph for one struct. The island names must be
+// keys of the registry in web/src/page.ts.
+type pageSpec struct {
+	Layout  string       `json:"layout"`
+	Islands []pageIsland `json:"islands"`
+}
+
+type pageIsland struct {
+	Name   string         `json:"name"`
+	Slot   string         `json:"slot"`
+	Config map[string]any `json:"config"`
+}
+
+// specFor lists the islands a layout mounts. The topbar status line is in both;
+// the dock is desktop only, and the mobile overlays fill #workspace instead.
+func specFor(layout string) pageSpec {
+	main := pageIsland{Name: "dock", Slot: "dock", Config: map[string]any{}}
+	if layout == "mobile" {
+		main = pageIsland{Name: "mobile", Slot: "mobile", Config: map[string]any{}}
+	}
+	return pageSpec{Layout: layout, Islands: []pageIsland{
+		{Name: "status", Slot: "status", Config: map[string]any{}},
+		main,
+	}}
 }
 
 // shellTemplate is the goapplib/diffpp shell pattern rendered with the stdlib
@@ -37,8 +67,8 @@ type shellData struct {
 // self-contained page that links the esbuild bundle from /static/ and lays out
 // the island holes the frontend adopts. The CSS is inlined so the surface is one
 // file to serve; it is theme-aware (light/dark via prefers-color-scheme and a
-// forced data-theme). The DockView chrome (#dockview-container, #dock-menu) and
-// the mobile root (#workspace itself) are the two holes main.ts mounts into.
+// forced data-theme). The [data-slot] elements are where the page spec's islands
+// mount: the status line, and either #dockview-container or #workspace itself.
 var shellTemplate = template.Must(template.New("shell").Parse(shellHTML))
 
 // shellHandler serves the server-rendered shell. The layout is chosen from the
@@ -55,7 +85,7 @@ func shellHandler(w http.ResponseWriter, r *http.Request) {
 		layout = "dockview"
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = shellTemplate.Execute(w, shellData{Layout: layout, Dockview: layout == "dockview"})
+	_ = shellTemplate.Execute(w, shellData{Layout: layout, Dockview: layout == "dockview", Spec: specFor(layout)})
 }
 
 const shellHTML = `<!doctype html>
@@ -83,7 +113,8 @@ html, body { height: 100%; margin: 0; }
 body { font: 14px/1.5 system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--fg); display: flex; flex-direction: column; }
 .topbar { display: flex; align-items: center; gap: 1rem; padding: .5rem .9rem; border-bottom: 1px solid var(--line); background: var(--panel); }
 .topbar-brand { font-weight: 600; letter-spacing: .2px; }
-.topbar-status { color: var(--muted); font-size: 12px; flex: 1; }
+.topbar-status { color: var(--muted); font-size: 12px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar label { white-space: nowrap; }
 .topbar-select { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: .2rem .4rem; }
 #workspace { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 /* DockView chrome */
@@ -198,7 +229,7 @@ body { font: 14px/1.5 system-ui, -apple-system, sans-serif; background: var(--bg
 <body>
 <div class="topbar">
   <span class="topbar-brand">agentweb</span>
-  <span class="topbar-status" id="status-line">connecting…</span>
+  <span class="topbar-status" data-slot="status">connecting…</span>
   <label>Layout
     <select id="layout-select" class="topbar-select">
       <option value="dockview"{{if .Dockview}} selected{{end}}>Desktop (DockView)</option>
@@ -206,12 +237,13 @@ body { font: 14px/1.5 system-ui, -apple-system, sans-serif; background: var(--bg
     </select>
   </label>
 </div>
-<div id="workspace" data-layout="{{.Layout}}">
+<div id="workspace" data-layout="{{.Layout}}"{{if not .Dockview}} data-slot="mobile"{{end}}>
 {{if .Dockview}}
   <div class="ws-north"><span>Conversation workspace</span><div id="dock-menu" class="dock-menu"></div></div>
-  <div id="dockview-container"></div>
+  <div id="dockview-container" data-slot="dock"></div>
 {{end}}
 </div>
+<script type="application/json" id="page-spec">{{.Spec}}</script>
 <script type="module" src="/static/app.js"></script>
 </body>
 </html>

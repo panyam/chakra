@@ -13,8 +13,8 @@
     "@bufbuild/protobuf": "^2.14.0",
     "@connectrpc/connect": "^2.1.0",
     "@connectrpc/connect-web": "^2.1.0",
-    "@panyam/tsappkit": "^0.0.5",
-    "@panyam/tsappkit-solid": "^0.0.1",
+    "@panyam/tsappkit": "^0.7.6",
+    "@panyam/tsappkit-solid": "^0.7.6",
     "dockview-core": "^8.1.0",
     "solid-js": "^1.9.17"
   },
