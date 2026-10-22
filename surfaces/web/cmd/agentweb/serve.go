@@ -23,18 +23,11 @@ const drainTimeout = 3 * time.Second
 const connectPrefix = "/chakra.web.v1.HostService/"
 
 // serve runs handler on ln until ctx ends or the process gets SIGINT/SIGTERM.
-//
-// http.Server.Shutdown waits for handlers but never cancels their contexts, so
-// an open Watch stream (every browser tab has one) or a running Submit would
-// hold shutdown for the whole drain. Every request context here derives from
-// one base context, which shutdown cancels before draining.
+// servicekit's graceful shutdown cancels every request context before it
+// drains, so an open Watch (every browser tab has one) or a running Submit
+// returns at once instead of holding the drain.
 func serve(ctx context.Context, ln net.Listener, handler http.Handler) error {
-	base, cancelBase := context.WithCancel(context.Background())
-	defer cancelBase()
-	srv := &http.Server{
-		Handler:     handler,
-		BaseContext: func(net.Listener) context.Context { return base },
-	}
+	srv := &http.Server{Handler: handler}
 	middleware.ApplyDefaults(srv)
 	// Watch streams for as long as a tab is open and Submit lasts a whole turn,
 	// so a write deadline would cut both off mid-response.
@@ -43,43 +36,34 @@ func serve(ctx context.Context, ln net.Listener, handler http.Handler) error {
 	err := skhttp.ListenAndServeGraceful(srv,
 		skhttp.WithListener(ln),
 		skhttp.WithContext(ctx),
-		skhttp.WithOnShutdown(cancelBase),
 		skhttp.WithDrainTimeout(drainTimeout),
 	)
-	if errors.Is(err, context.DeadlineExceeded) {
-		log.Printf("agentweb: handlers still running after %s, closing their connections", drainTimeout)
-		return srv.Close()
+	if errors.Is(err, skhttp.ErrDrainTimeout) {
+		// servicekit has already closed what was left; a slow handler is not a
+		// reason to exit non-zero.
+		log.Printf("agentweb: handlers still running after %s, their connections were closed", drainTimeout)
+		return nil
 	}
 	return err
 }
 
 // originGuard rejects HostService calls from a browser page on another site.
 // Without it, any page the user visits could drive the agent through
-// localhost, and so run its tools. Calls are allowed when the Origin header is
-// in the allowlist, or, with no Origin (curl, a script), when the Host is.
-// Checking the Host too is what stops DNS rebinding, where a hostile name
-// resolves to 127.0.0.1 and the browser treats the page as same-origin.
-//
-// servicekit's CheckRequest does the Origin half, but with no Origin it only
-// accepts a localhost Host, which would lock out a phone on the LAN even when
-// its address is allowed. Only the Connect API is guarded: the shell and its
-// static assets are public and change nothing.
+// localhost, and so run its tools. servicekit's CheckRequest allows a call
+// when its Origin is on the allowlist, or, with no Origin (curl, a script),
+// when its Host is, which is what stops DNS rebinding as well. Only the
+// Connect API is guarded: the shell and its static assets are public and
+// change nothing, so a phone can load the page and only needs --allow-origin
+// for the calls.
 func originGuard(checker *middleware.OriginChecker, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, connectPrefix) && !originAllowed(checker, r) {
+		if strings.HasPrefix(r.URL.Path, connectPrefix) && !checker.CheckRequest(r) {
 			log.Printf("agentweb: rejected %s from origin %q host %q", r.URL.Path, r.Header.Get("Origin"), r.Host)
 			http.Error(w, "origin not allowed; start agentweb with --allow-origin to permit it", http.StatusForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)
 	})
-}
-
-func originAllowed(checker *middleware.OriginChecker, r *http.Request) bool {
-	if origin := r.Header.Get("Origin"); origin != "" {
-		return checker.Check(origin)
-	}
-	return r.Host == "" || checker.Check("http://"+r.Host)
 }
 
 // newOriginChecker builds the allowlist from --allow-origin. localhost is
