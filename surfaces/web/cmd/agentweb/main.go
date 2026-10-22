@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -85,11 +86,22 @@ func main() {
 		}
 	}
 	mgr.SetDefault(defaultApp)
-	defer mgr.CloseAll()
 
-	srv := &http.Server{Addr: *addr, Handler: web.HandlerWithSessions(mgr)}
+	// http.Server.Shutdown waits for handlers to return but never cancels
+	// their contexts, so an open Watch stream (every browser tab has one) or a
+	// running Submit holds shutdown until the drain timeout. Every request
+	// context derives from base, and shutdown cancels it before draining.
+	base, cancelBase := context.WithCancel(context.Background())
+	defer cancelBase()
+	srv := &http.Server{
+		Addr:        *addr,
+		Handler:     web.HandlerWithSessions(mgr),
+		BaseContext: func(net.Listener) context.Context { return base },
+	}
 	fmt.Fprintf(os.Stderr, "agentweb serving at http://%s/ (Connect: /%s, Ctrl-C to stop)\n", *addr, "chakra.web.v1.HostService")
-	if err := skhttp.ListenAndServeGraceful(srv); err != nil {
+	err = skhttp.ListenAndServeGraceful(srv, skhttp.WithOnShutdown(cancelBase))
+	mgr.CloseAll()
+	if err != nil {
 		log.Fatalf("agentweb: serve: %v", err)
 	}
 }
