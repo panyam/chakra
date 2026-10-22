@@ -16,11 +16,8 @@ import (
 	"io"
 	"log"
 	"net"
-	"net/http"
 	"os"
 	"strings"
-
-	skhttp "github.com/panyam/servicekit/http"
 
 	"github.com/panyam/chakra"
 	"github.com/panyam/chakra/host"
@@ -38,6 +35,7 @@ func main() {
 	workspaceConfig := flag.String("workspace-config", "", "with --workspace, a JSON file adding the exec allowlist (commands the agent may run, sandboxed), language servers, and the repo map. See examples/dogfood/workspace.json")
 	noCheckpoint := flag.Bool("no-checkpoint", false, "with --workspace, skip the file snapshot taken before each write, disabling /undo and /checkpoints")
 	checkpointStore := flag.String("checkpoint-store", "", "with --workspace, where snapshots live (empty = under the first workspace directory). Worth setting so the store sits outside what the agent can read and edit")
+	allowOrigin := flag.String("allow-origin", "", "comma-separated origins, besides localhost, allowed to call the API (e.g. 192.168.1.5 to use agentweb from a phone on the LAN, or *.example.com)")
 	active := flag.String("active", "", "override the active chat connection at startup (a name in the config's connections; default = the config's active)")
 	flag.Parse()
 
@@ -87,23 +85,33 @@ func main() {
 	}
 	mgr.SetDefault(defaultApp)
 
-	// http.Server.Shutdown waits for handlers to return but never cancels
-	// their contexts, so an open Watch stream (every browser tab has one) or a
-	// running Submit holds shutdown until the drain timeout. Every request
-	// context derives from base, and shutdown cancels it before draining.
-	base, cancelBase := context.WithCancel(context.Background())
-	defer cancelBase()
-	srv := &http.Server{
-		Addr:        *addr,
-		Handler:     web.HandlerWithSessions(mgr),
-		BaseContext: func(net.Listener) context.Context { return base },
+	ln, err := net.Listen("tcp", *addr)
+	if err != nil {
+		log.Fatalf("agentweb: %v", err)
 	}
+	handler := originGuard(newOriginChecker(*allowOrigin), web.HandlerWithSessions(mgr))
 	fmt.Fprintf(os.Stderr, "agentweb serving at http://%s/ (Connect: /%s, Ctrl-C to stop)\n", *addr, "chakra.web.v1.HostService")
-	err = skhttp.ListenAndServeGraceful(srv, skhttp.WithOnShutdown(cancelBase))
+	if *allowOrigin == "" && !isLoopback(*addr) {
+		fmt.Fprintf(os.Stderr, "note: only localhost pages may call the API; pass --allow-origin <this machine's address> to use it from another device\n")
+	}
+	err = serve(context.Background(), ln, handler)
 	mgr.CloseAll()
 	if err != nil {
 		log.Fatalf("agentweb: serve: %v", err)
 	}
+}
+
+// isLoopback reports whether addr only listens on the loopback interface.
+func isLoopback(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return false
+	}
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // appOptions carries the flags buildApp needs, so every session the factory
