@@ -8,7 +8,7 @@ require (
 	github.com/panyam/chakra/host v0.1.0
 	github.com/panyam/chakra/surfaces v0.1.0
 	github.com/panyam/mcpkit v0.8.2
-	github.com/panyam/servicekit v0.1.5
+	github.com/panyam/servicekit v0.1.6
 	google.golang.org/protobuf v1.36.12
 )
 

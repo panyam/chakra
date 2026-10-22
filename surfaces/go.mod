@@ -55,7 +55,7 @@ require (
 	github.com/panyam/gocurrent v0.1.2 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
 	github.com/panyam/mcpkit v0.8.2
-	github.com/panyam/servicekit v0.1.5 // indirect
+	github.com/panyam/servicekit v0.1.6 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pgvector/pgvector-go v0.4.1 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect

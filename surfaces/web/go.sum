@@ -67,8 +67,8 @@ github.com/panyam/mcpkit/ext/tasks v0.7.1 h1:Tb5OyMAzxRxTAKRjSrShShW20IUArwnpSGV
 github.com/panyam/mcpkit/ext/tasks v0.7.1/go.mod h1:UyC47azM22rs01PWt6XMbvlw/FxuZEvemftl9DyBjv4=
 github.com/panyam/oneauth v0.2.2 h1:VvrU/tOjIFr/b1pTvfKRVEwqQme0HLRflK7vmqOrd54=
 github.com/panyam/oneauth v0.2.2/go.mod h1:kuj4u+oxzZIvHbyoNNIzpUlSq+22261X1CePLBG+fwQ=
-github.com/panyam/servicekit v0.1.5 h1:4MeRZvVd2jaJg5A3+2Czkdguf/lqzUHwoEvkbN0JSZs=
-github.com/panyam/servicekit v0.1.5/go.mod h1:wk/9hY9Vgl83WuYJt7n4NYPvV6nbxnZwpKpNRIAPoR8=
+github.com/panyam/servicekit v0.1.6 h1:TJeXz62aef8p4/P4i6eRzkcb3lEUvV3+f6HNZYlZNhU=
+github.com/panyam/servicekit v0.1.6/go.mod h1:wk/9hY9Vgl83WuYJt7n4NYPvV6nbxnZwpKpNRIAPoR8=
 github.com/pb33f/ordered-map/v2 v2.3.1 h1:5319HDO0aw4DA4gzi+zv4FXU9UlSs3xGZ40wcP1nBjY=
 github.com/pb33f/ordered-map/v2 v2.3.1/go.mod h1:qxFQgd0PkVUtOMCkTapqotNgzRhMPL7VvaHKbd1HnmQ=
 github.com/pgvector/pgvector-go v0.4.1 h1:Oaj0mC0Ky8KaTweNHHpLwyFlN6a0nUFoo1vgSFTEhPI=

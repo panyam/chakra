@@ -107,7 +107,7 @@ require (
 	github.com/panyam/mcpkit/ext/auth v0.7.1 // indirect
 	github.com/panyam/mcpkit/ext/skills v0.7.1 // indirect
 	github.com/panyam/oneauth v0.2.2 // indirect
-	github.com/panyam/servicekit v0.1.5 // indirect
+	github.com/panyam/servicekit v0.1.6 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
