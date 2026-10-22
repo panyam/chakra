@@ -379,7 +379,7 @@ func runChat(v *viper.Viper) error {
 		return runNotebook(app, nbSurface, v.GetInt("notebook-max-lines"), window)
 	}
 
-	fmt.Printf("agentchat: %d server(s), model %s. /tools /history /quit; Ctrl-C interrupts a tool call, twice aborts the turn.\n", len(cfg.Servers), cfg.Model.Model)
+	fmt.Print(startupBanner(app, &cfg.Servers))
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT)
@@ -413,6 +413,14 @@ func runChat(v *viper.Viper) error {
 	}
 
 	return app.REPL(context.Background(), os.Stdin, turnCtx)
+}
+
+// startupBanner is the line printed once the App is built. It names the model
+// through app.ModelLabel(), the same label the status line uses: the active
+// connection when connections are configured, where cfg.Model is empty
+// (#61), and cfg.Model for the single-connection quick-start.
+func startupBanner(app *host.App, servers *[]host.ServerConfig) string {
+	return fmt.Sprintf("agentchat: %d server(s), model %s. /tools /history /quit; Ctrl-C interrupts a tool call, twice aborts the turn.\n", len(*servers), app.ModelLabel())
 }
 
 func main() {

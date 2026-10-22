@@ -1,10 +1,84 @@
 package main
 
 import (
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/host"
 )
+
+// TestStartupBannerNamesActiveConnection is the regression for issue #61: a
+// connections-only config is valid without a `model` block (host.Config.Validate
+// allows it; host/config_test.go pins it), and `connections` supersedes Model
+// for the chat provider. The banner must therefore name the ACTIVE CONNECTION,
+// not cfg.Model.Model — which is empty under such a config and made the banner
+// read "model ." with no name at all.
+func TestStartupBannerNamesActiveConnection(t *testing.T) {
+	cfg := &host.Config{
+		// No Model block: connections supply the provider.
+		Connections: &host.ConnectionsConfig{
+			Active: "cloud",
+			Connections: map[string]host.ConnectionConfig{
+				"local": {Type: "lmstudio", Model: "qwen2.5-coder-32b-instruct"},
+				"cloud": {Type: "openai", Model: "gpt-5", APIKeyEnv: "UNUSED"},
+			},
+		},
+	}
+	build := func(host.ConnectionConfig) (agent.Provider, error) { return agent.NewStubProvider(), nil }
+	app, err := host.NewApp(cfg, io.Discard, strings.NewReader(""), host.WithProviderBuilder(build))
+	if err != nil {
+		t.Fatalf("connections-only config should start: %v", err)
+	}
+	defer app.Close()
+
+	// The host already resolves this correctly for the status line.
+	want := app.ModelLabel()
+	if want != "cloud" {
+		t.Fatalf("ModelLabel() = %q, want the active connection name %q", want, "cloud")
+	}
+
+	// What runChat prints: it must name the active connection, not the empty
+	// legacy cfg.Model.Model field.
+	got := startupBanner(app, &cfg.Servers)
+	if !strings.Contains(got, "model "+want+".") {
+		t.Fatalf("banner does not name the active connection %q:\n  got:  %q\n  want: contains \"model %s.\"",
+			want, got, want)
+	}
+
+	// Guard the exact symptom from the issue: "model ." with an empty name.
+	if strings.Contains(got, "model .") {
+		t.Fatalf("banner regressed to 'model .' (empty model):\n  got: %q", got)
+	}
+}
+
+// TestStartupBannerQuickStartKeepsModelName pins the other half of #61: with no
+// connections registry the banner must still fall back to the single
+// connection's cfg.Model, so the quick-start (--model + --url) README example
+// keeps naming its model.
+func TestStartupBannerQuickStartKeepsModelName(t *testing.T) {
+	cfg := &host.Config{
+		Model:   host.ModelConfig{BaseURL: "http://unused", Model: "qwen2.5-7b-instruct"},
+		Servers: []host.ServerConfig{{ID: "test", URL: "http://unused/mcp"}},
+	}
+	app, err := host.NewApp(cfg, io.Discard, strings.NewReader(""),
+		host.WithProvider(agent.NewStubProvider()))
+	if err != nil {
+		t.Fatalf("quick-start config should start: %v", err)
+	}
+	defer app.Close()
+
+	got := startupBanner(app, &cfg.Servers)
+	if !strings.Contains(got, "model qwen2.5-7b-instruct.") {
+		t.Fatalf("quick-start banner should name cfg.Model:\n  got: %q", got)
+	}
+	if !strings.Contains(got, "1 server(s)") {
+		t.Fatalf("banner should count servers:\n  got: %q", got)
+	}
+}
 
 // TestEnvOverridesFlagDefaults pins the viper contract the README documents:
 // AGENTCHAT_<FLAG> (dashes as underscores) overrides a flag's default, and an
