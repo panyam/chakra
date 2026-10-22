@@ -1,6 +1,6 @@
 module github.com/panyam/chakra/examples/multi-agent
 
-go 1.26.6
+go 1.26.9
 
 require (
 	github.com/panyam/chakra v0.1.0

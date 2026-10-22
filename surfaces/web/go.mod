@@ -1,6 +1,6 @@
 module github.com/panyam/chakra/surfaces/web
 
-go 1.26.6
+go 1.26.9
 
 require (
 	connectrpc.com/connect v1.19.2
@@ -42,7 +42,7 @@ require (
 	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.7.1 // indirect
 	github.com/panyam/mcpkit/ext/auth v0.7.1 // indirect
 	github.com/panyam/mcpkit/ext/skills v0.7.1 // indirect
-	github.com/panyam/oneauth v0.1.37 // indirect
+	github.com/panyam/oneauth v0.1.39 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pgvector/pgvector-go v0.4.1 // indirect
 	github.com/redis/go-redis/v9 v9.21.0 // indirect

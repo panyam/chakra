@@ -1,6 +1,6 @@
 module github.com/panyam/chakra/host
 
-go 1.26.6
+go 1.26.9
 
 require (
 	github.com/panyam/chakra v0.1.0
@@ -13,7 +13,7 @@ require (
 	github.com/panyam/mcpkit/ext/auth v0.7.1
 	github.com/panyam/mcpkit/ext/skills v0.7.1
 	github.com/panyam/mcpkit/ext/tasks v0.7.1
-	github.com/panyam/oneauth v0.1.37
+	github.com/panyam/oneauth v0.1.39
 )
 
 require (
