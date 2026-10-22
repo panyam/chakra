@@ -65,6 +65,14 @@ func TestHelperProcess(t *testing.T) {
 		}
 		fmt.Println("LAST LINE")
 
+	case "spam-then-sleep":
+		n, _ := strconv.Atoi(args[1])
+		for i := 0; i < n; i++ {
+			fmt.Printf("filler %06d\n", i)
+		}
+		d, _ := time.ParseDuration(args[2])
+		time.Sleep(d)
+
 	case "sleep":
 		d, _ := time.ParseDuration(args[1])
 		time.Sleep(d)
@@ -85,6 +93,27 @@ func TestHelperProcess(t *testing.T) {
 		}
 		conn.Close()
 		fmt.Println("connected")
+
+	case "listen":
+		// What a test suite does with httptest: serve on loopback from inside
+		// the command, then dial itself.
+		ln, err := net.Listen("tcp", args[1])
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "listen failed:", err)
+			os.Exit(7)
+		}
+		go func() {
+			if c, err := ln.Accept(); err == nil {
+				c.Close()
+			}
+		}()
+		conn, err := net.DialTimeout("tcp", ln.Addr().String(), 3*time.Second)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "dial failed:", err)
+			os.Exit(6)
+		}
+		conn.Close()
+		fmt.Println("served")
 
 	case "cwd":
 		wd, _ := os.Getwd()

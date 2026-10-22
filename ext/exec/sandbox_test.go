@@ -79,6 +79,7 @@ func TestSBPLConfinesWritesAndDeniesEgress(t *testing.T) {
 		`(subpath "/ws/two")`,
 		`(deny file-read* (subpath "/home/u/.ssh"))`,
 		`(allow network-outbound (remote ip "localhost:*"))`,
+		`(allow network-inbound (local ip "localhost:*"))`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("profile is missing %s\n%s", want, got)

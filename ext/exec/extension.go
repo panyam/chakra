@@ -43,7 +43,23 @@ func (e *Extension) Tools() (agent.ToolSource, error) { return e.src, nil }
 // reads a truncated tail as the whole run.
 func (e *Extension) PromptSections() []host.PromptSection {
 	return []host.PromptSection{host.PromptSectionFunc(func(context.Context) string {
-		return `## Running commands
+		if e.src.inline < 0 {
+			return commandsPrompt + storedPrompt
+		}
+		return commandsPrompt
+	})}
+}
+
+// storedPrompt is added when results come back whole for the host to offload.
+// The stub's preview is the head of the run, and the failure is rarely there.
+const storedPrompt = `
+
+A long result may come back stored, as a stub with a short preview. The preview
+is only the start of the run. To find a failure, call read_tool_result with a
+pattern such as "--- FAIL|panic:" and context, rather than reasoning from the
+preview.`
+
+const commandsPrompt = `## Running commands
 
 The commands you can run are fixed. Each is its own tool and there is no way to
 compose a new one, so if what you need is not there, say so rather than trying
@@ -56,8 +72,6 @@ exit code.
 Output is capped, and a capped result says how many bytes were dropped from the
 middle. When you see that line, the run you are looking at is incomplete: narrow
 the command with arguments if it takes them, rather than concluding from a tail.`
-	})}
-}
 
 // ApprovalRenderers show the command line a user is being asked to approve.
 //

@@ -178,7 +178,7 @@ func TestDogfoodWorkspaceFileBuilds(t *testing.T) {
 	if err := app.Tools(context.Background()); err != nil {
 		t.Fatalf("Tools: %v", err)
 	}
-	for _, want := range []string{"run_test", "run_test_all", "run_vet", "run_build"} {
+	for _, want := range []string{"run_test", "run_test_one", "run_test_all", "run_vet", "run_build"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("dogfood tool %q missing; listing was:\n%s", want, out.String())
 		}
@@ -188,7 +188,7 @@ func TestDogfoodWorkspaceFileBuilds(t *testing.T) {
 // TestDogfoodFilesLoad keeps the mission exercise's files loadable: a field
 // typo in either fails here rather than at the start of a dogfood run. It
 // also pins the step budget, since run 1 (issue 70) died on the agent's
-// default of 8 halfway through writing a test.
+// default of 8 halfway through writing a test, and that offloading is on.
 func TestDogfoodFilesLoad(t *testing.T) {
 	cfg, err := host.LoadConfig("../examples/dogfood/config.json")
 	if err != nil {
@@ -196,6 +196,9 @@ func TestDogfoodFilesLoad(t *testing.T) {
 	}
 	if cfg.MaxSteps < 30 {
 		t.Errorf("dogfood maxSteps = %d; a read-edit-test-fix turn needs room, want at least 30", cfg.MaxSteps)
+	}
+	if cfg.Offload == nil {
+		t.Error("dogfood must offload: check 3 needs the whole test transcript in the store, where read_tool_result can grep it (#59)")
 	}
 	var ws WorkspaceConfig
 	if err := ws.LoadFile("../examples/dogfood/workspace.json"); err != nil {

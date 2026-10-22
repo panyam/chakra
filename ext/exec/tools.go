@@ -28,6 +28,7 @@ type Source struct {
 	defs      []core.ToolDef
 	sandbox   Sandbox
 	maxOutput int
+	inline    int
 	write     []string
 	denyRead  []string
 }
@@ -88,6 +89,10 @@ func NewSource(cfg Config) (*Source, error) {
 	if maxOutput <= 0 {
 		maxOutput = DefaultMaxOutput
 	}
+	inlineOutput := cfg.InlineOutput
+	if inlineOutput == 0 {
+		inlineOutput = DefaultInlineOutput
+	}
 	// Nil means the caller did not choose, empty means they chose nothing.
 	// Collapsing the two would make "deny every extra write path" impossible.
 	writePaths := cfg.WritePaths
@@ -104,6 +109,7 @@ func NewSource(cfg Config) (*Source, error) {
 		cmds:      make(map[string]*command, len(cfg.Commands)),
 		sandbox:   sandbox,
 		maxOutput: maxOutput,
+		inline:    inlineOutput,
 		write:     append(append([]string{}, roots...), expandPaths(writePaths)...),
 		denyRead:  expandPaths(denyRead),
 	}
@@ -355,8 +361,11 @@ func (s *Source) run(ctx context.Context, c *command, extra []string) *core.Tool
 	elapsed := time.Since(started)
 
 	exit := cmd.ProcessState.ExitCode()
-	res := renderRun(c, argv, exit, elapsed, timedOut, stdout, stderr, waitErr)
-	return res
+	inline := s.inline
+	if timedOut && inline < 0 {
+		inline = DefaultInlineOutput
+	}
+	return renderRun(c, argv, exit, elapsed, timedOut, view(stdout, inline), view(stderr, inline), waitErr)
 }
 
 // renderRun turns a finished command into the result the model reads.
@@ -366,7 +375,7 @@ func (s *Source) run(ctx context.Context, c *command, extra []string) *core.Tool
 // the model the tool malfunctioned rather than that the code did. A timeout is
 // the other way round: the command did not finish, so nothing it printed is a
 // verdict.
-func renderRun(c *command, argv []string, exit int, elapsed time.Duration, timedOut bool, stdout, stderr *capBuffer, waitErr error) *core.ToolResult {
+func renderRun(c *command, argv []string, exit int, elapsed time.Duration, timedOut bool, stdout, stderr streamView, waitErr error) *core.ToolResult {
 	var b strings.Builder
 	line := strings.Join(argv, " ")
 	switch {
@@ -375,13 +384,13 @@ func renderRun(c *command, argv []string, exit int, elapsed time.Duration, timed
 	default:
 		fmt.Fprintf(&b, "%s exited %d after %s.\n", line, exit, elapsed.Round(time.Millisecond))
 	}
-	if out := stdout.String(); out != "" {
+	if out := stdout.text; out != "" {
 		fmt.Fprintf(&b, "\nstdout:\n%s", out)
 	}
-	if errOut := stderr.String(); errOut != "" {
+	if errOut := stderr.text; errOut != "" {
 		fmt.Fprintf(&b, "\nstderr:\n%s", errOut)
 	}
-	if !timedOut && exit != 0 && stdout.String() == "" && stderr.String() == "" && waitErr != nil {
+	if !timedOut && exit != 0 && stdout.text == "" && stderr.text == "" && waitErr != nil {
 		fmt.Fprintf(&b, "\n%v", waitErr)
 	}
 
@@ -393,11 +402,22 @@ func renderRun(c *command, argv []string, exit int, elapsed time.Duration, timed
 			"exit_code":   exit,
 			"timed_out":   timedOut,
 			"duration_ms": elapsed.Milliseconds(),
-			"stdout":      stdout.String(),
-			"stderr":      stderr.String(),
-			"truncated":   stdout.Truncated() || stderr.Truncated(),
+			"stdout":      stdout.text,
+			"stderr":      stderr.text,
+			"truncated":   stdout.dropped || stderr.dropped,
 		},
 	}
+}
+
+// streamView is one stream as the result carries it.
+type streamView struct {
+	text    string
+	dropped bool
+}
+
+func view(b *capBuffer, max int) streamView {
+	text, dropped := b.View(max)
+	return streamView{text, dropped}
 }
 
 // toolError reports a refusal the model can act on, rather than a dispatch

@@ -12,11 +12,17 @@ import (
 // DefaultTimeout bounds a command that does not set its own.
 const DefaultTimeout = 2 * time.Minute
 
-// DefaultMaxOutput caps the bytes of combined output returned to the model.
-// Output beyond it is dropped from the middle, keeping the head and the tail,
-// because a failing build states the problem at one end or the other and
-// almost never in the middle.
-const DefaultMaxOutput = 32 << 10
+// DefaultMaxOutput caps the bytes a command's stdout, and separately its
+// stderr, may hold in memory. It guards against a runaway process rather than
+// shaping what the model reads, which is DefaultInlineOutput's job, so it is
+// set well above a realistic failing go test transcript.
+const DefaultMaxOutput = 1 << 20
+
+// DefaultInlineOutput caps the bytes of each stream a result carries when the
+// host is not offloading. Output beyond it is dropped from the middle, keeping
+// the head and the tail, because a failing build usually states the problem
+// at one end or the other.
+const DefaultInlineOutput = 32 << 10
 
 // toolPrefix namespaces the generated tool names so a command called "test"
 // registers as run_test and cannot collide with an unrelated source's "test".
@@ -61,9 +67,18 @@ type Config struct {
 	// DefaultTimeout.
 	Timeout time.Duration
 
-	// MaxOutput caps the combined output bytes returned. Zero means
-	// DefaultMaxOutput.
+	// MaxOutput caps the bytes held in memory for each of stdout and stderr,
+	// dropping from the middle beyond it. Zero means DefaultMaxOutput.
 	MaxOutput int
+
+	// InlineOutput caps the bytes of each stream the result carries, in both
+	// its text and its structured content. Zero means DefaultInlineOutput.
+	// Negative returns all of MaxOutput, for a host whose OffloadingSource
+	// stores large results: that puts the middle of a long run, where a
+	// failing assertion usually sits, in the store where read_tool_result can
+	// grep it. A timed-out run always gets the DefaultInlineOutput view,
+	// since offloading leaves error results inline.
+	InlineOutput int
 
 	// WritePaths are directories outside Roots that commands may still write
 	// to. Nil means DefaultWritePaths, which covers the build and module

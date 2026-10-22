@@ -101,4 +101,18 @@ func TestPromptTellsTheModelHowToReadAFailure(t *testing.T) {
 	}
 }
 
+func TestPromptPointsAtReadToolResultOnlyWhenResultsAreStored(t *testing.T) {
+	section := func(inline int) string {
+		cfg := baseConfig(t, echoSpec())
+		cfg.InlineOutput = inline
+		return mustExtension(t, cfg).PromptSections()[0].Section(context.Background())
+	}
+	if got := section(0); strings.Contains(got, "read_tool_result") {
+		t.Errorf("without offloading there is no read_tool_result to point at:\n%s", got)
+	}
+	if got := section(-1); !strings.Contains(got, "read_tool_result") {
+		t.Errorf("with whole results for offloading, the prompt must say how to search one:\n%s", got)
+	}
+}
+
 var _ host.Extension = (*Extension)(nil)

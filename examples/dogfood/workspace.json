@@ -9,8 +9,16 @@
       {
         "name": "test",
         "argv": ["sh", "scripts/test-pkg.sh"],
-        "description": "Run the Go tests (under -race) for the named package paths, in whichever module holds each one, e.g. ./host or ./ext/files/... Pass package paths only.",
+        "description": "Run the Go tests (under -race) for the named package paths, in whichever module holds each one, e.g. ./host or ./ext/files/... Pass package paths only. To run one test, use run_test_one.",
         "args": { "max": 3, "match": "\\./[\\w./-]*(\\.\\.\\.)?", "paths": true },
+        "readOnly": true,
+        "timeout": "5m"
+      },
+      {
+        "name": "test_one",
+        "argv": ["sh", "scripts/test-pkg.sh"],
+        "description": "Run only the tests matching a -run pattern in one package, verbose and under -race. Pass one argument, the package path and the pattern joined by a colon, e.g. ./surfaces/chat:TestBannerLine or ./host:TestApproval|TestUndo. Fails if the pattern matches no test.",
+        "args": { "max": 1, "match": "\\.(/[\\w-]+)*:[\\w|/^$]+" },
         "readOnly": true,
         "timeout": "5m"
       },

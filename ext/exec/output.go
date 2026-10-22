@@ -52,20 +52,38 @@ func (c *capBuffer) Write(p []byte) (int, error) {
 	return n, nil
 }
 
-// String renders what was kept, with a line naming what was not. The count is
-// stated because a model that cannot tell truncated output from complete
-// output will read a passing tail as a passing run.
+// String renders everything that was kept, with a line naming what was not.
 func (c *capBuffer) String() string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.dropped == 0 {
-		return c.head.String() + string(c.tail)
-	}
-	return fmt.Sprintf("%s\n... %d bytes of output dropped from the middle ...\n%s",
-		c.head.String(), c.dropped, string(c.tail))
+	s, _ := c.View(0)
+	return s
 }
 
-// Truncated reports whether anything was dropped.
+// View renders at most max bytes of what was kept, dropping more from the
+// middle, and reports whether anything is missing. Zero or less means all of
+// it.
+//
+// The count is stated because a model that cannot tell truncated output from
+// complete output will read a passing tail as a passing run. It covers both
+// drops, the capture's and the view's, so the number is what the run printed
+// and the reader did not get.
+func (c *capBuffer) View(max int) (string, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	head, tail := c.head.Bytes(), c.tail
+	dropped := c.dropped
+	if kept := len(head) + len(tail); max > 0 && kept > max {
+		all := append(append([]byte{}, head...), tail...)
+		head, tail = all[:max/2], all[kept-(max-max/2):]
+		dropped += kept - max
+	}
+	if dropped == 0 {
+		return string(head) + string(tail), false
+	}
+	return fmt.Sprintf("%s\n... %d bytes of output dropped from the middle ...\n%s",
+		head, dropped, tail), true
+}
+
+// Truncated reports whether the capture dropped anything.
 func (c *capBuffer) Truncated() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()

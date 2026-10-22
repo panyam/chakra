@@ -384,3 +384,28 @@ func TestUndoRestoresWhenTheProcessRunsElsewhere(t *testing.T) {
 		t.Errorf("/undo said %q but new.txt is still in the workspace (stat err %v)", res.Message, err)
 	}
 }
+
+// TestWorkspaceExtensionsOffloadingReachesExec pins the wiring: with
+// Offloading set, exec returns whole results and its prompt says how to search
+// a stored one.
+func TestWorkspaceExtensionsOffloadingReachesExec(t *testing.T) {
+	prompt := func(offloading bool) string {
+		exts, err := WorkspaceExtensions(WorkspaceConfig{Roots: []string{t.TempDir()}, Exec: goExec(), Offloading: offloading})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range exts {
+			if e.Name() == "exec" {
+				return e.(interface{ PromptSections() []host.PromptSection }).PromptSections()[0].Section(context.Background())
+			}
+		}
+		t.Fatal("no exec extension")
+		return ""
+	}
+	if !strings.Contains(prompt(true), "read_tool_result") {
+		t.Error("Offloading must reach exec")
+	}
+	if strings.Contains(prompt(false), "read_tool_result") {
+		t.Error("exec must keep its short view without Offloading")
+	}
+}

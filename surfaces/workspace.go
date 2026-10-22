@@ -87,6 +87,15 @@ type WorkspaceConfig struct {
 	// so an /undo after a command restores only the file-tool edits around
 	// it. Mark commands ReadOnly only when that is true of them.
 	Exec *exec.Config
+
+	// Offloading says the host stores large tool results (host.Config.Offload
+	// is set). Exec results then carry the whole capture instead of a 32 KiB
+	// view, unless Exec.InlineOutput is set, because the store is where a
+	// failing assertion in the middle of a long run can be found. Set it from
+	// the same config that turns offloading on, so the two cannot disagree: a
+	// whole capture with no store behind it is up to 2 MiB in context. A
+	// PerTool entry that pins a run_ tool inline has the same effect.
+	Offloading bool
 }
 
 // WorkspaceExtensions builds the file and checkpoint extensions for cfg, plus
@@ -167,6 +176,9 @@ func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 	if cfg.Exec != nil {
 		ec := *cfg.Exec
 		ec.Roots = cfg.Roots
+		if cfg.Offloading && ec.InlineOutput == 0 {
+			ec.InlineOutput = -1
+		}
 		ex, err := exec.New(ec)
 		if err != nil {
 			return nil, fmt.Errorf("workspace exec: %w", err)

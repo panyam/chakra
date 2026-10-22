@@ -346,6 +346,7 @@ func runChat(v *viper.Viper) error {
 	if err != nil {
 		return err
 	}
+	wsCfg.Offloading = cfg.Offload != nil
 	wsExts, err := surfaces.WorkspaceExtensions(wsCfg)
 	if err != nil {
 		return err

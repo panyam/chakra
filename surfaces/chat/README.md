@@ -127,7 +127,10 @@ go run . --config chat.json --workspace ~/code/project \
   `allowNetwork` is set. `writePaths` and `denyRead` override the defaults
   (build caches writable, credential directories unreadable); `[]` means none.
 - **Limits**: `timeout` (Go duration; default `2m`, per command or for all)
-  and `maxOutput` (bytes returned; default 32 KiB).
+  and `maxOutput` (bytes held per stream; default 1 MiB). What the model gets
+  is 32 KiB of each stream, or all of it when offloading is on
+  (`--offload-threshold`, or `offload` in the config), since the store then
+  holds it.
 - **`languageServers`**: LSP in the loop. Diagnostics follow each edit, and the
   model gets `goto_definition` and `find_references`.
 - **`repoMap`**: puts a ranked map of the repository in the system prompt.

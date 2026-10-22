@@ -140,19 +140,24 @@ func buildApp(o appOptions) (*host.App, error) {
 	if o.store != nil {
 		storeOpt = append(storeOpt, host.WithRunStore(o.store))
 	}
-	// Built once and appended to whichever App this call constructs, so the
-	// demo and config paths cannot drift into offering different tools. Nil
-	// when --workspace is unset, leaving both paths as they were.
-	wsCfg := agentsurfaces.WorkspaceConfig{Roots: o.workspace, NoCheckpoint: o.noCheckpoint, CheckpointStore: o.checkpointStore}
-	if err := wsCfg.LoadFile(o.workspaceConfig); err != nil {
-		return nil, err
-	}
-	wsExts, err := agentsurfaces.WorkspaceExtensions(wsCfg)
-	if err != nil {
-		return nil, err
-	}
-	if len(wsExts) > 0 {
-		storeOpt = append(storeOpt, host.WithExtension(wsExts...))
+	// Appended to whichever App this call constructs, so the demo and config
+	// paths cannot drift into offering different tools. Nil when --workspace
+	// is unset, leaving both paths as they were. It is built after the host
+	// config because exec's output view follows whether that config offloads.
+	withWorkspace := func(cfg *host.Config) ([]host.AppOption, error) {
+		wsCfg := agentsurfaces.WorkspaceConfig{Roots: o.workspace, NoCheckpoint: o.noCheckpoint, CheckpointStore: o.checkpointStore}
+		if err := wsCfg.LoadFile(o.workspaceConfig); err != nil {
+			return nil, err
+		}
+		wsCfg.Offloading = cfg.Offload != nil
+		wsExts, err := agentsurfaces.WorkspaceExtensions(wsCfg)
+		if err != nil {
+			return nil, err
+		}
+		if len(wsExts) > 0 {
+			return append(storeOpt, host.WithExtension(wsExts...)), nil
+		}
+		return storeOpt, nil
 	}
 	if o.demo {
 		// Wire two delegate personas + a low offload threshold so a demo turn
@@ -174,8 +179,12 @@ func buildApp(o appOptions) (*host.App, error) {
 			// exists to demonstrate.
 			Approval: &host.ApprovalConfig{Mode: "allow", Rules: map[string]string{"researcher": "ask"}},
 		}
+		opts, err := withWorkspace(cfg)
+		if err != nil {
+			return nil, err
+		}
 		return host.NewApp(cfg, io.Discard, strings.NewReader(""),
-			append(storeOpt,
+			append(opts,
 				host.WithProvider(demoProvider{}),
 				host.WithElicitationUI(demoElicitUI),
 			)...,
@@ -197,7 +206,11 @@ func buildApp(o appOptions) (*host.App, error) {
 		}
 		cfg.Connections.Active = o.active
 	}
-	return host.NewApp(cfg, io.Discard, strings.NewReader(""), storeOpt...)
+	opts, err := withWorkspace(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return host.NewApp(cfg, io.Discard, strings.NewReader(""), opts...)
 }
 
 // repeatedPath collects a flag given more than once, so --workspace can name
