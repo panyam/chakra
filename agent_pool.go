@@ -93,7 +93,7 @@ func NewSpawnSource(pool *AgentPool) *FuncSource {
 				fmt.Fprintf(&b, "%s (%s): %s\n", s.ID, s.Name, s.Status)
 			}
 			return b.String(), nil
-		})
+		}, ReadOnly())
 
 	return fs
 }

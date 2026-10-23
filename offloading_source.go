@@ -120,7 +120,7 @@ func NewOffloadingSource(src ToolSource, store ToolResultStore, cfg OffloadConfi
 	// name; ignore the error to keep the constructor total.
 	_ = AddFunc(o.read, ReadToolResultName,
 		"Fetch a previously offloaded tool result by its ref. Give offset+limit for a character window, or pattern (a regular expression) to return only matching lines. With pattern, add context=N to also get N lines either side of each match, which is how you see why something failed rather than only that it did. Refs appear in tool-result stubs like [tool result 52KB, stored as res:ab12].",
-		o.readToolResult)
+		o.readToolResult, ReadOnly())
 	return o
 }
 

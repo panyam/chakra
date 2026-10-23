@@ -27,17 +27,47 @@ func NewFuncSource() *FuncSource {
 	}
 }
 
+// FuncOption adjusts the tool definition AddFunc or AddAsyncFunc builds.
+type FuncOption func(*core.ToolDef)
+
+// ReadOnly sets readOnlyHint on the tool. An approval policy such as
+// TieredApproval in ModeReadOnlyAuto or ModeReversibleAuto then runs it without
+// asking, and the Runner treats it as non-destructive and idempotent. Leave it
+// off for anything that writes, sends, or starts work: the spec's default for
+// an unannotated tool is the cautious one.
+func ReadOnly() FuncOption {
+	return func(d *core.ToolDef) {
+		if d.Annotations == nil {
+			d.Annotations = map[string]any{}
+		}
+		d.Annotations["readOnlyHint"] = true
+	}
+}
+
+func funcToolDef[In any](name, description string, opts []FuncOption) (core.ToolDef, error) {
+	var schema any
+	if err := json.Unmarshal(core.GenerateSchema[In](), &schema); err != nil {
+		return core.ToolDef{}, fmt.Errorf("agent: schema generation for %q: %w", name, err)
+	}
+	def := core.ToolDef{Name: name, Description: description, InputSchema: schema}
+	for _, o := range opts {
+		o(&def)
+	}
+	return def, nil
+}
+
 // AddFunc registers a typed function as a tool. Arguments are decoded into
 // In via JSON round-trip and validated only by that decoding; the returned
 // string becomes a single text content item. A handler error becomes an
 // IsError tool result (the model sees the failure), not a dispatch error.
-// Registering a duplicate name returns an error.
-func AddFunc[In any](s *FuncSource, name, description string, fn func(ctx context.Context, in In) (string, error)) error {
-	var schema any
-	if err := json.Unmarshal(core.GenerateSchema[In](), &schema); err != nil {
-		return fmt.Errorf("agent: schema generation for %q: %w", name, err)
+// Registering a duplicate name returns an error. Options adjust the
+// definition, for instance ReadOnly for a tool that changes nothing.
+func AddFunc[In any](s *FuncSource, name, description string, fn func(ctx context.Context, in In) (string, error), opts ...FuncOption) error {
+	def, err := funcToolDef[In](name, description, opts)
+	if err != nil {
+		return err
 	}
-	return s.AddToolFunc(core.ToolDef{Name: name, Description: description, InputSchema: schema},
+	return s.AddToolFunc(def,
 		func(ctx context.Context, args map[string]any) (*core.ToolResult, error) {
 			var in In
 			raw, err := json.Marshal(args)
@@ -119,12 +149,12 @@ type AsyncResult struct {
 // work, use a real server-side task instead.
 func AddAsyncFunc[In any](s *FuncSource, name, description string,
 	fn func(ctx context.Context, in In) (AsyncResult, error),
-	onComplete func(IncomingEvent, error)) error {
-	var schema any
-	if err := json.Unmarshal(core.GenerateSchema[In](), &schema); err != nil {
-		return fmt.Errorf("agent: schema generation for %q: %w", name, err)
+	onComplete func(IncomingEvent, error), opts ...FuncOption) error {
+	def, err := funcToolDef[In](name, description, opts)
+	if err != nil {
+		return err
 	}
-	return s.AddToolFunc(core.ToolDef{Name: name, Description: description, InputSchema: schema},
+	return s.AddToolFunc(def,
 		func(ctx context.Context, args map[string]any) (*core.ToolResult, error) {
 			var in In
 			raw, err := json.Marshal(args)
