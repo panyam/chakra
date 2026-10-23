@@ -103,6 +103,13 @@ confirm each activation — the prompt names the requested skill). The fetched
 body lands in tool history rather than the system prompt, so it carries less
 authority. See the `SkillsMode` godoc in `config.go`.
 
+A server's own `instructions` (from its initialize result) go into the system
+prompt too, in their own section between `Config.Instructions` and the skill
+blocks, in config order. Each carries the same untrusted-origin header as a
+skill block, naming the server by its config id rather than the name it reports.
+They're included even with `ServerConfig.Skills` off, since a server can send
+instructions without serving skills, and a server that sends none adds nothing.
+
 ## Testing
 
 Fully offline: real in-process mcpkit servers plus a scripted `StubProvider` plus

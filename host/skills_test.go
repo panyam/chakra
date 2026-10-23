@@ -92,33 +92,77 @@ func TestFilterSkillsAllow(t *testing.T) {
 	}
 }
 
-// TestBuildInstructions covers the default system prompt: base instructions
-// plus each connected server's block, in config order, skipping empties. This
-// is what makes a late server's eager skills appear on the next turn.
+// TestBuildInstructions covers the default system prompt: base instructions,
+// then each connected server's instructions, then its skill block, all in config
+// order, skipping empties. This is what makes a late server's eager skills (and
+// instructions) appear on the next turn.
 func TestBuildInstructions(t *testing.T) {
 	a := &App{
 		cfg: &Config{Instructions: "base"},
 		skills: &skillSet{
-			blocks:  map[string]string{"s1": "block1", "s2": "block2"},
-			catalog: map[string][]catalogSkill{},
-			order:   []string{"s1", "s2"},
+			blocks:       map[string]string{"s1": "block1", "s2": "block2"},
+			instructions: map[string]string{"s1": "instr1"},
+			catalog:      map[string][]catalogSkill{},
+			order:        []string{"s1", "s2"},
 		},
 	}
 	build := func() string { return a.defaultPromptBuilder().Build(context.Background()) }
 
-	if got := build(); got != "base\n\nblock1\n\nblock2" {
+	// Server instructions sit between the base prompt and the skill blocks; a
+	// server with no instructions contributes nothing (s2).
+	if got := build(); got != "base\n\ninstr1\n\nblock1\n\nblock2" {
 		t.Fatalf("got %q", got)
 	}
 	// order follows serverOrder, not map iteration
 	a.skills.order = []string{"s2", "s1"}
-	if got := build(); got != "base\n\nblock2\n\nblock1" {
+	if got := build(); got != "base\n\ninstr1\n\nblock2\n\nblock1" {
 		t.Fatalf("order must follow serverOrder: %q", got)
 	}
 	// a server with no block yet is skipped
 	a.skills.blocks = map[string]string{"s1": "only1"}
 	a.skills.order = []string{"s1", "s2"}
-	if got := build(); got != "base\n\nonly1" {
+	if got := build(); got != "base\n\ninstr1\n\nonly1" {
 		t.Fatalf("empty block must be skipped: %q", got)
+	}
+	// no instructions anywhere leaves the prompt exactly as it was before
+	// server instructions existed
+	a.skills.instructions = map[string]string{}
+	if got := build(); got != "base\n\nonly1" {
+		t.Fatalf("no instructions must leave no gap: %q", got)
+	}
+}
+
+// TestSetInstructions covers the per-server instructions store: config order,
+// and clearing so a server reconnecting without instructions leaves no stale
+// block behind.
+func TestSetInstructions(t *testing.T) {
+	s := newSkillSet()
+	s.track("a")
+	s.track("b")
+	s.setInstructions("a", "ia")
+	s.setInstructions("b", "ib")
+	if got := s.instructionBlocks(); len(got) != 2 || got[0] != "ia" || got[1] != "ib" {
+		t.Fatalf("got %v", got)
+	}
+	s.setInstructions("a", "")
+	if got := s.instructionBlocks(); len(got) != 1 || got[0] != "ib" {
+		t.Fatalf("an empty block must clear the stored one: %v", got)
+	}
+}
+
+// TestWithInstructionsHeader pins the origin label and untrusted framing on
+// server instructions, and that empty instructions stay empty.
+func TestWithInstructionsHeader(t *testing.T) {
+	if got := withInstructionsHeader("s", ""); got != "" {
+		t.Fatalf("empty instructions must stay empty: %q", got)
+	}
+	h := instructionsHeader("docs-server")
+	if !strings.Contains(h, `"docs-server"`) || !strings.Contains(h, "untrusted") {
+		t.Fatalf("header must name the server and mark it untrusted: %q", h)
+	}
+	got := withInstructionsHeader("s", "do the thing")
+	if !strings.HasPrefix(got, instructionsHeader("s")) || !strings.HasSuffix(got, "do the thing") {
+		t.Fatalf("block must be header + instructions: %q", got)
 	}
 }
 

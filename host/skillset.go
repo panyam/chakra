@@ -7,31 +7,47 @@ import (
 	"sync"
 )
 
-// skillSet holds every connected server's loaded skills: the system-prompt
-// block a server contributes, its catalog entries for load_skill, and the
-// config order the two are rendered in.
+// skillSet holds every connected server's loaded skills and instructions: the
+// system-prompt blocks a server contributes, its catalog entries for
+// load_skill, and the config order the blocks are rendered in.
 //
-// These four moved together because they are read together and were always
+// These fields moved together because they are read together and were always
 // guarded by one mutex. Ordering is the reason the server list lives here
-// rather than beside the connection state: both the prompt block and the
+// rather than beside the connection state: both the prompt blocks and the
 // catalog are assembled in config order, so the order is a property of how
-// skills render, not of how servers connect.
+// server content renders, not of how servers connect.
 //
-// Skills load in the ready-observer, which fires for late servers too, so
-// this is shared mutable state read live by the per-turn prompt builder.
+// Skills and instructions load in the ready-observer, which fires for late
+// servers too, so this is shared mutable state read live by the per-turn prompt
+// builder.
 type skillSet struct {
-	mu      sync.Mutex
-	blocks  map[string]string         // serverID -> system-prompt block
-	catalog map[string][]catalogSkill // serverID -> catalog entries
-	order   []string                  // serverIDs in config order
-	loader  bool                      // load_skill registered once, lazily
+	mu           sync.Mutex
+	blocks       map[string]string         // serverID -> system-prompt skill block
+	instructions map[string]string         // serverID -> origin-labelled instructions block
+	catalog      map[string][]catalogSkill // serverID -> catalog entries
+	order        []string                  // serverIDs in config order
+	loader       bool                      // load_skill registered once, lazily
 }
 
 func newSkillSet() *skillSet {
 	return &skillSet{
-		blocks:  map[string]string{},
-		catalog: map[string][]catalogSkill{},
+		blocks:       map[string]string{},
+		instructions: map[string]string{},
+		catalog:      map[string][]catalogSkill{},
 	}
+}
+
+// setInstructions records one server's origin-labelled instructions block. An
+// empty block clears any earlier one, so a server that re-connects without
+// instructions does not leave a stale block in the prompt.
+func (s *skillSet) setInstructions(serverID, block string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if block == "" {
+		delete(s.instructions, serverID)
+		return
+	}
+	s.instructions[serverID] = block
 }
 
 // track records a server in config order, before it has loaded anything.
@@ -63,6 +79,20 @@ func (s *skillSet) add(serverID, block string, cat []catalogSkill) (collisions [
 		registerLoader = true
 	}
 	return collisions, registerLoader
+}
+
+// instructionBlocks returns each connected server's instructions block in
+// config order.
+func (s *skillSet) instructionBlocks() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []string
+	for _, id := range s.order {
+		if block := s.instructions[id]; block != "" {
+			out = append(out, block)
+		}
+	}
+	return out
 }
 
 // promptBlocks returns each connected server's skill block in config order.
