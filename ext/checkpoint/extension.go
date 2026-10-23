@@ -92,6 +92,13 @@ type Extension struct {
 	turn       int
 	current    *Checkpoint
 	unreversed []Gap
+
+	// undoPos counts the checkpoints a bare /undo has already restored,
+	// newest first, so repeating it steps back a turn at a time (issue 75).
+	// It is a position, not a mark on the store, so a restore that failed
+	// halfway can still be retried by naming its id. A new checkpoint resets
+	// it, because the next /undo is then about the turn that just ran.
+	undoPos int
 }
 
 // New builds the extension, creating the store directory if needed.
@@ -214,6 +221,7 @@ func (e *Extension) checkpoint() (*Checkpoint, error) {
 		return nil, err
 	}
 	e.current = cp
+	e.undoPos = 0
 	return cp, nil
 }
 
@@ -236,14 +244,11 @@ func (e *Extension) Commands() []*host.Command {
 func (e *Extension) runUndo(ctx context.Context, args string) (host.CmdResult, error) {
 	id := strings.TrimSpace(args)
 	if id == "" {
-		list, err := e.store.List()
-		if err != nil {
-			return host.CmdResult{}, err
+		chosen, res, ok, err := e.nextUndoTarget()
+		if err != nil || !ok {
+			return res, err
 		}
-		if len(list) == 0 {
-			return host.CmdResult{Kind: host.CmdMessage, Message: "nothing to undo: no checkpoints yet"}, nil
-		}
-		id = list[0].ID
+		id = chosen
 	}
 	cp, err := e.store.Load(id)
 	if err != nil {
@@ -253,11 +258,41 @@ func (e *Extension) runUndo(ctx context.Context, args string) (host.CmdResult, e
 	if err != nil {
 		return host.CmdResult{}, err
 	}
+	// Only a bare /undo advances the position. A named one is a jump, and
+	// moving the position for it would make the next bare /undo step from
+	// somewhere the user did not walk to.
+	if strings.TrimSpace(args) == "" {
+		e.mu.Lock()
+		e.undoPos++
+		e.mu.Unlock()
+	}
 	report := e.undoReport(cp, res)
 	if extra := e.offerProposals(ctx, e.gaps()); extra != "" {
 		report += "\n\n" + extra
 	}
 	return host.CmdResult{Kind: host.CmdMessage, Message: report}, nil
+}
+
+// nextUndoTarget picks the checkpoint a bare /undo restores: one turn further
+// back than the last bare /undo. ok is false when there is nothing left to
+// undo, and res then carries the message saying so.
+func (e *Extension) nextUndoTarget() (string, host.CmdResult, bool, error) {
+	list, err := e.store.List()
+	if err != nil {
+		return "", host.CmdResult{}, false, err
+	}
+	e.mu.Lock()
+	pos := e.undoPos
+	e.mu.Unlock()
+	if len(list) == 0 {
+		return "", host.CmdResult{Kind: host.CmdMessage, Message: "nothing to undo: no checkpoints yet"}, false, nil
+	}
+	if pos >= len(list) {
+		// Restoring the oldest again would report success for a turn that
+		// is already undone.
+		return "", host.CmdResult{Kind: host.CmdMessage, Message: "nothing more to undo: every checkpoint has been restored"}, false, nil
+	}
+	return list[pos].ID, host.CmdResult{}, true, nil
 }
 
 // offerProposals asks the proposer for inverse calls and runs only the ones a
