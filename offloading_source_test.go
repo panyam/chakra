@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -330,5 +331,39 @@ func TestGrepLines_NoMatchIsGraceful(t *testing.T) {
 	got := grepLines([]string{"a", "b"}, regexp.MustCompile("zzz"), 3, 0, "res:x", "zzz")
 	if !strings.Contains(got, "no lines") {
 		t.Fatalf("want the graceful no-match answer, got %q", got)
+	}
+}
+
+// TestReadToolResult_AutoAllowedUnderReadOnlyAuto is the regression for #99.
+// Without readOnlyHint, read_tool_result went to the approver on every call,
+// so a host with nobody answering (agentweb over Connect) declined each one
+// and an offloaded result could never be read back.
+func TestReadToolResult_AutoAllowedUnderReadOnlyAuto(t *testing.T) {
+	o, _ := newOffloader(t, textResult(strings.Repeat("x", 9000)+"needle"), OffloadConfig{Threshold: 1000})
+	ref := extractRef(t, toolResultText(callDump(t, o)))
+
+	asks := 0
+	gate := NewTieredApproval(WithDefaultMode(ModeReadOnlyAuto), WithAsk(func(context.Context, ToolCallInfo) (bool, error) {
+		asks++
+		return false, nil
+	}))
+	p := NewStubProvider(
+		StubTurn{ToolCalls: []ToolCall{{ID: "c1", Name: ReadToolResultName,
+			Args: core.NewRawJSON(json.RawMessage(`{"ref":"` + ref + `","pattern":"needle"}`))}}},
+		StubTurn{Text: "ok"})
+	r, err := NewRunner(RunnerConfig{Provider: p, Tools: o, ToolMiddleware: []ToolMiddleware{gate.WrapToolCall}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.Run(context.Background(), nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if asks != 0 {
+		t.Fatalf("approver consulted %d time(s) for read_tool_result, want 0", asks)
+	}
+	reqs := p.Requests()
+	msgs := reqs[len(reqs)-1].Messages
+	if got := msgs[len(msgs)-1]; got.Role != RoleTool || !strings.Contains(got.Text, "needle") {
+		t.Fatalf("read_tool_result did not return the stored text: %+v", got)
 	}
 }

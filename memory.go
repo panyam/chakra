@@ -323,7 +323,7 @@ func NewMemorySource(store MemoryStore, opts ...MemorySourceOption) (*MemorySour
 	}
 	if err := AddFunc(m.fs, RecallToolName,
 		"Read from your working memory. Optionally pass a query to filter notes by a substring of the key or value; omit it to list everything you have stored.",
-		m.recall); err != nil {
+		m.recall, ReadOnly()); err != nil {
 		return nil, err
 	}
 	if err := AddFunc(m.fs, ForgetToolName,

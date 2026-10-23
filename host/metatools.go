@@ -60,7 +60,7 @@ func (a *App) registerMetaTools(multi *agent.MultiSource) error {
 				fmt.Fprintf(&b, "%s (%s on %s)\n", s.id, s.name, s.server)
 			}
 			return b.String(), nil
-		}); err != nil {
+		}, agent.ReadOnly()); err != nil {
 		return err
 	}
 
@@ -113,7 +113,7 @@ func (a *App) registerMetaTools(multi *agent.MultiSource) error {
 				fmt.Fprintf(&b, "%s: on %s → %s\n", tb.Label, tb.Event, tb.Instructions)
 			}
 			return b.String(), nil
-		}); err != nil {
+		}, agent.ReadOnly()); err != nil {
 		return err
 	}
 
@@ -129,7 +129,7 @@ func (a *App) registerMetaTools(multi *agent.MultiSource) error {
 				fmt.Fprintf(&b, "%s (%s) %s, running %s\n", bt.TaskID, bt.Tool, bt.Status(), time.Since(bt.StartedAt).Round(time.Second))
 			}
 			return b.String(), nil
-		}); err != nil {
+		}, agent.ReadOnly()); err != nil {
 		return err
 	}
 
