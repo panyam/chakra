@@ -366,6 +366,10 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 		if ch.State == client.StateReady {
 			app.registerServerTools(serverByID[ch.ID], clientByID[ch.ID])
 			app.onServerSkills(serverByID[ch.ID], clientByID[ch.ID])
+			// Instructions are independent of skills (a server can send them with
+			// skills off), so record them separately, before onServerSkills'
+			// skills opt-out can return early.
+			app.recordServerInstructions(serverByID[ch.ID], clientByID[ch.ID])
 			app.onServerEvents(serverByID[ch.ID])
 		}
 	}
