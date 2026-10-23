@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # tidy.yml dispatches this on its PR branch, since its pushes start no runs.
+  workflow_dispatch:
 
 jobs:
   # Whole-tree scan, by magic bytes rather than filename. The local pre-commit
@@ -58,6 +60,11 @@ jobs:
       # reports before the suite spends five minutes getting to the same place.
       - name: Formatting
         run: make check-fmt
+
+      # Locally the mcpkit replace hides a pin that was never tagged, and from
+      # outside it cannot resolve. Needs Go and the network, hence not `gates`.
+      - name: Every panyam pin is tagged
+        run: python3 scripts/check_tagged_requires.py
 
       - name: Vet
         run: make vet

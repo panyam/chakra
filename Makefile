@@ -32,7 +32,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent
 # explicitly and the platform's own backend refuses. See the module README.
 GOTESTFLAGS ?= -race -timeout 300s
 
-.PHONY: help build test test-examples test-web testall vet fmt check-fmt cover tidy-all bump-siblings tag tag-push pg dogfood dogfood-web \
+.PHONY: help build test test-examples test-web testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg dogfood dogfood-web \
         check-no-binaries check-ext-isolation check-dep-consistency setup-hooks
 
 help: ## Show this help
@@ -81,6 +81,16 @@ tidy-all: ## go mod tidy every module. Required after touching a shared import.
 		echo "==> tidy $$m"; \
 		(cd $$m && go mod tidy) || exit 1; \
 	done
+
+# Bring every module up to date with ../mcpkit/main (#73). A tidy alone raises
+# only the modules that import the newer code and leaves the rest split, which
+# check-dep-consistency then fails on, so the lagging pins are raised and the
+# tree tidied again. .github/workflows/tidy.yml runs this and opens the PR.
+sync-mcpkit: ## tidy-all, then raise lagging pins so no dependency is split
+	@$(MAKE) -s tidy-all
+	@python3 scripts/check_dep_consistency.py --fix
+	@$(MAKE) -s tidy-all
+	@python3 scripts/check_dep_consistency.py
 
 check-no-binaries: ## Fail if a compiled executable is tracked
 	@sh scripts/check-no-binaries.sh
