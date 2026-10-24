@@ -9,7 +9,7 @@ replace github.com/panyam/chakra/host => ../../host
 require (
 	github.com/panyam/chakra v0.1.0
 	github.com/panyam/chakra/host v0.1.0
-	github.com/panyam/mcpkit v0.8.7
+	github.com/panyam/mcpkit v0.8.8
 )
 
 require (
@@ -24,9 +24,9 @@ require (
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/panyam/gocurrent v0.1.2 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
-	github.com/panyam/mcpkit/experimental/ext/agents v0.8.7 // indirect
+	github.com/panyam/mcpkit/experimental/ext/agents v0.8.8 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.7.1 // indirect
-	github.com/panyam/mcpkit/experimental/ext/events v0.8.7 // indirect
+	github.com/panyam/mcpkit/experimental/ext/events v0.8.8 // indirect
 	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.7.1 // indirect
 	github.com/panyam/mcpkit/ext/auth v0.7.1 // indirect
 	github.com/panyam/mcpkit/ext/skills v0.7.1 // indirect
