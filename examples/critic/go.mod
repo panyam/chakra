@@ -5,7 +5,7 @@ go 1.26.9
 require (
 	github.com/panyam/chakra v0.1.0
 	github.com/panyam/chakra/host v0.1.0
-	github.com/panyam/mcpkit v0.8.9
+	github.com/panyam/mcpkit v0.8.10
 )
 
 require (
@@ -20,14 +20,14 @@ require (
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/panyam/gocurrent v0.1.2 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
-	github.com/panyam/mcpkit/experimental/ext/agents v0.8.9 // indirect
-	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.7.1 // indirect
-	github.com/panyam/mcpkit/experimental/ext/events v0.8.9 // indirect
-	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.7.1 // indirect
-	github.com/panyam/mcpkit/ext/auth v0.7.1 // indirect
-	github.com/panyam/mcpkit/ext/skills v0.7.1 // indirect
+	github.com/panyam/mcpkit/experimental/ext/agents v0.8.10 // indirect
+	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.8.10 // indirect
+	github.com/panyam/mcpkit/experimental/ext/events v0.8.10 // indirect
+	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.10 // indirect
+	github.com/panyam/mcpkit/ext/auth v0.8.10 // indirect
+	github.com/panyam/mcpkit/ext/skills v0.8.10 // indirect
 	github.com/panyam/oneauth v0.3.0 // indirect
-	github.com/panyam/servicekit v0.1.12 // indirect
+	github.com/panyam/servicekit v0.2.0 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	github.com/stretchr/testify v1.12.1 // indirect
@@ -41,9 +41,6 @@ require (
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc // indirect
-	google.golang.org/grpc v1.84.0 // indirect
-	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
