@@ -38,7 +38,7 @@ import (
 // # Ordering
 //
 // Extensions are applied in the order given to WithExtension, and within one
-// extension each seam keeps the order its slice declares. Two orderings are
+// extension each seam keeps the order its slice declares. Three orderings are
 // load-bearing:
 //
 //   - Middleware lands before the host's own permission gate, so a gate still
@@ -47,6 +47,8 @@ import (
 //   - Context stages append after the built-in producers, so an extension's
 //     block sits closer to the user's message than the memory summary. Later
 //     is more salient; see contextPipeline.
+//   - Input transforms run before the user message is built, each over the
+//     previous one's output, so context stages sit beside the expanded text.
 //
 // # What stays host-owned
 //
@@ -109,6 +111,13 @@ type Extension interface {
 	// wins, and the built-in format is the fallback. See ApprovalRenderer.
 	ApprovalRenderers() []ApprovalRenderer
 
+	// InputTransforms rewrite the user's message before the turn is built
+	// (issue 27), in registration order, each over the previous one's output.
+	// The result is the user message history keeps and the model reads. A
+	// ContextStage can't do this, since it adds a block beside the message
+	// rather than changing it. An error aborts the turn before any model call.
+	InputTransforms() []InputTransform
+
 	// TurnStart runs once at the top of every turn, before any context stage
 	// and before history is touched, so a failure leaves nothing half-done.
 	// An error aborts the turn.
@@ -158,6 +167,7 @@ func (BaseExtension) PromptSections() []PromptSection       { return nil }
 func (BaseExtension) Commands() []*Command                  { return nil }
 func (BaseExtension) ContextStages() []ContextStage         { return nil }
 func (BaseExtension) ApprovalRenderers() []ApprovalRenderer { return nil }
+func (BaseExtension) InputTransforms() []InputTransform     { return nil }
 func (BaseExtension) TurnStart(context.Context) error       { return nil }
 func (BaseExtension) Close() error                          { return nil }
 
@@ -185,6 +195,12 @@ func (BaseExtension) Close() error                          { return nil }
 // reading the file that is there now — rather than being restricted to what
 // the arguments happen to carry.
 type ApprovalRenderer func(context.Context, agent.ToolCallInfo) (string, bool)
+
+// InputTransform rewrites the user's input into the message a turn is built
+// from. An error aborts the turn before history is touched or the model is
+// called, so a transform that can't do its job (a referenced file is missing)
+// leaves the session as it was rather than half-expanded.
+type InputTransform func(ctx context.Context, input string) (string, error)
 
 // WithExtension registers extensions with the App, applied in the order
 // given. Repeated calls accumulate rather than replace, so a caller can build
@@ -230,6 +246,29 @@ func (a *App) startExtensionTurns(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// transformInput runs every extension's input transforms over the user's
+// message, in registration order, each receiving the previous one's output.
+// It stops at the first error, which aborts the turn.
+//
+// Called with turnMu held, after TurnStart. A failure names the extension, as
+// startExtensionTurns does, and the transforms after it don't run, so one
+// with a side effect can't act on a turn that is being abandoned.
+func (a *App) transformInput(ctx context.Context, input string) (string, error) {
+	for _, ext := range a.extensions {
+		for _, fn := range ext.InputTransforms() {
+			if fn == nil {
+				continue
+			}
+			out, err := fn(ctx, input)
+			if err != nil {
+				return "", fmt.Errorf("host: extension %q input transform: %w", ext.Name(), err)
+			}
+			input = out
+		}
+	}
+	return input, nil
 }
 
 // closeExtensions closes every extension, in reverse registration order.
