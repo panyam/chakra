@@ -90,6 +90,28 @@ execute**, after every middleware has rewritten the arguments, so what the user
 approves is what runs. And a renderer that returns an empty string is treated
 as having declined, because an empty prompt asks the user to confirm nothing.
 
+## Input transforms
+
+An extension can rewrite what the user typed before the turn is built, which is
+where `@main.go` expanding to the file's contents would live:
+
+```go
+func (e *Extension) InputTransforms() []host.InputTransform {
+    return []host.InputTransform{func(ctx context.Context, input string) (string, error) {
+        return expandFileRefs(ctx, input) // an error aborts the turn
+    }}
+}
+```
+
+Transforms run in registration order, each over the previous one's output, so
+when two extensions both claim `@` the earlier one sees it first. The expanded
+text is the user message: it is what history keeps, what the session store
+persists and what the model reads. An error fails the turn before anything is
+touched, with no history entry, no new run and no model call, since a reference
+the user asked for and didn't get is worth stopping on.
+
+Surfaces still show what the user typed rather than the expansion (#106).
+
 ## Skills trust model
 
 Skills are data, not code (`ext/skills` is enforced no-exec), so the risk a

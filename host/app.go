@@ -769,6 +769,17 @@ func (a *App) RunTurn(ctx context.Context, input string) error {
 		a.emit(HostEvent{Kind: HostTurnFailed, Err: err.Error()})
 		return err
 	}
+	// Before the user message exists, so the expanded text is what history
+	// keeps and the model reads. Ahead of ensureRunLocked too, so a failed
+	// transform leaves no empty run in the session list.
+	{
+		transformed, terr := a.transformInput(ctx, input)
+		if terr != nil {
+			a.emit(HostEvent{Kind: HostTurnFailed, Err: terr.Error()})
+			return terr
+		}
+		input = transformed
+	}
 	userMsg := agent.Message{Role: agent.RoleUser, Text: input}
 	a.history = a.context.runDurable(ctx, a.history, userMsg)
 
