@@ -54,6 +54,12 @@ func (e *fullExt) ContextStages() []ContextStage {
 	}}}
 }
 
+func (e *fullExt) InputTransforms() []InputTransform {
+	return []InputTransform{func(_ context.Context, in string) (string, error) {
+		return in + " [expanded]", nil
+	}}
+}
+
 // minimalExt contributes nothing but a name, proving BaseExtension makes every
 // other seam genuinely optional.
 type minimalExt struct{ BaseExtension }
@@ -115,12 +121,19 @@ func TestExtensionContributesEverySeam(t *testing.T) {
 		t.Fatalf("stage order = %v, want ext.note last", names)
 	}
 
-	// Middleware: the tool ran, and its result reached the model rewritten.
+	// Middleware and input transform: the tool ran, its result reached the
+	// model rewritten, and the input the model saw was the expansion, not the
+	// raw text. Both are asserted from the requests, so this runs first.
 	if err := app.RunTurn(context.Background(), "ping"); err != nil {
 		t.Fatal(err)
 	}
 	if !ext.sawTool {
 		t.Fatal("extension tool was never dispatched")
+	}
+	// The expansion replaces the user message, so the model reads it as the
+	// turn's own input rather than as a separate block.
+	if got := lastUserText(t, stub.Requests()[0]); got != "ping [expanded]" {
+		t.Fatalf("model saw user message %q, want the expansion %q", got, "ping [expanded]")
 	}
 	// Find by role: the context stage adds a message, so a fixed index would
 	// couple this assertion to how many producers happen to be configured.
@@ -148,8 +161,46 @@ func TestExtensionContextStageReachesTheModel(t *testing.T) {
 	if len(msgs) < 2 {
 		t.Fatalf("expected the injected block plus the user message, got %d", len(msgs))
 	}
-	if msgs[len(msgs)-2].Text != "EXT CONTEXT" || msgs[len(msgs)-1].Text != "hello" {
+	if msgs[len(msgs)-2].Text != "EXT CONTEXT" || msgs[len(msgs)-1].Text != "hello [expanded]" {
 		t.Fatalf("context stage did not weave before the user message: %+v", msgs)
+	}
+}
+
+// stageOnlyExt contributes a context stage and no input transform, so the
+// user's message reaches the stage and the model verbatim.
+type stageOnlyExt struct{ BaseExtension }
+
+func (stageOnlyExt) Name() string { return "stage-only" }
+
+func (stageOnlyExt) ContextStages() []ContextStage {
+	return []ContextStage{{Name: "only.note", Run: func(_ context.Context, msgs []agent.Message) []agent.Message {
+		return weaveBeforeUser(msgs, []string{"ONLY CONTEXT"})
+	}}}
+}
+
+// TestContextStageIsUnaffectedWhenNoTransformIsRegistered pins that the input
+// transform is applied where it belongs — to the user's message, ahead of the
+// pipeline — and not somewhere that would alter a stage's view of an
+// unexpanded turn. An extension that registers a stage and no transform must
+// see exactly the text the user typed.
+func TestContextStageIsUnaffectedWhenNoTransformIsRegistered(t *testing.T) {
+	stub := agent.NewStubProvider(agent.StubTurn{Text: "ok"})
+	app := extApp(t, stub, stageOnlyExt{})
+
+	if err := app.RunTurn(context.Background(), "hello"); err != nil {
+		t.Fatal(err)
+	}
+	msgs := stub.Requests()[0].Messages
+	if len(msgs) < 2 {
+		t.Fatalf("expected the injected block plus the user message, got %d", len(msgs))
+	}
+	if msgs[len(msgs)-2].Text != "ONLY CONTEXT" || msgs[len(msgs)-1].Text != "hello" {
+		t.Fatalf("a turn with no transform registered was rewritten: %+v", msgs)
+	}
+	for _, m := range app.history {
+		if m.Role == agent.RoleUser && m.Text != "hello" {
+			t.Fatalf("history user message = %q, want the input unchanged", m.Text)
+		}
 	}
 }
 
