@@ -48,6 +48,16 @@ The workspace root is the repo itself, from `--workspace`. Checkpoints and
 sessions live under `~/.agentchat/dogfood` (override with `DOGFOOD_DIR`) so
 they sit outside anything the agent can edit.
 
+That store persists, and agentweb's default session resumes from it, so a
+second run starts with the first run's turns in context. That's what you want
+when using it, and not what you want for a repeatable exercise. For a clean run,
+give each one its own directory, which starts both the session and the
+checkpoints empty:
+
+```bash
+make dogfood-web DOGFOOD_DIR=$(mktemp -d)
+```
+
 ## Running the exercise
 
 Ask for a small, real change that has a test, then watch. Slash commands
@@ -58,7 +68,8 @@ Ask for a small, real change that has a test, then watch. Slash commands
 3. When a test failed, did it read the failing assertion, rather than a
    truncated middle of the output?
 4. Does `make test` pass on the result when you run it yourself?
-5. Does `/undo` put the files back?
+5. Does `/undo` put the files back? Repeating it steps back one more turn each
+   time.
 
 Post the result on issue 57 as a mission log comment, and file each failure as
 a ticket on the mission.

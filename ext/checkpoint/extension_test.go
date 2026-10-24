@@ -353,3 +353,114 @@ func TestARestartDoesNotReopenAnEarlierSessionsCheckpoint(t *testing.T) {
 		t.Errorf("/undo in the second session rewrote the first session's file to %q", got)
 	}
 }
+
+// TestRepeatedUndoStepsBackTurnByTurn is issue 75. Repeating a bare /undo
+// should walk the turn log backwards: the first restores the start of the
+// newest turn, the second the start of the one before it. A selection that
+// only ever asks the store for its newest checkpoint restores turn-3 twice and
+// never reaches turn-2, and because Restore is idempotent the second call
+// reports success for a turn it did not change.
+func TestRepeatedUndoStepsBackTurnByTurn(t *testing.T) {
+	e, work := newExt(t)
+	f := filepath.Join(work, "a.txt")
+	ctx := context.Background()
+
+	// Three turns, each editing the same file, so every checkpoint captured a
+	// distinct start-of-turn state.
+	write(t, f, "v0")
+	for _, content := range []string{"v1", "v2", "v3"} {
+		if err := e.TurnStart(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if err := dispatch(t, e, agent.ToolCallInfo{Call: call("write_file", map[string]any{"path": f})},
+			func() { write(t, f, content) }); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// The file is now v3. Undoing turn 3 should put it back to v2.
+	first, err := e.runUndo(ctx, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := read(t, f); got != "v2" {
+		t.Fatalf("first /undo gave %q, want %q (report: %q)", got, "v2", first.Message)
+	}
+
+	// A second /undo must step back another turn, to the start of turn 2,
+	// which is v1. Restoring turn 3 again leaves the file at v2.
+	second, err := e.runUndo(ctx, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := read(t, f); got != "v1" {
+		t.Fatalf("second /undo gave %q, want %q: it re-restored the newest checkpoint instead of stepping back a turn (report: %q)", got, "v1", second.Message)
+	}
+}
+
+func TestUndoPastTheOldestSaysSo(t *testing.T) {
+	e, work := newExt(t)
+	f := filepath.Join(work, "a.txt")
+	ctx := context.Background()
+	write(t, f, "v0")
+	if err := e.TurnStart(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := dispatch(t, e, agent.ToolCallInfo{Call: call("write_file", map[string]any{"path": f})},
+		func() { write(t, f, "v1") }); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := e.runUndo(ctx, ""); err != nil {
+		t.Fatal(err)
+	}
+	write(t, f, "edited after undo")
+	res, err := e.runUndo(ctx, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(res.Message, "nothing more to undo") {
+		t.Errorf("second /undo with one checkpoint said %q, want it to say nothing is left", res.Message)
+	}
+	if got := read(t, f); got != "edited after undo" {
+		t.Errorf("second /undo rewrote the file to %q; it should leave it alone", got)
+	}
+}
+
+// TestANewTurnAfterUndoIsUndoneFirst: after stepping back, a turn that writes
+// again is the newest thing to undo. Turn 4 touches only b.txt, so continuing
+// the walk from before it would restore turn 3's a.txt and leave b.txt edited.
+func TestANewTurnAfterUndoIsUndoneFirst(t *testing.T) {
+	e, work := newExt(t)
+	a, b := filepath.Join(work, "a.txt"), filepath.Join(work, "b.txt")
+	ctx := context.Background()
+	write(t, a, "a0")
+	write(t, b, "b0")
+	turn := func(f, content string) {
+		t.Helper()
+		if err := e.TurnStart(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if err := dispatch(t, e, agent.ToolCallInfo{Call: call("write_file", map[string]any{"path": f})},
+			func() { write(t, f, content) }); err != nil {
+			t.Fatal(err)
+		}
+	}
+	turn(a, "a1")
+	turn(a, "a2")
+	turn(a, "a3")
+	if _, err := e.runUndo(ctx, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	turn(b, "b1")
+	if _, err := e.runUndo(ctx, ""); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(t, b); got != "b0" {
+		t.Errorf("/undo after a new turn left b.txt at %q, want %q: it skipped the newest turn", got, "b0")
+	}
+	if got := read(t, a); got != "a2" {
+		t.Errorf("a.txt is %q, want %q: only turn 4 should have been undone", got, "a2")
+	}
+}

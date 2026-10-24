@@ -62,8 +62,8 @@ go run . --config chat.json --workspace ~/code/project
 ```
 
 Edits render as a diff at the approval prompt rather than truncated JSON, and
-`/undo` restores files to the start of a turn. `/checkpoints` lists restore
-points.
+`/undo` restores files to the start of the last turn, and repeating it steps
+back one turn at a time. `/checkpoints` lists restore points.
 
 There is no default directory, and omitting the flag leaves the tools off
 entirely. That is deliberate rather than cautious: a model's instructions can

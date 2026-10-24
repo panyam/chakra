@@ -166,8 +166,10 @@ the two must interoperate.
   read-only turn costs nothing on disk.
 - **Depth 0 only.** A sub-agent's writes land inside the parent's checkpoint.
   The useful restore point is the turn, not each frame of the agent tree.
-- **`/undo`** restores the most recent checkpoint, or a named one.
-  **`/checkpoints`** lists them.
+- **`/undo`** restores the most recent checkpoint, or a named one. Repeating a
+  bare `/undo` steps back one more turn each time, until it says there is
+  nothing more to undo. A turn that writes again starts the walk over from that
+  turn. **`/checkpoints`** lists them.
 
 ## What `/undo` says about what it could not undo
 
