@@ -13,6 +13,11 @@ failure surfaces in a module nobody edited.
 
 Running it per-PR catches divergence on the change that introduces it.
 
+With --fix it raises each lagging pin to the highest version already in the
+repo instead of failing, which is what `make sync-mcpkit` needs: a tidy only
+raises the modules that import the newer code, and leaves the rest split (#73).
+Run `make tidy-all` afterwards, since a raised pin can pull its own deps up.
+
 Scope
 -----
 chakra's own modules are skipped: they resolve via `replace`, so their recorded
@@ -24,6 +29,7 @@ Stdlib only, so CI needs no install step.
 """
 import os
 import re
+import subprocess
 import sys
 from collections import defaultdict
 
@@ -65,6 +71,26 @@ def requires(gomod):
                     yield parts[1], parts[2]
 
 
+def semver_key(ver):
+    """Orders vMAJOR.MINOR.PATCH[-pre], with a pre-release (and so a
+    pseudo-version) below the release it precedes, as Go does."""
+    core, _, pre = ver.lstrip("v").partition("-")
+    nums = tuple(int(n) for n in re.findall(r"\d+", core)[:3])
+    return nums, pre == "", pre
+
+
+def fix(split):
+    for mod in sorted(split):
+        top = max(split[mod], key=semver_key)
+        for ver, where in split[mod].items():
+            if ver == top:
+                continue
+            for rel in where:
+                print(f"  {rel}: {mod} {ver} -> {top}")
+                subprocess.run(["go", "mod", "edit", f"-require={mod}@{top}"],
+                               cwd=os.path.join(REPO_ROOT, rel), check=True)
+
+
 def main():
     versions = defaultdict(lambda: defaultdict(list))
     for gomod in sorted(modules()):
@@ -78,6 +104,10 @@ def main():
     if not split:
         print(f"check_dep_consistency: {len(versions)} third-party deps, no version splits.")
         return 0
+    if "--fix" in sys.argv[1:]:
+        print("check_dep_consistency: raising lagging pins to the highest in the repo.")
+        fix(split)
+        return 0
 
     print("check_dep_consistency: a dependency is pinned at more than one version.\n", file=sys.stderr)
     for mod in sorted(split):
@@ -87,7 +117,7 @@ def main():
             print(f"    {ver:<40} {where}", file=sys.stderr)
         print(file=sys.stderr)
     print("MVS builds every module against the maximum, so the lower pins are fiction.", file=sys.stderr)
-    print("Fix with: make tidy-all, or bump the lagging module explicitly.", file=sys.stderr)
+    print("Fix with: make sync-mcpkit, or bump the lagging module explicitly.", file=sys.stderr)
     return 1
 
 
