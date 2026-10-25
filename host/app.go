@@ -760,7 +760,10 @@ func (a *App) ReconnectServer(id string) {
 
 // RunTurn executes one user input, rendering events as they stream. History
 // threads across turns; a cancelled or failed turn leaves history at its
-// pre-turn state (and persists nothing) so the next attempt is clean.
+// pre-turn state (and persists nothing) so the next attempt is clean. A turn that
+// hits the step cap (agent.ErrMaxSteps) is the exception. It keeps the user
+// message and what it produced, so a "keep going" turn picks up where it
+// stopped.
 func (a *App) RunTurn(ctx context.Context, input string) error {
 	a.turnMu.Lock()
 	defer a.turnMu.Unlock()
@@ -843,6 +846,17 @@ func (a *App) RunTurn(ctx context.Context, input string) error {
 		a.ctrlMu.Unlock()
 	}
 	if err != nil {
+		// The step cap stops a turn that was otherwise fine, so its messages
+		// are worth keeping (issue 109). Other failures still roll back.
+		if result != nil && errors.Is(err, agent.ErrMaxSteps) {
+			kept := agent.DropUnansweredToolCalls(result.Messages)
+			a.history = append(a.history, kept...)
+			if pe != nil {
+				a.persistTurnLocked(ctx, append([]agent.Message{userMsg}, kept...), pe)
+			}
+			a.emit(HostEvent{Kind: HostTurnFailed, Err: err.Error()})
+			return err
+		}
 		a.history = a.history[:len(a.history)-1]
 		if pe != nil {
 			a.persistFailedTurnLocked(ctx, pe)

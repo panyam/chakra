@@ -242,12 +242,13 @@ func (a *App) persistTurnLocked(ctx context.Context, msgs []agent.Message, pe *P
 
 // persistFailedTurnLocked keeps the record of a turn that failed: its tool
 // calls, any writes they made, and the error, in the event log. It appends no
-// messages, because RunTurn has already rolled the history back and the
-// message log has to match it. Without this a failed turn left no trace in the
-// store, so a restart lost the only record of edits the turn had made (issue
-// 71). The flush runs detached from ctx because a turn the user cancelled
-// fails with ctx already done, and that is exactly the turn worth keeping.
-// Caller holds turnMu.
+// messages, because RunTurn rolled the history back and the message log has to
+// match it. Without this a failed turn left no trace in the store, so a restart
+// lost the only record of edits the turn had made (issue 71). The flush runs
+// detached from ctx because a turn the user cancelled fails with ctx already
+// done, and that is exactly the turn worth keeping. A step-limited turn is not
+// this path: it keeps its messages and goes through persistTurnLocked instead
+// (issue 109). Caller holds turnMu.
 func (a *App) persistFailedTurnLocked(ctx context.Context, pe *PersistingEmit) {
 	a.flushEventsLocked(context.WithoutCancel(ctx), pe)
 }

@@ -230,6 +230,65 @@ func TestAppFailedTurnPersistsNothing(t *testing.T) {
 	}
 }
 
+// TestAppStepLimitedTurnPersists is the store half of issue 109: a
+// step-capped turn keeps its messages in the run log too, so a restarted
+// session resumes with the work the turn had already done. Only ErrMaxSteps
+// behaves this way; every other failure still persists nothing
+// (TestAppFailedTurnPersistsNothing).
+func TestAppStepLimitedTurnPersists(t *testing.T) {
+	ctx := context.Background()
+	store := agent.NewInMemoryRunStore()
+	stub := agent.NewStubProvider(stepLoopTurns(2)...)
+	ts := startTestServer(t)
+	cfg := testConfig(ts.URL)
+	cfg.MaxSteps = 2
+
+	var out strings.Builder
+	app, err := NewApp(cfg, &out, strings.NewReader(""), WithProvider(stub), WithRunStore(store))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+
+	if err := app.RunTurn(ctx, "do the thing"); !errors.Is(err, agent.ErrMaxSteps) {
+		t.Fatalf("want ErrMaxSteps, got %v", err)
+	}
+	runID := app.RunID()
+	if runID == "" {
+		t.Fatal("no run after a step-capped turn")
+	}
+	resp, err := store.LoadRun(ctx, agent.LoadRunRequest{RunID: runID})
+	if err != nil || !resp.Found {
+		t.Fatalf("LoadRun = (%+v, %v)", resp, err)
+	}
+	msgs := resp.Run.Messages
+	if len(msgs) != 5 {
+		t.Fatalf("persisted %d messages, want 5: %+v", len(msgs), msgs)
+	}
+	if msgs[0].Role != agent.RoleUser || msgs[0].Text != "do the thing" {
+		t.Fatalf("persisted log lost the user message: %+v", msgs)
+	}
+
+	// A resumed session threads them back to the model.
+	stub2 := agent.NewStubProvider(agent.StubTurn{Text: "resumed"})
+	var out2 strings.Builder
+	app2, err := NewApp(cfg, &out2, strings.NewReader(""), WithProvider(stub2), WithRunStore(store))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app2.Close()
+	if err := app2.Resume(ctx, runID); err != nil {
+		t.Fatal(err)
+	}
+	if err := app2.RunTurn(ctx, "continue"); err != nil {
+		t.Fatal(err)
+	}
+	resumed := stub2.Requests()[0].Messages
+	if len(resumed) != 6 || resumed[0].Text != "do the thing" || resumed[5].Text != "continue" {
+		t.Fatalf("resumed request = %+v, want the step-capped turn + continue", resumed)
+	}
+}
+
 func TestAppWithoutStoreSessionMethodsError(t *testing.T) {
 	ts := startTestServer(t)
 	var out strings.Builder
