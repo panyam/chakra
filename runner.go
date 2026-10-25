@@ -514,7 +514,49 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 		}
 	}
 
-	return nil, r.failSpan(emit, turnSpan, fmt.Errorf("%w (%d steps)", ErrMaxSteps, r.cfg.MaxSteps))
+	return r.stepCapResult(added, usage, emit, turnSpan)
+}
+
+// stepCapResult builds the partial turn a step-limited turn reports alongside
+// ErrMaxSteps: the messages the turn got through, so a caller keeps them in
+// history instead of starting the next turn blind (issue 109). The prefix is
+// trimmed of a trailing assistant message whose tool calls were never
+// answered, since a provider rejects that shape on the next request. Text and
+// FinishReason stay empty: there is no final answer, and the returned error is
+// how the caller learns the turn did not complete.
+func (r *Runner) stepCapResult(added []Message, usage Usage, emit func(Event), turnSpan core.Span) (*TurnResult, error) {
+	msgs := DropUnansweredToolCalls(added)
+	err := fmt.Errorf("%w (%d steps)", ErrMaxSteps, r.cfg.MaxSteps)
+	result := &TurnResult{
+		Messages: msgs,
+		Usage:    usage,
+		Steps:    r.cfg.MaxSteps,
+	}
+	turnSpan.SetAttribute("agent.steps", fmt.Sprint(r.cfg.MaxSteps))
+	turnSpan.SetAttribute("agent.finish_reason", "max_steps")
+	turnSpan.SetAttribute("agent.tokens.input", fmt.Sprint(usage.InputTokens))
+	turnSpan.SetAttribute("agent.tokens.output", fmt.Sprint(usage.OutputTokens))
+	emit(Event{Kind: EventError, Error: err.Error()})
+	turnSpan.RecordError(err)
+	return result, err
+}
+
+// DropUnansweredToolCalls trims history back to its last complete round: an
+// assistant message that requested tool calls must be followed by one
+// RoleTool message per call, so a trailing assistant-with-tool-calls (a turn
+// killed mid-dispatch, or one that hit its step cap between the request and
+// the results) is dropped. Everything else passes through unchanged. A caller
+// about to thread a partial turn into history calls it so the next request is
+// a shape providers accept.
+func DropUnansweredToolCalls(msgs []Message) []Message {
+	for len(msgs) > 0 {
+		last := msgs[len(msgs)-1]
+		if last.Role != RoleAssistant || len(last.ToolCalls) == 0 {
+			return msgs
+		}
+		msgs = msgs[:len(msgs)-1]
+	}
+	return msgs
 }
 
 func (r *Runner) failSpan(emit func(Event), span core.Span, err error) error {

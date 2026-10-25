@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -172,6 +173,100 @@ func TestAppFailedTurnRollsBackHistory(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "error:") {
 		t.Fatalf("transcript missing error line:\n%s", out.String())
+	}
+}
+
+// stepLoopTurns scripts enough always-calls-a-tool turns to blow any cap, and
+// one more so the turn after a step-capped one is observable.
+func stepLoopTurns(n int) []agent.StubTurn {
+	turns := make([]agent.StubTurn, 0, n+1)
+	call := agent.StubTurn{ToolCalls: []agent.ToolCall{{ID: "c", Name: "echo", Args: core.NewRawJSON(json.RawMessage(`{"message":"spin"}`))}}}
+	for i := 0; i < n; i++ {
+		turns = append(turns, call)
+	}
+	return append(turns, agent.StubTurn{Text: "after the cap"})
+}
+
+// TestAppStepLimitKeepsHistory is issue 109: a turn that fails with
+// ErrMaxSteps keeps the user message and everything the turn produced, so the
+// next turn sees the work the model had already done instead of starting
+// blind. It still reports the failure.
+func TestAppStepLimitKeepsHistory(t *testing.T) {
+	ts := startTestServer(t)
+	stub := agent.NewStubProvider(stepLoopTurns(2)...)
+	cfg := testConfig(ts.URL)
+	cfg.MaxSteps = 2
+
+	var out strings.Builder
+	app, err := NewApp(cfg, &out, strings.NewReader(""), WithProvider(stub))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+
+	if err := app.RunTurn(context.Background(), "do the thing"); !errors.Is(err, agent.ErrMaxSteps) {
+		t.Fatalf("want ErrMaxSteps, got %v", err)
+	}
+	// user + 2 assistant tool calls + 2 tool results
+	if len(app.history) != 5 {
+		t.Fatalf("step-capped turn kept %d messages, want 5: %+v", len(app.history), app.history)
+	}
+	if app.history[0].Role != agent.RoleUser || app.history[0].Text != "do the thing" {
+		t.Fatalf("user message lost: %+v", app.history[0])
+	}
+	if app.history[2].Role != agent.RoleTool {
+		t.Fatalf("tool results lost: %+v", app.history)
+	}
+	if !strings.Contains(out.String(), "max steps") {
+		t.Fatalf("transcript missing the step-cap error:\n%s", out.String())
+	}
+
+	// The next turn is scripted to answer; what it was SENT is the point.
+	if err := app.RunTurn(context.Background(), "keep going"); err != nil {
+		t.Fatalf("turn after a step cap: %v", err)
+	}
+	reqs := stub.Requests()
+	next := reqs[len(reqs)-1].Messages
+	if len(next) != 6 {
+		t.Fatalf("next turn sent %d messages, want 6 (kept turn + new input): %+v", len(next), next)
+	}
+	if next[0].Text != "do the thing" || next[3].Role != agent.RoleAssistant || next[4].Role != agent.RoleTool {
+		t.Fatalf("next turn did not inherit the step-capped turn: %+v", next)
+	}
+	if next[5].Text != "keep going" {
+		t.Fatalf("next turn's user message = %+v, want last", next[5])
+	}
+}
+
+// TestAppStepLimitDropsUnansweredToolCalls covers a cap hit while a step's
+// tool calls are still unanswered: history must not end on an assistant
+// message whose tool calls have no results, or the next request is invalid.
+func TestAppStepLimitDropsUnansweredToolCalls(t *testing.T) {
+	ts := startTestServer(t)
+	stub := agent.NewStubProvider(stepLoopTurns(2)...)
+	cfg := testConfig(ts.URL)
+	cfg.MaxSteps = 2
+
+	var out strings.Builder
+	app, err := NewApp(cfg, &out, strings.NewReader(""), WithProvider(stub))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	if err := app.RunTurn(context.Background(), "do the thing"); !errors.Is(err, agent.ErrMaxSteps) {
+		t.Fatalf("want ErrMaxSteps, got %v", err)
+	}
+
+	// Trim the kept turn to an unanswered shape and re-apply the host's guard:
+	// user + a complete round + an assistant whose calls were never answered.
+	unanswered := append([]agent.Message(nil), app.history[:3]...)
+	unanswered = append(unanswered, app.history[3])
+	trimmed := agent.DropUnansweredToolCalls(unanswered)
+	if len(trimmed) != 3 {
+		t.Fatalf("DropUnansweredToolCalls left %d messages, want 3 (user + one full round): %+v", len(trimmed), trimmed)
+	}
+	if trimmed[len(trimmed)-1].Role != agent.RoleTool {
+		t.Fatalf("trimmed history ends on %q, want a tool result: %+v", trimmed[len(trimmed)-1].Role, trimmed)
 	}
 }
 

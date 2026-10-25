@@ -301,6 +301,11 @@ func TestRunnerToolUnavailableIsNonFatal(t *testing.T) {
 	}
 }
 
+// TestRunnerStepCap pins the step-cap contract: the turn fails with
+// ErrMaxSteps AND returns the partial result it built, so a caller can keep
+// what the turn got through instead of starting the next turn blind (issue
+// 109). The partial result is a prefix of the conversation, not a completed
+// turn: Text is empty and only Messages/Usage/Steps are meaningful.
 func TestRunnerStepCap(t *testing.T) {
 	loop := StubTurn{ToolCalls: []ToolCall{{ID: "c", Name: "spin", Args: core.NewRawJSON(json.RawMessage(`{}`))}}}
 	stub := NewStubProvider(loop, loop, loop)
@@ -312,13 +317,107 @@ func TestRunnerStepCap(t *testing.T) {
 		t.Fatal(err)
 	}
 	emit, events := collectEvents()
-	_, err = r.Run(context.Background(), nil, emit)
+	res, err := r.Run(context.Background(), []Message{{Role: RoleUser, Text: "go"}}, emit)
 	if !errors.Is(err, ErrMaxSteps) {
 		t.Fatalf("want ErrMaxSteps, got %v", err)
 	}
 	last := (*events)[len(*events)-1]
 	if last.Kind != EventError || !strings.Contains(last.Error, "max steps") {
 		t.Fatalf("last event = %+v", last)
+	}
+
+	// The cap fired after step 3's tool results landed, so the turn keeps
+	// three paired (assistant tool call, tool result) rounds.
+	if res == nil {
+		t.Fatal("step-capped turn returned no result; its messages are lost")
+	}
+	if res.Steps != 3 {
+		t.Errorf("Steps = %d, want 3 (the cap)", res.Steps)
+	}
+	if len(res.Messages) != 6 {
+		t.Fatalf("kept %d messages, want 6 (3 assistant + 3 tool): %+v", len(res.Messages), res.Messages)
+	}
+	for i, m := range res.Messages {
+		want := RoleAssistant
+		if i%2 == 1 {
+			want = RoleTool
+		}
+		if m.Role != want {
+			t.Fatalf("message %d role = %q, want %q: %+v", i, m.Role, want, res.Messages)
+		}
+	}
+	if res.Messages[1].Text != "again" {
+		t.Errorf("tool result lost its text: %+v", res.Messages[1])
+	}
+}
+
+// TestRunnerStepCapDropsUnpairedToolCall covers the other side of the cap: a
+// turn killed mid-dispatch ends on an assistant message whose tool calls have
+// no tool results yet. A provider rejects that shape, so the partial result
+// must be cut back to the last complete round before a caller threads it into
+// history.
+func TestRunnerStepCapDropsUnpairedToolCall(t *testing.T) {
+	loop := StubTurn{ToolCalls: []ToolCall{{ID: "c", Name: "spin", Args: core.NewRawJSON(json.RawMessage(`{}`))}}}
+	stub := NewStubProvider(loop, loop, loop)
+	src := NewFuncSource()
+	AddFunc(src, "spin", "", func(ctx context.Context, _ struct{}) (string, error) { return "again", nil })
+
+	r, err := NewRunner(RunnerConfig{Provider: stub, Tools: src, MaxSteps: 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := r.Run(context.Background(), nil, nil)
+	if !errors.Is(err, ErrMaxSteps) || res == nil {
+		t.Fatalf("setup: Run = (%+v, %v)", res, err)
+	}
+	// Simulate a turn cancelled while step N's calls were still in flight:
+	// the accumulated messages end on the assistant that requested them.
+	tail := res.Messages[:len(res.Messages)-1]
+	if got := DropUnansweredToolCalls(tail); len(got) != len(tail)-1 {
+		t.Fatalf("dropped to %d messages, want %d (only the trailing tool result): %+v", len(got), len(tail)-1, got)
+	}
+	// A well-formed prefix passes through untouched.
+	if got := DropUnansweredToolCalls(res.Messages); len(got) != len(res.Messages) {
+		t.Fatalf("well-formed prefix was truncated to %d, want %d: %+v", len(got), len(res.Messages), got)
+	}
+	if got := DropUnansweredToolCalls(nil); len(got) != 0 {
+		t.Fatalf("nil history became %+v", got)
+	}
+}
+
+// TestRunnerProviderFailureReturnsNoResult is the scope guard for issue 109:
+// only the step cap keeps its messages. A provider failure has no coherent
+// prefix to thread, so it still returns a nil result and the host still rolls
+// the turn back.
+func TestRunnerProviderFailureReturnsNoResult(t *testing.T) {
+	stub := NewStubProvider(StubTurn{Err: errors.New("model down")})
+	r := newRunner(t, stub, NewFuncSource())
+	res, err := r.Run(context.Background(), []Message{{Role: RoleUser, Text: "go"}}, nil)
+	if err == nil {
+		t.Fatal("want provider error")
+	}
+	if res != nil {
+		t.Fatalf("provider failure returned a result %+v, want nil", res)
+	}
+}
+
+// TestRunnerTreeBudgetReturnsNoResult keeps ErrTreeBudget out of the issue-109
+// change: an aggregate budget failure still reports no result.
+func TestRunnerTreeBudgetReturnsNoResult(t *testing.T) {
+	loop := StubTurn{ToolCalls: []ToolCall{{ID: "c", Name: "spin", Args: core.NewRawJSON(json.RawMessage(`{}`))}}}
+	stub := NewStubProvider(loop, loop, loop)
+	src := NewFuncSource()
+	AddFunc(src, "spin", "", func(ctx context.Context, _ struct{}) (string, error) { return "again", nil })
+	r, err := NewRunner(RunnerConfig{Provider: stub, Tools: src, MaxSteps: 20, TreeBudget: TreeBudget{MaxSteps: 2}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := r.Run(context.Background(), nil, nil)
+	if !errors.Is(err, ErrTreeBudget) {
+		t.Fatalf("want ErrTreeBudget, got %v", err)
+	}
+	if res != nil {
+		t.Fatalf("tree-budget failure returned a result %+v, want nil", res)
 	}
 }
 
