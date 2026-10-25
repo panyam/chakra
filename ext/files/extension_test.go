@@ -25,8 +25,17 @@ func TestExtensionContributesToolsAndPrompt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(defs) != 5 {
-		t.Errorf("got %d tools, want 5", len(defs))
+	// Named rather than counted. A count says a tool went missing without
+	// saying which, and it fails on the day one is added, which is how it
+	// stops being read.
+	got := map[string]bool{}
+	for _, d := range defs {
+		got[d.Name] = true
+	}
+	for _, name := range []string{"read_file", "edit_file", "write_file", "delete_file", "list_files", "search_files"} {
+		if !got[name] {
+			t.Errorf("tool %q is not declared", name)
+		}
 	}
 
 	sections := e.PromptSections()

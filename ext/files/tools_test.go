@@ -352,7 +352,7 @@ func TestToolsAreDeclared(t *testing.T) {
 	// Asserted by name rather than by count: a count says a tool went missing
 	// without saying which, and it has to be edited every time one is added,
 	// which is how it stops being read.
-	want := map[string]bool{"read_file": true, "edit_file": true, "list_files": true, "search_files": true, "write_file": true}
+	want := map[string]bool{"read_file": true, "edit_file": true, "list_files": true, "search_files": true, "write_file": true, "delete_file": true}
 	got := map[string]bool{}
 	for _, d := range defs {
 		got[d.Name] = true

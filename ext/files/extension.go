@@ -38,7 +38,7 @@ func New(cfg Config) (*Extension, error) {
 func (e *Extension) Name() string { return "files" }
 
 // Tools returns the workspace tool set: read_file, edit_file, write_file,
-// list_files, and search_files.
+// delete_file, list_files, and search_files.
 func (e *Extension) Tools() (agent.ToolSource, error) { return e.src, nil }
 
 // WritePaths reports the file a writing call is about to touch, as the
@@ -94,8 +94,9 @@ func (e *Extension) ApprovalRenderers() []host.ApprovalRenderer {
 	return []host.ApprovalRenderer{renderEditApproval}
 }
 
-// renderEditApproval claims edit_file and write_file, and declines everything
-// else so the default still covers tools this package does not own.
+// renderEditApproval claims edit_file, write_file and delete_file, and
+// declines everything else so the default still covers tools this package
+// does not own.
 func renderEditApproval(_ context.Context, info agent.ToolCallInfo) (string, bool) {
 	args := map[string]any{}
 	if raw := info.Call.Args.Raw(); len(raw) > 0 {
@@ -136,6 +137,10 @@ func renderEditApproval(_ context.Context, info agent.ToolCallInfo) (string, boo
 		}
 		return fmt.Sprintf("%s %s (%d bytes, %d lines)?\n\n%s",
 			verb, path, len(content), strings.Count(content, "\n")+1, indent(preview(content))), true
+
+	case "delete_file":
+		// No diff to show, since the content isn't in the arguments.
+		return fmt.Sprintf("Delete %s?\n\nThe file is removed from the workspace.", path), true
 	}
 	return "", false
 }
