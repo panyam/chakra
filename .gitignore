@@ -54,6 +54,7 @@ surfaces/chat/agentchat
 surfaces/chat/bin/
 surfaces/web/cmd/agentweb/agentweb
 examples/agent-async/agent-async
+examples/host-exercise/host-exercise
 examples/critic/critic
 examples/multi-agent/multi-agent
 
