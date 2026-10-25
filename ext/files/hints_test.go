@@ -24,6 +24,10 @@ func TestApprovalDispositionUnderReadOnlyAuto(t *testing.T) {
 		{"search_files", `{"query":"hello"}`, false},
 		{"write_file", `{"path":"b.txt","content":"x"}`, true},
 		{"edit_file", `{"path":"a.txt","expect_hash":"none","edits":[{"old":"hello","new":"bye"}]}`, true},
+		// A delete asks, for the same reason: it is unannotated, which reads
+		// as destructive. The checkpoint wiring may later mark it reversible,
+		// which is reversible-auto's business and not this table's.
+		{"delete_file", `{"path":"a.txt","expect_hash":"none"}`, true},
 	}
 	for _, c := range cases {
 		t.Run(c.tool, func(t *testing.T) {

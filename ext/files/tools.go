@@ -204,6 +204,27 @@ func toolDefs() []core.ToolDef {
 			},
 		},
 		{
+			Name:  "delete_file",
+			Title: "Delete a file",
+			Description: "Delete a file from the workspace. Requires expect_hash from the read_file that produced your view of it. " +
+				"A delete whose hash no longer matches what is on disk is refused, so the call never lands on content nobody looked at. " +
+				"To remove text from a file you are keeping, use edit_file instead.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"path": map[string]any{
+						"type":        "string",
+						"description": "Path to the file, relative to the workspace root.",
+					},
+					"expect_hash": map[string]any{
+						"type":        "string",
+						"description": "The hash read_file returned for the content being deleted.",
+					},
+				},
+				"required": []string{"path", "expect_hash"},
+			},
+		},
+		{
 			Name:        "list_files",
 			Annotations: readOnly(),
 			Title:       "List files",
@@ -277,6 +298,8 @@ func (s *Source) Call(ctx context.Context, name string, args map[string]any) (*c
 		return s.edit(args), nil
 	case "write_file":
 		return s.write(args), nil
+	case "delete_file":
+		return s.delete(args), nil
 	case "list_files":
 		return s.list(args), nil
 	case "search_files":
@@ -441,6 +464,68 @@ func (s *Source) write(args map[string]any) *core.ToolResult {
 			Text: fmt.Sprintf("%s %s, %d byte(s)\nhash: %s", verb, wr.abs(rel), len(content), hash),
 		}},
 		StructuredContent: map[string]any{"path": wr.abs(rel), "hash": hash, "bytes": len(content), "created": statErr != nil},
+	}
+}
+
+// delete removes a file, but only the content the caller says it is removing.
+//
+// expect_hash is always required. write_file can skip it to create a file,
+// but a delete has no harmless mode, so it only removes content that still
+// hashes to what the caller read.
+//
+// Undo is ext/checkpoint's job. It snapshots the file before dispatch, which
+// is why surfaces declares delete_file with the same WriteSpec as the writes.
+func (s *Source) delete(args map[string]any) *core.ToolResult {
+	path, ok := args["path"].(string)
+	if !ok || path == "" {
+		return toolError("delete_file needs a path")
+	}
+	expect, ok := args["expect_hash"].(string)
+	if !ok || expect == "" {
+		return toolError("delete_file needs expect_hash; read the file first and pass the hash it returned")
+	}
+
+	wr, rel, err := s.resolve(path)
+	if err != nil {
+		return toolError(err.Error())
+	}
+
+	// Stat before ReadFile, so a directory or a symlink is named as what it
+	// is. Reading one first fails too, but with a message about the read,
+	// which invites the caller to fix a hash that was never the problem.
+	info, err := wr.h.Stat(rel)
+	if errors.Is(err, os.ErrNotExist) {
+		return toolError(fmt.Sprintf("cannot delete %s: it does not exist", path))
+	}
+	if err != nil {
+		return toolError(escapeMessage(path, err))
+	}
+	if !info.Mode().IsRegular() {
+		return toolError(fmt.Sprintf("refusing %s: it is not a regular file", path))
+	}
+
+	b, err := wr.h.ReadFile(rel)
+	if err != nil {
+		return toolError(escapeMessage(path, err))
+	}
+	if got := Hash(string(b)); got != expect {
+		return toolError(fmt.Sprintf(
+			"%s: %v: expected %s, found %s; re-read it before deleting", path, ErrStale, expect, got))
+	}
+
+	// Remove through the root handle, so the unlink cannot be redirected at a
+	// component outside it. There is no temp-file-and-rename for an unlink:
+	// the removal is the single syscall that either happened or did not.
+	if err := wr.h.Remove(rel); err != nil {
+		return toolError(fmt.Sprintf("cannot delete %s: %v", path, err))
+	}
+
+	return &core.ToolResult{
+		Content: []core.Content{{
+			Type: "text",
+			Text: fmt.Sprintf("deleted %s, %d byte(s)", wr.abs(rel), len(b)),
+		}},
+		StructuredContent: map[string]any{"path": wr.abs(rel), "bytes": len(b), "deleted": true},
 	}
 }
 

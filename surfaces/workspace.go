@@ -219,7 +219,9 @@ func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 // fileWrites are the files tools that write, which the checkpoint snapshots
 // and which restorable therefore marks reversible. One list, so a tool cannot
 // be marked reversible without also being snapshotted.
-var fileWrites = []string{"write_file", "edit_file"}
+// delete_file is on it too, since the snapshot is the only copy /undo can
+// restore it from (issue 108).
+var fileWrites = []string{"write_file", "edit_file", "delete_file"}
 
 // restorable wraps the files extension when a checkpoint covers its writes,
 // and declares those writes reversible (destructiveHint false) so

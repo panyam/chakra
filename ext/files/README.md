@@ -130,6 +130,13 @@ $ write_file {"path": "notes.md", "content": "..."}
 Missing parent directories are created. Replacing a file keeps its mode, so
 editing a script does not disarm it.
 
+`delete_file` removes a file, and always needs `expect_hash`. A create has a
+harmless mode (the path must not exist yet), but a delete doesn't, so it only
+removes content that still hashes to what the model read. It refuses
+directories and symlinks, and its approval prompt is the same one the writes
+get. Emptying a file through `edit_file` isn't a substitute, since a zero-byte
+`.go` file breaks the build (issue 108).
+
 ## Finding things
 
 `list_files` walks the workspace; `search_files` matches lines and returns
@@ -240,6 +247,7 @@ cp, _ := checkpoint.New(checkpoint.Config{
     Writes: []checkpoint.WriteSpec{
         {Tool: "edit_file", Paths: ext.WritePaths},
         {Tool: "write_file", Paths: ext.WritePaths},
+        {Tool: "delete_file", Paths: ext.WritePaths},
     },
 })
 // Checkpoint first, so it snapshots before the write rather than after.
@@ -261,5 +269,5 @@ coupling constraint C4 exists to prevent.
 
 ## Status
 
-Anchored edit engine, five tools (`read_file`, `edit_file`, `write_file`,
-`list_files`, `search_files`), and the host extension.
+Anchored edit engine, six tools (`read_file`, `edit_file`, `write_file`,
+`delete_file`, `list_files`, `search_files`), and the host extension.

@@ -124,6 +124,22 @@ func TestUnknownToolsAreDeclined(t *testing.T) {
 	}
 }
 
+// TestDeleteApprovalNamesTheFile is the call that destroys content. The
+// default rendering trims the JSON, and for a delete that is the whole
+// question: which file is about to go.
+func TestDeleteApprovalNamesTheFile(t *testing.T) {
+	got, ok := renderCall("delete_file", `{"path":"old.go","expect_hash":"abc"}`)
+	if !ok {
+		t.Fatalf("delete_file should be claimed, got %q", got)
+	}
+	if !strings.Contains(got, "Delete old.go") {
+		t.Errorf("prompt should name the file being deleted:\n%s", got)
+	}
+	if strings.Contains(got, "expect_hash") {
+		t.Errorf("the hash is bookkeeping, not something to review:\n%s", got)
+	}
+}
+
 // TestMalformedArgumentsDecline is where the generic rendering is the honest
 // one: it shows the raw text rather than a summary built from a guess.
 func TestMalformedArgumentsDecline(t *testing.T) {
