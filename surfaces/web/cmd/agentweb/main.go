@@ -23,6 +23,7 @@ import (
 	"github.com/panyam/chakra/host"
 	agentsurfaces "github.com/panyam/chakra/surfaces"
 	web "github.com/panyam/chakra/surfaces/web"
+	"github.com/panyam/mcpkit/core"
 )
 
 func main() {
@@ -210,7 +211,17 @@ func buildApp(o appOptions) (*host.App, error) {
 	if err != nil {
 		return nil, err
 	}
-	return host.NewApp(cfg, io.Discard, strings.NewReader(""), opts...)
+	return host.NewApp(cfg, io.Discard, strings.NewReader(""), append(opts, host.WithElicitationUI(awaitSurface))...)
+}
+
+// awaitSurface is the local elicitation responder outside --demo. agentweb has
+// no terminal, and the host's default responder reads the empty input above,
+// hits EOF and declines every ask before a browser can answer it (issue 121).
+// This one never answers, so the first surface to call RespondToAsk wins, and
+// a cancelled turn still unblocks it through ctx.
+func awaitSurface(ctx context.Context, _ core.ElicitationRequest) (core.ElicitationResult, error) {
+	<-ctx.Done()
+	return core.ElicitationResult{}, ctx.Err()
 }
 
 // repeatedPath collects a flag given more than once, so --workspace can name
