@@ -819,11 +819,11 @@ func (r *Runner) callTool(ctx context.Context, parent context.Context, step int,
 	// the arguments every earlier entry has already rewritten. A middleware
 	// that returns without calling next has decided the call.
 	dispatch := func(ctx context.Context, info ToolCallInfo) (*core.ToolResult, error) {
-		args := map[string]any{}
-		if info.Call.Args.Len() > 0 {
-			if err := info.Call.Args.Bind(&args); err != nil {
-				return nil, fmt.Errorf("agent: tool %q arguments are not a JSON object: %w", info.Call.Name, err)
-			}
+		args, err := decodeToolArgs(info.Call.Args)
+		if err != nil {
+			// An error result rather than a dispatch failure, so the model
+			// reads what was wrong and can retry.
+			return errorToolResult(fmt.Sprintf("invalid arguments: %v", err)), nil
 		}
 		return r.cfg.Tools.Call(ctx, info.Call.Name, args)
 	}

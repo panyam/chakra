@@ -44,7 +44,7 @@ The anchoring is load-bearing and was not, until the repository split. The exclu
 
 JSON-valued fields in this module's public types use `core.RawJSON` (wire-transparent, parse-once, typed Bind), never bare `json.RawMessage`. JSON-fragment fields (streamed argument pieces in Deltas) stay strings; the Accumulator's fold is the promotion boundary where fragments become a RawJSON value.
 
-**Verify:** `grep -n "json.RawMessage" *.go | grep -v _test | grep -v NewRawJSON` shows no field on an **exported** struct. Read the hits; four are expected and none is a violation. Three are conversion sites (`anthropic_provider.go:149`, `elicitation.go:67`, `stages.go:231`). The fourth, `anthropicContentBlock.Input` (`anthropic_provider.go:340`), is a field but its struct is unexported: it is an internal DTO for Anthropic's wire format, and A5 governs the public surface.
+**Verify:** `grep -n "json.RawMessage" *.go | grep -v _test | grep -v "NewRawJSON\|toolCallArgsFromJSON"` shows no field on an **exported** struct. Read the hits; four are expected and none is a violation. Three are conversion sites (`anthropic_provider.go:149`, `elicitation.go:67`, `stages.go:231`). The fourth, `anthropicContentBlock.Input` (`anthropic_provider.go:340`), is a field but its struct is unexported: it is an internal DTO for Anthropic's wire format, and A5 governs the public surface.
 
 The recipe is deliberately root-only. A `host` config struct read from a user's JSON file stays `json.RawMessage` and is wrapped at the seam that hands it to this module (`host/subagents.go` does this for both `InputSchema` and `ResponseSchema`), so a hit in `host/` would be the pattern working rather than a violation.
 

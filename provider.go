@@ -1,8 +1,10 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -382,9 +384,56 @@ func (a *DeltaAccumulator) Add(d Delta) {
 	}
 }
 
+// invalidArgsKey holds the verbatim text of tool arguments that were not a
+// JSON object, so a persisted run or a Watch stream still shows what the model
+// sent.
+const invalidArgsKey = "__invalid_arguments"
+
+// toolCallArgsFromJSON turns provider tool-argument text into ToolCall.Args.
+// The session store, the Watch stream and the next provider request all
+// re-encode Args, and core.RawJSON refuses to encode invalid JSON, so Args has
+// to be valid whatever the model sent (issue 104).
+//
+// A JSON object passes through unchanged and empty text becomes {}. Anything
+// else becomes {"__invalid_arguments": "<verbatim text>"}, which callTool
+// reports back to the model as an error.
+func toolCallArgsFromJSON(raw json.RawMessage) core.RawJSON {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 {
+		return core.NewRawJSON(json.RawMessage("{}"))
+	}
+	if json.Valid(trimmed) && trimmed[0] == '{' {
+		return core.NewRawJSON(trimmed)
+	}
+	wrapped, err := json.Marshal(map[string]any{invalidArgsKey: string(raw)})
+	if err != nil {
+		// json.Marshal of a string cannot fail; keep the wire safe anyway.
+		return core.NewRawJSON(json.RawMessage("{}"))
+	}
+	return core.NewRawJSON(wrapped)
+}
+
+// decodeToolArgs binds a call's Args into the map a ToolSource.Call receives.
+// A repaired object (see toolCallArgsFromJSON) carries the invalid original,
+// so the error names what the model got wrong instead of only that the bytes
+// do not parse.
+func decodeToolArgs(raw core.RawJSON) (map[string]any, error) {
+	args := map[string]any{}
+	if raw.Len() == 0 {
+		return args, nil
+	}
+	if err := raw.Bind(&args); err != nil {
+		return nil, fmt.Errorf("expected a JSON object: %w", err)
+	}
+	if bad, ok := args[invalidArgsKey].(string); ok {
+		return nil, fmt.Errorf("the model emitted arguments that are not valid JSON: %q", bad)
+	}
+	return args, nil
+}
+
 // Result returns the folded response. Tool-call argument fragments are
-// joined in stream order; an empty argument buffer becomes the empty JSON
-// object so callers can always unmarshal Args.
+// joined in stream order and passed through toolCallArgsFromJSON, so Args is
+// a JSON object even when the model's arguments were malformed or empty.
 func (a *DeltaAccumulator) Result() *ProviderResponse {
 	out := a.resp
 	out.Text = a.text.String()
@@ -395,7 +444,7 @@ func (a *DeltaAccumulator) Result() *ProviderResponse {
 		if args == "" {
 			args = "{}"
 		}
-		call.Args = core.NewRawJSON(json.RawMessage(args))
+		call.Args = toolCallArgsFromJSON(json.RawMessage(args))
 		out.ToolCalls = append(out.ToolCalls, call)
 	}
 	return &out

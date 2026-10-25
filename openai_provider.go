@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/panyam/mcpkit/core"
 	ssehttp "github.com/panyam/servicekit/http"
 )
 
@@ -122,7 +121,7 @@ func (p *OpenAIProvider) Generate(ctx context.Context, req ProviderRequest) (*Pr
 		if args == "" {
 			args = "{}"
 		}
-		out.ToolCalls = append(out.ToolCalls, ToolCall{ID: tc.ID, Name: realToolName(safeToReal, tc.Function.Name), Args: core.NewRawJSON(json.RawMessage(args))})
+		out.ToolCalls = append(out.ToolCalls, ToolCall{ID: tc.ID, Name: realToolName(safeToReal, tc.Function.Name), Args: toolCallArgsFromJSON(json.RawMessage(args))})
 	}
 	if full.Usage != nil {
 		out.Usage = &Usage{InputTokens: full.Usage.PromptTokens, OutputTokens: full.Usage.CompletionTokens}
