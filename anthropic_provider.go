@@ -154,7 +154,7 @@ func (p *AnthropicProvider) Generate(ctx context.Context, req ProviderRequest) (
 				out.Text = string(args)
 				continue
 			}
-			out.ToolCalls = append(out.ToolCalls, ToolCall{ID: block.ID, Name: realToolName(safeToReal, block.Name), Args: core.NewRawJSON(args)})
+			out.ToolCalls = append(out.ToolCalls, ToolCall{ID: block.ID, Name: realToolName(safeToReal, block.Name), Args: toolCallArgsFromJSON(args)})
 		}
 	}
 	if out.Text == "" {
