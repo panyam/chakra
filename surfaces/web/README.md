@@ -78,6 +78,11 @@ thin over the host):
 go run ./cmd/agentweb --addr :8090 --config path/to/host-config.json
 ```
 
+agentweb has no terminal, so an approval ask waits until some surface answers
+it through `RespondToAsk`, or until the turn is cancelled. A turn with no tab
+open just sits at the ask (issue 121; before that the empty stdin declined every
+ask on the spot).
+
 Connect server-streaming (`Watch`) rides the Connect protocol, which supports
 server streams over HTTP/1.1, so no h2c is needed for local dev.
 
