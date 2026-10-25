@@ -10,7 +10,7 @@ MODULES := . host surfaces surfaces/chat surfaces/web \
            store/redis store/gorm \
            ext/checkpoint ext/files ext/exec ext/lsp
 
-EXAMPLES := examples/agent-async examples/critic examples/multi-agent
+EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/host-exercise
 
 # CI runs these same targets rather than restating the module list, so adding a
 # module is one edit here. It overrides GOTESTFLAGS only to add -v.
@@ -50,7 +50,7 @@ test: ## Test every module (not the examples)
 		(cd $$m && go test ./... $(GOTESTFLAGS)) || exit 1; \
 	done
 
-test-examples: ## Test the three SDK examples
+test-examples: ## Test the SDK examples (and the host exercise)
 	@for m in $(EXAMPLES); do \
 		echo "==> test $$m"; \
 		(cd $$m && go test ./... $(GOTESTFLAGS)) || exit 1; \
@@ -106,6 +106,19 @@ cover: ## Coverage across the root module
 
 pg: ## Playground: boot a demo MCP server + launch agentchat's TUI (needs a local OpenAI-compatible model)
 	@bash scripts/playground.sh
+
+# Mission #89's exercise: a host.App against a demo server that declares
+# instructions, skills, an event hint and an agent, with a scripted model, on
+# both client wires. No model or key needed. It exits non-zero only when a
+# result differs from examples/host-exercise/expected.go.
+host-exercise: ## Mission #89 exercise: PASS/FAIL per host obligation, both wires (no model needed)
+	@cd examples/host-exercise && go run .
+
+# HOST_EXERCISE_ACTIVE picks the connection from examples/host-exercise/agentchat.json.
+HOST_EXERCISE_ACTIVE ?= deepseek
+
+host-exercise-live: ## The same demo server, with agentchat and a real model (HOST_EXERCISE_ACTIVE=claude etc.)
+	@HOST_EXERCISE_ACTIVE=$(HOST_EXERCISE_ACTIVE) bash scripts/host-exercise-live.sh
 
 # The mission exercise (issue 57): agentchat as a coding agent on this repo,
 # with the file tools, checkpoint, exec allowlist and gopls from
