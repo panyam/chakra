@@ -27,7 +27,6 @@ type skillSet struct {
 	catalog      map[string][]catalogSkill // serverID -> catalog entries
 	order        []string                  // serverIDs in config order
 	loader       bool                      // load_skill registered once, lazily
-	watched      map[string]bool           // servers whose skill changes are watched
 }
 
 func newSkillSet() *skillSet {
@@ -56,21 +55,6 @@ func (s *skillSet) track(serverID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.order = append(s.order, serverID)
-}
-
-// watch reports whether serverID still needs its list_changed watch, marking
-// it watched. A server that reconnects keeps the one watch it already has.
-func (s *skillSet) watch(serverID string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.watched == nil {
-		s.watched = map[string]bool{}
-	}
-	if s.watched[serverID] {
-		return false
-	}
-	s.watched[serverID] = true
-	return true
 }
 
 // add stores one server's loaded skills, replacing what it had, and reports the cross-origin name

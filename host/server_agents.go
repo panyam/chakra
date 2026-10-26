@@ -3,6 +3,7 @@ package host
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -10,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/panyam/chakra"
+	agent "github.com/panyam/chakra"
 	"github.com/panyam/mcpkit/client"
 	"github.com/panyam/mcpkit/core"
 	"github.com/panyam/mcpkit/experimental/ext/agents"
@@ -100,7 +101,7 @@ func (a *App) registerServerAgents(multi *agent.MultiSource, models agentModels,
 			a.emit(HostEvent{Kind: HostSessionWarn, Err: fmt.Sprintf("register agents for %s: %v", sc.ID, err)})
 			continue
 		}
-		a.listWatch.set(sc.ID, agents.NotificationListChanged, func() {
+		a.watchListChanged(sc.ID, c, agents.ListChangedFilterKey, agents.NotificationListChanged, "agents", func() {
 			cache.Invalidate()
 			multi.Invalidate()
 		})
@@ -144,13 +145,42 @@ type listWatchers struct {
 	by map[string]func() // serverID + " " + method
 }
 
-func (w *listWatchers) set(serverID, method string, fn func()) {
+// set installs fn for a server's method, replacing any earlier one, and
+// reports whether this is the first handler for that pair.
+func (w *listWatchers) set(serverID, method string, fn func()) (first bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.by == nil {
 		w.by = map[string]func(){}
 	}
-	w.by[serverID+" "+method] = fn
+	key := serverID + " " + method
+	_, had := w.by[key]
+	w.by[key] = fn
+	return !had
+}
+
+// watchListChanged runs fn whenever serverID announces method, on either
+// wire. On the session wire the notification arrives through the client's
+// notification callback (listWatch). On the stateless wire it arrives only on
+// a subscriptions/listen stream asking for filterKey, which this opens for
+// the App's lifetime. Each wire delivers on one of the two. fn runs on its own
+// goroutine, since the callers all make a round trip and notifications arrive
+// on the client's reader.
+//
+// Calling it again for the same server and method, as a reconnect's ready
+// does, replaces fn and keeps the one listen stream.
+func (a *App) watchListChanged(serverID string, c *client.Client, filterKey, method, what string, fn func()) {
+	refresh := func() { go fn() }
+	if !a.listWatch.set(serverID, method, refresh) {
+		return
+	}
+	_, err := c.Listen(a.watchCtx, client.ListenOptions{
+		Notifications: core.ListChangedFilter(filterKey),
+		Handlers:      map[string]func(json.RawMessage){method: func(json.RawMessage) { refresh() }},
+	})
+	if err != nil && !errors.Is(err, client.ErrListenNeedsStatelessWire) {
+		a.emit(HostEvent{Kind: HostSessionWarn, Err: fmt.Sprintf("%s list_changed on %s: %v", what, serverID, err)})
+	}
 }
 
 // notify returns the client notification callback for one server. It runs on

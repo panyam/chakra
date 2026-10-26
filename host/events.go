@@ -3,16 +3,14 @@ package host
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/panyam/chakra"
+	agent "github.com/panyam/chakra"
 	"github.com/panyam/mcpkit/client"
 	"github.com/panyam/mcpkit/core"
 	"github.com/panyam/mcpkit/experimental/ext/events"
-	eventsclient "github.com/panyam/mcpkit/experimental/ext/events/clients/go"
 )
 
 // onServerEvents reads a server's event types for their advertised hints and
@@ -180,24 +178,13 @@ func (a *App) discoverEventHints(serverID string, c *client.Client) {
 
 // watchEventTypes re-reads a server's event types when it announces
 // notifications/events/list_changed, so a new or revised event type takes
-// effect without a restart. The notification arrives two ways depending on
-// the wire: on the session wire through the client's notification callback
-// (listWatch), and on the stateless wire only on a subscriptions/listen
-// stream, which WatchListChanged opens. Registering both is harmless, since
-// each wire delivers on one of them.
+// effect without a restart. See watchListChanged for how it arrives on each
+// wire.
 func (a *App) watchEventTypes(sc ServerConfig, c *client.Client) {
-	refresh := func() {
-		// The callback runs on the client's reader goroutine, and a refresh
-		// makes a round trip, so it runs on its own.
-		go func() {
-			a.discoverEventHints(sc.ID, c)
-			a.subscribeConfigured(sc)
-		}()
-	}
-	a.listWatch.set(sc.ID, eventsListChanged, refresh)
-	if _, err := eventsclient.WatchListChanged(a.streams.ctx, c, refresh); err != nil && !errors.Is(err, client.ErrListenNeedsStatelessWire) {
-		a.emit(HostEvent{Kind: HostSessionWarn, Err: fmt.Sprintf("events list_changed on %s: %v", sc.ID, err)})
-	}
+	a.watchListChanged(sc.ID, c, events.ListChangedFilterKey, eventsListChanged, "events", func() {
+		a.discoverEventHints(sc.ID, c)
+		a.subscribeConfigured(sc)
+	})
 }
 
 // eventsListChanged is the notification a server sends when its event types
