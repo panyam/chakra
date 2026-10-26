@@ -111,6 +111,14 @@ type Extension interface {
 	// wins, and the built-in format is the fallback. See ApprovalRenderer.
 	ApprovalRenderers() []ApprovalRenderer
 
+	// ApprovalChoosers answer an ask about a call with more than yes or no,
+	// for the tools this extension owns: an edit whose hunks can be approved
+	// one at a time, say. A chooser that claims a call replaces the yes/no
+	// prompt for it, so the user is still asked once, and the call that runs
+	// is narrowed to what they approved. The gate keeps its place after every
+	// middleware; the chooser runs inside it. See ApprovalChooser.
+	ApprovalChoosers() []ApprovalChooser
+
 	// InputTransforms rewrite the user's message before the turn is built
 	// (issue 27), in registration order, each over the previous one's output.
 	// The result is the user message history keeps and the model reads. A
@@ -167,6 +175,7 @@ func (BaseExtension) PromptSections() []PromptSection       { return nil }
 func (BaseExtension) Commands() []*Command                  { return nil }
 func (BaseExtension) ContextStages() []ContextStage         { return nil }
 func (BaseExtension) ApprovalRenderers() []ApprovalRenderer { return nil }
+func (BaseExtension) ApprovalChoosers() []ApprovalChooser   { return nil }
 func (BaseExtension) InputTransforms() []InputTransform     { return nil }
 func (BaseExtension) TurnStart(context.Context) error       { return nil }
 func (BaseExtension) Close() error                          { return nil }
@@ -195,6 +204,23 @@ func (BaseExtension) Close() error                          { return nil }
 // reading the file that is there now — rather than being restricted to what
 // the arguments happen to carry.
 type ApprovalRenderer func(context.Context, agent.ToolCallInfo) (string, bool)
+
+// ApprovalChooser decides a pending call that would otherwise get a yes/no
+// ask, and may approve only part of it.
+//
+// The bool in agent.Choice.Claimed works like ApprovalRenderer's: false passes
+// the call to the next chooser, and the plain ask is the fallback. A chooser
+// presents its own question through present, which is the same serialized
+// elicitation seam the plain ask uses, so its form waits its turn behind any
+// other dialog and reaches every surface the same way.
+//
+// A surface that only shows accept and decline answers a form with no content.
+// A chooser should read missing fields as approved, since the user pressed
+// accept on the whole call.
+//
+// The info carries the call as it will execute, after every middleware, which
+// is what the chooser narrows.
+type ApprovalChooser func(ctx context.Context, info agent.ToolCallInfo, present agent.ElicitationUI) (agent.Choice, error)
 
 // InputTransform rewrites the user's input into the message a turn is built
 // from. An error aborts the turn before history is touched or the model is
@@ -230,6 +256,22 @@ func (a *App) renderApproval(ctx context.Context, info agent.ToolCallInfo) strin
 		}
 	}
 	return approvalPrompt(info)
+}
+
+// chooseApproval gives each registered chooser a look at a pending call, in
+// registration order, and returns the first claim. No claim leaves the call to
+// the plain yes/no ask.
+func (a *App) chooseApproval(ctx context.Context, info agent.ToolCallInfo, present agent.ElicitationUI) (agent.Choice, error) {
+	for _, c := range a.approvalChoosers {
+		if c == nil {
+			continue
+		}
+		choice, err := c(ctx, info, present)
+		if err != nil || choice.Claimed {
+			return choice, err
+		}
+	}
+	return agent.Choice{}, nil
 }
 
 // startExtensionTurns runs every extension's TurnStart, in registration
@@ -336,6 +378,7 @@ func (a *App) applyExtensions(exts []Extension) ([]agent.ToolMiddleware, error) 
 		a.promptBuilder.Sections = append(a.promptBuilder.Sections, ext.PromptSections()...)
 		a.context.transient = append(a.context.transient, ext.ContextStages()...)
 		a.approvalRenderers = append(a.approvalRenderers, ext.ApprovalRenderers()...)
+		a.approvalChoosers = append(a.approvalChoosers, ext.ApprovalChoosers()...)
 
 		for _, cmd := range ext.Commands() {
 			// Register overwrites silently, which is the wrong behaviour for

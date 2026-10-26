@@ -95,6 +95,8 @@ Two seams, both no-op by default:
 - **Injection policy**: consumes events from connected servers (experimental events extension), decides what enters model context and how: priority under a context budget, aggregation windows, template rendering, sensitivity gating (issue 893).
 - **Trigger policy**: declarative bindings (event, filter, instruction template) that start a Runner turn without a user message, mediated by rate-limit slots, consent, and budget caps (issue 894).
 
+The permission gate (`TieredApproval`) is a third, and it runs last among the tool middleware so it decides on the arguments every other entry has already rewritten. Its ask is yes or no (`AskFunc`), with one way to answer more finely: a `ChooseFunc` that claims a call presents its own form and may approve part of it, and the gate runs the narrowed call. We settled on that shape for per-hunk approval of edits (chakra#39) over three others. Widening `AskFunc` to return a modified call would have changed every implementer of a signature due to freeze at 1.0. Letting an `ApprovalRenderer` decide would have mixed "describe this call" with "change this call". Asking inside the tool would have put an interactive prompt in a tool implementation. A chooser replaces the yes/no ask for the calls it claims, so the user is asked once; it can change only the arguments, never the tool or call ID; and a partial approval is never remembered. A `Choice.Note` rides back on the tool result so the model can tell the user what was left out.
+
 ## Surfaces: how UIs consume the module
 
 Three interface families build on the module: CLIs, web frontends, and desktop/native apps. They reduce to two consumption modes, and the module defines one canonical contract that serves both:

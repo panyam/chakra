@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/panyam/chakra"
 	"github.com/panyam/chakra/host"
+	"github.com/panyam/mcpkit/core"
 )
 
 // Extension contributes the file tools and the prompt that tells a model how
@@ -92,6 +94,92 @@ lines until it is unique. All edits in one call apply together or none do.`
 // could not read.
 func (e *Extension) ApprovalRenderers() []host.ApprovalRenderer {
 	return []host.ApprovalRenderer{renderEditApproval}
+}
+
+// ApprovalChoosers lets the user approve an edit one hunk at a time.
+func (e *Extension) ApprovalChoosers() []host.ApprovalChooser {
+	return []host.ApprovalChooser{chooseHunks}
+}
+
+// chooseHunks claims an edit_file call with two or more hunks and asks about
+// each one in a single form, with every hunk ticked to start with. The call
+// that runs carries only the hunks left ticked. Leaving out hunks is all
+// partial application needs, because Edit.Apply resolves every anchor against
+// the original content, so the kept hunks land exactly where they would have
+// with the others present, and expect_hash still describes the file.
+//
+// A one-hunk edit is left to the plain ask, where yes or no is the whole
+// question. So are calls whose arguments do not parse, for the same reason
+// renderEditApproval declines them.
+func chooseHunks(ctx context.Context, info agent.ToolCallInfo, present agent.ElicitationUI) (agent.Choice, error) {
+	if info.Call.Name != "edit_file" {
+		return agent.Choice{}, nil
+	}
+	args := map[string]any{}
+	if err := json.Unmarshal(info.Call.Args.Raw(), &args); err != nil {
+		return agent.Choice{}, nil
+	}
+	path, _ := args["path"].(string)
+	items, _ := args["edits"].([]any)
+	hunks, err := parseHunks(args["edits"])
+	if path == "" || err != nil || len(hunks) < 2 {
+		return agent.Choice{}, nil
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Apply %d changes to %s? Untick any you don't want.\n", len(hunks), path)
+	props := map[string]any{}
+	keys := make([]string, len(hunks))
+	width := len(strconv.Itoa(len(hunks)))
+	for i, h := range hunks {
+		// Zero-padded so a surface that orders fields by name, as the
+		// terminal does, still shows change 10 after change 9.
+		keys[i] = fmt.Sprintf("change_%0*d", width, i+1)
+		props[keys[i]] = map[string]any{"type": "boolean", "title": fmt.Sprintf("Apply change %d", i+1), "default": true}
+		fmt.Fprintf(&b, "\nChange %d:\n", i+1)
+		writeDiff(&b, h.Old, h.New)
+	}
+	schema, err := json.Marshal(map[string]any{"type": "object", "properties": props})
+	if err != nil {
+		return agent.Choice{}, err
+	}
+	res, err := present(ctx, core.ElicitationRequest{Message: b.String(), RequestedSchema: schema})
+	if err != nil {
+		return agent.Choice{}, err
+	}
+	if res.Action != "accept" {
+		return agent.Choice{Claimed: true}, nil
+	}
+
+	var kept []any
+	var declined []string
+	for i, k := range keys {
+		// Absent means approved: a surface that shows only accept and decline
+		// sends no fields, and its user accepted the whole edit.
+		if v, ok := res.Content[k].(bool); ok && !v {
+			declined = append(declined, strconv.Itoa(i+1))
+			continue
+		}
+		kept = append(kept, items[i])
+	}
+	switch {
+	case len(declined) == 0:
+		return agent.Choice{Claimed: true, Approved: true}, nil
+	case len(kept) == 0:
+		return agent.Choice{Claimed: true, Note: fmt.Sprintf("the user declined all %d changes to %s", len(hunks), path)}, nil
+	}
+	args["edits"] = kept
+	narrowed, err := core.MarshalRawJSON(args)
+	if err != nil {
+		return agent.Choice{}, err
+	}
+	return agent.Choice{
+		Claimed:  true,
+		Approved: true,
+		Args:     narrowed,
+		Note: fmt.Sprintf("The user declined change %s of the %d you proposed to %s, so only the other %d were sent. Tell the user which changes were left out.",
+			strings.Join(declined, ", "), len(hunks), path, len(kept)),
+	}, nil
 }
 
 // renderEditApproval claims edit_file, write_file and delete_file, and
