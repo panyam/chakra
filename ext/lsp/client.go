@@ -521,6 +521,19 @@ func (c *client) tracked() []string {
 	return out
 }
 
+// closeDocument tells the server abs is no longer open and forgets what was
+// sent for it, so a later sync opens it afresh.
+func (c *client) closeDocument(abs string) {
+	c.mu.Lock()
+	delete(c.open, abs)
+	delete(c.sent, abs)
+	delete(c.answered, abs)
+	c.mu.Unlock()
+	_ = c.conn.notify("textDocument/didClose", map[string]any{
+		"textDocument": map[string]any{"uri": pathToURI(abs)},
+	})
+}
+
 // close shuts the server down, politely first and then not.
 //
 // The graceful path matters more than it looks: gopls writes its module cache
