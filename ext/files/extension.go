@@ -97,7 +97,7 @@ the whole file's, so a partial read is enough to edit with.`
 // thing the user is being asked to judge, so they end up approving a diff they
 // could not read.
 func (e *Extension) ApprovalRenderers() []host.ApprovalRenderer {
-	return []host.ApprovalRenderer{renderEditApproval}
+	return []host.ApprovalRenderer{e.renderEditApproval}
 }
 
 // ApprovalChoosers lets the user approve an edit one hunk at a time.
@@ -189,7 +189,7 @@ func chooseHunks(ctx context.Context, info agent.ToolCallInfo, present agent.Eli
 // renderEditApproval claims edit_file, write_file and delete_file, and
 // declines everything else so the default still covers tools this package
 // does not own.
-func renderEditApproval(_ context.Context, info agent.ToolCallInfo) (string, bool) {
+func (e *Extension) renderEditApproval(_ context.Context, info agent.ToolCallInfo) (string, bool) {
 	args := map[string]any{}
 	if raw := info.Call.Args.Raw(); len(raw) > 0 {
 		if err := json.Unmarshal(raw, &args); err != nil {
@@ -223,18 +223,42 @@ func renderEditApproval(_ context.Context, info agent.ToolCallInfo) (string, boo
 		if !ok {
 			return "", false
 		}
-		verb := "Create"
+		shown := fmt.Sprintf("%d bytes, %d lines", len(content), strings.Count(content, "\n")+1)
 		if _, replacing := args["expect_hash"].(string); replacing {
-			verb = "Replace"
+			return fmt.Sprintf("Replace %s (%s)?\n\n%s", path, shown, indent(preview(content))), true
 		}
-		return fmt.Sprintf("%s %s (%d bytes, %d lines)?\n\n%s",
-			verb, path, len(content), strings.Count(content, "\n")+1, indent(preview(content))), true
+		// Without expect_hash the write is a create, and creates are refused
+		// on an existing path. Approving that prompt cannot make the call
+		// run, so the prompt says what will happen rather than offering a
+		// verdict on a write that is going to be refused regardless.
+		if e.writeTargetExists(path) {
+			return fmt.Sprintf("Write %s (%s)?\n\nThe file already exists, so this write will be refused: replacing it needs expect_hash from read_file. edit_file changes part of it without one.\n\n%s",
+				path, shown, indent(preview(content))), true
+		}
+		return fmt.Sprintf("Create %s (%s)?\n\n%s", path, shown, indent(preview(content))), true
 
 	case "delete_file":
 		// No diff to show, since the content isn't in the arguments.
 		return fmt.Sprintf("Delete %s?\n\nThe file is removed from the workspace.", path), true
 	}
 	return "", false
+}
+
+// writeTargetExists reports whether path names something write_file already
+// has on disk, which is what decides between a create and a replacement.
+//
+// The tools refuse a write to a directory with their own message, so a
+// directory is not what this answers: only a non-directory counts. A path that
+// cannot be resolved, or cannot be stat'd, is reported as not existing, since
+// the prompt is a summary and must not claim more than the write itself can
+// know.
+func (e *Extension) writeTargetExists(path string) bool {
+	wr, rel, err := e.src.resolve(path)
+	if err != nil {
+		return false
+	}
+	info, err := wr.h.Stat(rel)
+	return err == nil && !info.IsDir()
 }
 
 // writeDiff renders one hunk as removed and added lines.

@@ -178,7 +178,7 @@ func TestDogfoodWorkspaceFileBuilds(t *testing.T) {
 	if err := app.Tools(context.Background()); err != nil {
 		t.Fatalf("Tools: %v", err)
 	}
-	for _, want := range []string{"run_test", "run_test_one", "run_test_all", "run_vet", "run_build"} {
+	for _, want := range []string{"run_test", "run_test_one", "run_test_all", "run_vet", "run_fmt_check", "run_build"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("dogfood tool %q missing; listing was:\n%s", want, out.String())
 		}

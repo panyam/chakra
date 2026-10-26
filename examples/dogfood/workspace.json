@@ -37,6 +37,13 @@
         "timeout": "5m"
       },
       {
+        "name": "fmt_check",
+        "argv": ["make", "check-fmt"],
+        "description": "Check that every Go file, new ones included, is gofmt-clean. Run it before saying a change is done; CI fails on unformatted files.",
+        "readOnly": true,
+        "timeout": "2m"
+      },
+      {
         "name": "build",
         "argv": ["make", "build"],
         "description": "Compile every module and example.",

@@ -67,8 +67,8 @@ vet: ## go vet every module
 fmt: ## gofmt every module
 	@gofmt -l -w $$(git ls-files '*.go')
 
-check-fmt: ## Fail if any tracked Go file is not gofmt-clean
-	@out=$$(gofmt -l $$(git ls-files '*.go')); \
+check-fmt: ## Fail if any Go file (tracked, or new and not ignored) is not gofmt-clean
+	@out=$$(gofmt -l $$(git ls-files --cached --others --exclude-standard '*.go')); \
 	if [ -n "$$out" ]; then \
 		echo "not gofmt-clean, run 'make fmt':"; echo "$$out"; exit 1; \
 	fi
