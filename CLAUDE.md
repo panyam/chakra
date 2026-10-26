@@ -26,9 +26,12 @@ doesn't list says so as its main decision, and updates the page in the same PR.
 ## Issues and missions
 
 Work is ranked by the mission it serves, not by how recently it was filed. The active mission is
-#57 (`mission_dogfood_coding`): use agentchat to make a real, tested change in a real repo. Its
-exercise is `make dogfood` (landing with #58). Run it after each merge on the mission and log the
-result on #57.
+#89 (`mission_host_completion`): agentchat honours everything an MCP server declares. Its exercise
+is `make host-exercise`, which prints PASS or FAIL per host obligation on both client wires, with
+known failures pinned to their tickets in `examples/host-exercise/expected.go`. Run it after each
+merge on the mission and log the result on #89. The previous mission, #57 (`mission_dogfood_coding`,
+use agentchat to make a real tested change in a real repo), closed when its exercise passed end to
+end; `make dogfood` and `make dogfood-web` still run it.
 
 A new issue gets one of `P0`–`P3` (P1 is capped at 5 per mission), plus either a `mission_<slug>`
 label with a blocked-by link from the mission, or `waiting` with its trigger named in the body.
