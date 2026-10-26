@@ -214,10 +214,12 @@ pipeline is #1026.
 ### Compaction
 
 `agent/compaction.go`: `SummarizingCompactor` plus a `TokenEstimator` / `CharTokenEstimator`
-heuristic, hooked as `RunnerConfig.Compactor`. It runs **in the Runner** at the top of the turn
-on the cloned history, not in the host, **so the eval harness can grade it** — the harness
-builds a RunnerConfig. `EventCompaction` fires only on a real shrink. An error aborts the turn,
-mirroring Selector.
+heuristic, hooked as `RunnerConfig.Compactor`. It runs **in the Runner**, as the first
+turn-scoped stage of the step chain before every model call (chakra#7), not in the host, **so the
+eval harness can grade it** — the harness builds a RunnerConfig. It rewrites the turn's working
+messages, never the record. `EventCompaction` fires only on a real shrink, with the step. An error
+aborts the turn, mirroring Selector. After step 1, a turn that still doesn't fit after compacting
+ends with `ErrContextBudget` and keeps its messages, rather than summarizing a summary every step.
 
 ### Embedder
 

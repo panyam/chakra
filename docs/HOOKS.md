@@ -15,7 +15,7 @@ out, and this page gets updated in the same PR.
 | Point | Runs | What hooks in today | Shape | Code |
 |---|---|---|---|---|
 | **Turn start** (host) | once per turn, before the Runner | `Extension.TurnStart`, `InputTransform`s, durable `ContextStage`s (event injection), the user message, transient `ContextStage`s (memory summary, recall), `PromptSection`s | one ordered pipeline with two phases | `host/app.go` `RunTurn`, `host/contextpipeline.go` |
-| **Before each model call** (Runner) | every step | `Compactor` (step 1 only), tree budget, `Selector`, `GenerationParams` | separate typed fields, **no chain** (see Planned below) | `runner.go` `Run` |
+| **Before each model call** (Runner) | every step | the step chain: `Compactor` (turn scope), `Selector` (request scope), then `StepStages` such as the host's step-budget note; also the tree budget | one ordered chain, run by scope: session, turn, request | `stepstage.go`, `runner.go` `Run` |
 | **Around each tool call** (Runner) | every tool call, in parallel | `ToolMiddleware`: spotlight, extension middleware, critique, the permission gate (with `ApprovalRenderer`s and `ApprovalChooser`s); offloading wraps the tool source the chain ends in | one ordered chain, gate last | `toolmiddleware.go`, `approval.go`, `host/app.go` |
 | **Signals and events** | between steps (signals), and between turns (events) | `SignalPolicy`, `Interruptible`, `PreemptGrant`; the host's injection and trigger policies | separate fields | `signal.go`, `injection.go`, `triggers.go`, `host/events.go` |
 
@@ -36,14 +36,16 @@ flowchart TD
   end
 
   subgraph RUN["Runner.Run"]
-    R0["system prompt: Instructions / PromptSections, once"] --> R1["Compactor, step 1 only"]
-    R1 --> S1
+    R0["system prompt: Instructions / PromptSections, once"] --> S1
     subgraph STEP["each step: before the model call"]
-      S1["tree budget: charge one step"] --> S2["list tools, Selector"]
-      S2 --> S3["Provider.Stream: events out"]
+      S1["tree budget: charge one step"] --> S2["list tools"]
+      S2 --> S3["session stages: append to the record"]
+      S3 --> S4["turn stages: Compactor, rest of turn"]
+      S4 --> S5["request stages: Selector, step-budget note"]
+      S5 --> S6["Provider.Stream: events out"]
     end
-    S3 -->|"no tool calls"| F1["structured finalize, if ResponseSchema"]
-    S3 -->|"tool calls"| T1
+    S6 -->|"no tool calls"| F1["structured finalize, if ResponseSchema"]
+    S6 -->|"tool calls"| T1
     subgraph TOOL["each tool call, in parallel"]
       T1["spotlight"] --> T2["extension middleware"]
       T2 --> T3["critique"]
@@ -59,6 +61,7 @@ flowchart TD
   H5 --> R0
   F1 --> P1["host: keep messages, persist, HostTurnDone"]
   G2 -.->|"MaxSteps hit: partial turn kept"| P1
+  S4 -.->|"still over budget after step 1: partial turn kept"| P1
 
   EV["server events"] -.-> INJ["injection policy: queued for the next turn"]
   INJ -.-> H3
@@ -71,18 +74,23 @@ turn and wait for the next one.
 
 ## Record or view
 
-Every hook that produces messages produces one of two kinds, and mixing them
-up is silent and compounding.
+Every hook that produces messages says how long they live, and mixing that up
+is silent and compounding. There are three lifetimes.
 
-- **Record** messages join the session's history: they persist, the next turn
-  sees them, and the session store replays them. The user message, injected
-  events, assistant replies, tool results and signal notes are record.
-- **View** messages are what one request sends and nothing else. The memory
-  summary, recall, a compaction summary and narrowed tool lists are view.
+- **Session** (the record): the message joins history, persists, and every
+  later step and turn sees it. The user message, injected events, assistant
+  replies, tool results and signal notes are record.
+- **Turn**: the message is seen for the rest of this turn and then dropped. The
+  memory summary and recall (host transient stages) and a compaction summary
+  (Runner turn stage) live here.
+- **Request**: one model call sees it. A narrowed tool list and the step-budget
+  note live here.
 
-The host keeps the two apart structurally at turn start (`durable` and
-`transient` in `contextPipeline`). The Runner keeps them apart by
-`TurnResult.Messages`, which is everything the turn added and nothing it only
+The host keeps session and turn apart at turn start (`durable` and `transient`
+in `contextPipeline`). The step chain names all three as `StepScope`
+(`ScopeSession`, `ScopeTurn`, `ScopeRequest`), runs stages in that order, and
+refuses a session stage that rewrites the record instead of appending to it.
+`TurnResult.Messages` is everything the turn recorded and nothing it only
 showed the model, so a compaction never shrinks the record.
 
 A view message written into the record gets re-injected next turn, then
@@ -115,7 +123,8 @@ Ask these in order.
 2. **Is it about the user's input, or context for the whole turn?** Turn
    start. Durable stage if the session should remember it, transient if not.
 3. **Does it need to see or change what one model call sends** (messages,
-   tools, budget)? Before each model call.
+   tools, budget)? A `StepStage`, before each model call. Pick its scope by how
+   long its output should live.
 4. **Does it act on one tool call** (its arguments, whether it runs, its
    result)? Tool middleware, placed by the ordering rules above. A decision a
    human makes goes through the gate (`ApprovalRenderer` for the question,
@@ -123,12 +132,12 @@ Ask these in order.
 5. **Does it react to something outside the turn** (a server event, a child
    agent)? Signals and events.
 
-## Planned
+## How this point got its chain
 
-**A step chain at "before each model call"** (#7). Today this point is a set of
-separate fields, and their order is the order of lines in `runner.go`.
-Mid-turn compaction, a step budget the model can see, and mid-turn injection
-all want this point, so instead of adding a field for each we're adding one
-chain with the same record/view split as the host's context pipeline.
-`Compactor` and `Selector` become built-in stages there, with their fields kept
-as adapters. This page gets updated when it lands.
+The before-each-model-call point used to be a separate `RunnerConfig` field per
+feature (`Selector`, then `Compactor` before step 1 only), and their order was
+the order of lines in `runner.go`. Mid-turn compaction, the step-budget note and
+mid-turn injection all wanted this point, so #7 gave it one chain instead of
+three more fields. `Compactor` and `Selector` became its built-in first stages
+and their fields stayed as they were. Mid-turn injection is a `ScopeSession`
+stage whenever something needs it; nothing does yet.

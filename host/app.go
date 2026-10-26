@@ -594,6 +594,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 		Tools:            runnerTools,
 		InstructionsFunc: app.promptBuilder.Build,
 		MaxSteps:         cfg.MaxSteps,
+		StepStages:       stepStages(cfg),
 		TracerProvider:   o.tp,
 		MeterProvider:    o.mp,
 		// Only the main Runner carries the tree budget; sub-agent / fan-out /
@@ -765,9 +766,9 @@ func (a *App) ReconnectServer(id string) {
 // RunTurn executes one user input, rendering events as they stream. History
 // threads across turns; a cancelled or failed turn leaves history at its
 // pre-turn state (and persists nothing) so the next attempt is clean. A turn that
-// hits the step cap (agent.ErrMaxSteps) is the exception. It keeps the user
-// message and what it produced, so a "keep going" turn picks up where it
-// stopped.
+// runs out of budget (agent.ErrMaxSteps, agent.ErrContextBudget) is the
+// exception. It keeps the user message and what it produced, so a "keep going"
+// turn picks up where it stopped.
 func (a *App) RunTurn(ctx context.Context, input string) error {
 	a.turnMu.Lock()
 	defer a.turnMu.Unlock()
@@ -850,9 +851,10 @@ func (a *App) RunTurn(ctx context.Context, input string) error {
 		a.ctrlMu.Unlock()
 	}
 	if err != nil {
-		// The step cap stops a turn that was otherwise fine, so its messages
-		// are worth keeping (issue 109). Other failures still roll back.
-		if result != nil && errors.Is(err, agent.ErrMaxSteps) {
+		// The step cap and the context budget stop a turn that was otherwise
+		// fine, so its messages are worth keeping (issues 109 and 7). Other
+		// failures still roll back.
+		if result != nil && (errors.Is(err, agent.ErrMaxSteps) || errors.Is(err, agent.ErrContextBudget)) {
 			kept := agent.DropUnansweredToolCalls(result.Messages)
 			a.history = append(a.history, kept...)
 			if pe != nil {
@@ -1004,4 +1006,13 @@ func (a *App) REPL(ctx context.Context, in io.Reader, turnCtx func() (context.Co
 		a.promptREPL()
 	}
 	return scanner.Err()
+}
+
+// stepStages is the host's contribution to the Runner's step chain: the step
+// budget note, unless config turns it off.
+func stepStages(cfg *Config) []agent.StepStage {
+	if cfg.StepBudgetWithin < 0 {
+		return nil
+	}
+	return []agent.StepStage{agent.StepBudgetStage(cfg.StepBudgetWithin)}
 }

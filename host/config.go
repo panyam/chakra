@@ -25,6 +25,12 @@ type Config struct {
 	// MaxSteps caps model calls per turn. Zero uses the agent default.
 	MaxSteps int `json:"maxSteps,omitempty"`
 
+	// StepBudgetWithin is how few steps a turn must have left before the
+	// model is told its remaining step budget on each call (see
+	// agent.StepBudgetStage). Zero uses the default, a quarter of MaxSteps
+	// and at least 3. Negative turns the note off.
+	StepBudgetWithin int `json:"stepBudgetWithin,omitempty"`
+
 	// MaxTreeSteps and MaxTreeTokens cap the AGGREGATE model steps / tokens
 	// across a turn's whole sub-agent tree (parent + sub-agents + fan-out
 	// members + handoff rounds), not just per-Runner MaxSteps. Zero means
