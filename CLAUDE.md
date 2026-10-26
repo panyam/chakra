@@ -17,6 +17,11 @@ commit messages and docs below 1330 or so refer to `panyam/mcpkit`.
 | Design frames | `docs/AGENT_DESIGN.md`, `docs/AGENT_COMPOSITION.md`, `docs/AGENT_MEMORY_FLOW.md` |
 | Roadmap and phase status | `docs/AGENT_SDK_ROADMAP.md` |
 | How to use the host / the CLI | `host/README.md`, `surfaces/chat/README.md` |
+| Where a new behavior hooks in (turn start, each model call, each tool call, events) | `docs/HOOKS.md` |
+
+**Every PR says at the top which hook it uses and why**, in a short `Hook:` line before the
+rest of the body, using the points in `docs/HOOKS.md`. A change that needs a hook point the page
+doesn't list says so as its main decision, and updates the page in the same PR.
 
 ## Issues and missions
 
