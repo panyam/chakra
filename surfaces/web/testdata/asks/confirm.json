@@ -1,0 +1,6 @@
+{
+  "about": "A plain approval: the form ElicitationCoordinator.Confirm sends, and what the web UI answers when Approve is clicked.",
+  "schema": {"type": "object", "properties": {"confirm": {"type": "boolean"}}, "required": ["confirm"]},
+  "untick": [],
+  "result": {"action": "accept", "content": {"confirm": true}}
+}

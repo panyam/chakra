@@ -2,6 +2,7 @@ import { createSignal, type Accessor } from "solid-js";
 import { Code, ConnectError, type Client } from "@connectrpc/connect";
 import type { HostService } from "./gen/chakra/web/v1/host_pb.js";
 import { EventKind, HostEventKind, type HostEvent } from "./hostevent.js";
+import { askFields, askResult, type AskField } from "./asks.js";
 
 // Turn is one committed line of the conversation transcript. from names the
 // surface a turn originated on when it was NOT this browser (e.g. a turn started
@@ -19,6 +20,8 @@ export interface Turn {
 export interface PendingAsk {
   id: number;
   message: string;
+  schema?: unknown;
+  fields: AskField[];
 }
 
 // ResolvedNotice is the retraction receipt shown after an ask this surface was
@@ -54,6 +57,7 @@ export interface ConversationStore {
   ingest: (ev: HostEvent) => void;
   submit: (input: string) => Promise<void>;
   respondToAsk: (action: "accept" | "decline" | "cancel") => Promise<void>;
+  setAskField: (name: string, value: boolean) => void;
   dismissResolved: () => void;
   setStatus: (s: Status) => void;
 }
@@ -197,7 +201,8 @@ export function createConversationStore(client: Client<typeof HostService>): Con
         const id = ev.AskID ?? 0;
         activeAskId = id;
         setResolved(null); // a fresh ask supersedes any prior receipt
-        setAsk({ id, message: ev.Elicit?.message ?? "(approval requested)" });
+        const schema = ev.Elicit?.requestedSchema;
+        setAsk({ id, message: ev.Elicit?.message ?? "(approval requested)", schema, fields: askFields(schema) });
         break;
       }
       case HostEventKind.ElicitResolved: {
@@ -266,7 +271,7 @@ export function createConversationStore(client: Client<typeof HostService>): Con
     if (!pending) return;
     answeredByMe.add(pending.id); // remember so the resolved frame reads as self
     setAsk(null); // optimistic retract; the elicit-resolved frame confirms it
-    const result = new TextEncoder().encode(JSON.stringify({ action }));
+    const result = new TextEncoder().encode(JSON.stringify(askResult(action, pending.schema, pending.fields)));
     try {
       await client.respondToAsk({ askId: BigInt(pending.id), result, by: "web" });
     } catch {
@@ -274,6 +279,10 @@ export function createConversationStore(client: Client<typeof HostService>): Con
       // frame that named the winner will replace the optimistic retract with the
       // correct receipt, so nothing to do here.
     }
+  };
+
+  const setAskField = (name: string, value: boolean): void => {
+    setAsk((a) => (a ? { ...a, fields: a.fields.map((f) => (f.name === name ? { ...f, value } : f)) } : a));
   };
 
   return {
@@ -289,6 +298,7 @@ export function createConversationStore(client: Client<typeof HostService>): Con
     ingest,
     submit,
     respondToAsk,
+    setAskField,
     dismissResolved: () => setResolved(null),
     setStatus: (s) => setStatus(s),
   };

@@ -57,7 +57,7 @@ describe("ConversationStore.ingest", () => {
 
   it("raises a pending ask on elicit-request", () => {
     const out = runIngest([{ Kind: "elicit-request", AskID: 5, Elicit: { message: "approve?" } }]);
-    expect(out.ask).toEqual({ id: 5, message: "approve?" });
+    expect(out.ask).toEqual({ id: 5, message: "approve?", fields: [] });
     expect(out.resolved).toBeNull();
   });
 
@@ -124,7 +124,7 @@ describe("ConversationStore multi-surface elicitation retraction", () => {
       { Kind: "elicit-resolved", AskID: 1, By: "local" },
       { Kind: "elicit-request", AskID: 2, Elicit: { message: "two?" } },
     ]);
-    expect(out.ask).toEqual({ id: 2, message: "two?" });
+    expect(out.ask).toEqual({ id: 2, message: "two?", fields: [] });
     expect(out.resolved).toBeNull();
   });
 
@@ -250,5 +250,45 @@ describe("ConversationStore slash commands", () => {
       expect(store.busy()).toBe(false);
       dispose();
     });
+  });
+});
+
+describe("ConversationStore.respondToAsk", () => {
+  function sent(events: HostEvent[], act: (s: ConversationStore) => void) {
+    let body: unknown;
+    const client = {
+      respondToAsk: async (req: { result: Uint8Array }) => {
+        body = JSON.parse(new TextDecoder().decode(req.result));
+        return {};
+      },
+    } as unknown as Parameters<typeof createConversationStore>[0];
+    return createRoot((dispose) => {
+      const store = createConversationStore(client);
+      for (const ev of events) store.ingest(ev);
+      act(store);
+      dispose();
+      return body;
+    });
+  }
+
+  const confirmSchema = { type: "object", properties: { confirm: { type: "boolean" } }, required: ["confirm"] };
+
+  // #124: Approve sent {"action":"accept"} alone, which the host reads as a
+  // refusal because confirm is missing.
+  it("answers a plain approval with confirm: true", () => {
+    const body = sent([{ Kind: "elicit-request", AskID: 3, Elicit: { message: "Allow?", requestedSchema: confirmSchema } }], (s) =>
+      void s.respondToAsk("accept"),
+    );
+    expect(body).toEqual({ action: "accept", content: { confirm: true } });
+  });
+
+  it("sends a checkbox the user unticked as false", () => {
+    const schema = { type: "object", properties: { change_1: { type: "boolean", default: true }, change_2: { type: "boolean", default: true } } };
+    const body = sent([{ Kind: "elicit-request", AskID: 4, Elicit: { message: "Apply?", requestedSchema: schema } }], (s) => {
+      expect(s.ask()?.fields.map((f) => f.name)).toEqual(["change_1", "change_2"]);
+      s.setAskField("change_2", false);
+      void s.respondToAsk("accept");
+    });
+    expect(body).toEqual({ action: "accept", content: { change_1: true, change_2: false } });
   });
 });

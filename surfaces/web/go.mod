@@ -5,6 +5,7 @@ go 1.26.9
 require (
 	connectrpc.com/connect v1.19.2
 	github.com/panyam/chakra v0.1.0
+	github.com/panyam/chakra/ext/files v0.1.0
 	github.com/panyam/chakra/host v0.1.0
 	github.com/panyam/chakra/surfaces v0.1.0
 	github.com/panyam/mcpkit v0.8.12
@@ -31,7 +32,6 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/panyam/chakra/ext/checkpoint v0.1.0 // indirect
 	github.com/panyam/chakra/ext/exec v0.1.0 // indirect
-	github.com/panyam/chakra/ext/files v0.1.0 // indirect
 	github.com/panyam/chakra/ext/lsp v0.1.0 // indirect
 	github.com/panyam/chakra/store/gorm v0.1.0 // indirect
 	github.com/panyam/chakra/store/redis v0.1.0 // indirect

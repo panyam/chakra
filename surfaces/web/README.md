@@ -83,6 +83,14 @@ it through `RespondToAsk`, or until the turn is cancelled. A turn with no tab
 open just sits at the ask (issue 121; before that the empty stdin declined every
 ask on the spot).
 
+The browser answers an ask from its `requestedSchema`, since the host reads
+specific fields out of the answer. Approve on a plain approval sends
+`confirm: true`, and a form with boolean fields (an edit's per-hunk approval)
+shows one checkbox per field and sends each one's value. Until #124 Approve sent
+no fields at all, which the host reads as a refusal. Fields that aren't boolean
+aren't rendered yet. The answers are pinned by `testdata/asks/`, which both the
+vitest and the Go tests read.
+
 Connect server-streaming (`Watch`) rides the Connect protocol, which supports
 server streams over HTTP/1.1, so no h2c is needed for local dev.
 
@@ -120,6 +128,7 @@ Layout map (`web/src/`):
 | `watch.ts` | `Watch` subscription: decode each `Frame` payload → `HostEvent`, reconnecting |
 | `hostevent.ts` | wire types mirroring `agent/host/hostevent.go` |
 | `conversation.ts` | shared store: folds `HostEvent`s, drives `Submit` / `RespondToAsk` |
+| `asks.ts` | builds an ask's answer from its `requestedSchema`: the checkboxes, then the result |
 | `ConversationPanel.tsx` | the Conversation Solid island (transcript, ask prompt, compose box) |
 | `dock.ts` | framework-neutral panel registry + saved-layout persistence + reconcile |
 | `DockviewWorkspace.ts` | dockview-core glue: adopt island hosts into panels |

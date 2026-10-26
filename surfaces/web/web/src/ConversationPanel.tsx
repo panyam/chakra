@@ -87,6 +87,22 @@ export function Conversation(props: { store: ConversationStore; compact?: boolea
         {(a) => (
           <div class="conv-ask">
             <div class="conv-ask-msg">{a().message}</div>
+            <Show when={a().fields.length > 0}>
+              <div class="conv-ask-fields">
+                <For each={a().fields}>
+                  {(f) => (
+                    <label class="conv-ask-field">
+                      <input
+                        type="checkbox"
+                        checked={f.value}
+                        onChange={(e) => s.setAskField(f.name, e.currentTarget.checked)}
+                      />
+                      {f.title}
+                    </label>
+                  )}
+                </For>
+              </div>
+            </Show>
             <div class="conv-ask-actions">
               <button type="button" class="conv-approve" onClick={() => void s.respondToAsk("accept")}>
                 Approve

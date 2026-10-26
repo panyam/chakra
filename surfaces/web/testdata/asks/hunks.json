@@ -1,0 +1,10 @@
+{
+  "about": "A three-hunk edit_file approval from ext/files, answered with change 2 unticked.",
+  "schema": {"type": "object", "properties": {
+    "change_1": {"default": true, "title": "Apply change 1", "type": "boolean"},
+    "change_2": {"default": true, "title": "Apply change 2", "type": "boolean"},
+    "change_3": {"default": true, "title": "Apply change 3", "type": "boolean"}
+  }},
+  "untick": ["change_2"],
+  "result": {"action": "accept", "content": {"change_1": true, "change_2": false, "change_3": true}}
+}
