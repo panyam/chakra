@@ -272,6 +272,7 @@ func TestAppStepLimitDropsUnansweredToolCalls(t *testing.T) {
 }
 
 func TestAppElicitationThroughScriptedStdin(t *testing.T) {
+	skipOnStateless(t, "the server sends elicitation/create mid-call, a server-to-client request the stateless wire doesn't carry (it uses input_required rounds, covered by the MRTR tests)")
 	srv := server.NewServer(core.ServerInfo{Name: "elicit-srv", Version: "0.0.1"})
 	srv.RegisterTool(
 		core.ToolDef{Name: "ask", Description: "asks", InputSchema: map[string]any{"type": "object"}},

@@ -2,13 +2,12 @@ package host
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
-	"github.com/panyam/chakra"
+	agent "github.com/panyam/chakra"
 	"github.com/panyam/mcpkit/client"
 	"github.com/panyam/mcpkit/core"
 	skills "github.com/panyam/mcpkit/ext/skills"
@@ -281,9 +280,7 @@ func (a *App) onServerSkills(sc ServerConfig, c *client.Client) {
 		return
 	}
 	collisions, registerLoader := a.skills.add(sc.ID, block, cat)
-	if a.skills.watch(sc.ID) {
-		a.watchSkills(sc, c)
-	}
+	a.watchSkills(sc, c)
 
 	// Surface cross-origin name collisions (SEP-2640 SHOULD): the load_skill
 	// handler already refuses to silently shadow, but the user deserves to know.
@@ -374,27 +371,8 @@ func (a *App) rememberKey(info agent.ToolCallInfo) (string, bool) {
 // Re-listing replaces the server's catalog, and since load_skill approvals
 // are keyed on the entry's files (rememberKey), a changed skill is asked
 // about again.
-//
-// The notification arrives on the session wire through the client's
-// notification callback, and on the stateless wire only on a
-// subscriptions/listen stream asking for resourcesListChanged. Each wire
-// delivers on one, so registering both can't refresh twice.
 func (a *App) watchSkills(sc ServerConfig, c *client.Client) {
-	refresh := func() {
-		// Notification callbacks run on the client's reader goroutine, and a
-		// re-list is a round trip.
-		go a.onServerSkills(sc, c)
-	}
-	a.listWatch.set(sc.ID, resourcesListChanged, refresh)
-	_, err := c.Listen(a.watchCtx, client.ListenOptions{
-		Notifications: core.ListChangedFilter(core.SubscriptionFilterResourcesListChanged),
-		Handlers: map[string]func(json.RawMessage){
-			resourcesListChanged: func(json.RawMessage) { refresh() },
-		},
-	})
-	if err != nil && !errors.Is(err, client.ErrListenNeedsStatelessWire) {
-		a.emit(HostEvent{Kind: HostSessionWarn, Err: fmt.Sprintf("skills list_changed on %s: %v", sc.ID, err)})
-	}
+	a.watchListChanged(sc.ID, c, core.SubscriptionFilterResourcesListChanged, resourcesListChanged, "skills", func() { a.onServerSkills(sc, c) })
 }
 
 // resourcesListChanged is the notification a server sends when its resources,

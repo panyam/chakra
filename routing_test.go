@@ -129,6 +129,7 @@ func TestFilterSourceComposesUnderMultiSource(t *testing.T) {
 }
 
 func TestListChangedInvalidatesMultiSourceIndex(t *testing.T) {
+	skipOnStateless(t, "tools/list_changed arrives on the GET stream, which the stateless wire doesn't have")
 	srv := testutil.NewTestServer()
 	ts := httptest.NewServer(srv.Handler(server.WithStreamableHTTP(true)))
 	t.Cleanup(ts.Close)

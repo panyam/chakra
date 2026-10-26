@@ -374,6 +374,10 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 		app.emit(HostEvent{Kind: HostServerStateChanged, ServerID: ch.ID, ServerState: ch.State.String(), Err: errString(ch.Err)})
 		if ch.State == client.StateReady {
 			app.registerServerTools(serverByID[ch.ID], clientByID[ch.ID])
+			// On the session wire WithToolsListChangedHandler covers this; the
+			// stateless wire delivers tools/list_changed only on a listen
+			// stream (#112).
+			app.watchListChanged(ch.ID, clientByID[ch.ID], core.SubscriptionFilterToolsListChanged, "notifications/tools/list_changed", "tools", multi.Invalidate)
 			app.onServerSkills(serverByID[ch.ID], clientByID[ch.ID])
 			// Instructions are independent of skills (a server can send them with
 			// skills off), so record them separately, before onServerSkills'

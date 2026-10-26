@@ -92,6 +92,7 @@ func acceptName(name string) ElicitationUI {
 }
 
 func TestCoordinatorLegacyInlet(t *testing.T) {
+	skipOnStateless(t, "the server sends elicitation/create mid-call, a server-to-client request the stateless wire doesn't carry (it uses input_required rounds, covered by the MRTR tests)")
 	var calls atomic.Int32
 	var seen core.ElicitationRequest
 	coord := NewElicitationCoordinator(func(ctx context.Context, req core.ElicitationRequest) (core.ElicitationResult, error) {
@@ -151,6 +152,7 @@ func TestCoordinatorMRTRWithoutHandlerStillFailsFast(t *testing.T) {
 }
 
 func TestCoordinatorDeclinePropagates(t *testing.T) {
+	skipOnStateless(t, "the server sends elicitation/create mid-call, a server-to-client request the stateless wire doesn't carry (it uses input_required rounds, covered by the MRTR tests)")
 	coord := NewElicitationCoordinator(func(ctx context.Context, req core.ElicitationRequest) (core.ElicitationResult, error) {
 		return core.ElicitationResult{Action: "decline"}, nil
 	})
@@ -248,6 +250,7 @@ func TestCoordinatorQueuedWaiterCancels(t *testing.T) {
 }
 
 func TestCoordinatorURLModePassthrough(t *testing.T) {
+	skipOnStateless(t, "the server sends elicitation/create mid-call, a server-to-client request the stateless wire doesn't carry (it uses input_required rounds, covered by the MRTR tests)")
 	var seen core.ElicitationRequest
 	coord := NewElicitationCoordinator(func(ctx context.Context, req core.ElicitationRequest) (core.ElicitationResult, error) {
 		seen = req
