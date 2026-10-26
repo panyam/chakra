@@ -5,9 +5,9 @@ go 1.26.9
 require (
 	github.com/panyam/chakra v0.1.0
 	github.com/panyam/chakra/host v0.1.0
-	github.com/panyam/mcpkit v0.8.14
-	github.com/panyam/mcpkit/experimental/ext/agents v0.8.14
-	github.com/panyam/mcpkit/experimental/ext/events v0.8.14
+	github.com/panyam/mcpkit v0.8.15
+	github.com/panyam/mcpkit/experimental/ext/agents v0.8.15
+	github.com/panyam/mcpkit/experimental/ext/events v0.8.15
 	github.com/panyam/mcpkit/ext/skills v0.8.12
 )
 

@@ -11,7 +11,7 @@ require (
 	github.com/muesli/termenv v0.16.0
 	github.com/panyam/chakra/host v0.1.0
 	github.com/panyam/chakra/surfaces v0.1.0
-	github.com/panyam/mcpkit v0.8.14
+	github.com/panyam/mcpkit v0.8.15
 	github.com/panyam/mcpkit/ext/otel v0.8.12
 	github.com/redis/go-redis/v9 v9.21.0
 	github.com/spf13/cobra v1.10.2
@@ -65,7 +65,7 @@ require (
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/panyam/chakra/ext/exec v0.1.0 // indirect
 	github.com/panyam/chakra/ext/lsp v0.1.0 // indirect
-	github.com/panyam/mcpkit/experimental/ext/agents v0.8.14 // indirect
+	github.com/panyam/mcpkit/experimental/ext/agents v0.8.15 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.8.12 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pgvector/pgvector-go v0.4.1 // indirect
@@ -102,7 +102,7 @@ require (
 	github.com/panyam/chakra/store/redis v0.1.0
 	github.com/panyam/gocurrent v0.1.2 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
-	github.com/panyam/mcpkit/experimental/ext/events v0.8.14 // indirect
+	github.com/panyam/mcpkit/experimental/ext/events v0.8.15 // indirect
 	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.12 // indirect
 	github.com/panyam/mcpkit/ext/auth v0.8.12 // indirect
 	github.com/panyam/mcpkit/ext/skills v0.8.12 // indirect
