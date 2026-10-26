@@ -11,6 +11,7 @@ import (
 	"github.com/panyam/mcpkit/client"
 	"github.com/panyam/mcpkit/core"
 	"github.com/panyam/mcpkit/experimental/ext/events"
+	eventsclient "github.com/panyam/mcpkit/experimental/ext/events/clients/go"
 )
 
 // onServerEvents reads a server's event types for their advertised hints and
@@ -164,7 +165,7 @@ func adaptEvent(serverID string, ev events.Event) agent.IncomingEvent {
 // server whose events/list fails just keeps whatever hints it had: hints are
 // advisory, and a host that can't read them still delivers the events.
 func (a *App) discoverEventHints(serverID string, c *client.Client) {
-	defs, err := listEventDefs(a.streams.ctx, c)
+	defs, err := eventsclient.List(a.streams.ctx, c)
 	if err != nil {
 		a.emit(HostEvent{Kind: HostSessionWarn, Err: fmt.Sprintf("events/list on %s: %v", serverID, err)})
 		return
@@ -190,34 +191,3 @@ func (a *App) watchEventTypes(sc ServerConfig, c *client.Client) {
 // eventsListChanged is the notification a server sends when its event types
 // change. mcpkit's events package broadcasts it by this literal.
 const eventsListChanged = "notifications/events/list_changed"
-
-// listEventDefs reads every page of a server's events/list. mcpkit has no
-// typed client call for it yet, so this decodes the wire shape into its
-// EventDef, as mcpkit's own events bridge does.
-func listEventDefs(ctx context.Context, c *client.Client) ([]events.EventDef, error) {
-	var all []events.EventDef
-	cursor := ""
-	for range 100 {
-		params := map[string]any{}
-		if cursor != "" {
-			params["cursor"] = cursor
-		}
-		res, err := c.Call(ctx, "events/list", params)
-		if err != nil {
-			return nil, err
-		}
-		var page struct {
-			Events     []events.EventDef `json:"events"`
-			NextCursor string            `json:"nextCursor"`
-		}
-		if err := json.Unmarshal(res.Raw, &page); err != nil {
-			return nil, fmt.Errorf("decode events/list: %w", err)
-		}
-		all = append(all, page.Events...)
-		if page.NextCursor == "" {
-			return all, nil
-		}
-		cursor = page.NextCursor
-	}
-	return nil, fmt.Errorf("events/list did not finish after 100 pages")
-}

@@ -9,7 +9,7 @@ require (
 	github.com/panyam/mcpkit/experimental/ext/agents v0.8.15
 	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.8.12
 	github.com/panyam/mcpkit/experimental/ext/events v0.8.15
-	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.12
+	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.15
 	github.com/panyam/mcpkit/ext/auth v0.8.12
 	github.com/panyam/mcpkit/ext/skills v0.8.12
 	github.com/panyam/mcpkit/ext/tasks v0.8.12

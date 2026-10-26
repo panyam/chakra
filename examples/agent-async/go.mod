@@ -24,7 +24,7 @@ require (
 	github.com/panyam/goutils v0.1.13 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents v0.8.15 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.8.12 // indirect
-	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.12 // indirect
+	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.15 // indirect
 	github.com/panyam/mcpkit/ext/auth v0.8.12 // indirect
 	github.com/panyam/mcpkit/ext/skills v0.8.12 // indirect
 	github.com/panyam/oneauth v0.3.0 // indirect
