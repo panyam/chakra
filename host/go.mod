@@ -5,10 +5,10 @@ go 1.26.9
 require (
 	github.com/panyam/chakra v0.1.0
 	github.com/panyam/gocurrent v0.1.2
-	github.com/panyam/mcpkit v0.8.12
-	github.com/panyam/mcpkit/experimental/ext/agents v0.8.12
+	github.com/panyam/mcpkit v0.8.13
+	github.com/panyam/mcpkit/experimental/ext/agents v0.8.13
 	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.8.12
-	github.com/panyam/mcpkit/experimental/ext/events v0.8.12
+	github.com/panyam/mcpkit/experimental/ext/events v0.8.13
 	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.12
 	github.com/panyam/mcpkit/ext/auth v0.8.12
 	github.com/panyam/mcpkit/ext/skills v0.8.12
