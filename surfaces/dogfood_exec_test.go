@@ -29,7 +29,8 @@ var canSandbox = sync.OnceValue(func() bool {
 // already inside a sandbox, it runs unconfined: these tests check the
 // allowlist and test-pkg.sh, and ext/exec's exec_live suite checks the
 // profile itself.
-func dogfoodExec(t *testing.T) *exec.Source {
+// dogfoodExecWith is dogfoodExec plus extra fixture files under the root.
+func dogfoodExecWith(t *testing.T, extra map[string]string) (*exec.Source, string) {
 	t.Helper()
 	root := t.TempDir()
 	script, err := os.ReadFile(filepath.Join("..", "scripts", "test-pkg.sh"))
@@ -39,6 +40,11 @@ func dogfoodExec(t *testing.T) *exec.Source {
 	files := map[string]string{
 		"scripts/test-pkg.sh": string(script),
 		"go.mod":              "module fixture\n\ngo 1.24\n",
+		// Two modules below a directory that is not itself a module, the shape
+		// of the repo's ext/, where ./ext/... is nothing to the root module.
+		"sub/one/go.mod":    "module fixture/sub/one\n\ngo 1.24\n",
+		"sub/two/go.mod":    "module fixture/sub/two\n\ngo 1.24\n",
+		"sub/two/t_test.go": "package two\n\nimport \"testing\"\n\nfunc TestTwo(t *testing.T) {}\n",
 		"serve/serve_test.go": `package serve
 
 import (
@@ -48,6 +54,24 @@ import (
 )
 
 func TestServes(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	defer srv.Close()
+	res, err := http.Get(srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+}
+`,
+		"sub/one/one_test.go": `package one
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+func TestOne(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	defer srv.Close()
 	res, err := http.Get(srv.URL)
@@ -75,6 +99,12 @@ func TestNotPicked(t *testing.T) { t.Fatal("ran a test the pattern did not name"
 			t.Fatal(err)
 		}
 	}
+	for name, body := range extra {
+		path := filepath.Join(root, name)
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	f, err := LoadWorkspaceFile(filepath.Join("..", "examples", "dogfood", "workspace.json"))
 	if err != nil {
@@ -97,6 +127,13 @@ func TestNotPicked(t *testing.T) { t.Fatal("ran a test the pattern did not name"
 	if err != nil {
 		t.Fatal(err)
 	}
+	return src, root
+}
+
+// dogfoodExec is dogfoodExecWith with no extra files.
+func dogfoodExec(t *testing.T) *exec.Source {
+	t.Helper()
+	src, _ := dogfoodExecWith(t, nil)
 	return src
 }
 
@@ -126,6 +163,32 @@ func TestDogfoodRunTestOneRunsOnlyTheNamedTest(t *testing.T) {
 	out, _ := runDogfood(t, dogfoodExec(t), "run_test_one", "./pick:TestPicked")
 	if !strings.Contains(out, "exited 0") {
 		t.Fatalf("run_test_one must run TestPicked alone:\n%s", out)
+	}
+}
+
+// ./ext/... names no packages in the root module and several in the modules
+// below it. One nested module failing must fail the run, or a path that spans
+// several modules reports whatever the last one did.
+func TestDogfoodRunTestRunsEveryModuleBelowAPath(t *testing.T) {
+	src := dogfoodExec(t)
+	out, isErr := runDogfood(t, src, "run_test", "./sub/...")
+	for _, want := range []string{"sub/one", "sub/two", "exited 0"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("run_test ./sub/... must run both modules, missing %q:\n%s", want, out)
+		}
+	}
+	if isErr {
+		t.Fatalf("run_test ./sub/... must pass:\n%s", out)
+	}
+
+	bad, _ := dogfoodExecWith(t, map[string]string{
+		"sub/two/broken_test.go": "package two\n\nimport \"testing\"\n\nfunc TestBroken(t *testing.T) { t.Fatal(\"broken\") }\n",
+	})
+	out, isErr = runDogfood(t, bad, "run_test", "./sub/...")
+	// A failing command is a result, not a tool error, so the exit code in the
+	// text is what says the run failed.
+	if !strings.Contains(out, "exited 1") || strings.Contains(out, "exited 0") {
+		t.Fatalf("a failing module below the path must fail the run:\n%s", out)
 	}
 }
 
