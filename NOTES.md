@@ -1167,8 +1167,9 @@ The origin label is the **host-assigned `serverID`, never `serverInfo.name`**.
 
 Eager full-body injection bloats the system prompt at scale (50 skills × ~100 tok, resent every
 call), so loading is progressive. **The catalog decision is per-server, not per-skill**:
-`ServerConfig.SkillsMode` (`"eager"` / `"catalog"` / `""`) marks a whole skills server, and `""`
-auto-selects by skill-md count (`defaultCatalogThreshold = 10`).
+`ServerConfig.SkillsMode` (`"eager"` / `"catalog"`) marks a whole skills server. `""` means
+catalog: SEP-2640's 08-21 revision made fetching ahead of need a MUST NOT, so the old auto rule
+(eager below ten skills) went with chakra#50.
 
 Eager injects `skills.InstructionsBlock` (full bodies). Catalog injects `skills.CatalogBlock`
 (one `- name: desc` line per entry, roughly a tenth of the tokens) and collects entries.

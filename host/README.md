@@ -131,14 +131,21 @@ Surfaces still show what the user typed rather than the expansion (#106).
 
 Skills are data, not code (`ext/skills` is enforced no-exec), so the risk a
 skills server carries is context-poisoning, not side effects. `ServerConfig.SkillsMode`
-is the trust lever. `"eager"` splices full skill bodies into the system prompt
-at connect time with no per-skill gate — reserve it for servers you trust.
-`"catalog"` is the safer default for a lower-trust server: a skill enters
-context only when the model calls `load_skill`, which is an ordinary tool, so it
-flows through the approval ladder (set `Approval.Rules["load_skill"] = "ask"` to
-confirm each activation — the prompt names the requested skill). The fetched
-body lands in tool history rather than the system prompt, so it carries less
-authority. See the `SkillsMode` godoc in `config.go`.
+is the trust lever. `"catalog"` is the default: a skill enters context only when
+the model calls `load_skill`, which is an ordinary tool, so it flows through the
+approval ladder (set `Approval.Rules["load_skill"] = "ask"` to confirm each
+activation — the prompt names the requested skill). The fetched body lands in
+tool history rather than the system prompt, so it carries less authority.
+`"eager"` splices full skill bodies into the system prompt at connect time with
+no per-skill gate. SEP-2640 says a host MUST NOT fetch a skill ahead of need, so
+eager is an opt-in that accepts that, for servers you trust.
+
+A remembered `load_skill` approval (`Approval.Remember`) covers that skill's
+exact files, every uri and digest the server listed when you approved it. When
+the server changes a file it announces `resources/list_changed`, the host
+re-reads its skills, and the next load asks again. A skill whose files are
+`"dynamic"` is asked about every time. See the `SkillsMode` godoc in
+`config.go`.
 
 A server's own `instructions` (from its initialize result) go into the system
 prompt too, in their own section between `Config.Instructions` and the skill

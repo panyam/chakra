@@ -72,6 +72,11 @@ type App struct {
 	// and the load_skill tool. serverOrder keeps assembly deterministic.
 	skills *skillSet
 
+	// watchCtx bounds the subscriptions/listen streams the host opens for
+	// list_changed on the stateless wire, and Close ends them.
+	watchCtx  context.Context
+	watchStop context.CancelFunc
+
 	injection *agent.EventInjectionPolicy
 	triggers  *agent.TriggerPolicy
 	approval  *agent.TieredApproval
@@ -348,7 +353,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	choose := func(ctx context.Context, info agent.ToolCallInfo) (agent.Choice, error) {
 		return app.chooseApproval(ctx, info, agent.ElicitationUI(coord.Handler()))
 	}
-	app.approval = cfg.Approval.buildApproval(ask, choose)
+	app.approval = cfg.Approval.buildApproval(ask, choose, app.rememberKey)
 
 	// serverTools mirrors the server sources only — no meta-tools, no
 	// sub-agents — so a sub-agent or fan-out persona gets a filtered view of the
@@ -412,6 +417,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	for _, sc := range cfg.Servers {
 		app.metaTools = app.metaTools || len(sc.Events) > 0
 	}
+	app.watchCtx, app.watchStop = context.WithCancel(context.Background())
 	// Before the group starts: a server that is ready at once installs its
 	// event hints from the ready-observer, which needs the policy to exist.
 	app.injection = agent.NewEventInjectionPolicy(agent.EventInjectionConfig{Hints: hintOverrides(cfg)})
@@ -687,6 +693,9 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 // server.
 func (a *App) Close() {
 	a.closeExtensions()
+	if a.watchStop != nil {
+		a.watchStop()
+	}
 	if a.streams.stop != nil {
 		a.streams.stop()
 	}

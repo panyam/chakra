@@ -96,6 +96,7 @@ type TieredApproval struct {
 	ask      AskFunc
 	choose   ChooseFunc
 	remember bool
+	key      RememberKeyFunc
 
 	mu         sync.Mutex
 	remembered map[string]bool
@@ -126,6 +127,29 @@ func WithAsk(ask AskFunc) TieredOption {
 // claims is decided by it alone; everything else still goes to the AskFunc.
 func WithChooser(choose ChooseFunc) TieredOption {
 	return func(t *TieredApproval) { t.choose = choose }
+}
+
+// RememberKeyFunc names what an approval of this call covers, for the
+// remember cache. ok false means the call can't be remembered at all, so the
+// user is asked every time. The default key is the tool name, which is right
+// for a tool whose arguments don't change what it does to trust. A tool whose
+// arguments name content that can change under the same name, such as a skill
+// whose files rotate, needs a key that changes with the content, or one
+// approval would cover whatever is served later.
+type RememberKeyFunc func(info ToolCallInfo) (key string, ok bool)
+
+// WithRememberKey sets how remembered approvals are keyed. Nil keeps the
+// default, the tool name.
+func WithRememberKey(fn RememberKeyFunc) TieredOption {
+	return func(t *TieredApproval) { t.key = fn }
+}
+
+// rememberKey is the cache key for info, or ok false when it can't be cached.
+func (t *TieredApproval) rememberKey(info ToolCallInfo) (string, bool) {
+	if t.key == nil {
+		return info.Call.Name, true
+	}
+	return t.key(info)
 }
 
 // WithRememberApprovals turns on the session cache: once the user approves a
@@ -179,7 +203,8 @@ func (t *TieredApproval) DefaultMode() ApprovalMode {
 func (t *TieredApproval) WrapToolCall(ctx context.Context, info ToolCallInfo, next ToolCallFunc) (*core.ToolResult, error) {
 	t.mu.Lock()
 	mode := t.mode
-	remembered := t.remember && t.remembered[info.Call.Name]
+	key, keyed := t.rememberKey(info)
+	remembered := t.remember && keyed && t.remembered[key]
 	t.mu.Unlock()
 	if remembered {
 		return next(ctx, info)
@@ -236,7 +261,9 @@ func (t *TieredApproval) doAsk(ctx context.Context, info ToolCallInfo, next Tool
 	}
 	if t.remember {
 		t.mu.Lock()
-		t.remembered[info.Call.Name] = true
+		if key, ok := t.rememberKey(info); ok {
+			t.remembered[key] = true
+		}
 		t.mu.Unlock()
 	}
 	return next(ctx, info)
@@ -254,7 +281,9 @@ func (t *TieredApproval) doChoice(ctx context.Context, info ToolCallInfo, c Choi
 		info.Call.Args = c.Args
 	} else if t.remember {
 		t.mu.Lock()
-		t.remembered[info.Call.Name] = true
+		if key, ok := t.rememberKey(info); ok {
+			t.remembered[key] = true
+		}
 		t.mu.Unlock()
 	}
 	res, err := next(ctx, info)

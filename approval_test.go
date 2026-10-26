@@ -319,3 +319,36 @@ func TestUserDeclineTellsTheModelItDidNotRun(t *testing.T) {
 		}
 	}
 }
+
+// A remembered approval covers what its key names. When the key changes, as a
+// skill's does when its files rotate (#50), the user is asked again; a call
+// with no key is never remembered.
+func TestRememberKeyDecidesWhatAnApprovalCovers(t *testing.T) {
+	ask, asked := countingAsk(true)
+	key := "v1"
+	p := NewTieredApproval(WithAsk(ask), WithRememberApprovals(true),
+		WithRememberKey(func(info ToolCallInfo) (string, bool) {
+			if info.Call.Name == "volatile" {
+				return "", false
+			}
+			return info.Call.Name + "@" + key, true
+		}))
+	for range 2 {
+		if allowed, _, _ := gate(p, req("load", false)); !allowed {
+			t.Fatal("not allowed")
+		}
+	}
+	if *asked != 1 {
+		t.Fatalf("asked %d times for an unchanged key, want 1", *asked)
+	}
+	key = "v2"
+	gate(p, req("load", false))
+	if *asked != 2 {
+		t.Fatalf("asked %d times after the key changed, want 2", *asked)
+	}
+	gate(p, req("volatile", false))
+	gate(p, req("volatile", false))
+	if *asked != 4 {
+		t.Fatalf("asked %d times, want a keyless call asked about every time", *asked)
+	}
+}

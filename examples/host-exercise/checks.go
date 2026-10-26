@@ -136,6 +136,12 @@ func checkSkillRotation(ctx context.Context, d *demo, cfg *host.Config) (bool, s
 	if err := d.rotate(); err != nil {
 		return false, "", err
 	}
+	// The server announces the change with resources/list_changed, and the
+	// host re-reads its skills asynchronously, as the protocol has it. Wait
+	// for that, the second skills-loaded event, before the next load.
+	if err := waitForNth(ctx, app, host.HostSkillsLoaded, 2); err != nil {
+		return false, "", err
+	}
 	if err := app.RunTurn(ctx, "load it again"); err != nil {
 		return false, "", err
 	}
@@ -234,6 +240,22 @@ func waitFor(ctx context.Context, app *host.App, kind host.HostEventKind) error 
 		}
 	}
 	return fmt.Errorf("no %v event within 5s", kind)
+}
+
+// waitForNth waits for the nth event of a kind, counting the replayed history
+// Subscribe starts with.
+func waitForNth(ctx context.Context, app *host.App, kind host.HostEventKind, n int) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	seen := 0
+	for ev := range app.Subscribe(ctx) {
+		if ev.Kind == kind {
+			if seen++; seen == n {
+				return nil
+			}
+		}
+	}
+	return fmt.Errorf("saw %d %v event(s) within 5s, want %d", seen, kind, n)
 }
 
 func offers(req agent.ProviderRequest, tool string) bool {
