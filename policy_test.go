@@ -336,3 +336,21 @@ func TestTriggerRuntimeAddRemove(t *testing.T) {
 		t.Fatal("removing an absent binding must report false")
 	}
 }
+
+// A server can revise the hint it advertised (events/list_changed), and host
+// config still beats whatever the server says.
+func TestSetHintReplacesButConfigWins(t *testing.T) {
+	p := NewEventInjectionPolicy(EventInjectionConfig{Hints: map[string]ContextHint{"pinned": {Template: "config {{n}}"}}})
+	p.SetHint("e", ContextHint{Template: "first {{n}}"})
+	p.SetHint("e", ContextHint{Template: "second {{n}}"})
+	p.SetHint("pinned", ContextHint{Template: "server {{n}}"})
+	p.Ingest(evt("s", "e", `{"n":1}`))
+	p.Ingest(evt("s", "pinned", `{"n":2}`))
+	got := map[string]bool{}
+	for _, c := range p.Drain() {
+		got[c.Text] = true
+	}
+	if !got["second 1"] || !got["config 2"] || len(got) != 2 {
+		t.Fatalf("drained %v, want the revised server hint and the config hint", got)
+	}
+}

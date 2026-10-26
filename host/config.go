@@ -657,7 +657,9 @@ type EventConfig struct {
 	Name string `json:"name"`
 
 	// Hint overrides how occurrences reach the model (priority,
-	// aggregation window, template, retention, sensitivity).
+	// aggregation window, template, retention, sensitivity). Without it, the
+	// hint the server declares on the event type in events/list applies, and
+	// is re-read when the server announces events/list_changed.
 	Hint *agent.ContextHint `json:"hint,omitempty"`
 }
 
