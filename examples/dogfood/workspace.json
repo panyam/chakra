@@ -9,7 +9,7 @@
       {
         "name": "test",
         "argv": ["sh", "scripts/test-pkg.sh"],
-        "description": "Run the Go tests (under -race) for the named package paths, in whichever module holds each one, e.g. ./host or ./ext/files/... Pass package paths only. To run one test, use run_test_one.",
+        "description": "Run the Go tests (under -race) for the named package paths, in whichever module holds each one, e.g. ./host or ./ext/files/..., or in every module below one, e.g. ./ext/... Pass package paths only. To run one test, use run_test_one.",
         "args": { "max": 3, "match": "\\./[\\w./-]*(\\.\\.\\.)?", "paths": true },
         "readOnly": true,
         "timeout": "5m"
