@@ -26,8 +26,9 @@ type RepoMapConfig struct {
 	// MaxFiles caps how many files are asked about. Zero means
 	// DefaultRepoMapMaxFiles.
 	//
-	// Every file costs a didOpen and a documentSymbol round trip, so this is
-	// the difference between indexing a repository and hanging on one. What
+	// Every file costs a documentSymbol round trip (plus an open and close
+	// for a server that only answers for open documents), so this is the
+	// difference between indexing a repository and hanging on one. What
 	// the cap drops is reported in the map.
 	MaxFiles int
 
@@ -57,6 +58,9 @@ var DefaultRepoMapExclude = []string{
 // map is orientation rather than live state: a slightly stale one is worth much
 // more than a fresh one that arrives after the model needed it.
 type repoMap struct {
+	// stop ends indexing early. Close calls it, so the background pass stops
+	// asking a server that is shutting down.
+	stop  context.CancelFunc
 	mu    sync.Mutex
 	text  string
 	ready bool
@@ -163,19 +167,21 @@ func collectSourceFiles(p *pool, exclude []string, maxFiles int) (paths []string
 }
 
 // declaredSymbols asks the server what a file declares, flattened to names.
+//
+// It asks without opening the file first, which gopls answers from disk. An
+// open document is one the server keeps type-checked and diagnosed, so
+// opening every file the map indexes left gopls busy for as long as a
+// session ran: the map took 20s instead of 2s, and Close waited behind that
+// work and ended up killing the server (#117). A server that answers nothing
+// for a closed file gets it opened for the one request and closed again.
 func declaredSymbols(ctx context.Context, p *pool, path string) []string {
 	c := p.forPath(path)
 	if c == nil {
 		return nil
 	}
-	if _, err := c.sync(path); err != nil {
-		return nil
-	}
-	var syms []documentSymbol
-	if err := c.conn.call(ctx, "textDocument/documentSymbol", map[string]any{
-		"textDocument": map[string]any{"uri": pathToURI(path)},
-	}, &syms); err != nil {
-		return nil
+	syms, err := c.documentSymbols(ctx, path)
+	if err != nil || len(syms) == 0 {
+		syms = c.openedSymbols(ctx, path)
 	}
 	var out []string
 	var walk func([]documentSymbol)
@@ -191,6 +197,34 @@ func declaredSymbols(ctx context.Context, p *pool, path string) []string {
 	}
 	walk(syms)
 	return out
+}
+
+func (c *client) documentSymbols(ctx context.Context, path string) ([]documentSymbol, error) {
+	var syms []documentSymbol
+	err := c.conn.call(ctx, "textDocument/documentSymbol", map[string]any{
+		"textDocument": map[string]any{"uri": pathToURI(path)},
+	}, &syms)
+	return syms, err
+}
+
+// openedSymbols is documentSymbols for a server that needs the document open.
+// A file the agent already had open stays open; one opened here is closed
+// again, so the map leaves the server with no extra documents to maintain.
+func (c *client) openedSymbols(ctx context.Context, path string) []documentSymbol {
+	c.mu.Lock()
+	_, wasOpen := c.open[path]
+	c.mu.Unlock()
+	if _, err := c.sync(path); err != nil {
+		return nil
+	}
+	if !wasOpen {
+		defer c.closeDocument(path)
+	}
+	syms, err := c.documentSymbols(ctx, path)
+	if err != nil {
+		return nil
+	}
+	return syms
 }
 
 func lastSegment(name string) string {
@@ -357,9 +391,9 @@ func capSymbols(syms []string, max int) []string {
 // New, and tying it to the caller's context would cancel the map the moment a
 // startup context was released.
 func startRepoMap(p *pool, cfg RepoMapConfig) *repoMap {
-	m := &repoMap{}
+	ctx, cancel := context.WithTimeout(context.Background(), repoMapTimeout)
+	m := &repoMap{stop: cancel}
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), repoMapTimeout)
 		defer cancel()
 		m.set(buildRepoMap(ctx, p, cfg))
 	}()

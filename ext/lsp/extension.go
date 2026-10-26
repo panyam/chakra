@@ -179,7 +179,12 @@ to ask for them.`
 // garbage collector and the process exit; a child process cannot, and one that
 // outlives the App that spawned it holds a workspace lock and a share of memory
 // nobody can account for.
-func (e *Extension) Close() error { return e.pool.close() }
+func (e *Extension) Close() error {
+	if e.repoMap != nil {
+		e.repoMap.stop()
+	}
+	return e.pool.close()
+}
 
 // checkAfterWrite runs the call, then asks the server what the write did.
 //

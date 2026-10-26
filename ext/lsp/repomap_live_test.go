@@ -62,3 +62,33 @@ func TestLiveRepoMapRanksTheCentralFile(t *testing.T) {
 		}
 	}
 }
+
+// TestLiveCloseIsPromptWhileTheMapBuilds is #117 on a tree big enough to show
+// it: this repository. Opening every indexed file kept gopls type-checking
+// them, so shutdown waited behind that work and Close took 1.5 to 4 seconds,
+// killing the server at the end. Measured on main: 1.6s two seconds in, 4.0s
+// eight seconds in, and 4.1s even after the map had finished.
+func TestLiveCloseIsPromptWhileTheMapBuilds(t *testing.T) {
+	_, spec := liveWorkspace(t)
+	repo, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, wait := range []time.Duration{2 * time.Second, 8 * time.Second} {
+		ext, err := New(Config{Roots: []string{repo}, Servers: []ServerSpec{spec}, RepoMap: &RepoMapConfig{}})
+		if err != nil {
+			t.Fatalf("New: %v", err)
+		}
+		time.Sleep(wait)
+		start := time.Now()
+		closeErr := ext.Close()
+		took := time.Since(start)
+		t.Logf("Close %v into the session took %v", wait, took.Round(time.Millisecond))
+		if closeErr != nil {
+			t.Errorf("Close %v in: %v", wait, closeErr)
+		}
+		if took > 500*time.Millisecond {
+			t.Errorf("Close %v in took %v, want under 500ms", wait, took)
+		}
+	}
+}

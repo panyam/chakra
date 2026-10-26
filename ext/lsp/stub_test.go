@@ -23,6 +23,11 @@ import (
 // to build and no dependency to add.
 const stubEnv = "LSP_STUB_SCRIPT"
 
+// stubDocLogFile is where the stub appends one "method uri" line for every
+// didOpen, didClose and documentSymbol it receives, so a test can check what
+// the client opened and whether it closed it again.
+const stubDocLogFile = ".stub-doc-methods.log"
+
 // stubFoldersFile is where the stub records the workspaceFolders it was sent,
 // inside its working directory, which is the first root.
 const stubFoldersFile = ".stub-workspace-folders.json"
@@ -80,6 +85,10 @@ type stubScript struct {
 	// nothing to fail on, so without a bound on the call the caller waits for
 	// ever.
 	IgnoreMethods []string `json:"ignoreMethods,omitempty"`
+
+	// SymbolsOnlyWhenOpen answers documentSymbol with nothing for a document
+	// that isn't open, like a server that only knows about files it was given.
+	SymbolsOnlyWhenOpen bool `json:"symbolsOnlyWhenOpen,omitempty"`
 
 	// IgnoreShutdown makes the server refuse to exit politely, which is what
 	// the kill path in client.close exists for.
@@ -141,6 +150,25 @@ func runStubServer(script string) {
 		emit(uri, diags)
 	}
 
+	open := map[string]bool{}
+	docURI := func(params json.RawMessage) string {
+		var p struct {
+			TextDocument struct {
+				URI string `json:"uri"`
+			} `json:"textDocument"`
+		}
+		_ = json.Unmarshal(params, &p)
+		return p.TextDocument.URI
+	}
+	logDoc := func(method, uri string) {
+		f, err := os.OpenFile(filepath.Join(root, stubDocLogFile), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+		if err != nil {
+			return
+		}
+		fmt.Fprintf(f, "%s %s\n", method, stubRel(root, uri))
+		f.Close()
+	}
+
 	for {
 		frame, err := readFrame(in)
 		if err != nil {
@@ -171,6 +199,13 @@ func runStubServer(script string) {
 			}
 			raw, _ := json.Marshal(result)
 			send(&message{JSONRPC: "2.0", ID: msg.ID, Result: raw})
+		}
+
+		switch msg.Method {
+		case "textDocument/didOpen", "textDocument/didClose", "textDocument/documentSymbol":
+			uri := docURI(msg.Params)
+			logDoc(msg.Method, uri)
+			open[uri] = msg.Method != "textDocument/didClose" && (open[uri] || msg.Method == "textDocument/didOpen")
 		}
 
 		switch msg.Method {
@@ -232,6 +267,9 @@ func runStubServer(script string) {
 			syms, ok := s.Symbols[stubRel(root, p.TextDocument.URI)]
 			if !ok {
 				syms = s.Symbols["*"]
+			}
+			if s.SymbolsOnlyWhenOpen && !open[p.TextDocument.URI] {
+				syms = nil
 			}
 			if syms == nil {
 				syms = []documentSymbol{}
