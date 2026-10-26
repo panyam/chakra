@@ -5,7 +5,8 @@ Maintained by /checkpoint: one thread per branch, pruned when the branch merges.
 
 ## At a glance
 
-- Mission #89 (`mission_host_completion`) is active: 4/8 closed, and `make host-exercise` passes every check on both wires (`expected.go` is empty). Its last active blocker, #112, closes with the mcpkit v0.8.14 bump (#139). Left after that: #78, #86 and #87, all `waiting`.
+- Mission #142 (`mission_api_v1`) is active: chakra 1.0 has a reviewed, settled exported API. Its exercise is `make api-report`, and the next ready ticket, #143, adds it. #40 (the exported-vs-internal audit) follows.
+- Mission #89 (`mission_host_completion`) closed 2026-10-26: `make host-exercise` passes every check on both wires. #78, #86 and #87 stay `waiting`.
 - Mission #57 (`mission_dogfood_coding`) closed 2026-10-26: the full exercise passed end to end at eb4a80f, `/undo` included. #34 moved off it, still `waiting`.
 
 ## Across threads
