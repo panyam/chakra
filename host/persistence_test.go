@@ -242,6 +242,7 @@ func TestAppStepLimitedTurnPersists(t *testing.T) {
 	ts := startTestServer(t)
 	cfg := testConfig(ts.URL)
 	cfg.MaxSteps = 2
+	cfg.StepBudgetWithin = -1 // these count request messages; the step note is tested on its own
 
 	var out strings.Builder
 	app, err := NewApp(cfg, &out, strings.NewReader(""), WithProvider(stub), WithRunStore(store))

@@ -37,9 +37,10 @@ const (
 	// the turn continues so the model can retry, route around it, or tell the
 	// user. See docs/AGENT_SERVER_STATE.md.
 	EventToolUnavailable EventKind = "tool-unavailable"
-	// EventCompaction marks that a Compactor rewrote the turn's history
-	// before the first model call (the head summarized, a recent tail kept
-	// verbatim). Emitted only when compaction actually fired; Compaction
+	// EventCompaction marks that a Compactor rewrote the turn's working
+	// messages before a model call (the head summarized, a recent tail kept
+	// verbatim). Step says which call; a Step above 1 is a mid-turn
+	// compaction. Emitted only when compaction actually fired; Compaction
 	// carries the before/after message counts. Surfaces can render a
 	// "compacted context" note; evals can assert it happened.
 	EventCompaction EventKind = "compaction"

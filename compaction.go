@@ -12,8 +12,9 @@ import (
 // unconditionally and cannot be un-done, so it is the tool of last resort for
 // keeping a long conversation under a model's context budget.
 //
-// The Runner calls Compact once at the top of a turn, on its own clone of the
-// history, so Run stays stateless over the history it is handed. A Compactor
+// The Runner calls Compact before every model call, on its working messages
+// rather than the history it was handed, so Run stays stateless over that
+// history and the turn's record keeps every message. A Compactor
 // MUST be a pure function of its input (no turn or session state) and MUST
 // return the input unchanged when nothing needs compacting — the Runner
 // detects a no-op by length and emits an EventCompaction only when the count
@@ -93,7 +94,7 @@ type SummarizingConfig struct {
 // SummarizingCompactor collapses the head of an over-budget conversation into
 // a single RoleSystem summary produced by a model, keeping a recent tail
 // verbatim. It is the first, heuristic-budget compaction strategy; a
-// token-accurate estimator and mid-turn compaction are follow-ups.
+// token-accurate estimator is a follow-up.
 type SummarizingCompactor struct {
 	cfg SummarizingConfig
 }
@@ -154,6 +155,14 @@ func (c *SummarizingCompactor) Compact(ctx context.Context, history []Message) (
 	out = append(out, Message{Role: RoleSystem, Text: summary})
 	out = append(out, tail...)
 	return out, nil
+}
+
+// Fits reports whether msgs are within MaxTokens by the configured estimator.
+// The Runner uses it after a mid-turn compaction: if they still don't fit,
+// compacting again on the next step would only summarize a summary, so the
+// turn ends with ErrContextBudget instead.
+func (c *SummarizingCompactor) Fits(msgs []Message) bool {
+	return c.cfg.Estimator.Estimate(msgs) <= c.cfg.MaxTokens
 }
 
 func (c *SummarizingCompactor) summarize(ctx context.Context, head []Message) (string, error) {

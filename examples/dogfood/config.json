@@ -3,6 +3,7 @@
   "approval": { "mode": "read-only-auto" },
   "maxSteps": 40,
   "offload": { "thresholdBytes": 16384 },
+  "compaction": { "maxTokens": 60000, "keepRecent": 8 },
   "connections": {
     "active": "claude",
     "connections": {

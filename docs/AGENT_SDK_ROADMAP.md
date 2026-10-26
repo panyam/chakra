@@ -90,7 +90,7 @@ little for a CLI on a laptop or a single-session UI. Phase 5 is demoted to its o
 
 Still first-order for the experience, regardless of the above: **#1007** (token-accurate estimator —
 `len/4` is worst exactly on code and tool-result JSON, and compaction is calibrated off it) and
-**#1006** (mid-turn compaction; `Compactor` is pre-loop only today).
+~~#1006~~ (mid-turn compaction, shipped as chakra#7: `Compactor` runs before every step).
 
 ---
 
@@ -117,7 +117,7 @@ Legend: ✅ shipped · 🟡 partial/shipped-with-follow-ups · ⏳ tracked (open
 | **Per-tool-call cancellation / interrupt** | ✅ #936,#937 | `runner.go` `TurnRequest`/`Control` channel (per-`CallID`); `EventToolCancelled` | — |
 | **Working memory** | ✅ #938,#1003,#1140 | `memory.go` — `MemorySource` remember/recall/forget; `Summary`/`RecallRelevant`; `InMemoryMemoryStore`; durable + per-request `Namespace` backends (redis/gorm, #1003); session-scoping by run id (#1140) | sub-agent memory model (injection over shared store) **#1151** |
 | **Semantic recall (vector)** | ✅ #940,#1019 | `embedder.go` (`Embedder`, `OpenAIEmbedder`), `semantic_memory.go` (`InMemorySemanticStore`), gorm **pgvector** store; pre-turn recall auto-injection | standalone doc-RAG VectorStore **⏳ #1021**; reranker **⏳ #1020**; auto-distillation **⏳ #1022** |
-| **Compaction / summarization** | 🟡 #939,#1011 | `compaction.go` — `SummarizingCompactor`, `TokenEstimator`/`CharTokenEstimator`, `EventCompaction`; pre-loop hook; budgeted summary injection | mid-turn compaction **⏳ #1006**; real tokenizer **⏳ #1007** |
+| **Compaction / summarization** | 🟡 #939,#1011 | `compaction.go` — `SummarizingCompactor`, `TokenEstimator`/`CharTokenEstimator`, `EventCompaction`; runs before every step (step chain, chakra#7) with an `ErrContextBudget` floor; budgeted summary injection | real tokenizer **⏳ #1007** |
 | **Tool-result offloading (context mgmt)** | ✅ #966,#971,#972 | `offloading_source.go` + `ToolResultStore` (mem/redis/gorm); `read_tool_result` (offset/limit/grep + two-sided context, bounded) | streaming/handle-based very-large results **⏳ #980,#979** |
 | **Sub-agents (agent-as-tool)** | ✅ #941,#942,#943,#1031,#1032,#1033,#1035,#1036,#1042 | `agent_source.go` (`AgentSource`, depth+budget caps, structured I/O), `async_agent_source.go` (`AsyncAgentSource` Task form, #1035), `fanout_source.go` (`FanOutSource`, #1033), `team.go` (`Team` handoff + host wiring + tagging, #1042), `tree_budget.go` (`TreeBudget` aggregate cap, #1032), `signal.go` + `agent_pool.go` (upward signals + runner-control pool + interruptible turn, #1036), `SubAgentEvent` nesting, declarative host personas | dynamic catalog #1038, nested config #1043, interaction mediator #1157, map-style fan-out (unfiled) |
 | **Host surface** | ✅ #984–#992 | slash-command registry, `ConnectionRegistry` + runtime `/provider`, `HostEvent`/`Observer` render seam, notebook renderer (#1001), interactive `/mcp` + `/sessions` overlay (#1095, `focusLayer`/`modalHost` seam + `client.Group.Reconnect`), per-server tool view (#1117) + oauth login action / authorization-code auth type (#1116, #907), dialog stack for nested-overlay back-nav (#1124), color accessibility (#1125), bubbletea TUI, playground | context-assembly pipeline **⏳ #1024,#1026**; remaining TUI-track items (dimmed-base compositing, grapheme width, `WindowSizeMsg` fan-out) **⏳ #1063** |

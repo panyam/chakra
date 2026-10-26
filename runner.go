@@ -125,18 +125,30 @@ type RunnerConfig struct {
 	// no temperature, max_tokens, or tool_choice.
 	Generation GenerationParams
 
-	// Compactor, when non-nil, may rewrite the turn's history before the
-	// first model call — the head summarized, a recent tail kept verbatim —
-	// to keep a long conversation under a context budget. The Runner calls
-	// it on its own clone of the history, so Run stays stateless over the
-	// history it is handed; a no-op (Compactor returns the input unchanged)
-	// emits nothing, a real compaction emits EventCompaction. A Compactor
-	// error aborts the turn (a misconfiguration or summarizer-provider
-	// outage, not something the model can recover from), mirroring Selector.
-	// Nil means history is sent verbatim. Mid-turn compaction (a single turn
-	// that itself grows past the budget) is a follow-up; this fires once,
-	// pre-loop.
+	// Compactor, when non-nil, may rewrite the turn's working messages before
+	// any model call — the head summarized, a recent tail kept verbatim — to
+	// keep the context under a budget. It runs as the first ScopeTurn stage of
+	// the step chain (see StepStages), so it covers a single turn that grows
+	// past the budget as well as a long conversation (#7). The record is
+	// untouched: TurnResult.Messages keeps every message, and Run stays
+	// stateless over the history it is handed. A no-op (the input returned
+	// unchanged) emits nothing, a real compaction emits EventCompaction with
+	// the step. A Compactor error aborts the turn (a misconfiguration or
+	// summarizer-provider outage, not something the model can recover from).
+	// One that can report whether messages fit (Fits, which
+	// SummarizingCompactor has) also ends a turn with ErrContextBudget when a
+	// step after the first still doesn't fit after compacting. Nil means
+	// messages are sent verbatim.
 	Compactor Compactor
+
+	// StepStages run before every model call, after the built-in Compactor
+	// and Selector stages and in this order within each StepScope. They are
+	// the "before each model call" hook point (docs/HOOKS.md): a stage can
+	// add to the record (ScopeSession), rewrite the working messages for the
+	// rest of the turn (ScopeTurn), or shape one request (ScopeRequest). An
+	// error from a stage ends the turn. StepBudgetStage is a ready-made
+	// request stage.
+	StepStages []StepStage
 
 	// Interruptible opts this Runner's turn into breaking the fan-out join
 	// barrier when a child raises an upward Signal mid-flight (issue 1167, piece
@@ -186,7 +198,9 @@ type RunnerConfig struct {
 	ResponseSchema core.RawJSON
 }
 
-// ToolSelector narrows the model-facing tool set for one step. Returning the
+// ToolSelector narrows the model-facing tool set for one step. It runs as the
+// first ScopeRequest stage of the step chain, so it sees the messages after
+// compaction. Returning the
 // input slice unchanged (or nil selector) offers everything; returning an
 // empty slice offers no tools for that step. Names must be preserved
 // verbatim: Call routing still resolves against the underlying ToolSource.
@@ -385,17 +399,7 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 	}
 
 	msgs := slices.Clone(history)
-	if r.cfg.Compactor != nil {
-		before := len(msgs)
-		compacted, err := r.cfg.Compactor.Compact(ctx, msgs)
-		if err != nil {
-			return nil, r.failSpan(emit, turnSpan, fmt.Errorf("agent: compaction: %w", err))
-		}
-		if len(compacted) != before {
-			msgs = compacted
-			emit(Event{Kind: EventCompaction, Compaction: &CompactionInfo{Before: before, After: len(msgs)}})
-		}
-	}
+	chain := r.stepChain(emit)
 	var added []Message
 	var usage Usage
 
@@ -416,19 +420,23 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 				stepSpan.End()
 				return nil, r.failSpan(emit, turnSpan, fmt.Errorf("agent: listing tools: %w", err))
 			}
-			if r.cfg.Selector != nil {
-				if tools, err = r.cfg.Selector(stepCtx, msgs, tools); err != nil {
-					stepSpan.RecordError(err)
-					stepSpan.End()
-					return nil, r.failSpan(emit, turnSpan, fmt.Errorf("agent: tool selector: %w", err))
-				}
-			}
 		}
+		working, recorded, view, err := runStepChain(stepCtx, chain, StepInfo{Step: step, MaxSteps: r.cfg.MaxSteps, Usage: usage}, msgs, tools)
+		if err != nil {
+			stepSpan.RecordError(err)
+			stepSpan.End()
+			if errors.Is(err, ErrContextBudget) {
+				return r.partialResult(added, usage, step-1, err, "context_budget", emit, turnSpan)
+			}
+			return nil, r.failSpan(emit, turnSpan, err)
+		}
+		msgs, tools = working, view.Tools
+		added = append(added, recorded...)
 		stepSpan.SetAttribute("agent.tools.offered", fmt.Sprint(len(tools)))
 
 		stepReq := ProviderRequest{
 			Instructions: turnInstructions,
-			Messages:     msgs,
+			Messages:     view.Messages,
 			Tools:        tools,
 		}
 		gen.applyTo(&stepReq)
@@ -514,26 +522,26 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 		}
 	}
 
-	return r.stepCapResult(added, usage, emit, turnSpan)
+	return r.partialResult(added, usage, r.cfg.MaxSteps, fmt.Errorf("%w (%d steps)", ErrMaxSteps, r.cfg.MaxSteps), "max_steps", emit, turnSpan)
 }
 
-// stepCapResult builds the partial turn a step-limited turn reports alongside
-// ErrMaxSteps: the messages the turn got through, so a caller keeps them in
+// partialResult builds the partial turn a turn that ran out of budget reports
+// alongside its error (ErrMaxSteps, or ErrContextBudget from compaction): the
+// messages the turn got through, so a caller keeps them in
 // history instead of starting the next turn blind (issue 109). The prefix is
 // trimmed of a trailing assistant message whose tool calls were never
 // answered, since a provider rejects that shape on the next request. Text and
 // FinishReason stay empty: there is no final answer, and the returned error is
 // how the caller learns the turn did not complete.
-func (r *Runner) stepCapResult(added []Message, usage Usage, emit func(Event), turnSpan core.Span) (*TurnResult, error) {
+func (r *Runner) partialResult(added []Message, usage Usage, steps int, err error, finish string, emit func(Event), turnSpan core.Span) (*TurnResult, error) {
 	msgs := DropUnansweredToolCalls(added)
-	err := fmt.Errorf("%w (%d steps)", ErrMaxSteps, r.cfg.MaxSteps)
 	result := &TurnResult{
 		Messages: msgs,
 		Usage:    usage,
-		Steps:    r.cfg.MaxSteps,
+		Steps:    steps,
 	}
-	turnSpan.SetAttribute("agent.steps", fmt.Sprint(r.cfg.MaxSteps))
-	turnSpan.SetAttribute("agent.finish_reason", "max_steps")
+	turnSpan.SetAttribute("agent.steps", fmt.Sprint(steps))
+	turnSpan.SetAttribute("agent.finish_reason", finish)
 	turnSpan.SetAttribute("agent.tokens.input", fmt.Sprint(usage.InputTokens))
 	turnSpan.SetAttribute("agent.tokens.output", fmt.Sprint(usage.OutputTokens))
 	emit(Event{Kind: EventError, Error: err.Error()})

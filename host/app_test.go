@@ -196,6 +196,7 @@ func TestAppStepLimitKeepsHistory(t *testing.T) {
 	stub := agent.NewStubProvider(stepLoopTurns(2)...)
 	cfg := testConfig(ts.URL)
 	cfg.MaxSteps = 2
+	cfg.StepBudgetWithin = -1 // these count request messages; the step note is tested on its own
 
 	var out strings.Builder
 	app, err := NewApp(cfg, &out, strings.NewReader(""), WithProvider(stub))
@@ -660,5 +661,37 @@ func TestAppHealthWithoutFailover(t *testing.T) {
 	app.emit(HostEvent{Kind: HostCommandResult, Command: CmdResult{Kind: CmdHealth, Failover: app.failover}})
 	if !strings.Contains(out.String(), "no failover configured") {
 		t.Fatalf("health line missing:\n%s", out.String())
+	}
+}
+
+// TestAppContextBudgetKeepsHistory is the #7 counterpart of the step cap: a
+// turn that grows past its compaction budget and can't be compacted back under
+// ends with ErrContextBudget and keeps what it did. Wiring only; the behavior
+// is tested at the agent layer. The chat stub doubles as the summarizer, so
+// its second scripted turn is the summary.
+func TestAppContextBudgetKeepsHistory(t *testing.T) {
+	ts := startTestServer(t)
+	big := strings.Repeat("y", 400)
+	stub := agent.NewStubProvider(
+		agent.StubTurn{ToolCalls: []agent.ToolCall{{ID: "c1", Name: "echo", Args: core.NewRawJSON(json.RawMessage(`{"message":"` + big + `"}`))}}},
+		agent.StubTurn{Text: "summary of the head"},
+	)
+	cfg := testConfig(ts.URL)
+	cfg.Compaction = &CompactionConfig{MaxTokens: 20, KeepRecent: 2}
+	cfg.StepBudgetWithin = -1
+
+	var out strings.Builder
+	app, err := NewApp(cfg, &out, strings.NewReader(""), WithProvider(stub))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+
+	if err := app.RunTurn(context.Background(), "do the thing"); !errors.Is(err, agent.ErrContextBudget) {
+		t.Fatalf("want ErrContextBudget, got %v", err)
+	}
+	// user + the assistant's tool call + its result
+	if len(app.history) != 3 || app.history[0].Text != "do the thing" || app.history[2].Role != agent.RoleTool {
+		t.Fatalf("budget-capped turn kept %d messages, want user, call, result: %+v", len(app.history), app.history)
 	}
 }
