@@ -144,6 +144,8 @@ body { font: 14px/1.5 system-ui, -apple-system, sans-serif; background: var(--bg
 .conv-ask { border-top: 1px solid var(--line); background: var(--sys); padding: .7rem 1rem; display: flex; flex-direction: column; gap: .5rem; }
 .conv-ask-msg { font-weight: 500; white-space: pre-wrap; overflow-wrap: anywhere; }
 .conv-ask-actions { display: flex; gap: .5rem; }
+.conv-ask-fields { display: flex; flex-wrap: wrap; gap: .3rem 1rem; }
+.conv-ask-field { display: flex; align-items: center; gap: .35rem; cursor: pointer; }
 .conv-approve, .conv-decline { border: 1px solid var(--line); border-radius: 6px; padding: .3rem .8rem; cursor: pointer; }
 .conv-approve { background: var(--accent); color: #fff; border-color: var(--accent); }
 .conv-decline { background: var(--bg); color: var(--fg); }

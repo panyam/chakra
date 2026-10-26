@@ -20,6 +20,11 @@ import (
 // fakeModel is an OpenAI-compatible endpoint that asks for one write_file call
 // and then, once the tool result comes back, answers with plain text.
 func fakeModel(t *testing.T) *httptest.Server {
+	return fakeModelCalling(t, "write_file", `{"path":"note.txt","content":"hello"}`)
+}
+
+// fakeModelCalling is fakeModel for any one tool call.
+func fakeModelCalling(t *testing.T, tool, toolArgs string) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
@@ -43,8 +48,8 @@ func fakeModel(t *testing.T) *httptest.Server {
 			send(`{"choices":[{"delta":{"content":"done"}}]}`)
 			send(`{"choices":[{"delta":{},"finish_reason":"stop"}]}`)
 		} else {
-			args, _ := json.Marshal(`{"path":"note.txt","content":"hello"}`)
-			send(`{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","type":"function","function":{"name":"write_file","arguments":` + string(args) + `}}]}}]}`)
+			args, _ := json.Marshal(toolArgs)
+			send(`{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","type":"function","function":{"name":"` + tool + `","arguments":` + string(args) + `}}]}}]}`)
 			send(`{"choices":[{"delta":{},"finish_reason":"tool_calls"}]}`)
 		}
 		send("[DONE]")
@@ -57,7 +62,11 @@ func fakeModel(t *testing.T) *httptest.Server {
 // write gated behind an ask and the model played by fakeModel.
 func askingApp(t *testing.T) (*host.App, string) {
 	t.Helper()
-	srv := fakeModel(t)
+	return askingAppWith(t, fakeModel(t))
+}
+
+func askingAppWith(t *testing.T, srv *httptest.Server) (*host.App, string) {
+	t.Helper()
 	cfg := writeConfig(t, fmt.Sprintf(`{"model": {"baseUrl": %q, "model": "m"}, "approval": {"mode": "ask"}}`, srv.URL))
 	root := t.TempDir()
 	app, err := buildApp(appOptions{configPath: cfg, workspace: []string{root}, noCheckpoint: true})

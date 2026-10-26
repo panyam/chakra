@@ -90,6 +90,7 @@ export interface SubAgentEnvelope {
 // ElicitationRequest is core.ElicitationRequest — the pending-ask prompt.
 export interface ElicitationRequest {
   message: string;
+  requestedSchema?: unknown;
   mode?: string;
   url?: string;
 }

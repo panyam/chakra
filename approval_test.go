@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/panyam/mcpkit/core"
@@ -284,6 +285,37 @@ func TestToolHintsUnannotatedIsDestructive(t *testing.T) {
 	} {
 		if _, destructive, _ := toolHints([]core.ToolDef{tool}, "t"); !destructive {
 			t.Errorf("annotations %v resolved to non-destructive", tool.Annotations)
+		}
+	}
+}
+
+// A declined call reaches the model as settled, not as a question waiting on
+// the user (#124, from #121's runs).
+func TestUserDeclineTellsTheModelItDidNotRun(t *testing.T) {
+	src := NewFuncSource()
+	AddFunc(src, "send_email", "sends mail", func(context.Context, struct{}) (string, error) { return "sent", nil })
+	stub := NewStubProvider(
+		StubTurn{ToolCalls: []ToolCall{{ID: "c1", Name: "send_email", Args: core.NewRawJSON([]byte(`{}`))}}},
+		StubTurn{Text: "ok"},
+	)
+	ask, _ := countingAsk(false)
+	r, err := NewRunner(RunnerConfig{Provider: stub, Tools: src, ToolMiddleware: []ToolMiddleware{NewTieredApproval(WithAsk(ask)).WrapToolCall}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	emit, events := collectEvents()
+	if _, err := r.Run(context.Background(), []Message{{Role: RoleUser, Text: "email"}}, emit); err != nil {
+		t.Fatal(err)
+	}
+	got := stub.Requests()[1].Messages[2].Text
+	for _, want := range []string{"declined by user", "did not run", "don't ask to run it again"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("model was told %q, missing %q", got, want)
+		}
+	}
+	for _, ev := range *events {
+		if ev.Kind == EventToolDenied && ev.Reason != "declined by user" {
+			t.Errorf("surface reason = %q, want it kept short", ev.Reason)
 		}
 	}
 }

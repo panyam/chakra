@@ -232,7 +232,7 @@ func (t *TieredApproval) doAsk(ctx context.Context, info ToolCallInfo, next Tool
 		return nil, err
 	}
 	if !ok {
-		return nil, DenyTool("declined by user")
+		return nil, userDeclined("")
 	}
 	if t.remember {
 		t.mu.Lock()
@@ -247,11 +247,7 @@ func (t *TieredApproval) doAsk(ctx context.Context, info ToolCallInfo, next Tool
 // future call to that tool.
 func (t *TieredApproval) doChoice(ctx context.Context, info ToolCallInfo, c Choice, next ToolCallFunc) (*core.ToolResult, error) {
 	if !c.Approved {
-		reason := "declined by user"
-		if c.Note != "" {
-			reason += ": " + c.Note
-		}
-		return nil, DenyTool(reason)
+		return nil, userDeclined(c.Note)
 	}
 	narrowed := len(c.Args.Raw()) > 0
 	if narrowed {
@@ -267,4 +263,19 @@ func (t *TieredApproval) doChoice(ctx context.Context, info ToolCallInfo, c Choi
 	}
 	res.Content = append(res.Content, core.Content{Type: "text", Text: c.Note})
 	return res, nil
+}
+
+// userDeclined is the denial for a call the user said no to. Surfaces show the
+// short reason. The model is told more, because "not permitted: declined by
+// user" alone was read as a pending question: in #57's runs the model replied
+// "say the word" and only mentioned the decline a turn later.
+func userDeclined(note string) error {
+	reason := "declined by user"
+	if note != "" {
+		reason += ": " + note
+	}
+	return &ToolDeniedError{
+		Reason:      reason,
+		ModelReason: reason + ". The call did not run. Tell the user plainly that it was declined, and don't ask to run it again unless they bring it up.",
+	}
 }
