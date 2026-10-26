@@ -5,11 +5,11 @@ Maintained by /checkpoint: one thread per branch, pruned when the branch merges.
 
 ## At a glance
 
-- Mission #57 (`mission_dogfood_coding`): 1/8 closed. The only exercise entry (ef8bcb5) checked wiring without a model. Next: run `make dogfood` with a model, then #59.
-- This run: dropped chore/chakra-main-layout (PR #62 merged). Deleted every merged remote branch; only `main` remains. `--workspace-config` is now documented in `surfaces/chat/README.md` (committed directly to main).
+- Mission #89 (`mission_host_completion`) is active: 4/8 closed, and `make host-exercise` passes every check on both wires (`expected.go` is empty). Its last active blocker, #112, closes with the mcpkit v0.8.14 bump (#139). Left after that: #78, #86 and #87, all `waiting`.
+- Mission #57 (`mission_dogfood_coding`) closed 2026-10-26: the full exercise passed end to end at eb4a80f, `/undo` included. #34 moved off it, still `waiting`.
 
 ## Across threads
 
 - The checkout lives at `~/newstack/chakra/<branch>`; every go.mod replaces mcpkit with `../../mcpkit/main` (one more `../` per module depth). Worktrees go at `~/newstack/chakra/<name>`. See CLAUDE.md Traps and NOTES.md "Tracking mcpkit main".
-- No exercise has run with a model yet. `make dogfood` needs `ANTHROPIC_API_KEY` or `/provider local` (LM Studio). Log the result on #57 before picking past #59, since it may reorder the queue.
+- `make host-exercise` needs no model; `make host-exercise-live` and `make dogfood-web` need one (`DOGFOOD_ACTIVE=deepseek` has been the working default). CI runs one client wire; run the host and root modules with `MCPKIT_CLIENT_MODE=stateless` too before trusting a change to server-sent data.
 
