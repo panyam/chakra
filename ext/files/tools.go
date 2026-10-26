@@ -125,13 +125,21 @@ func toolDefs() []core.ToolDef {
 			Name:        "read_file",
 			Annotations: readOnly(),
 			Title:       "Read a file",
-			Description: "Read a text file. Returns its content and a hash of that content. Pass the hash to edit_file as expect_hash so the edit is refused if the file changed in between.",
+			Description: "Read a text file. Returns its content, its line count, and a hash of the whole file. Pass the hash to edit_file as expect_hash so the edit is refused if the file changed in between. For a large file, give start_line and end_line to read just that part; the hash is still the whole file's, so it works for an edit.",
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
 					"path": map[string]any{
 						"type":        "string",
 						"description": "Path to the file, relative to the workspace root.",
+					},
+					"start_line": map[string]any{
+						"type":        "integer",
+						"description": "First line to return, counting from 1. Omit to start at the top.",
+					},
+					"end_line": map[string]any{
+						"type":        "integer",
+						"description": "Last line to return, inclusive. Omit to read to the end.",
 					},
 				},
 				"required": []string{"path"},
@@ -325,13 +333,68 @@ func (s *Source) read(args map[string]any) *core.ToolResult {
 	content := string(b)
 	hash := Hash(content)
 	shown := wr.abs(rel)
+	lines := strings.SplitAfter(content, "\n")
+	if lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	total := len(lines)
+
+	start, end, ranged := lineRange(args, total)
+	if !ranged {
+		return &core.ToolResult{
+			Content: []core.Content{{
+				Type: "text",
+				Text: fmt.Sprintf("path: %s\nhash: %s\nlines: %d\n\n%s", shown, hash, total, content),
+			}},
+			StructuredContent: map[string]any{"path": shown, "hash": hash, "lines": total, "content": content},
+		}
+	}
+	if start > total {
+		return toolError(fmt.Sprintf("start_line %d is past the end of %s, which has %d lines", start, path, total))
+	}
+	part := strings.Join(lines[start-1:end], "")
 	return &core.ToolResult{
 		Content: []core.Content{{
 			Type: "text",
-			Text: fmt.Sprintf("path: %s\nhash: %s\n\n%s", shown, hash, content),
+			Text: fmt.Sprintf("path: %s\nhash: %s (whole file)\nlines: %d-%d of %d\n\n%s", shown, hash, start, end, total, part),
 		}},
-		StructuredContent: map[string]any{"path": shown, "hash": hash, "content": content},
+		StructuredContent: map[string]any{"path": shown, "hash": hash, "lines": total, "start_line": start, "end_line": end, "content": part},
 	}
+}
+
+// lineRange reads read_file's start_line and end_line, clamped to the file.
+// ranged is false when neither was given, so a plain read keeps returning the
+// whole file. An end before the start reads one line, the start.
+func lineRange(args map[string]any, total int) (start, end int, ranged bool) {
+	s, hasStart := intArg(args, "start_line")
+	e, hasEnd := intArg(args, "end_line")
+	if !hasStart && !hasEnd {
+		return 0, 0, false
+	}
+	start, end = 1, total
+	if hasStart && s > 1 {
+		start = s
+	}
+	if hasEnd && e < total {
+		end = e
+	}
+	if end < start {
+		end = start
+	}
+	if end > total {
+		end = total
+	}
+	return start, end, true
+}
+
+func intArg(args map[string]any, name string) (int, bool) {
+	switch v := args[name].(type) {
+	case float64:
+		return int(v), true
+	case int:
+		return v, true
+	}
+	return 0, false
 }
 
 func (s *Source) edit(args map[string]any) *core.ToolResult {

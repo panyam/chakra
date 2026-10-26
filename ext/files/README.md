@@ -74,13 +74,26 @@ refusing innocent.md: outside every workspace root      # a symlink pointing out
 
 ## The tools
 
-**`read_file`** returns the content and a hash of it.
+**`read_file`** returns the content, its line count, and a hash of it.
 
 ```
 path: notes.md
 hash: dcf19a8dce4a
+lines: 42
 
 # Notes
+...
+```
+
+For a large file, `start_line` and `end_line` read just that part. The hash is
+still the whole file's, so a partial read is enough to edit with:
+
+```
+path: host/app.go
+hash: 7b1e04c9a2f3 (whole file)
+lines: 771-830 of 1214
+
+func (a *App) RunTurn(ctx context.Context, input string) error {
 ...
 ```
 
