@@ -79,7 +79,11 @@ again and redo the edit against what is there now.
 Each edit replaces an exact snippet. The text in ` + "`old`" + ` must appear exactly once in
 the file and is matched byte for byte, including indentation. If it appears more
 than once the edit is refused rather than applied to a guess: add surrounding
-lines until it is unique. All edits in one call apply together or none do.`
+lines until it is unique. All edits in one call apply together or none do.
+
+For a large file, read the part you need with start_line and end_line instead of
+the whole thing; read_file reports how many lines a file has. The hash is always
+the whole file's, so a partial read is enough to edit with.`
 	})}
 }
 

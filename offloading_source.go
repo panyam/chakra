@@ -2,7 +2,7 @@ package agent
 
 import (
 	"context"
-	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"regexp"
@@ -167,23 +167,28 @@ func (o *OffloadingSource) maybeOffload(ctx context.Context, name string, res *c
 	if len(text) < threshold {
 		return res, nil
 	}
-	ref, err := newResultRef()
-	if err != nil {
-		// Minting failed (no entropy): fall back to inlining rather than
-		// losing the result. Rare enough not to warrant a louder path.
-		return res, nil
-	}
-	if _, err := o.store.PutToolResult(ctx, PutToolResultRequest{Ref: ref, Result: *res}); err != nil {
-		return nil, fmt.Errorf("agent: offloading %q result: %w", name, err)
+	ref := contentRef(text)
+	got, err := o.store.GetToolResult(ctx, GetToolResultRequest{Ref: ref})
+	seen := err == nil && got.Found
+	if !seen {
+		if _, err := o.store.PutToolResult(ctx, PutToolResultRequest{Ref: ref, Result: *res}); err != nil {
+			return nil, fmt.Errorf("agent: offloading %q result: %w", name, err)
+		}
 	}
 	return &core.ToolResult{
-		Content: []core.Content{{Type: "text", Text: o.stub(ref, text)}},
+		Content: []core.Content{{Type: "text", Text: o.stub(ref, text, seen)}},
 	}, nil
 }
 
 // stub renders the model-visible placeholder that replaces an offloaded
-// result: size, ref, a leading preview, and the retrieval instruction.
-func (o *OffloadingSource) stub(ref, text string) string {
+// result: size, ref, a leading preview, and the retrieval instruction. A
+// result the store already held says so, because a model that re-reads a file
+// it has already paged through will otherwise page through it again (#109).
+func (o *OffloadingSource) stub(ref, text string, seen bool) string {
+	if seen {
+		return fmt.Sprintf("[tool result %dB, stored as %s]\nThis is identical to an earlier result stored under the same ref. If you already read it in this conversation, nothing has changed and you don't need to read it again. Otherwise call %s(ref=%q) — add offset+limit for a window, or pattern to grep.",
+			len(text), ref, ReadToolResultName, ref)
+	}
 	preview := text
 	truncated := false
 	if len(preview) > o.cfg.PreviewLen {
@@ -312,13 +317,12 @@ func grepLines(lines []string, re *regexp.Regexp, ctx, limit int, ref, pattern s
 	return strings.Join(out, "\n")
 }
 
-// newResultRef mints an opaque, collision-resistant ref for a stored
-// result. 4 random bytes (8 hex chars) is ample within one store's
-// lifetime; the store never relies on ref structure.
-func newResultRef() (string, error) {
-	var b [4]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return "", err
-	}
-	return "res:" + hex.EncodeToString(b[:]), nil
+// contentRef names a stored result by its content, so the same output stored
+// twice, which is what re-reading an unchanged file produces, lands on one ref
+// and the second stub can say it was seen before. 48 bits of SHA-256, the
+// width ext/files uses for its file hashes: enough that two different results
+// in one store don't collide by accident.
+func contentRef(text string) string {
+	sum := sha256.Sum256([]byte(text))
+	return "res:" + hex.EncodeToString(sum[:6])
 }

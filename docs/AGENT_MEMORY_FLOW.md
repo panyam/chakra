@@ -79,7 +79,7 @@ The stores are the easy 20% (they look like `RunStore`). The other 80% is policy
 
 - **RAG is the semantic layer.** Retrieve chunks then inject is the *same machinery* as semantic recall (`Embedder` + `VectorStore`). It is not a separate primitive; it falls out of the memory seams.
 - **RAG today.** The shift is from "pre-baked top-k every turn" to *retrieval as a tool the agent calls* (the Tools path). Large context windows plus offloading erode classic RAG; it still wins when the corpus is larger than the context window, or for freshness, citations, and cost.
-- **Offloading (issue 966).** Extends the *episodic* layer with on-demand reads (`read_tool_result`). Lossless and pay-per-lookup — it shrinks how much the lossy layers ever have to guess, which is why it is the right opener before full memory.
+- **Offloading (issue 966).** Extends the *episodic* layer with on-demand reads (`read_tool_result`). Lossless and pay-per-lookup — it shrinks how much the lossy layers ever have to guess, which is why it is the right opener before full memory. Refs are named by content (chakra#109), so the same output stored twice lands on one ref and the second stub tells the model it has seen this before. Re-reading an unchanged file was the main repeat cost in the dogfood runs.
 
 ## Prior art & interface extensibility
 
