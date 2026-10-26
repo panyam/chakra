@@ -517,13 +517,14 @@ func parseToolRule(s string) (agent.ToolRule, bool) {
 // buildApproval turns the config into a live policy whose ask seam presents
 // through the shared elicitation coordinator. Returns nil when no approval is
 // configured (the Runner then runs every call).
-func (c *ApprovalConfig) buildApproval(confirm agent.AskFunc) *agent.TieredApproval {
+func (c *ApprovalConfig) buildApproval(confirm agent.AskFunc, choose agent.ChooseFunc) *agent.TieredApproval {
 	if c == nil {
 		return nil
 	}
 	opts := []agent.TieredOption{
 		agent.WithDefaultMode(parseApprovalMode(c.Mode)),
 		agent.WithAsk(confirm),
+		agent.WithChooser(choose),
 		agent.WithRememberApprovals(c.Remember),
 	}
 	for tool, r := range c.Rules {

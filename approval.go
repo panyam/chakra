@@ -57,6 +57,34 @@ const (
 // AskFunc makes every ask resolve to a refusal (fail-closed).
 type AskFunc func(ctx context.Context, info ToolCallInfo) (bool, error)
 
+// ChooseFunc answers an ask with more than yes or no: it may approve part of
+// a call, such as some of an edit's hunks. It runs where the AskFunc would and
+// replaces it for any call it claims, so the user is still asked once. It does
+// its own presenting, which is why it is a separate seam rather than a richer
+// AskFunc: the gate cannot know what a "part" of an arbitrary call is.
+type ChooseFunc func(ctx context.Context, info ToolCallInfo) (Choice, error)
+
+// Choice is a ChooseFunc's answer about one call.
+type Choice struct {
+	// Claimed false means the chooser has nothing to say about this call, and
+	// the gate falls back to the AskFunc. The other fields are ignored.
+	Claimed bool
+
+	// Approved false declines the whole call, as a refused ask does.
+	Approved bool
+
+	// Args, when non-empty, replaces the call's arguments with the part the
+	// user approved. Only the arguments can change. The tool and call ID stay
+	// what the model asked for, so a chooser can narrow a call but not turn
+	// it into a different one.
+	Args core.RawJSON
+
+	// Note is appended to the tool result as a text block, so the model can
+	// tell the user what was left out ("hunk 2 declined by the user") instead
+	// of reporting the narrowed call as if it were the one it made.
+	Note string
+}
+
 // TieredApproval is the batteries-included permission gate: a default mode, a
 // map of per-tool rules that override it, an optional ask seam, and an
 // optional session-scoped cache that remembers a tool the user approved so
@@ -66,6 +94,7 @@ type TieredApproval struct {
 	mode     ApprovalMode
 	rules    map[string]ToolRule
 	ask      AskFunc
+	choose   ChooseFunc
 	remember bool
 
 	mu         sync.Mutex
@@ -91,6 +120,12 @@ func WithToolRule(tool string, rule ToolRule) TieredOption {
 // coord.Confirm to route asks through the shared ElicitationCoordinator.
 func WithAsk(ask AskFunc) TieredOption {
 	return func(t *TieredApproval) { t.ask = ask }
+}
+
+// WithChooser supplies the seam that can approve part of a call. A call it
+// claims is decided by it alone; everything else still goes to the AskFunc.
+func WithChooser(choose ChooseFunc) TieredOption {
+	return func(t *TieredApproval) { t.choose = choose }
 }
 
 // WithRememberApprovals turns on the session cache: once the user approves a
@@ -137,9 +172,10 @@ func (t *TieredApproval) DefaultMode() ApprovalMode {
 // AskFunc wired) denies with a Reason; the Runner feeds that back to the model
 // and continues the turn.
 //
-// It never rewrites arguments. A gate decides, it does not edit, and leaving
-// the rewrite to other hooks is what lets this one run last and still see
-// exactly what will execute.
+// It rewrites arguments only when a ChooseFunc narrows a call to the part the
+// user approved. Every other rewrite is left to earlier middleware, which is
+// what lets this one run last and still see exactly what will execute; the one
+// exception is the user's own answer, and what runs is what they chose.
 func (t *TieredApproval) WrapToolCall(ctx context.Context, info ToolCallInfo, next ToolCallFunc) (*core.ToolResult, error) {
 	t.mu.Lock()
 	mode := t.mode
@@ -179,6 +215,15 @@ func (t *TieredApproval) WrapToolCall(ctx context.Context, info ToolCallInfo, ne
 }
 
 func (t *TieredApproval) doAsk(ctx context.Context, info ToolCallInfo, next ToolCallFunc) (*core.ToolResult, error) {
+	if t.choose != nil {
+		c, err := t.choose(ctx, info)
+		if err != nil {
+			return nil, err
+		}
+		if c.Claimed {
+			return t.doChoice(ctx, info, c, next)
+		}
+	}
 	if t.ask == nil {
 		return nil, DenyTool("no approval UI available")
 	}
@@ -195,4 +240,31 @@ func (t *TieredApproval) doAsk(ctx context.Context, info ToolCallInfo, next Tool
 		t.mu.Unlock()
 	}
 	return next(ctx, info)
+}
+
+// doChoice runs what a ChooseFunc approved. Only a whole approval is
+// remembered: a user who accepted part of one call has not agreed to every
+// future call to that tool.
+func (t *TieredApproval) doChoice(ctx context.Context, info ToolCallInfo, c Choice, next ToolCallFunc) (*core.ToolResult, error) {
+	if !c.Approved {
+		reason := "declined by user"
+		if c.Note != "" {
+			reason += ": " + c.Note
+		}
+		return nil, DenyTool(reason)
+	}
+	narrowed := len(c.Args.Raw()) > 0
+	if narrowed {
+		info.Call.Args = c.Args
+	} else if t.remember {
+		t.mu.Lock()
+		t.remembered[info.Call.Name] = true
+		t.mu.Unlock()
+	}
+	res, err := next(ctx, info)
+	if err != nil || res == nil || c.Note == "" {
+		return res, err
+	}
+	res.Content = append(res.Content, core.Content{Type: "text", Text: c.Note})
+	return res, nil
 }

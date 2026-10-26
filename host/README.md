@@ -90,6 +90,21 @@ execute**, after every middleware has rewritten the arguments, so what the user
 approves is what runs. And a renderer that returns an empty string is treated
 as having declined, because an empty prompt asks the user to confirm nothing.
 
+### Approving part of a call
+
+A renderer changes the question but the answer is still yes or no. For a call
+that has parts worth judging separately, such as the hunks of an edit, an
+extension can supply an `ApprovalChooser` instead. A chooser that claims a call
+replaces the yes/no ask for it: it presents its own form through the
+`present` it is handed (the same serialized elicitation seam, so it reaches
+every surface), and returns an `agent.Choice` saying whether to run the call,
+with what narrowed arguments, and a note for the model about what was left
+out. Choosers are consulted in registration order, the first claim wins, and
+the plain ask is the fallback.
+
+A surface that only shows accept and decline answers such a form with no
+fields, and a chooser should read that as approving the whole call.
+
 ## Input transforms
 
 An extension can rewrite what the user typed before the turn is built, which is

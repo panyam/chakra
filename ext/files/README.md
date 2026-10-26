@@ -236,6 +236,26 @@ A whole-file write shows a capped preview and says whether it creates or
 replaces, since those differ by whether anything is destroyed. Everything this
 package does not own falls through to the host default untouched.
 
+An edit with two or more hunks is asked about one hunk at a time, in a single
+form with every change ticked to start with. On the terminal that reads:
+
+```
+? Apply 3 changes to main.go? Untick any you don't want.
+
+Change 1:
+  - alpha
+  + ALPHA
+...
+  Apply change 1 (y/n): y
+  Apply change 2 (y/n): n
+  Apply change 3 (y/n): y
+```
+
+Only the ticked hunks are sent to `edit_file`, and since every anchor is
+resolved against the original content they land exactly where they would have
+with the others present. The model's tool result ends with a note naming the
+changes the user left out. A one-hunk edit keeps the plain yes/no question.
+
 ## Undo, and why there is no Reverser here
 
 An edit is checkpointable through `ext/checkpoint`, but this package
