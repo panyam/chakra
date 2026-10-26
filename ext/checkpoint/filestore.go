@@ -96,6 +96,12 @@ type entry struct {
 	// Kind is what was there at capture. Restore compares it against what is
 	// there now, and refuses when they disagree.
 	Kind kind `json:"kind"`
+
+	// Mode is a regular file's permission bits at capture, which restore puts
+	// back along with the content (#129). Zero means the manifest predates
+	// recording it; restore then keeps the mode of the file it replaces, or
+	// uses 0644 for one that was deleted.
+	Mode fs.FileMode `json:"mode,omitempty"`
 }
 
 // manifestVersion is the on-disk format. Version 1 replaced a bare
@@ -337,7 +343,14 @@ func (c *Checkpoint) Restore() (RestoreResult, error) {
 				cleanup()
 				return RestoreResult{}, fmt.Errorf("checkpoint: prepare %s: %w", dst, err)
 			}
-			tmp, err := c.store.stage(e.Hash, dst)
+			mode := e.Mode
+			if mode == 0 {
+				mode = 0o644
+				if now != nil {
+					mode = now.Mode().Perm()
+				}
+			}
+			tmp, err := c.store.stage(e.Hash, dst, mode)
 			if err != nil {
 				cleanup()
 				return RestoreResult{}, err
@@ -470,7 +483,7 @@ func (s *Store) capture(path string) (entry, error) {
 	if err != nil {
 		return entry{}, err
 	}
-	return entry{Hash: hash, Kind: kindRegular}, nil
+	return entry{Hash: hash, Kind: kindRegular, Mode: info.Mode().Perm()}, nil
 }
 
 // putFile stores a file's content and returns its hash. An already-stored
@@ -502,8 +515,9 @@ func (s *Store) putFile(path string) (string, error) {
 
 // stage copies a blob to a temp file beside dst, ready to be renamed into
 // place. Beside rather than in the system temp dir so the rename stays within
-// one filesystem and cannot degrade into a copy.
-func (s *Store) stage(hash, dst string) (string, error) {
+// one filesystem and cannot degrade into a copy. The staged file gets mode,
+// since the rename keeps the staged file's permissions rather than the old file's.
+func (s *Store) stage(hash, dst string, mode fs.FileMode) (string, error) {
 	src, err := os.Open(s.blobPath(hash))
 	if err != nil {
 		return "", fmt.Errorf("checkpoint: blob for %s is missing: %w", dst, err)
@@ -515,6 +529,13 @@ func (s *Store) stage(hash, dst string) (string, error) {
 		return "", fmt.Errorf("checkpoint: stage %s: %w", dst, err)
 	}
 	if _, err := io.Copy(tmp, src); err != nil {
+		tmp.Close()
+		os.Remove(tmp.Name())
+		return "", fmt.Errorf("checkpoint: stage %s: %w", dst, err)
+	}
+	// CreateTemp makes the file 0600, and the rename that follows keeps
+	// whatever the staged file has, so the mode is set here or not at all.
+	if err := tmp.Chmod(mode); err != nil {
 		tmp.Close()
 		os.Remove(tmp.Name())
 		return "", fmt.Errorf("checkpoint: stage %s: %w", dst, err)

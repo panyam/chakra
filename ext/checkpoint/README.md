@@ -61,7 +61,7 @@ cp.Add("/work/src/a.go", "/work/src/b.go")   // captures current content
 cp.Restore()                                  // back to what Add saw
 ```
 
-Four behaviours worth knowing:
+Five behaviours worth knowing:
 
 - **First capture wins.** Re-adding a path already in the checkpoint is a
   no-op, so the checkpoint holds the state at the start of the turn. Capturing
@@ -75,6 +75,10 @@ Four behaviours worth knowing:
   again: restoring the same checkpoint twice reaches the same state, and the
   manifest is never consumed.
 - **A path that changed shape is refused, not restored.** See below.
+- **Permissions come back with the content.** Each file's mode is recorded at
+  capture, so a restored script keeps its executable bit (#129; before that
+  everything came back 0600). A checkpoint written before modes were recorded
+  keeps the mode of the file it replaces, and recreates a deleted one as 0644.
 
 Paths are absolute, so a checkpoint is valid on the machine that took it and
 is not portable off it.
