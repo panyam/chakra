@@ -552,6 +552,7 @@ func TestAppInjectsVerifiedSkills(t *testing.T) {
 	var out strings.Builder
 	cfg := testConfig(ts.URL)
 	cfg.Instructions = "base prompt"
+	cfg.Servers[0].SkillsMode = "eager" // the opt-in that injects bodies; catalog is the default (#50)
 	app, err := NewApp(cfg, &out, strings.NewReader(""), WithProvider(stub))
 	if err != nil {
 		t.Fatal(err)

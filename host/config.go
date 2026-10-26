@@ -523,7 +523,7 @@ func parseToolRule(s string) (agent.ToolRule, bool) {
 // buildApproval turns the config into a live policy whose ask seam presents
 // through the shared elicitation coordinator. Returns nil when no approval is
 // configured (the Runner then runs every call).
-func (c *ApprovalConfig) buildApproval(confirm agent.AskFunc, choose agent.ChooseFunc) *agent.TieredApproval {
+func (c *ApprovalConfig) buildApproval(confirm agent.AskFunc, choose agent.ChooseFunc, key agent.RememberKeyFunc) *agent.TieredApproval {
 	if c == nil {
 		return nil
 	}
@@ -532,6 +532,7 @@ func (c *ApprovalConfig) buildApproval(confirm agent.AskFunc, choose agent.Choos
 		agent.WithAsk(confirm),
 		agent.WithChooser(choose),
 		agent.WithRememberApprovals(c.Remember),
+		agent.WithRememberKey(key),
 	}
 	for tool, r := range c.Rules {
 		if rule, ok := parseToolRule(r); ok {
@@ -605,12 +606,13 @@ type ServerConfig struct {
 	// false opts out even when the server advertises skills.
 	Skills *bool `json:"skills,omitempty"`
 
-	// SkillsMode selects how enabled skills enter context: "eager" (full
-	// SKILL.md bodies in the system prompt), "catalog" (only name +
-	// description; bodies fetched on demand via the load_skill tool), or ""
-	// (auto — eager below a small skill count, catalog at/above). Progressive
-	// disclosure keeps a large skill set from bloating every request. Ignored
-	// when Skills is false.
+	// SkillsMode selects how enabled skills enter context: "catalog" (the
+	// default: only name + description; bodies fetched on demand via the
+	// load_skill tool) or "eager" (full SKILL.md bodies in the system prompt).
+	// Eager fetches every skill at connect, which SEP-2640 forbids ("Hosts
+	// MUST NOT retrieve a skill's files ahead of need"), so it is an opt-in
+	// that accepts that violation, for a server you trust and a host that
+	// wants the bodies up front. Ignored when Skills is false.
 	//
 	// Mode is also the trust lever for a lower-trust skills server. Skills are
 	// data, not code (ext/skills is enforced no-exec), so the risk they carry

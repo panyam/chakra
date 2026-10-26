@@ -362,11 +362,10 @@ Each assumes a local OpenAI-compatible model on `localhost:1234`.
 fixture, then `go run . --model <m> --url http://localhost:18099/mcp`. A
 server's SKILL.md skills are discovered and (digest-verified) enter the system
 prompt. A per-server `"skillsMode"` in the config picks how: `"eager"`
-injects full bodies, `"catalog"` injects only name + description and exposes a
-`load_skill(name)` tool that fetches (and verifies) a body on demand, and `""`
-auto-selects (eager for a few skills, catalog once a server advertises many —
-progressive disclosure keeps a large skill set off every request). `"skills":
-false` opts a server out entirely.
+injects full bodies, and `"catalog"` (the default) injects only name +
+description and exposes a `load_skill(name)` tool that fetches (and verifies) a
+body on demand. SEP-2640 forbids fetching a skill ahead of need, so `"eager"` is
+an explicit opt-in. `"skills": false` opts a server out entirely.
 
 **Auth example** (`examples/auth`): start its server, export the token it
 mints, and connect with `authTokenEnv`. The bearer flows through

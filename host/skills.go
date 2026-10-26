@@ -2,6 +2,8 @@ package host
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -11,11 +13,6 @@ import (
 	"github.com/panyam/mcpkit/core"
 	skills "github.com/panyam/mcpkit/ext/skills"
 )
-
-// defaultCatalogThreshold is the skill count at/above which auto mode ("")
-// switches a server from eager full-body injection to the catalog + load_skill
-// two-tier scheme, so a large skill set doesn't bloat every request.
-const defaultCatalogThreshold = 10
 
 // skillLoaderSourceID is the MultiSource id the on-demand load_skill tool
 // registers under (distinct from any per-server id).
@@ -116,18 +113,15 @@ func resolveCatalogSkill(cat []catalogSkill, name, server string) (*catalogSkill
 	return nil, origins
 }
 
-// resolveSkillsMode maps the config mode to "eager" or "catalog". An explicit
-// value wins; "" auto-selects by skill count against defaultCatalogThreshold.
-func resolveSkillsMode(mode string, entries []skills.SkillEntry) string {
-	switch mode {
-	case "eager", "catalog":
-		return mode
-	default:
-		if len(entries) >= defaultCatalogThreshold {
-			return "catalog"
-		}
+// resolveSkillsMode maps the config mode to "eager" or "catalog". Anything
+// but an explicit "eager" is catalog: SEP-2640 says a host MUST NOT fetch a
+// skill's files ahead of need, and eager fetches every SKILL.md at connect
+// (#50). It used to be the default below ten skills.
+func resolveSkillsMode(mode string) string {
+	if mode == "eager" {
 		return "eager"
 	}
+	return "catalog"
 }
 
 // filterSkillsAllow narrows a listing to only the entries whose Name is in the
@@ -173,7 +167,7 @@ func loadSkillsForServer(c *client.Client, serverID, mode string, skillsAllow []
 	}
 	entries = filterSkillsAllow(entries, skillsAllow)
 
-	if resolveSkillsMode(mode, entries) == "catalog" {
+	if resolveSkillsMode(mode) == "catalog" {
 		var cat []catalogSkill
 		for _, e := range entries {
 			cat = append(cat, catalogSkill{serverID: serverID, client: sc, entry: e})
@@ -239,6 +233,15 @@ func (a *App) registerLoadSkill(multi *agent.MultiSource) error {
 				}
 			}
 			res, err := match.client.ReadFromEntry(ctx, match.entry, match.entry.URI)
+			if errors.Is(err, skills.ErrSizeMismatch) || errors.Is(err, skills.ErrDigestMismatch) {
+				// The server changed the skill since it was listed and the
+				// host hasn't caught up yet. The content is refused, as it
+				// must be. Re-read the listing now so the next load sees the
+				// new entry, and is asked about it, rather than waiting for a
+				// list_changed that may still be on its way.
+				a.refreshSkills(match.serverID)
+				return "skill " + name + " changed on server " + match.serverID + " since it was listed, so this copy was refused. The host is re-reading it; call load_skill again to load the new version.", nil
+			}
 			if err != nil {
 				return "", err
 			}
@@ -278,6 +281,9 @@ func (a *App) onServerSkills(sc ServerConfig, c *client.Client) {
 		return
 	}
 	collisions, registerLoader := a.skills.add(sc.ID, block, cat)
+	if a.skills.watch(sc.ID) {
+		a.watchSkills(sc, c)
+	}
 
 	// Surface cross-origin name collisions (SEP-2640 SHOULD): the load_skill
 	// handler already refuses to silently shadow, but the user deserves to know.
@@ -331,4 +337,78 @@ func (a *App) defaultPromptBuilder() *SystemPromptBuilder {
 // order, for the load_skill lookup.
 func (a *App) allCatalogSkills() []catalogSkill {
 	return a.skills.allCatalog()
+}
+
+// rememberKey is what a remembered approval of a call covers. For most tools
+// it is the tool name. For load_skill it is the skill and its exact files,
+// because SEP-2640 binds an approval to the entry's resources set (every uri
+// and digest) at the moment of approval: when the set changes, the approval
+// is revoked and the user is asked again (#50). A skill whose resources are
+// "dynamic" can't be bound to content, so it is never remembered, and neither
+// is a load_skill call that names no skill the host knows.
+func (a *App) rememberKey(info agent.ToolCallInfo) (string, bool) {
+	if info.Call.Name != "load_skill" {
+		return info.Call.Name, true
+	}
+	var in loadSkillArgs
+	if err := info.Call.Args.Bind(&in); err != nil {
+		return "", false
+	}
+	match, _ := resolveCatalogSkill(a.allCatalogSkills(), strings.TrimSpace(in.Name), strings.TrimSpace(in.Server))
+	if match == nil || match.entry.Resources.Dynamic {
+		return "", false
+	}
+	files := make([]string, 0, len(match.entry.Resources.Files))
+	for _, f := range match.entry.Resources.Files {
+		files = append(files, f.URI+" "+f.Digest)
+	}
+	sort.Strings(files)
+	return "load_skill\x00" + match.serverID + "\x00" + match.entry.URI + "\x00" + strings.Join(files, "\x00"), true
+}
+
+// watchSkills re-lists a server's skills when it announces
+// notifications/resources/list_changed, which mcpkit's skills provider sends
+// when a skill's files change. Without it the host keeps the entry from
+// connect, so after a rotation the new body fails verification against the
+// old digest and the user is never asked about the new content (#50, #115).
+// Re-listing replaces the server's catalog, and since load_skill approvals
+// are keyed on the entry's files (rememberKey), a changed skill is asked
+// about again.
+//
+// The notification arrives on the session wire through the client's
+// notification callback, and on the stateless wire only on a
+// subscriptions/listen stream asking for resourcesListChanged. Each wire
+// delivers on one, so registering both can't refresh twice.
+func (a *App) watchSkills(sc ServerConfig, c *client.Client) {
+	refresh := func() {
+		// Notification callbacks run on the client's reader goroutine, and a
+		// re-list is a round trip.
+		go a.onServerSkills(sc, c)
+	}
+	a.listWatch.set(sc.ID, resourcesListChanged, refresh)
+	_, err := c.Listen(a.watchCtx, client.ListenOptions{
+		Notifications: core.ListChangedFilter(core.SubscriptionFilterResourcesListChanged),
+		Handlers: map[string]func(json.RawMessage){
+			resourcesListChanged: func(json.RawMessage) { refresh() },
+		},
+	})
+	if err != nil && !errors.Is(err, client.ErrListenNeedsStatelessWire) {
+		a.emit(HostEvent{Kind: HostSessionWarn, Err: fmt.Sprintf("skills list_changed on %s: %v", sc.ID, err)})
+	}
+}
+
+// resourcesListChanged is the notification a server sends when its resources,
+// skills included, change.
+const resourcesListChanged = "notifications/resources/list_changed"
+
+// refreshSkills re-lists one server's skills in the background.
+func (a *App) refreshSkills(serverID string) {
+	for _, sc := range a.cfg.Servers {
+		if sc.ID == serverID {
+			if c := a.clientByID(serverID); c != nil {
+				go a.onServerSkills(sc, c)
+			}
+			return
+		}
+	}
 }

@@ -2,7 +2,6 @@ package host
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -20,25 +19,18 @@ func skillEntry(name, uri string, desc ...string) skills.SkillEntry {
 	return skills.SkillEntry{URI: uri, Frontmatter: fm}
 }
 
+// SEP-2640: a host MUST NOT fetch a skill's files ahead of need, so the
+// default is catalog at any skill count (#50). Eager below ten skills used to
+// be the default; it is now only what a config that asks for it gets.
 func TestResolveSkillsMode(t *testing.T) {
-	small := []skills.SkillEntry{skillEntry("a", "")}
-	var entries []skills.SkillEntry
-	for i := 0; i < defaultCatalogThreshold; i++ {
-		entries = append(entries, skillEntry(fmt.Sprintf("s%d", i), ""))
+	if got := resolveSkillsMode(""); got != "catalog" {
+		t.Fatalf("default mode = %q, want catalog", got)
 	}
-	big := entries
-
-	if resolveSkillsMode("", small) != "eager" {
-		t.Fatal("auto below threshold should be eager")
+	if got := resolveSkillsMode("catalog"); got != "catalog" {
+		t.Fatalf("explicit catalog = %q", got)
 	}
-	if resolveSkillsMode("", big) != "catalog" {
-		t.Fatal("auto at/above threshold should be catalog")
-	}
-	if resolveSkillsMode("catalog", small) != "catalog" {
-		t.Fatal("explicit catalog should win over auto")
-	}
-	if resolveSkillsMode("eager", big) != "eager" {
-		t.Fatal("explicit eager should win over auto")
+	if got := resolveSkillsMode("eager"); got != "eager" {
+		t.Fatalf("explicit eager = %q, want it honoured as an opt-in", got)
 	}
 }
 
