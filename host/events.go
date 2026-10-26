@@ -3,28 +3,45 @@ package host
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/panyam/chakra"
+	"github.com/panyam/mcpkit/client"
 	"github.com/panyam/mcpkit/core"
 	"github.com/panyam/mcpkit/experimental/ext/events"
+	eventsclient "github.com/panyam/mcpkit/experimental/ext/events/clients/go"
 )
 
-// onServerEvents opens one events/stream per configured event on a server that
-// just became ready. Each stream delivers on its own buffered channel
+// onServerEvents reads a server's event types for their advertised hints and
+// opens one events/stream per configured event, when the server has just
+// become ready. Each stream delivers on its own buffered channel
 // (eventsclient.StreamChan), gets a per-stream adapter goroutine tagging
 // occurrences with the server id, and merges into one consumer feed via
 // gocurrent's FanIn. Per-stream buffers isolate backpressure: one noisy stream
 // drops its own events (warned), never a sibling's.
 func (a *App) onServerEvents(sc ServerConfig) {
-	if a.streams.fanIn == nil || len(sc.Events) == 0 {
+	if a.streams.fanIn == nil {
 		return
 	}
-	// Called from the ready-observer, so a server that connects after boot has
-	// its event streams subscribed with no restart. openSubscription is
-	// idempotent (dedup by server:name), and a failure degrades to a warning.
+	if c := a.clientByID(sc.ID); c != nil {
+		if _, ok := c.ServerExtensionCapability(events.ExtensionID); ok {
+			a.discoverEventHints(sc.ID, c)
+			a.watchEventTypes(sc, c)
+		}
+	}
+	a.subscribeConfigured(sc)
+}
+
+// subscribeConfigured opens the server's configured event streams. Called
+// from the ready-observer, so a server that connects after boot has its
+// streams subscribed with no restart, and again after events/list_changed,
+// so a configured event type the server adds later gets subscribed too.
+// openSubscription is idempotent (dedup by server:name), and a failure
+// degrades to a warning.
+func (a *App) subscribeConfigured(sc ServerConfig) {
 	for _, ec := range sc.Events {
 		if _, err := a.openSubscription(a.streams.ctx, sc.ID, ec.Name); err != nil {
 			a.emit(HostEvent{Kind: HostSessionWarn, Err: fmt.Sprintf("events/stream %s on %s: %v", ec.Name, sc.ID, err)})
@@ -141,4 +158,79 @@ func adaptEvent(serverID string, ev events.Event) agent.IncomingEvent {
 		Data:   core.NewRawJSON(json.RawMessage(ev.Data)),
 		Meta:   ev.Meta,
 	}
+}
+
+// discoverEventHints lists the server's event types and installs the context
+// hint each one advertises in its _meta (#81), so a server-declared hint
+// applies with no host configuration. A hint in host config still wins. A
+// server whose events/list fails just keeps whatever hints it had: hints are
+// advisory, and a host that can't read them still delivers the events.
+func (a *App) discoverEventHints(serverID string, c *client.Client) {
+	defs, err := listEventDefs(a.streams.ctx, c)
+	if err != nil {
+		a.emit(HostEvent{Kind: HostSessionWarn, Err: fmt.Sprintf("events/list on %s: %v", serverID, err)})
+		return
+	}
+	for _, d := range defs {
+		if h, ok := agent.HintFromMeta(d.Meta); ok {
+			a.injection.SetHint(d.Name, h)
+		}
+	}
+}
+
+// watchEventTypes re-reads a server's event types when it announces
+// notifications/events/list_changed, so a new or revised event type takes
+// effect without a restart. The notification arrives two ways depending on
+// the wire: on the session wire through the client's notification callback
+// (listWatch), and on the stateless wire only on a subscriptions/listen
+// stream, which WatchListChanged opens. Registering both is harmless, since
+// each wire delivers on one of them.
+func (a *App) watchEventTypes(sc ServerConfig, c *client.Client) {
+	refresh := func() {
+		// The callback runs on the client's reader goroutine, and a refresh
+		// makes a round trip, so it runs on its own.
+		go func() {
+			a.discoverEventHints(sc.ID, c)
+			a.subscribeConfigured(sc)
+		}()
+	}
+	a.listWatch.set(sc.ID, eventsListChanged, refresh)
+	if _, err := eventsclient.WatchListChanged(a.streams.ctx, c, refresh); err != nil && !errors.Is(err, client.ErrListenNeedsStatelessWire) {
+		a.emit(HostEvent{Kind: HostSessionWarn, Err: fmt.Sprintf("events list_changed on %s: %v", sc.ID, err)})
+	}
+}
+
+// eventsListChanged is the notification a server sends when its event types
+// change. mcpkit's events package broadcasts it by this literal.
+const eventsListChanged = "notifications/events/list_changed"
+
+// listEventDefs reads every page of a server's events/list. mcpkit has no
+// typed client call for it yet, so this decodes the wire shape into its
+// EventDef, as mcpkit's own events bridge does.
+func listEventDefs(ctx context.Context, c *client.Client) ([]events.EventDef, error) {
+	var all []events.EventDef
+	cursor := ""
+	for range 100 {
+		params := map[string]any{}
+		if cursor != "" {
+			params["cursor"] = cursor
+		}
+		res, err := c.Call(ctx, "events/list", params)
+		if err != nil {
+			return nil, err
+		}
+		var page struct {
+			Events     []events.EventDef `json:"events"`
+			NextCursor string            `json:"nextCursor"`
+		}
+		if err := json.Unmarshal(res.Raw, &page); err != nil {
+			return nil, fmt.Errorf("decode events/list: %w", err)
+		}
+		all = append(all, page.Events...)
+		if page.NextCursor == "" {
+			return all, nil
+		}
+		cursor = page.NextCursor
+	}
+	return nil, fmt.Errorf("events/list did not finish after 100 pages")
 }

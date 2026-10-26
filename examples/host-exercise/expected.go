@@ -9,8 +9,6 @@ var expectedFailures = map[outcomeKey]string{
 	{"no-prefetch", "stateless"}:    "#50",
 	{"skill-rotation", "legacy"}:    "#50",
 	{"skill-rotation", "stateless"}: "#50",
-	{"event-hint", "legacy"}:        "#81",
-	{"event-hint", "stateless"}:     "#81",
 }
 
 type outcomeKey struct{ check, wire string }

@@ -113,9 +113,9 @@ type App struct {
 	connections    *ConnectionRegistry
 	providerSwitch *providerSwitch
 
-	// agentWatch routes each server's notifications/agents/list_changed to
-	// the cache discovery built for it. See agentWatchers.
-	agentWatch agentWatchers
+	// listWatch routes each server's list_changed notifications (agents,
+	// events) to the state discovery built for it. See listWatchers.
+	listWatch listWatchers
 
 	// extensions are the registered Extensions, retained past construction
 	// so per-turn lifecycle (TurnStart) can reach them.
@@ -384,7 +384,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 			client.WithTasksExtension(),
 			client.WithElicitationHandler(coord.Handler()),
 			client.WithToolsListChangedHandler(multi.Invalidate),
-			client.WithNotificationCallback(app.agentWatch.notify(sc.ID)),
+			client.WithNotificationCallback(app.listWatch.notify(sc.ID)),
 			client.WithTracerProvider(o.tp),
 		}
 		authOpt, loginSrc, err := authOption(sc, o.browserOpener)
@@ -412,6 +412,9 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	for _, sc := range cfg.Servers {
 		app.metaTools = app.metaTools || len(sc.Events) > 0
 	}
+	// Before the group starts: a server that is ready at once installs its
+	// event hints from the ready-observer, which needs the policy to exist.
+	app.injection = agent.NewEventInjectionPolicy(agent.EventInjectionConfig{Hints: hintOverrides(cfg)})
 	if app.metaTools {
 		app.streams.ctx, app.streams.stop = context.WithCancel(context.Background())
 		app.streams.fanIn = gocurrent.NewFanIn[agent.IncomingEvent]()
@@ -484,7 +487,6 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 		app.failover = fo
 	}
 
-	app.injection = agent.NewEventInjectionPolicy(agent.EventInjectionConfig{Hints: hintOverrides(cfg)})
 	app.triggers = agent.NewTriggerPolicy(agent.TriggerPolicyConfig{
 		Bindings: buildTriggerBindings(cfg.Triggers),
 		Logger:   o.logger,

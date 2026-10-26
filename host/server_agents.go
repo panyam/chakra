@@ -100,7 +100,7 @@ func (a *App) registerServerAgents(multi *agent.MultiSource, models agentModels,
 			a.emit(HostEvent{Kind: HostSessionWarn, Err: fmt.Sprintf("register agents for %s: %v", sc.ID, err)})
 			continue
 		}
-		a.agentWatch.set(sc.ID, func() {
+		a.listWatch.set(sc.ID, agents.NotificationListChanged, func() {
 			cache.Invalidate()
 			multi.Invalidate()
 		})
@@ -132,37 +132,33 @@ func serverDeclaresAgentsListChanged(c *client.Client) bool {
 	return v
 }
 
-// agentWatchers routes notifications/agents/list_changed to the server that
-// sent it. The hook has to exist when the client is built, before discovery
-// has made the cache it invalidates, so the client's notification callback
-// looks the handler up here by server id. chakra's clients use the session
-// wire, where the notification arrives on the GET stream through
-// client.WithNotificationCallback rather than a subscriptions/listen stream,
-// so agentsclient.WatchListChanged does not apply.
-type agentWatchers struct {
+// listWatchers routes a server's list_changed notifications (agents, events)
+// to the handler registered for that server and method. The hook has to exist
+// when the client is built, before discovery has made the state it refreshes,
+// so the client's notification callback looks the handler up here. chakra's
+// clients use the session wire, where these arrive on the GET stream through
+// client.WithNotificationCallback; on the stateless wire an extension's own
+// subscriptions/listen helper delivers them instead (see watchEventTypes).
+type listWatchers struct {
 	mu sync.Mutex
-	by map[string]func()
+	by map[string]func() // serverID + " " + method
 }
 
-func (w *agentWatchers) set(serverID string, fn func()) {
+func (w *listWatchers) set(serverID, method string, fn func()) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.by == nil {
 		w.by = map[string]func(){}
 	}
-	w.by[serverID] = fn
+	w.by[serverID+" "+method] = fn
 }
 
 // notify returns the client notification callback for one server. It runs on
-// the client's reader goroutine, and the handler it calls only drops cached
-// state, so it never blocks.
-func (w *agentWatchers) notify(serverID string) func(method string, params any) {
+// the client's reader goroutine, so a handler must not block.
+func (w *listWatchers) notify(serverID string) func(method string, params any) {
 	return func(method string, _ any) {
-		if method != agents.NotificationListChanged {
-			return
-		}
 		w.mu.Lock()
-		fn := w.by[serverID]
+		fn := w.by[serverID+" "+method]
 		w.mu.Unlock()
 		if fn != nil {
 			fn()

@@ -128,12 +128,16 @@ type InjectedContext struct {
 type EventInjectionPolicy struct {
 	cfg EventInjectionConfig
 
-	mu      sync.Mutex
-	windows map[string]stage[IncomingEvent]
-	pending []IncomingEvent
-	session map[string]IncomingEvent
-	sessOrd []string
-	dropped int
+	mu sync.Mutex
+	// discovered holds hints servers advertised (SetHint), apart from the
+	// host-config ones in cfg.Hints, so a server can revise its own hint
+	// while config still wins.
+	discovered map[string]ContextHint
+	windows    map[string]stage[IncomingEvent]
+	pending    []IncomingEvent
+	session    map[string]IncomingEvent
+	sessOrd    []string
+	dropped    int
 }
 
 // NewEventInjectionPolicy builds the policy.
@@ -188,23 +192,26 @@ func HintFromMeta(meta map[string]any) (ContextHint, bool) {
 	return h, true
 }
 
-// SetHint installs (or overrides) the hint for an event name at runtime,
-// e.g. from events/list discovery. Host-config entries passed at
-// construction still win: SetHint is a no-op for names already configured.
+// SetHint installs (or replaces) a server-advertised hint for an event name,
+// e.g. from events/list discovery. A later call for the same name replaces it,
+// which is how a server's revised hint takes effect after list_changed.
+// Host-config entries passed at construction still win over any of these.
 func (p *EventInjectionPolicy) SetHint(name string, h ContextHint) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if _, configured := p.cfg.Hints[name]; configured {
-		return
+	if p.discovered == nil {
+		p.discovered = map[string]ContextHint{}
 	}
-	if p.cfg.Hints == nil {
-		p.cfg.Hints = map[string]ContextHint{}
-	}
-	p.cfg.Hints[name] = h
+	p.discovered[name] = h
 }
 
+// hint resolves the hint for an event name: config first, then what a server
+// advertised. Callers hold p.mu.
 func (p *EventInjectionPolicy) hint(name string) ContextHint {
-	return p.cfg.Hints[name]
+	if h, ok := p.cfg.Hints[name]; ok {
+		return h
+	}
+	return p.discovered[name]
 }
 
 // Ingest feeds one event through the developer stages and into its
