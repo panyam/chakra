@@ -107,6 +107,28 @@ Ctrl-C cancels every open `Watch` and running turn, waits up to 3s for handlers
 to return, then closes what is left. There is no write timeout, because `Watch`
 lasts as long as a tab is open and `Submit` as long as a turn.
 
+## Deploy (App Engine)
+
+`make deploy-web` from the repo root deploys to the `vibestitch` App Engine
+project (`GCP_PROJECT=...` to change it), at https://vibestitch.uc.r.appspot.com.
+It runs the web tests, rebuilds the bundle, vendors the module (its go.mod
+replaces chakra and mcpkit with paths that don't exist once it's uploaded alone),
+deploys `app.yaml`, and removes `vendor/` again. `make weblogs` tails the logs.
+
+Things `app.yaml` settles, and why:
+
+- **One instance, basic scaling.** Sessions live in that instance's memory, so a
+  second instance wouldn't have them, and basic scaling allows long requests.
+- **`AGENTWEB_WATCH_WINDOW=3s`.** App Engine standard buffers each response
+  until it ends, so an open `Watch` never reaches the browser. With a window the
+  server ends each `Watch` after 3s and the client reconnects, passing
+  `resume_after` (the number of events it has applied) so the replay isn't
+  applied twice. Replies arrive in batches up to a few seconds late; the
+  Conversation panel shows a waiting cell from submit until the turn's done
+  event lands.
+- **`AGENTWEB_DEMO`, `AGENTWEB_ALLOW_ORIGIN`.** The environment stands in for
+  `--demo` and `--allow-origin`, and `$PORT` for `--addr`.
+
 ## Frontend (E4, issue 1197)
 
 The frontend lives in `web/` and follows the diffpp/Agni pattern: a server-rendered

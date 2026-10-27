@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/panyam/chakra/host"
@@ -31,6 +32,19 @@ import (
 type HostService struct {
 	webv1connect.UnimplementedHostServiceHandler
 	sessions *SessionManager
+	// watchWindow, when set, ends each Watch after this long. See WithWatchWindow.
+	watchWindow time.Duration
+}
+
+// Option configures a HostService.
+type Option func(*HostService)
+
+// WithWatchWindow ends each Watch stream after d, and the client reconnects
+// with its resume_after count. A host that buffers whole responses (App Engine
+// standard) never delivers a stream that stays open, so this turns Watch into
+// a long poll there. Zero, the default, keeps the stream open.
+func WithWatchWindow(d time.Duration) Option {
+	return func(s *HostService) { s.watchWindow = d }
 }
 
 // NewHostService wraps a single App as the default session with no factory, so
@@ -46,8 +60,12 @@ func NewHostService(app *host.App) *HostService {
 // NewHostServiceWithSessions bridges a SessionManager, so one server hosts many
 // concurrent conversations. The manager's default session backs the empty
 // session_id; CreateSession mints new ones from the manager's factory.
-func NewHostServiceWithSessions(mgr *SessionManager) *HostService {
-	return &HostService{sessions: mgr}
+func NewHostServiceWithSessions(mgr *SessionManager, opts ...Option) *HostService {
+	s := &HostService{sessions: mgr}
+	for _, o := range opts {
+		o(s)
+	}
+	return s
 }
 
 // appFor resolves a request's session_id to its App, or a Connect CodeNotFound
@@ -73,6 +91,9 @@ func (s *HostService) Watch(ctx context.Context, req *connect.Request[webv1.Watc
 		return err
 	}
 	ctx, cancel := context.WithCancel(ctx)
+	if s.watchWindow > 0 {
+		ctx, cancel = context.WithTimeout(ctx, s.watchWindow)
+	}
 	defer cancel()
 	// Open the stream immediately with a ready sentinel (empty kind). The
 	// Connect protocol flushes response headers on the first Send, so without
@@ -81,7 +102,12 @@ func (s *HostService) Watch(ctx context.Context, req *connect.Request[webv1.Watc
 	if err := stream.Send(&webv1.Frame{}); err != nil {
 		return err
 	}
+	skip := req.Msg.GetResumeAfter()
 	for ev := range app.Subscribe(ctx) {
+		if skip > 0 {
+			skip--
+			continue
+		}
 		if err := stream.Send(eventToFrame(ev)); err != nil {
 			return err
 		}

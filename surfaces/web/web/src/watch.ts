@@ -29,14 +29,18 @@ export function decodeFrame(frame: FrameLike): HostEvent | null {
 // WatchStream subscribes onto the host event log (HostService.Watch): the
 // retained backlog replayed from offset 0, then live events. It decodes each
 // Frame to a HostEvent and hands it to onEvent. On the stream ending or erroring
-// it re-subscribes with capped exponential backoff; because Watch always replays
-// from offset 0 a fresh subscription is safe, so no cursor is threaded here (the
-// consumer is expected to be idempotent over a replay, like the Conversation
-// store rebuilding from turn-done). Mirrors diffpp's RelayRoom reconnect.
+// it re-subscribes with capped exponential backoff, passing how many events it
+// has applied as resume_after so the server skips the replay it already saw.
+// The stores are not idempotent (a replayed turn-done pushes another assistant
+// cell), and a server with a watch window ends every stream on purpose, so the
+// count is what keeps a reconnect from doubling the transcript. Mirrors diffpp's
+// RelayRoom reconnect.
 export class WatchStream {
   private controller: AbortController | null = null;
   private closed = false;
   private retry = 0;
+  // applied counts kinded frames handed to onEvent, the server's resume_after.
+  private applied = 0;
   private timer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
@@ -53,7 +57,7 @@ export class WatchStream {
     if (this.closed) return;
     this.controller = new AbortController();
     try {
-      const iter = this.client.watch({}, { signal: this.controller.signal });
+      const iter = this.client.watch({ resumeAfter: BigInt(this.applied) }, { signal: this.controller.signal });
       let first = true;
       for await (const frame of iter) {
         if (first) {
@@ -61,6 +65,10 @@ export class WatchStream {
           this.onOpen();
           first = false;
         }
+        // Every kinded frame is one event in the server's count, decodable or
+        // not, so count it before decoding. The ready sentinel isn't an event.
+        if (!frame.kind) continue;
+        this.applied++;
         const ev = decodeFrame(frame);
         if (ev) this.onEvent(ev);
       }

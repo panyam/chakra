@@ -25,8 +25,8 @@ func Handler(app *host.App) http.Handler {
 // HandlerWithSessions is Handler for a multi-session server: it serves the same
 // mux over a SessionManager, so one server hosts many concurrent conversations
 // (empty session_id routes to the manager's default, CreateSession mints more).
-func HandlerWithSessions(mgr *SessionManager) http.Handler {
-	return handlerFor(NewHostServiceWithSessions(mgr))
+func HandlerWithSessions(mgr *SessionManager, opts ...Option) http.Handler {
+	return handlerFor(NewHostServiceWithSessions(mgr, opts...))
 }
 
 func handlerFor(svc *HostService) http.Handler {

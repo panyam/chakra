@@ -32,7 +32,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/h
 # explicitly and the platform's own backend refuses. See the module README.
 GOTESTFLAGS ?= -race -timeout 300s
 
-.PHONY: help build test test-examples test-web testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg dogfood dogfood-web \
+.PHONY: help build test test-examples test-web testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg dogfood dogfood-web deploy-web weblogs \
         check-no-binaries check-ext-isolation check-dep-consistency setup-hooks
 
 help: ## Show this help
@@ -204,3 +204,20 @@ setup-hooks: ## Install the local pre-commit and pre-push hooks
 	@cp scripts/pre-commit-hook.sh .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 	@cp scripts/pre-push-hook.sh .git/hooks/pre-push && chmod +x .git/hooks/pre-push
 	@echo "pre-commit + pre-push hooks installed."
+
+# App Engine project agentweb deploys to (https://vibestitch.appspot.com).
+GCP_PROJECT ?= vibestitch
+
+# Deploy agentweb to App Engine. The web module's go.mod replaces chakra and
+# mcpkit with relative paths that don't exist once the module is uploaded on
+# its own, so the deploy vendors them first (vendor/ is gitignored) and removes
+# vendor/ afterwards, whether or not the deploy worked. The web tests and a fresh
+# frontend build run first. surfaces/web/app.yaml has the instance settings.
+deploy-web: test-web ## Deploy agentweb to App Engine (GCP_PROJECT=vibestitch)
+	cd surfaces/web/web && npm run build
+	cd surfaces/web && go test ./... $(GOTESTFLAGS)
+	cd surfaces/web && go mod vendor && \
+		{ gcloud app deploy app.yaml --project $(GCP_PROJECT) --quiet; rc=$$?; rm -rf vendor; exit $$rc; }
+
+weblogs: ## Tail agentweb's App Engine logs
+	gcloud app logs tail -s default --project $(GCP_PROJECT)

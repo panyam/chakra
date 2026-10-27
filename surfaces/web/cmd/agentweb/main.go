@@ -18,6 +18,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/panyam/chakra"
 	"github.com/panyam/chakra/host"
@@ -27,16 +28,24 @@ import (
 )
 
 func main() {
-	addr := flag.String("addr", ":8090", "address to listen on")
+	// App Engine and similar hosts say which port to listen on through $PORT.
+	defaultAddr := ":8090"
+	if port := os.Getenv("PORT"); port != "" {
+		defaultAddr = ":" + port
+	}
+	addr := flag.String("addr", defaultAddr, "address to listen on (default :$PORT when PORT is set)")
 	configPath := flag.String("config", "", "path to a host config JSON (servers, model, policies)")
-	demo := flag.Bool("demo", false, "run over an offline streaming demo provider (no config needed)")
+	// A host that can't pass flags (App Engine's app.yaml sets env_variables)
+	// sets these two through AGENTWEB_DEMO and AGENTWEB_ALLOW_ORIGIN instead.
+	demo := flag.Bool("demo", os.Getenv("AGENTWEB_DEMO") != "", "run over an offline streaming demo provider (no config needed; default on when AGENTWEB_DEMO is set)")
 	sessionStore := flag.String("session-store", "", "session persistence backend: memory | sqlite://path.db | redis://host:port | postgres://user:pass@host:port/db (empty = off, sessions live only in memory)")
 	var workspace repeatedPath
 	flag.Var(&workspace, "workspace", "expose file tools (read/edit/write/list/search) confined to these directories, plus checkpoint /undo. Repeatable: a session that spans repositories passes each one. The first is primary (empty = off; there is no default directory on purpose)")
 	workspaceConfig := flag.String("workspace-config", "", "with --workspace, a JSON file adding the exec allowlist (commands the agent may run, sandboxed), language servers, and the repo map. See examples/dogfood/workspace.json")
 	noCheckpoint := flag.Bool("no-checkpoint", false, "with --workspace, skip the file snapshot taken before each write, disabling /undo and /checkpoints")
 	checkpointStore := flag.String("checkpoint-store", "", "with --workspace, where snapshots live (empty = under the first workspace directory). Worth setting so the store sits outside what the agent can read and edit")
-	allowOrigin := flag.String("allow-origin", "", "comma-separated origins, besides localhost, allowed to call the API (e.g. 192.168.1.5 to use agentweb from a phone on the LAN, or *.example.com)")
+	allowOrigin := flag.String("allow-origin", os.Getenv("AGENTWEB_ALLOW_ORIGIN"), "comma-separated origins, besides localhost, allowed to call the API (e.g. 192.168.1.5 to use agentweb from a phone on the LAN, or *.example.com)")
+	watchWindow := flag.Duration("watch-window", envDuration("AGENTWEB_WATCH_WINDOW"), "end each event stream after this long so the client reconnects (e.g. 3s). For hosts that buffer whole responses, such as App Engine standard; 0 keeps streams open")
 	active := flag.String("active", "", "override the active chat connection at startup (a name in the config's connections; default = the config's active)")
 	flag.Parse()
 
@@ -90,7 +99,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("agentweb: %v", err)
 	}
-	handler := originGuard(newOriginChecker(*allowOrigin), web.HandlerWithSessions(mgr))
+	handler := originGuard(newOriginChecker(*allowOrigin), web.HandlerWithSessions(mgr, web.WithWatchWindow(*watchWindow)))
 	fmt.Fprintf(os.Stderr, "agentweb serving at http://%s/ (Connect: /%s, Ctrl-C to stop)\n", *addr, "chakra.web.v1.HostService")
 	if *allowOrigin == "" && !isLoopback(*addr) {
 		fmt.Fprintf(os.Stderr, "note: only localhost pages may call the API; pass --allow-origin <this machine's address> to use it from another device\n")
@@ -100,6 +109,20 @@ func main() {
 	if err != nil {
 		log.Fatalf("agentweb: serve: %v", err)
 	}
+}
+
+// envDuration reads a duration from the environment, or 0 when unset. A
+// malformed value is fatal, so a typo in app.yaml doesn't quietly turn into 0.
+func envDuration(name string) time.Duration {
+	v := os.Getenv(name)
+	if v == "" {
+		return 0
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		log.Fatalf("agentweb: %s=%q: %v", name, v, err)
+	}
+	return d
 }
 
 // isLoopback reports whether addr only listens on the loopback interface.
