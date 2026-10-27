@@ -26,10 +26,15 @@ doesn't list says so as its main decision, and updates the page in the same PR.
 ## Issues and missions
 
 Work is ranked by the mission it serves, not by how recently it was filed. The active mission is
-#142 (`mission_api_v1`): chakra 1.0 has a reviewed, settled exported API. Its exercise is
-`make api-report` (added by #143), which diffs each module's exported symbols against a checked-in
-`api.txt` and fails on anything unreviewed. Run it after each merge on the mission and log the
-result on #142. Earlier missions: #57 (`mission_dogfood_coding`, `make dogfood`) and #89
+#162 (`mission_coding_harness`): a second coding agent, `agentcode`, built only by rewiring chakra
+(different tools, hooks, policies and provider, no new harness). Its exercise is
+`make coding-harness-exercise` (#163), which runs `agentcode` headless on a fixture repo with a
+failing test and prints PASS or FAIL per behaviour, with known failures pinned in
+`examples/agentcode/expected.go`; the `-live` variant also prints steps, tokens, wall time and
+whether the tests passed. Run it after each merge on the mission and log the result on #162.
+#142 (`mission_api_v1`, chakra 1.0 has a reviewed, settled exported API) is paused, not closed;
+its exercise is `make api-report` (#143), which diffs each module's exported symbols against a
+checked-in `api.txt`. Earlier missions: #57 (`mission_dogfood_coding`, `make dogfood`) and #89
 (`mission_host_completion`, `make host-exercise`) both closed when their exercises passed, and
 both exercises still run.
 
