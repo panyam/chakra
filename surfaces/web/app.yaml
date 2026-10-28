@@ -1,0 +1,26 @@
+# App Engine standard, deployed by `make deploy-web` from the repo root. The
+# runtime must be at least the go directive in go.mod.
+runtime: go126
+main: ./cmd/agentweb
+
+# One instance with basic scaling: sessions live in that instance's memory, and
+# basic scaling lets a request (a Watch stream, a long turn) run for up to 24h
+# instead of automatic scaling's 10 minutes. A second instance would not see
+# the first one's sessions.
+instance_class: B2
+basic_scaling:
+  max_instances: 1
+  idle_timeout: 30m
+
+# App Engine standard buffers each response until it ends, so a Watch stream
+# that stays open never reaches the browser. The window ends each one after 3s
+# and the client reconnects with its resume_after count: a long poll.
+env_variables:
+  AGENTWEB_WATCH_WINDOW: "3s"
+  AGENTWEB_DEMO: "1"
+  AGENTWEB_ALLOW_ORIGIN: "vibestitch.appspot.com,vibestitch.uc.r.appspot.com"
+
+handlers:
+- url: /.*
+  script: auto
+  secure: always

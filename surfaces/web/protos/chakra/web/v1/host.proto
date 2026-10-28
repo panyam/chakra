@@ -66,6 +66,11 @@ message WatchRequest {
   // session_id selects the conversation (App) to stream. Empty routes to the
   // default session.
   string session_id = 1;
+  // resume_after is how many events this client has already applied. The
+  // replay always starts at offset 0 in the same order, so the server skips
+  // that many and sends only what the client hasn't seen. A reconnecting client
+  // passes its count so it doesn't apply the backlog twice.
+  uint64 resume_after = 2;
 }
 
 // Frame is one host event on the wire. kind is the HostEvent.Kind

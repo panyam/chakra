@@ -1,0 +1,9 @@
+# What `gcloud app deploy` leaves out. The Go binary embeds static/, so the
+# frontend sources and their node_modules never need to go up.
+.gcloudignore
+.git
+/web/
+/testdata/
+*_test.go
+static/*.js.map
+/agentweb

@@ -54,6 +54,7 @@ export interface ConversationStore {
   fromOther: Accessor<boolean>;
   error: Accessor<string>;
   busy: Accessor<boolean>;
+  awaiting: Accessor<boolean>;
   ingest: (ev: HostEvent) => void;
   submit: (input: string) => Promise<void>;
   respondToAsk: (action: "accept" | "decline" | "cancel") => Promise<void>;
@@ -125,6 +126,11 @@ export function createConversationStore(client: Client<typeof HostService>): Con
   const [fromOther, setFromOther] = createSignal(false);
   const [error, setError] = createSignal("");
   const [busy, setBusy] = createSignal(false);
+  // awaiting is true from this surface's submit until the turn's done or failed
+  // event arrives. Submit can return before Watch delivers the turn (a host that
+  // buffers responses delivers events in batches), so busy alone would drop the
+  // loading cell while the reply is still on its way.
+  const [awaiting, setAwaiting] = createSignal(false);
 
   // answeredByMe records ask offsets this surface responded to, so a resolved
   // frame naming "web" can tell this tab's own answer apart from another tab's.
@@ -186,9 +192,11 @@ export function createConversationStore(client: Client<typeof HostService>): Con
       }
       case HostEventKind.TurnDone:
         commitAssistant();
+        setAwaiting(false);
         break;
       case HostEventKind.TurnFailed:
         commitAssistant();
+        setAwaiting(false);
         setError(ev.Err ?? "turn failed");
         break;
       case HostEventKind.Message:
@@ -252,12 +260,14 @@ export function createConversationStore(client: Client<typeof HostService>): Con
     }
     pendingLocalTurns++; // this surface expects the next turn-begin
     setBusy(true);
+    setAwaiting(true);
     try {
       await client.submit({ input: text });
     } catch (e) {
       // The turn never started on the host, so no turn-begin will arrive for it;
       // release the pending-turn credit so a later remote turn is not mislabeled.
       pendingLocalTurns = Math.max(0, pendingLocalTurns - 1);
+      setAwaiting(false);
       // A failed turn is also announced as a turn-failed frame; surface the
       // transport error too so a submit that never reached the host is visible.
       setError(e instanceof Error ? e.message : String(e));
@@ -295,6 +305,7 @@ export function createConversationStore(client: Client<typeof HostService>): Con
     fromOther,
     error,
     busy,
+    awaiting,
     ingest,
     submit,
     respondToAsk,

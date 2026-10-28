@@ -65,6 +65,12 @@ export function Conversation(props: { store: ConversationStore; compact?: boolea
             <div class="conv-text">{s.streaming()}</div>
           </div>
         </Show>
+        <Show when={s.awaiting() && !s.streaming()}>
+          <div class="conv-turn conv-assistant conv-streaming conv-waiting">
+            <span class="conv-role">assistant</span>
+            <div class="conv-text">…</div>
+          </div>
+        </Show>
         <Show when={s.activity()}>
           <div class="conv-activity">{s.activity()}</div>
         </Show>
