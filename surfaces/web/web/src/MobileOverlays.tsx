@@ -1,4 +1,4 @@
-import { For, Show, createSignal, type JSX } from "solid-js";
+import { For, Show, createSignal, onCleanup, type JSX } from "solid-js";
 import { SolidIsland } from "@panyam/tsappkit-solid";
 import type { EventBus } from "@panyam/tsappkit";
 import type { PanelStores } from "./stores.js";
@@ -8,75 +8,116 @@ import { Timeline } from "./TimelinePanel.js";
 import { Memory } from "./MemoryPanel.js";
 import { Tools } from "./ToolsPanel.js";
 import { Budget } from "./BudgetPanel.js";
+import { MobileNavController, type MobilePanel, type MobileTab, type MorePanel } from "./mobilenav.js";
 
-// MobileOverlays is the narrow-screen variant: instead of a dockable grid, each
-// panel is a slide-up overlay over a minimal home, the mobile-overlay pattern
-// from diffpp/web/MobileOverlays.tsx. It embeds the SAME panel components the
-// DockView surface does (one shared PanelStores bundle), so a turn streamed once
-// shows in whichever surface is mounted. #1197 shipped one tile (Conversation);
-// #1198 grows the home a launcher tile per observability panel.
+// MobileWorkspace is the phone layout, after diffpp's mobile workspace but with
+// the chat as the hero. The chat fills the screen; a bottom bar switches to the
+// panels a turn moves most, and a More drawer holds the rest, which open over
+// the current tab with a back bar. Every panel stays mounted and is only hidden,
+// so the transcript's scroll, a half-typed message and a tool row left open all
+// survive switching. The panels are the same components the DockView layout
+// uses, over the same PanelStores, so either layout shows the same session.
 
-interface Tile {
-  key: string;
+interface PanelDef {
   name: string;
-  sub: string;
   body: (s: PanelStores) => JSX.Element;
 }
 
-function MobileHome(props: { store: PanelStores }) {
+const PANELS: Record<MobilePanel, PanelDef> = {
+  chat: { name: "Chat", body: (s) => <Conversation store={s.conversation} compact /> },
+  agents: { name: "Agents", body: (s) => <SubAgentTree store={s.subAgents} /> },
+  activity: { name: "Activity", body: (s) => <Timeline store={s.timeline} /> },
+  tools: { name: "Tools", body: (s) => <Tools store={s.tools} /> },
+  memory: { name: "Memory", body: (s) => <Memory store={s.memory} /> },
+  budget: { name: "Budget", body: (s) => <Budget store={s.budget} /> },
+};
+
+const TABS: MobileTab[] = ["chat", "agents", "activity", "tools"];
+const MORE: MorePanel[] = ["memory", "budget"];
+
+function MobileWorkspace(props: { store: PanelStores }) {
   const s = props.store;
-  const model = () => s.conversation.status().model || "agent";
+  const nav = new MobileNavController((st) => setState(st));
+  const [state, setState] = createSignal(nav.snapshot);
+  onCleanup(s.listen((ev) => nav.note(ev)));
 
-  const tiles: Tile[] = [
-    { key: "conversation", name: "Conversation", sub: model(), body: (b) => <Conversation store={b.conversation} compact /> },
-    { key: "subagents", name: "Sub-agents", sub: "nested agent activity", body: (b) => <SubAgentTree store={b.subAgents} /> },
-    { key: "timeline", name: "Activity", sub: "event timeline", body: (b) => <Timeline store={b.timeline} /> },
-    { key: "tools", name: "Tools & Offload", sub: "tool calls", body: (b) => <Tools store={b.tools} /> },
-    { key: "memory", name: "Memory", sub: "working memory", body: (b) => <Memory store={b.memory} /> },
-    { key: "budget", name: "Budget", sub: "tokens & steps", body: (b) => <Budget store={b.budget} /> },
-  ];
-
-  // Conversation is open by default: it is the whole point of the surface and
-  // lands the mobile mode on the live turn immediately.
-  const [open, setOpen] = createSignal<string | null>("conversation");
-  const active = () => tiles.find((t) => t.key === open());
+  const visible = () => state().more ?? state().tab;
+  // A pending approval keeps the chat's dot lit until it's answered, wherever
+  // the user is, since the turn is blocked on it.
+  const dot = (p: MobilePanel) => state().unread.has(p) || (p === "chat" && !!s.conversation.ask() && visible() !== "chat");
+  const moreDot = () => MORE.some((p) => state().unread.has(p));
 
   return (
-    <div class="mobile-root">
-      <div class="mobile-home">
-        <div class="mobile-title">agentweb</div>
-        <div class="mobile-tiles">
-          <For each={tiles}>
-            {(t) => (
-              <button type="button" class="mobile-launch" onClick={() => setOpen(t.key)}>
-                <span class="mobile-launch-name">{t.name}</span>
-                <span class="mobile-launch-sub">{t.sub}</span>
+    <div class="mw">
+      <Show when={state().more}>
+        {(more) => (
+          <div class="mw-backbar">
+            <button type="button" class="mw-back" onClick={() => nav.back()}>
+              ‹ {PANELS[state().tab].name}
+            </button>
+            <span class="mw-backbar-title">{PANELS[more()].name}</span>
+          </div>
+        )}
+      </Show>
+
+      <div class="mw-content">
+        <For each={Object.keys(PANELS) as MobilePanel[]}>
+          {(p) => (
+            <div class="mw-pane" hidden={visible() !== p}>
+              {PANELS[p].body(s)}
+            </div>
+          )}
+        </For>
+      </div>
+
+      <nav class="mw-tabbar">
+        <For each={TABS}>
+          {(t) => (
+            <button
+              type="button"
+              class="mw-tab"
+              classList={{ active: !state().more && state().tab === t }}
+              onClick={() => nav.show(t)}
+            >
+              {PANELS[t].name}
+              <Show when={dot(t)}>
+                <span class="mw-dot" aria-label="new" />
+              </Show>
+            </button>
+          )}
+        </For>
+        <button type="button" class="mw-tab" classList={{ active: !!state().more }} onClick={() => nav.openDrawer()}>
+          More
+          <Show when={moreDot()}>
+            <span class="mw-dot" aria-label="new" />
+          </Show>
+        </button>
+      </nav>
+
+      <Show when={state().drawer}>
+        <div class="mw-scrim" onClick={() => nav.closeDrawer()} />
+        <div class="mw-sheet" role="dialog" aria-label="More panels">
+          <For each={MORE}>
+            {(p) => (
+              <button type="button" class="mw-sheet-item" onClick={() => nav.openMore(p)}>
+                {PANELS[p].name}
+                <Show when={state().unread.has(p)}>
+                  <span class="mw-dot" aria-label="new" />
+                </Show>
               </button>
             )}
           </For>
+          <a class="mw-sheet-item" href="?layout=dockview">
+            Desktop layout
+          </a>
         </div>
-      </div>
-
-      <Show when={active()}>
-        {(t) => (
-          <div class="mobile-overlay">
-            <div class="mobile-overlay-bar">
-              <span class="mobile-overlay-title">{t().name}</span>
-              <button type="button" class="mobile-overlay-close" aria-label="Close" onClick={() => setOpen(null)}>
-                ✕
-              </button>
-            </div>
-            <div class="mobile-overlay-body">{t().body(s)}</div>
-          </div>
-        )}
       </Show>
     </div>
   );
 }
 
-// mobileOverlaysIsland builds the mobile surface as a tsappkit-solid SolidIsland
-// over el. The page spec mounts it into the "mobile" slot and the page lifecycle
-// activates it.
+// mobileOverlaysIsland builds the phone layout as a tsappkit-solid SolidIsland
+// over el. The page spec mounts it into the "mobile" slot.
 export function mobileOverlaysIsland(el: HTMLElement, store: PanelStores, bus: EventBus | null): SolidIsland {
-  return new SolidIsland("mobile-overlays", el, () => <MobileHome store={store} />, bus);
+  return new SolidIsland("mobile-overlays", el, () => <MobileWorkspace store={store} />, bus);
 }

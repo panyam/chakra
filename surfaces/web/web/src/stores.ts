@@ -23,6 +23,10 @@ export interface PanelStores {
   tools: ToolStore;
   budget: BudgetStore;
   ingest: (ev: HostEvent) => void;
+  // listen calls fn with every event after the stores have applied it, for
+  // views that react to the stream itself (the mobile bar's unread dots). It
+  // returns the unsubscribe.
+  listen: (fn: (ev: HostEvent) => void) => () => void;
 }
 
 export function createPanelStores(client: Client<typeof HostService>): PanelStores {
@@ -35,9 +39,17 @@ export function createPanelStores(client: Client<typeof HostService>): PanelStor
 
   const sinks = [conversation, subAgents, timeline, memory, tools, budget];
 
+  const listeners = new Set<(ev: HostEvent) => void>();
+
   const ingest = (ev: HostEvent): void => {
     for (const sink of sinks) sink.ingest(ev);
+    for (const fn of listeners) fn(ev);
   };
 
-  return { conversation, subAgents, timeline, memory, tools, budget, ingest };
+  const listen = (fn: (ev: HostEvent) => void): (() => void) => {
+    listeners.add(fn);
+    return () => listeners.delete(fn);
+  };
+
+  return { conversation, subAgents, timeline, memory, tools, budget, ingest, listen };
 }

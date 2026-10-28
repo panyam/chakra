@@ -74,3 +74,27 @@ func TestShell_PageSpecNamesEachLayoutsIslands(t *testing.T) {
 		}
 	}
 }
+
+// A phone with no ?layout= gets the mobile layout, and ?layout= overrides the
+// user agent either way, so the layout select and the More drawer's "Desktop
+// layout" link work on any device.
+func TestShell_PickLayout(t *testing.T) {
+	const iphone = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
+	const android = "Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36"
+	const mac = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
+	for _, tc := range []struct {
+		query, ua, want string
+	}{
+		{"/", iphone, "mobile"},
+		{"/", android, "mobile"},
+		{"/", mac, "dockview"},
+		{"/?layout=dockview", iphone, "dockview"},
+		{"/?layout=mobile", mac, "mobile"},
+	} {
+		req := httptest.NewRequest("GET", tc.query, nil)
+		req.Header.Set("User-Agent", tc.ua)
+		if got := pickLayout(req); got != tc.want {
+			t.Errorf("GET %s from %.30s…: layout %q, want %q", tc.query, tc.ua, got, tc.want)
+		}
+	}
+}
