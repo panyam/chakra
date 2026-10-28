@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file chakra/web/v1/host.proto.
  */
 export const file_chakra_web_v1_host: GenFile = /*@__PURE__*/
-  fileDesc("ChhjaGFrcmEvd2ViL3YxL2hvc3QucHJvdG8SDWNoYWtyYS53ZWIudjEiOAoMV2F0Y2hSZXF1ZXN0EhIKCnNlc3Npb25faWQYASABKAkSFAoMcmVzdW1lX2FmdGVyGAIgASgEIiYKBUZyYW1lEgwKBGtpbmQYASABKAkSDwoHcGF5bG9hZBgCIAEoDCIyCg1TdWJtaXRSZXF1ZXN0Eg0KBWlucHV0GAEgASgJEhIKCnNlc3Npb25faWQYAiABKAkiEAoOU3VibWl0UmVzcG9uc2UiMwoPRGlzcGF0Y2hSZXF1ZXN0EgwKBGxpbmUYASABKAkSEgoKc2Vzc2lvbl9pZBgCIAEoCSI/ChBEaXNwYXRjaFJlc3BvbnNlEgwKBGtpbmQYASABKAkSDwoHcGF5bG9hZBgCIAEoDBIMCgRxdWl0GAMgASgIIlUKE1Jlc3BvbmRUb0Fza1JlcXVlc3QSDgoGYXNrX2lkGAEgASgDEg4KBnJlc3VsdBgCIAEoDBIKCgJieRgDIAEoCRISCgpzZXNzaW9uX2lkGAQgASgJIhYKFFJlc3BvbmRUb0Fza1Jlc3BvbnNlIjkKE0xpc3RTZXNzaW9uc1JlcXVlc3QSDgoGY3Vyc29yGAEgASgJEhIKCnNlc3Npb25faWQYAiABKAkiTQoUTGlzdFNlc3Npb25zUmVzcG9uc2USDAoEcnVucxgBIAEoDBIQCghoYXNfbW9yZRgCIAEoCBIVCg1hY3RpdmVfcnVuX2lkGAMgASgJIiYKEEdldFN0YXR1c1JlcXVlc3QSEgoKc2Vzc2lvbl9pZBgBIAEoCSI4ChFHZXRTdGF0dXNSZXNwb25zZRITCgttb2RlbF9sYWJlbBgBIAEoCRIOCgZydW5faWQYAiABKAkiFgoUQ3JlYXRlU2Vzc2lvblJlcXVlc3QiKwoVQ3JlYXRlU2Vzc2lvblJlc3BvbnNlEhIKCnNlc3Npb25faWQYASABKAkiGAoWTGlzdFdlYlNlc3Npb25zUmVxdWVzdCIuChdMaXN0V2ViU2Vzc2lvbnNSZXNwb25zZRITCgtzZXNzaW9uX2lkcxgBIAMoCSIpChNDbG9zZVNlc3Npb25SZXF1ZXN0EhIKCnNlc3Npb25faWQYASABKAkiFgoUQ2xvc2VTZXNzaW9uUmVzcG9uc2Uy+AUKC0hvc3RTZXJ2aWNlEjwKBVdhdGNoEhsuY2hha3JhLndlYi52MS5XYXRjaFJlcXVlc3QaFC5jaGFrcmEud2ViLnYxLkZyYW1lMAESRQoGU3VibWl0EhwuY2hha3JhLndlYi52MS5TdWJtaXRSZXF1ZXN0Gh0uY2hha3JhLndlYi52MS5TdWJtaXRSZXNwb25zZRJLCghEaXNwYXRjaBIeLmNoYWtyYS53ZWIudjEuRGlzcGF0Y2hSZXF1ZXN0Gh8uY2hha3JhLndlYi52MS5EaXNwYXRjaFJlc3BvbnNlElcKDFJlc3BvbmRUb0FzaxIiLmNoYWtyYS53ZWIudjEuUmVzcG9uZFRvQXNrUmVxdWVzdBojLmNoYWtyYS53ZWIudjEuUmVzcG9uZFRvQXNrUmVzcG9uc2USVwoMTGlzdFNlc3Npb25zEiIuY2hha3JhLndlYi52MS5MaXN0U2Vzc2lvbnNSZXF1ZXN0GiMuY2hha3JhLndlYi52MS5MaXN0U2Vzc2lvbnNSZXNwb25zZRJOCglHZXRTdGF0dXMSHy5jaGFrcmEud2ViLnYxLkdldFN0YXR1c1JlcXVlc3QaIC5jaGFrcmEud2ViLnYxLkdldFN0YXR1c1Jlc3BvbnNlEloKDUNyZWF0ZVNlc3Npb24SIy5jaGFrcmEud2ViLnYxLkNyZWF0ZVNlc3Npb25SZXF1ZXN0GiQuY2hha3JhLndlYi52MS5DcmVhdGVTZXNzaW9uUmVzcG9uc2USYAoPTGlzdFdlYlNlc3Npb25zEiUuY2hha3JhLndlYi52MS5MaXN0V2ViU2Vzc2lvbnNSZXF1ZXN0GiYuY2hha3JhLndlYi52MS5MaXN0V2ViU2Vzc2lvbnNSZXNwb25zZRJXCgxDbG9zZVNlc3Npb24SIi5jaGFrcmEud2ViLnYxLkNsb3NlU2Vzc2lvblJlcXVlc3QaIy5jaGFrcmEud2ViLnYxLkNsb3NlU2Vzc2lvblJlc3BvbnNlQkJaQGdpdGh1Yi5jb20vcGFueWFtL2NoYWtyYS9zdXJmYWNlcy93ZWIvZ2VuL2dvL2NoYWtyYS93ZWIvdjE7d2VidjFiBnByb3RvMw");
+  fileDesc("ChhjaGFrcmEvd2ViL3YxL2hvc3QucHJvdG8SDWNoYWtyYS53ZWIudjEiOAoMV2F0Y2hSZXF1ZXN0EhIKCnNlc3Npb25faWQYASABKAkSFAoMcmVzdW1lX2FmdGVyGAIgASgEIiYKBUZyYW1lEgwKBGtpbmQYASABKAkSDwoHcGF5bG9hZBgCIAEoDCIyCg1TdWJtaXRSZXF1ZXN0Eg0KBWlucHV0GAEgASgJEhIKCnNlc3Npb25faWQYAiABKAkiEAoOU3VibWl0UmVzcG9uc2UiMwoPRGlzcGF0Y2hSZXF1ZXN0EgwKBGxpbmUYASABKAkSEgoKc2Vzc2lvbl9pZBgCIAEoCSI/ChBEaXNwYXRjaFJlc3BvbnNlEgwKBGtpbmQYASABKAkSDwoHcGF5bG9hZBgCIAEoDBIMCgRxdWl0GAMgASgIIlUKE1Jlc3BvbmRUb0Fza1JlcXVlc3QSDgoGYXNrX2lkGAEgASgDEg4KBnJlc3VsdBgCIAEoDBIKCgJieRgDIAEoCRISCgpzZXNzaW9uX2lkGAQgASgJIhYKFFJlc3BvbmRUb0Fza1Jlc3BvbnNlIjkKE0xpc3RTZXNzaW9uc1JlcXVlc3QSDgoGY3Vyc29yGAEgASgJEhIKCnNlc3Npb25faWQYAiABKAkiTQoUTGlzdFNlc3Npb25zUmVzcG9uc2USDAoEcnVucxgBIAEoDBIQCghoYXNfbW9yZRgCIAEoCBIVCg1hY3RpdmVfcnVuX2lkGAMgASgJIiYKEEdldFN0YXR1c1JlcXVlc3QSEgoKc2Vzc2lvbl9pZBgBIAEoCSI4ChFHZXRTdGF0dXNSZXNwb25zZRITCgttb2RlbF9sYWJlbBgBIAEoCRIOCgZydW5faWQYAiABKAkiRQoUQ3JlYXRlU2Vzc2lvblJlcXVlc3QSLQoIcHJvdmlkZXIYASABKAsyGy5jaGFrcmEud2ViLnYxLlByb3ZpZGVyU3BlYyIrChVDcmVhdGVTZXNzaW9uUmVzcG9uc2USEgoKc2Vzc2lvbl9pZBgBIAEoCSJOCgxQcm92aWRlclNwZWMSDAoEdHlwZRgBIAEoCRIQCghiYXNlX3VybBgCIAEoCRINCgVtb2RlbBgDIAEoCRIPCgdhcGlfa2V5GAQgASgJIhgKFkxpc3RXZWJTZXNzaW9uc1JlcXVlc3QiLgoXTGlzdFdlYlNlc3Npb25zUmVzcG9uc2USEwoLc2Vzc2lvbl9pZHMYASADKAkiKQoTQ2xvc2VTZXNzaW9uUmVxdWVzdBISCgpzZXNzaW9uX2lkGAEgASgJIhYKFENsb3NlU2Vzc2lvblJlc3BvbnNlMvgFCgtIb3N0U2VydmljZRI8CgVXYXRjaBIbLmNoYWtyYS53ZWIudjEuV2F0Y2hSZXF1ZXN0GhQuY2hha3JhLndlYi52MS5GcmFtZTABEkUKBlN1Ym1pdBIcLmNoYWtyYS53ZWIudjEuU3VibWl0UmVxdWVzdBodLmNoYWtyYS53ZWIudjEuU3VibWl0UmVzcG9uc2USSwoIRGlzcGF0Y2gSHi5jaGFrcmEud2ViLnYxLkRpc3BhdGNoUmVxdWVzdBofLmNoYWtyYS53ZWIudjEuRGlzcGF0Y2hSZXNwb25zZRJXCgxSZXNwb25kVG9Bc2sSIi5jaGFrcmEud2ViLnYxLlJlc3BvbmRUb0Fza1JlcXVlc3QaIy5jaGFrcmEud2ViLnYxLlJlc3BvbmRUb0Fza1Jlc3BvbnNlElcKDExpc3RTZXNzaW9ucxIiLmNoYWtyYS53ZWIudjEuTGlzdFNlc3Npb25zUmVxdWVzdBojLmNoYWtyYS53ZWIudjEuTGlzdFNlc3Npb25zUmVzcG9uc2USTgoJR2V0U3RhdHVzEh8uY2hha3JhLndlYi52MS5HZXRTdGF0dXNSZXF1ZXN0GiAuY2hha3JhLndlYi52MS5HZXRTdGF0dXNSZXNwb25zZRJaCg1DcmVhdGVTZXNzaW9uEiMuY2hha3JhLndlYi52MS5DcmVhdGVTZXNzaW9uUmVxdWVzdBokLmNoYWtyYS53ZWIudjEuQ3JlYXRlU2Vzc2lvblJlc3BvbnNlEmAKD0xpc3RXZWJTZXNzaW9ucxIlLmNoYWtyYS53ZWIudjEuTGlzdFdlYlNlc3Npb25zUmVxdWVzdBomLmNoYWtyYS53ZWIudjEuTGlzdFdlYlNlc3Npb25zUmVzcG9uc2USVwoMQ2xvc2VTZXNzaW9uEiIuY2hha3JhLndlYi52MS5DbG9zZVNlc3Npb25SZXF1ZXN0GiMuY2hha3JhLndlYi52MS5DbG9zZVNlc3Npb25SZXNwb25zZUJCWkBnaXRodWIuY29tL3BhbnlhbS9jaGFrcmEvc3VyZmFjZXMvd2ViL2dlbi9nby9jaGFrcmEvd2ViL3YxO3dlYnYxYgZwcm90bzM");
 
 /**
  * @generated from message chakra.web.v1.WatchRequest
@@ -313,6 +313,14 @@ export const GetStatusResponseSchema: GenMessage<GetStatusResponse> = /*@__PURE_
  * @generated from message chakra.web.v1.CreateSessionRequest
  */
 export type CreateSessionRequest = Message<"chakra.web.v1.CreateSessionRequest"> & {
+  /**
+   * provider is the model this session talks to, with the key the browser
+   * holds. A server started with a session builder (agentweb --byok) requires
+   * it; one that builds every session from its own config ignores it.
+   *
+   * @generated from field: chakra.web.v1.ProviderSpec provider = 1;
+   */
+  provider?: ProviderSpec | undefined;
 };
 
 /**
@@ -342,6 +350,48 @@ export const CreateSessionResponseSchema: GenMessage<CreateSessionResponse> = /*
   messageDesc(file_chakra_web_v1_host, 13);
 
 /**
+ * ProviderSpec names a model endpoint and the key for it. The key lives in the
+ * session's provider for as long as the session does, in server memory only:
+ * it is never persisted or logged.
+ *
+ * @generated from message chakra.web.v1.ProviderSpec
+ */
+export type ProviderSpec = Message<"chakra.web.v1.ProviderSpec"> & {
+  /**
+   * type is a connection type (openai, anthropic, gemini, openrouter, litellm,
+   * ollama, lmstudio), or "demo" for the offline demo provider, which needs no
+   * key or model.
+   *
+   * @generated from field: string type = 1;
+   */
+  type: string;
+
+  /**
+   * base_url overrides the type's default API root.
+   *
+   * @generated from field: string base_url = 2;
+   */
+  baseUrl: string;
+
+  /**
+   * @generated from field: string model = 3;
+   */
+  model: string;
+
+  /**
+   * @generated from field: string api_key = 4;
+   */
+  apiKey: string;
+};
+
+/**
+ * Describes the message chakra.web.v1.ProviderSpec.
+ * Use `create(ProviderSpecSchema)` to create a new message.
+ */
+export const ProviderSpecSchema: GenMessage<ProviderSpec> = /*@__PURE__*/
+  messageDesc(file_chakra_web_v1_host, 14);
+
+/**
  * @generated from message chakra.web.v1.ListWebSessionsRequest
  */
 export type ListWebSessionsRequest = Message<"chakra.web.v1.ListWebSessionsRequest"> & {
@@ -352,7 +402,7 @@ export type ListWebSessionsRequest = Message<"chakra.web.v1.ListWebSessionsReque
  * Use `create(ListWebSessionsRequestSchema)` to create a new message.
  */
 export const ListWebSessionsRequestSchema: GenMessage<ListWebSessionsRequest> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 14);
+  messageDesc(file_chakra_web_v1_host, 15);
 
 /**
  * @generated from message chakra.web.v1.ListWebSessionsResponse
@@ -371,7 +421,7 @@ export type ListWebSessionsResponse = Message<"chakra.web.v1.ListWebSessionsResp
  * Use `create(ListWebSessionsResponseSchema)` to create a new message.
  */
 export const ListWebSessionsResponseSchema: GenMessage<ListWebSessionsResponse> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 15);
+  messageDesc(file_chakra_web_v1_host, 16);
 
 /**
  * @generated from message chakra.web.v1.CloseSessionRequest
@@ -390,7 +440,7 @@ export type CloseSessionRequest = Message<"chakra.web.v1.CloseSessionRequest"> &
  * Use `create(CloseSessionRequestSchema)` to create a new message.
  */
 export const CloseSessionRequestSchema: GenMessage<CloseSessionRequest> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 16);
+  messageDesc(file_chakra_web_v1_host, 17);
 
 /**
  * @generated from message chakra.web.v1.CloseSessionResponse
@@ -403,7 +453,7 @@ export type CloseSessionResponse = Message<"chakra.web.v1.CloseSessionResponse">
  * Use `create(CloseSessionResponseSchema)` to create a new message.
  */
 export const CloseSessionResponseSchema: GenMessage<CloseSessionResponse> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 17);
+  messageDesc(file_chakra_web_v1_host, 18);
 
 /**
  * HostService is the web bridge over agent/host.App: the same surface-agnostic

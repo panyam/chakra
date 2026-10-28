@@ -208,16 +208,13 @@ setup-hooks: ## Install the local pre-commit and pre-push hooks
 # App Engine project agentweb deploys to (https://vibestitch.appspot.com).
 GCP_PROJECT ?= vibestitch
 
-# Deploy agentweb to App Engine. The web module's go.mod replaces chakra and
-# mcpkit with relative paths that don't exist once the module is uploaded on
-# its own, so the deploy vendors them first (vendor/ is gitignored) and removes
-# vendor/ afterwards, whether or not the deploy worked. The web tests and a fresh
-# frontend build run first. surfaces/web/app.yaml has the instance settings.
+# Deploy agentweb to App Engine, after the web tests and a fresh bundle.
+# surfaces/web/deploy.sh does the deploy itself (vendoring, the access token);
+# surfaces/web/app.yaml has the instance settings.
 deploy-web: test-web ## Deploy agentweb to App Engine (GCP_PROJECT=vibestitch)
 	cd surfaces/web/web && npm run build
 	cd surfaces/web && go test ./... $(GOTESTFLAGS)
-	cd surfaces/web && go mod vendor && \
-		{ gcloud app deploy app.yaml --project $(GCP_PROJECT) --quiet; rc=$$?; rm -rf vendor; exit $$rc; }
+	surfaces/web/deploy.sh $(GCP_PROJECT)
 
 weblogs: ## Tail agentweb's App Engine logs
 	gcloud app logs tail -s default --project $(GCP_PROJECT)

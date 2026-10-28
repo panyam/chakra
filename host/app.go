@@ -788,6 +788,7 @@ func (a *App) RunTurn(ctx context.Context, input string) error {
 	a.turnMu.Lock()
 	defer a.turnMu.Unlock()
 	a.triggers.NotifyEngagement()
+	a.emit(HostEvent{Kind: HostUserInput, Message: input})
 	if err := a.startExtensionTurns(ctx); err != nil {
 		a.emit(HostEvent{Kind: HostTurnFailed, Err: err.Error()})
 		return err

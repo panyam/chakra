@@ -13,7 +13,7 @@ export type MobileTab = "chat" | "agents" | "activity" | "tools";
 
 // MorePanel is a panel reached from the More drawer. A new panel that doesn't
 // earn a tab goes here, so the bar never grows past what a thumb can reach.
-export type MorePanel = "memory" | "budget";
+export type MorePanel = "sessions" | "memory" | "budget";
 
 export type MobilePanel = MobileTab | MorePanel;
 

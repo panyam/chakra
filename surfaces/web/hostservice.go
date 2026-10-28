@@ -34,6 +34,33 @@ type HostService struct {
 	sessions *SessionManager
 	// watchWindow, when set, ends each Watch after this long. See WithWatchWindow.
 	watchWindow time.Duration
+	// build, when set, makes each CreateSession's App from the request's
+	// provider spec. See WithSessionBuilder.
+	build SessionBuilder
+	// private hides sessions from anyone without the id. See WithPrivateSessions.
+	private bool
+}
+
+// SessionBuilder makes a session's App from the provider a CreateSession named.
+// spec may be nil when the request named none; the builder decides whether
+// that's allowed. Its error is returned to the caller as InvalidArgument, so it
+// should say what to fix and never echo the key.
+type SessionBuilder func(ctx context.Context, spec *webv1.ProviderSpec) (*host.App, error)
+
+// WithSessionBuilder makes CreateSession build each App with b from the
+// request's provider spec, instead of with the SessionManager's factory. This is
+// how a browser brings its own key: the server needs none of its own.
+func WithSessionBuilder(b SessionBuilder) Option {
+	return func(s *HostService) { s.build = b }
+}
+
+// WithPrivateSessions makes a session reachable only by its id. An empty
+// session_id no longer routes to a default session, and ListWebSessions is
+// refused, so a stranger who reaches the server can't find or drive a session
+// someone else created (and with it, their key). Session ids are 128 random
+// bits, so holding one is the credential.
+func WithPrivateSessions() Option {
+	return func(s *HostService) { s.private = true }
 }
 
 // Option configures a HostService.
@@ -74,6 +101,9 @@ func NewHostServiceWithSessions(mgr *SessionManager, opts ...Option) *HostServic
 // performs when it rehydrates a session that is not cached (e.g. after a
 // restart) — an unknown run is still CodeNotFound.
 func (s *HostService) appFor(ctx context.Context, sessionID string) (*host.App, error) {
+	if s.private && sessionID == "" {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("no session_id: create a session first"))
+	}
 	app, ok := s.sessions.Get(ctx, sessionID)
 	if !ok {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("session %q not found", sessionID))
@@ -220,7 +250,18 @@ func (s *HostService) GetStatus(ctx context.Context, req *connect.Request[webv1.
 // config) and returns its session_id. A server built without a factory (the
 // single-App case) returns CodeFailedPrecondition; a factory error is
 // CodeInternal.
-func (s *HostService) CreateSession(ctx context.Context, _ *connect.Request[webv1.CreateSessionRequest]) (*connect.Response[webv1.CreateSessionResponse], error) {
+func (s *HostService) CreateSession(ctx context.Context, req *connect.Request[webv1.CreateSessionRequest]) (*connect.Response[webv1.CreateSessionResponse], error) {
+	if s.build != nil {
+		app, err := s.build(ctx, req.Msg.GetProvider())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		id, err := s.sessions.Adopt(ctx, app)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		return connect.NewResponse(&webv1.CreateSessionResponse{SessionId: id}), nil
+	}
 	id, _, err := s.sessions.Create(ctx)
 	if errors.Is(err, ErrNoSessionFactory) {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
@@ -238,6 +279,9 @@ func (s *HostService) CreateSession(ctx context.Context, _ *connect.Request[webv
 // is the roster of conversations, distinct from ListSessions (persisted runs
 // inside one App).
 func (s *HostService) ListWebSessions(ctx context.Context, _ *connect.Request[webv1.ListWebSessionsRequest]) (*connect.Response[webv1.ListWebSessionsResponse], error) {
+	if s.private {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("sessions are private on this server; the browser keeps its own list"))
+	}
 	return connect.NewResponse(&webv1.ListWebSessionsResponse{SessionIds: s.sessions.List(ctx)}), nil
 }
 

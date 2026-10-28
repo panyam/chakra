@@ -7,6 +7,7 @@ import { createTimelineStore, type TimelineStore } from "./timeline.js";
 import { createMemoryStore, type MemoryStore } from "./memory.js";
 import { createToolStore, type ToolStore } from "./tools.js";
 import { createBudgetStore, type BudgetStore } from "./budget.js";
+import type { SessionsStore } from "./sessions.js";
 
 // PanelStores is the bundle of per-panel projections behind the workspace. The
 // #1197 shell fed one ConversationStore off the Watch stream; #1198 adds the
@@ -22,6 +23,9 @@ export interface PanelStores {
   memory: MemoryStore;
   tools: ToolStore;
   budget: BudgetStore;
+  // sessions is the browser's settings and session list. It isn't a projection
+  // of the stream, so ingest doesn't feed it.
+  sessions: SessionsStore;
   ingest: (ev: HostEvent) => void;
   // listen calls fn with every event after the stores have applied it, for
   // views that react to the stream itself (the mobile bar's unread dots). It
@@ -29,7 +33,7 @@ export interface PanelStores {
   listen: (fn: (ev: HostEvent) => void) => () => void;
 }
 
-export function createPanelStores(client: Client<typeof HostService>): PanelStores {
+export function createPanelStores(client: Client<typeof HostService>, sessions: SessionsStore): PanelStores {
   const conversation = createConversationStore(client);
   const subAgents = createSubAgentStore();
   const timeline = createTimelineStore();
@@ -51,5 +55,5 @@ export function createPanelStores(client: Client<typeof HostService>): PanelStor
     return () => listeners.delete(fn);
   };
 
-  return { conversation, subAgents, timeline, memory, tools, budget, ingest, listen };
+  return { conversation, subAgents, timeline, memory, tools, budget, sessions, ingest, listen };
 }

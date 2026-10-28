@@ -1,4 +1,4 @@
-import { For, Show, createSignal, onCleanup, type JSX } from "solid-js";
+import { For, Show, createEffect, createSignal, onCleanup, type JSX } from "solid-js";
 import { SolidIsland } from "@panyam/tsappkit-solid";
 import type { EventBus } from "@panyam/tsappkit";
 import type { PanelStores } from "./stores.js";
@@ -8,6 +8,7 @@ import { Timeline } from "./TimelinePanel.js";
 import { Memory } from "./MemoryPanel.js";
 import { Tools } from "./ToolsPanel.js";
 import { Budget } from "./BudgetPanel.js";
+import { Sessions } from "./SessionsPanel.js";
 import { MobileNavController, type MobilePanel, type MobileTab, type MorePanel } from "./mobilenav.js";
 
 // MobileWorkspace is the phone layout, after diffpp's mobile workspace but with
@@ -30,16 +31,21 @@ const PANELS: Record<MobilePanel, PanelDef> = {
   tools: { name: "Tools", body: (s) => <Tools store={s.tools} /> },
   memory: { name: "Memory", body: (s) => <Memory store={s.memory} /> },
   budget: { name: "Budget", body: (s) => <Budget store={s.budget} /> },
+  sessions: { name: "Sessions", body: (s) => <Sessions store={s.sessions} /> },
 };
 
 const TABS: MobileTab[] = ["chat", "agents", "activity", "tools"];
-const MORE: MorePanel[] = ["memory", "budget"];
+const MORE: MorePanel[] = ["sessions", "memory", "budget"];
 
 function MobileWorkspace(props: { store: PanelStores }) {
   const s = props.store;
   const nav = new MobileNavController((st) => setState(st));
   const [state, setState] = createSignal(nav.snapshot);
   onCleanup(s.listen((ev) => nav.note(ev)));
+  // With no session to show, open Sessions: it's the only thing that can help.
+  createEffect(() => {
+    if (s.sessions.problem()) nav.openMore("sessions");
+  });
 
   const visible = () => state().more ?? state().tab;
   // A pending approval keeps the chat's dot lit until it's answered, wherever

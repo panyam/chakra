@@ -111,23 +111,42 @@ lasts as long as a tab is open and `Submit` as long as a turn.
 
 `make deploy-web` from the repo root deploys to the `vibestitch` App Engine
 project (`GCP_PROJECT=...` to change it), at https://vibestitch.uc.r.appspot.com.
-It runs the web tests, rebuilds the bundle, vendors the module (its go.mod
-replaces chakra and mcpkit with paths that don't exist once it's uploaded alone),
-deploys `app.yaml`, and removes `vendor/` again. `make weblogs` tails the logs.
+It runs the web tests and rebuilds the bundle, then `deploy.sh` vendors the
+module (its go.mod replaces chakra and mcpkit with paths that don't exist once
+it's uploaded alone), adds the access token to a temporary copy of `app.yaml`,
+deploys, and removes both. `make weblogs` tails the logs.
+
+The first deploy writes a random access token to `surfaces/web/.agentweb-token`
+(gitignored). Paste it into the Sessions panel once per browser.
 
 Things `app.yaml` settles, and why:
 
 - **One instance, basic scaling.** Sessions live in that instance's memory, so a
   second instance wouldn't have them, and basic scaling allows long requests.
+- **`AGENTWEB_BYOK`** (`--byok`). The server holds no keys. The browser keeps
+  its providers and keys in localStorage (the Sessions panel) and sends one with
+  the `CreateSession` that starts a session; the key then lives in that
+  session's provider, in memory, until the session closes or the instance
+  restarts. There's no default session, `ListWebSessions` is refused, and an
+  empty `session_id` is NotFound, so a session is reachable only by its random
+  id, which only the browser that made it has. The demo is one of the provider
+  types, so the page is usable with no key at all.
+- **`AGENTWEB_ACCESS_TOKEN`** (`--access-token`). Every API call needs it in
+  `X-Agentweb-Token`. The origin check only stops other sites' pages; a script
+  can send any Origin, so a public server needs this as well.
 - **`AGENTWEB_WATCH_WINDOW=3s`.** App Engine standard buffers each response
   until it ends, so an open `Watch` never reaches the browser. With a window the
   server ends each `Watch` after 3s and the client reconnects, passing
   `resume_after` (the number of events it has applied) so the replay isn't
   applied twice. Replies arrive in batches up to a few seconds late; the
   Conversation panel shows a waiting cell from submit until the turn's done
-  event lands.
-- **`AGENTWEB_DEMO`, `AGENTWEB_ALLOW_ORIGIN`.** The environment stands in for
-  `--demo` and `--allow-origin`, and `$PORT` for `--addr`.
+  event lands. Live streaming is #165.
+- **`AGENTWEB_ALLOW_ORIGIN`.** The environment stands in for `--allow-origin`,
+  and `$PORT` for `--addr`.
+
+Switching sessions reloads the page, so every panel and the Watch stream start
+over against the new session. The transcript comes back whole, because the host
+announces each turn's input as a `user-input` event.
 
 ## Frontend (E4, issue 1197)
 
@@ -159,6 +178,9 @@ Layout map (`web/src/`):
 | `StatusLine.tsx`, `status.ts` | the topbar status island (model and session) |
 | `page.ts` | tsappkit `IslandPage`: the island registry and the shared stores and `Watch` |
 | `main.ts` | boot: starts the page once the DOM is ready |
+| `settings.ts` | what the browser keeps in localStorage: access token, providers and their keys, its sessions |
+| `sessions.ts` | the session lifecycle: create with a provider, switch, close, and why there's nothing to show |
+| `SessionsPanel.tsx` | the Sessions panel over it (in the dock, and first in the phone layout's More drawer) |
 
 `shell.go` writes a page spec into `#page-spec` naming the islands for the chosen
 layout and their `[data-slot]`s (`status` plus `dock` or `mobile`), and the

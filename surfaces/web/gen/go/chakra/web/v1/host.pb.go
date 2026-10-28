@@ -663,7 +663,11 @@ func (x *GetStatusResponse) GetRunId() string {
 }
 
 type CreateSessionRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// provider is the model this session talks to, with the key the browser
+	// holds. A server started with a session builder (agentweb --byok) requires
+	// it; one that builds every session from its own config ignores it.
+	Provider      *ProviderSpec `protobuf:"bytes,1,opt,name=provider,proto3" json:"provider,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -696,6 +700,13 @@ func (x *CreateSessionRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use CreateSessionRequest.ProtoReflect.Descriptor instead.
 func (*CreateSessionRequest) Descriptor() ([]byte, []int) {
 	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *CreateSessionRequest) GetProvider() *ProviderSpec {
+	if x != nil {
+		return x.Provider
+	}
+	return nil
 }
 
 type CreateSessionResponse struct {
@@ -743,6 +754,81 @@ func (x *CreateSessionResponse) GetSessionId() string {
 	return ""
 }
 
+// ProviderSpec names a model endpoint and the key for it. The key lives in the
+// session's provider for as long as the session does, in server memory only:
+// it is never persisted or logged.
+type ProviderSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// type is a connection type (openai, anthropic, gemini, openrouter, litellm,
+	// ollama, lmstudio), or "demo" for the offline demo provider, which needs no
+	// key or model.
+	Type string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	// base_url overrides the type's default API root.
+	BaseUrl       string `protobuf:"bytes,2,opt,name=base_url,json=baseUrl,proto3" json:"base_url,omitempty"`
+	Model         string `protobuf:"bytes,3,opt,name=model,proto3" json:"model,omitempty"`
+	ApiKey        string `protobuf:"bytes,4,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProviderSpec) Reset() {
+	*x = ProviderSpec{}
+	mi := &file_chakra_web_v1_host_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProviderSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProviderSpec) ProtoMessage() {}
+
+func (x *ProviderSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_chakra_web_v1_host_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProviderSpec.ProtoReflect.Descriptor instead.
+func (*ProviderSpec) Descriptor() ([]byte, []int) {
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *ProviderSpec) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *ProviderSpec) GetBaseUrl() string {
+	if x != nil {
+		return x.BaseUrl
+	}
+	return ""
+}
+
+func (x *ProviderSpec) GetModel() string {
+	if x != nil {
+		return x.Model
+	}
+	return ""
+}
+
+func (x *ProviderSpec) GetApiKey() string {
+	if x != nil {
+		return x.ApiKey
+	}
+	return ""
+}
+
 type ListWebSessionsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -751,7 +837,7 @@ type ListWebSessionsRequest struct {
 
 func (x *ListWebSessionsRequest) Reset() {
 	*x = ListWebSessionsRequest{}
-	mi := &file_chakra_web_v1_host_proto_msgTypes[14]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -763,7 +849,7 @@ func (x *ListWebSessionsRequest) String() string {
 func (*ListWebSessionsRequest) ProtoMessage() {}
 
 func (x *ListWebSessionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chakra_web_v1_host_proto_msgTypes[14]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -776,7 +862,7 @@ func (x *ListWebSessionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWebSessionsRequest.ProtoReflect.Descriptor instead.
 func (*ListWebSessionsRequest) Descriptor() ([]byte, []int) {
-	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{14}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{15}
 }
 
 type ListWebSessionsResponse struct {
@@ -789,7 +875,7 @@ type ListWebSessionsResponse struct {
 
 func (x *ListWebSessionsResponse) Reset() {
 	*x = ListWebSessionsResponse{}
-	mi := &file_chakra_web_v1_host_proto_msgTypes[15]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -801,7 +887,7 @@ func (x *ListWebSessionsResponse) String() string {
 func (*ListWebSessionsResponse) ProtoMessage() {}
 
 func (x *ListWebSessionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chakra_web_v1_host_proto_msgTypes[15]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -814,7 +900,7 @@ func (x *ListWebSessionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWebSessionsResponse.ProtoReflect.Descriptor instead.
 func (*ListWebSessionsResponse) Descriptor() ([]byte, []int) {
-	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{15}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ListWebSessionsResponse) GetSessionIds() []string {
@@ -834,7 +920,7 @@ type CloseSessionRequest struct {
 
 func (x *CloseSessionRequest) Reset() {
 	*x = CloseSessionRequest{}
-	mi := &file_chakra_web_v1_host_proto_msgTypes[16]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -846,7 +932,7 @@ func (x *CloseSessionRequest) String() string {
 func (*CloseSessionRequest) ProtoMessage() {}
 
 func (x *CloseSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chakra_web_v1_host_proto_msgTypes[16]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -859,7 +945,7 @@ func (x *CloseSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloseSessionRequest.ProtoReflect.Descriptor instead.
 func (*CloseSessionRequest) Descriptor() ([]byte, []int) {
-	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{16}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *CloseSessionRequest) GetSessionId() string {
@@ -877,7 +963,7 @@ type CloseSessionResponse struct {
 
 func (x *CloseSessionResponse) Reset() {
 	*x = CloseSessionResponse{}
-	mi := &file_chakra_web_v1_host_proto_msgTypes[17]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -889,7 +975,7 @@ func (x *CloseSessionResponse) String() string {
 func (*CloseSessionResponse) ProtoMessage() {}
 
 func (x *CloseSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chakra_web_v1_host_proto_msgTypes[17]
+	mi := &file_chakra_web_v1_host_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -902,7 +988,7 @@ func (x *CloseSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloseSessionResponse.ProtoReflect.Descriptor instead.
 func (*CloseSessionResponse) Descriptor() ([]byte, []int) {
-	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{17}
+	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{18}
 }
 
 var File_chakra_web_v1_host_proto protoreflect.FileDescriptor
@@ -951,11 +1037,17 @@ const file_chakra_web_v1_host_proto_rawDesc = "" +
 	"\x11GetStatusResponse\x12\x1f\n" +
 	"\vmodel_label\x18\x01 \x01(\tR\n" +
 	"modelLabel\x12\x15\n" +
-	"\x06run_id\x18\x02 \x01(\tR\x05runId\"\x16\n" +
-	"\x14CreateSessionRequest\"6\n" +
+	"\x06run_id\x18\x02 \x01(\tR\x05runId\"O\n" +
+	"\x14CreateSessionRequest\x127\n" +
+	"\bprovider\x18\x01 \x01(\v2\x1b.chakra.web.v1.ProviderSpecR\bprovider\"6\n" +
 	"\x15CreateSessionResponse\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\"\x18\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\"l\n" +
+	"\fProviderSpec\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\tR\x04type\x12\x19\n" +
+	"\bbase_url\x18\x02 \x01(\tR\abaseUrl\x12\x14\n" +
+	"\x05model\x18\x03 \x01(\tR\x05model\x12\x17\n" +
+	"\aapi_key\x18\x04 \x01(\tR\x06apiKey\"\x18\n" +
 	"\x16ListWebSessionsRequest\":\n" +
 	"\x17ListWebSessionsResponse\x12\x1f\n" +
 	"\vsession_ids\x18\x01 \x03(\tR\n" +
@@ -987,7 +1079,7 @@ func file_chakra_web_v1_host_proto_rawDescGZIP() []byte {
 	return file_chakra_web_v1_host_proto_rawDescData
 }
 
-var file_chakra_web_v1_host_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_chakra_web_v1_host_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_chakra_web_v1_host_proto_goTypes = []any{
 	(*WatchRequest)(nil),            // 0: chakra.web.v1.WatchRequest
 	(*Frame)(nil),                   // 1: chakra.web.v1.Frame
@@ -1003,35 +1095,37 @@ var file_chakra_web_v1_host_proto_goTypes = []any{
 	(*GetStatusResponse)(nil),       // 11: chakra.web.v1.GetStatusResponse
 	(*CreateSessionRequest)(nil),    // 12: chakra.web.v1.CreateSessionRequest
 	(*CreateSessionResponse)(nil),   // 13: chakra.web.v1.CreateSessionResponse
-	(*ListWebSessionsRequest)(nil),  // 14: chakra.web.v1.ListWebSessionsRequest
-	(*ListWebSessionsResponse)(nil), // 15: chakra.web.v1.ListWebSessionsResponse
-	(*CloseSessionRequest)(nil),     // 16: chakra.web.v1.CloseSessionRequest
-	(*CloseSessionResponse)(nil),    // 17: chakra.web.v1.CloseSessionResponse
+	(*ProviderSpec)(nil),            // 14: chakra.web.v1.ProviderSpec
+	(*ListWebSessionsRequest)(nil),  // 15: chakra.web.v1.ListWebSessionsRequest
+	(*ListWebSessionsResponse)(nil), // 16: chakra.web.v1.ListWebSessionsResponse
+	(*CloseSessionRequest)(nil),     // 17: chakra.web.v1.CloseSessionRequest
+	(*CloseSessionResponse)(nil),    // 18: chakra.web.v1.CloseSessionResponse
 }
 var file_chakra_web_v1_host_proto_depIdxs = []int32{
-	0,  // 0: chakra.web.v1.HostService.Watch:input_type -> chakra.web.v1.WatchRequest
-	2,  // 1: chakra.web.v1.HostService.Submit:input_type -> chakra.web.v1.SubmitRequest
-	4,  // 2: chakra.web.v1.HostService.Dispatch:input_type -> chakra.web.v1.DispatchRequest
-	6,  // 3: chakra.web.v1.HostService.RespondToAsk:input_type -> chakra.web.v1.RespondToAskRequest
-	8,  // 4: chakra.web.v1.HostService.ListSessions:input_type -> chakra.web.v1.ListSessionsRequest
-	10, // 5: chakra.web.v1.HostService.GetStatus:input_type -> chakra.web.v1.GetStatusRequest
-	12, // 6: chakra.web.v1.HostService.CreateSession:input_type -> chakra.web.v1.CreateSessionRequest
-	14, // 7: chakra.web.v1.HostService.ListWebSessions:input_type -> chakra.web.v1.ListWebSessionsRequest
-	16, // 8: chakra.web.v1.HostService.CloseSession:input_type -> chakra.web.v1.CloseSessionRequest
-	1,  // 9: chakra.web.v1.HostService.Watch:output_type -> chakra.web.v1.Frame
-	3,  // 10: chakra.web.v1.HostService.Submit:output_type -> chakra.web.v1.SubmitResponse
-	5,  // 11: chakra.web.v1.HostService.Dispatch:output_type -> chakra.web.v1.DispatchResponse
-	7,  // 12: chakra.web.v1.HostService.RespondToAsk:output_type -> chakra.web.v1.RespondToAskResponse
-	9,  // 13: chakra.web.v1.HostService.ListSessions:output_type -> chakra.web.v1.ListSessionsResponse
-	11, // 14: chakra.web.v1.HostService.GetStatus:output_type -> chakra.web.v1.GetStatusResponse
-	13, // 15: chakra.web.v1.HostService.CreateSession:output_type -> chakra.web.v1.CreateSessionResponse
-	15, // 16: chakra.web.v1.HostService.ListWebSessions:output_type -> chakra.web.v1.ListWebSessionsResponse
-	17, // 17: chakra.web.v1.HostService.CloseSession:output_type -> chakra.web.v1.CloseSessionResponse
-	9,  // [9:18] is the sub-list for method output_type
-	0,  // [0:9] is the sub-list for method input_type
-	0,  // [0:0] is the sub-list for extension type_name
-	0,  // [0:0] is the sub-list for extension extendee
-	0,  // [0:0] is the sub-list for field type_name
+	14, // 0: chakra.web.v1.CreateSessionRequest.provider:type_name -> chakra.web.v1.ProviderSpec
+	0,  // 1: chakra.web.v1.HostService.Watch:input_type -> chakra.web.v1.WatchRequest
+	2,  // 2: chakra.web.v1.HostService.Submit:input_type -> chakra.web.v1.SubmitRequest
+	4,  // 3: chakra.web.v1.HostService.Dispatch:input_type -> chakra.web.v1.DispatchRequest
+	6,  // 4: chakra.web.v1.HostService.RespondToAsk:input_type -> chakra.web.v1.RespondToAskRequest
+	8,  // 5: chakra.web.v1.HostService.ListSessions:input_type -> chakra.web.v1.ListSessionsRequest
+	10, // 6: chakra.web.v1.HostService.GetStatus:input_type -> chakra.web.v1.GetStatusRequest
+	12, // 7: chakra.web.v1.HostService.CreateSession:input_type -> chakra.web.v1.CreateSessionRequest
+	15, // 8: chakra.web.v1.HostService.ListWebSessions:input_type -> chakra.web.v1.ListWebSessionsRequest
+	17, // 9: chakra.web.v1.HostService.CloseSession:input_type -> chakra.web.v1.CloseSessionRequest
+	1,  // 10: chakra.web.v1.HostService.Watch:output_type -> chakra.web.v1.Frame
+	3,  // 11: chakra.web.v1.HostService.Submit:output_type -> chakra.web.v1.SubmitResponse
+	5,  // 12: chakra.web.v1.HostService.Dispatch:output_type -> chakra.web.v1.DispatchResponse
+	7,  // 13: chakra.web.v1.HostService.RespondToAsk:output_type -> chakra.web.v1.RespondToAskResponse
+	9,  // 14: chakra.web.v1.HostService.ListSessions:output_type -> chakra.web.v1.ListSessionsResponse
+	11, // 15: chakra.web.v1.HostService.GetStatus:output_type -> chakra.web.v1.GetStatusResponse
+	13, // 16: chakra.web.v1.HostService.CreateSession:output_type -> chakra.web.v1.CreateSessionResponse
+	16, // 17: chakra.web.v1.HostService.ListWebSessions:output_type -> chakra.web.v1.ListWebSessionsResponse
+	18, // 18: chakra.web.v1.HostService.CloseSession:output_type -> chakra.web.v1.CloseSessionResponse
+	10, // [10:19] is the sub-list for method output_type
+	1,  // [1:10] is the sub-list for method input_type
+	1,  // [1:1] is the sub-list for extension type_name
+	1,  // [1:1] is the sub-list for extension extendee
+	0,  // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_chakra_web_v1_host_proto_init() }
@@ -1045,7 +1139,7 @@ func file_chakra_web_v1_host_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chakra_web_v1_host_proto_rawDesc), len(file_chakra_web_v1_host_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   18,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

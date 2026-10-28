@@ -140,3 +140,32 @@ func TestObserver_FanOutToMany(t *testing.T) {
 		t.Fatalf("both observers should see turn-done: a=%v b=%v", a.kinds(), b.kinds())
 	}
 }
+
+// A turn announces the user's input first, as typed, so a surface that replays
+// the log can show what was asked.
+func TestSurface_TurnAnnouncesUserInput(t *testing.T) {
+	ts := startTestServer(t)
+	rec := &recordObserver{}
+	stub := agent.NewStubProvider(agent.StubTurn{Text: "hello"})
+	app, err := NewApp(testConfig(ts.URL), nil, strings.NewReader(""), WithProvider(stub), WithObserver(rec))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	if err := app.RunTurn(context.Background(), "what is 2+2"); err != nil {
+		t.Fatal(err)
+	}
+	// Server connection events may come first; the input must precede the turn.
+	for _, ev := range rec.evs {
+		if ev.Kind == HostRunnerEvent {
+			t.Fatalf("the turn began before its input was announced; kinds %v", rec.kinds())
+		}
+		if ev.Kind == HostUserInput {
+			if ev.Message != "what is 2+2" {
+				t.Fatalf("user-input Message = %q, want the typed text", ev.Message)
+			}
+			return
+		}
+	}
+	t.Fatalf("no user-input event; kinds %v", rec.kinds())
+}

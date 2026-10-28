@@ -139,10 +139,29 @@ message GetStatusResponse {
   string run_id = 2;
 }
 
-message CreateSessionRequest {}
+message CreateSessionRequest {
+  // provider is the model this session talks to, with the key the browser
+  // holds. A server started with a session builder (agentweb --byok) requires
+  // it; one that builds every session from its own config ignores it.
+  ProviderSpec provider = 1;
+}
 message CreateSessionResponse {
   // session_id of the freshly created conversation (App).
   string session_id = 1;
+}
+
+// ProviderSpec names a model endpoint and the key for it. The key lives in the
+// session's provider for as long as the session does, in server memory only:
+// it is never persisted or logged.
+message ProviderSpec {
+  // type is a connection type (openai, anthropic, gemini, openrouter, litellm,
+  // ollama, lmstudio), or "demo" for the offline demo provider, which needs no
+  // key or model.
+  string type = 1;
+  // base_url overrides the type's default API root.
+  string base_url = 2;
+  string model = 3;
+  string api_key = 4;
 }
 
 message ListWebSessionsRequest {}

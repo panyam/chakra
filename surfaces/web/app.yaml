@@ -15,9 +15,13 @@ basic_scaling:
 # App Engine standard buffers each response until it ends, so a Watch stream
 # that stays open never reaches the browser. The window ends each one after 3s
 # and the client reconnects with its resume_after count: a long poll.
+# AGENTWEB_BYOK: every session is started with a provider and key the browser
+# holds, there's no default session, and sessions are reachable only by id. The
+# demo is one of the providers it offers. AGENTWEB_ACCESS_TOKEN is added at
+# deploy time by deploy.sh from .agentweb-token (gitignored), never written here.
 env_variables:
   AGENTWEB_WATCH_WINDOW: "3s"
-  AGENTWEB_DEMO: "1"
+  AGENTWEB_BYOK: "1"
   AGENTWEB_ALLOW_ORIGIN: "vibestitch.appspot.com,vibestitch.uc.r.appspot.com"
 
 handlers:

@@ -228,6 +228,22 @@ body { font: 14px/1.5 system-ui, -apple-system, sans-serif; background: var(--bg
 .bg-bar { display: flex; height: 12px; border-radius: 999px; overflow: hidden; border: 1px solid var(--line); }
 .bg-bar-in { background: var(--accent); }
 .bg-bar-out { background: #16a34a; }
+/* Sessions panel */
+.ss { overflow-y: auto; padding-bottom: 1rem; }
+.ss-banner { margin: .6rem; padding: .6rem .7rem; border-radius: 8px; background: var(--sys); border: 1px solid var(--line); }
+.ss-error { margin: .4rem .6rem; color: var(--err); font-size: 12px; overflow-wrap: anywhere; }
+.ss-row { display: flex; align-items: center; gap: .5rem; padding: .3rem .6rem; }
+.ss-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; background: none; border: 0; color: var(--fg); font: inherit; text-align: left; padding: .2rem 0; cursor: pointer; }
+.ss-active .ss-name { color: var(--accent); }
+.ss-name { font-weight: 600; }
+.ss-sub { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.ss-form { display: flex; flex-direction: column; gap: .4rem; padding: .4rem .6rem .6rem; }
+.ss-field { display: flex; flex-direction: column; gap: .15rem; font-size: 12px; color: var(--muted); }
+.ss-input { font: inherit; font-size: 14px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: .4rem .5rem; }
+.ss-btn { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: .35rem .7rem; font: inherit; font-size: 13px; cursor: pointer; }
+.ss-btn:disabled { opacity: .5; cursor: default; }
+.ss-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.ss-note { margin: .6rem; font-size: 12px; color: var(--muted); }
 /* Mobile: the chat is the hero, a bottom bar switches panels, More holds the rest */
 body[data-layout="mobile"] .topbar label { display: none; }
 .mw { display: flex; flex-direction: column; height: 100%; min-height: 0; position: relative; }

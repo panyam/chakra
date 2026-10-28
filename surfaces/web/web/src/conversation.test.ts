@@ -292,3 +292,27 @@ describe("ConversationStore.respondToAsk", () => {
     expect(body).toEqual({ action: "accept", content: { change_1: true, change_2: false } });
   });
 });
+
+describe("ConversationStore user-input", () => {
+  const turn = (text: string): HostEvent[] => [
+    { Kind: "user-input", Message: text },
+    { Kind: "runner-event", RunnerEvent: { kind: "turn-begin" } },
+    { Kind: "runner-event", RunnerEvent: { kind: "text-delta", text: "ok" } },
+    { Kind: "turn-done" },
+  ];
+
+  it("rebuilds the user's side of a replayed session, without other-surface markers", () => {
+    const out = runIngest([...turn("first"), ...turn("second")]);
+    expect(out.turns.map((t) => `${t.role}:${t.text}`)).toEqual(["user:first", "assistant:ok", "user:second", "assistant:ok"]);
+    expect(out.turns.some((t) => "from" in t)).toBe(false);
+  });
+
+  it("doesn't repeat a message this surface already showed when it sent it", () =>
+    createRoot(async (dispose) => {
+      const store = createConversationStore(okClient);
+      await store.submit("hello");
+      for (const ev of turn("hello")) store.ingest(ev);
+      expect(store.turns().map((t) => `${t.role}:${t.text}`)).toEqual(["user:hello", "assistant:ok"]);
+      dispose();
+    }));
+});
