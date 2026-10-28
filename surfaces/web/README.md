@@ -154,7 +154,8 @@ Layout map (`web/src/`):
 | `ConversationPanel.tsx` | the Conversation Solid island (transcript, ask prompt, compose box) |
 | `dock.ts` | framework-neutral panel registry + saved-layout persistence + reconcile |
 | `DockviewWorkspace.ts` | dockview-core glue: adopt island hosts into panels |
-| `MobileOverlays.tsx` | mobile layout: the same Conversation panel as an overlay |
+| `MobileOverlays.tsx` | phone layout: the chat as the hero, a bottom bar (Chat, Agents, Activity, Tools) and a More drawer (Memory, Budget) whose panels open over the tab with a back bar. Every panel stays mounted, only hidden |
+| `mobilenav.ts` | the phone layout's navigation state and unread dots, with no DOM, so it's unit-tested |
 | `StatusLine.tsx`, `status.ts` | the topbar status island (model and session) |
 | `page.ts` | tsappkit `IslandPage`: the island registry and the shared stores and `Watch` |
 | `main.ts` | boot: starts the page once the DOM is ready |
@@ -176,7 +177,8 @@ the stylesheet from its UMD build into `static/dockview.css`.
 `--demo` wires an offline, inexhaustible streaming provider (no model or MCP
 server needed), so opening `http://localhost:8090/` and sending a message streams a
 live turn into the Conversation panel. `?layout=mobile` (or the topbar Layout
-select) switches to the mobile-overlay surface.
+select) switches to the phone layout. With no `?layout=`, a phone's user agent
+gets it by default.
 
 ### Build / test the frontend
 

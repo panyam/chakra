@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"strings"
 )
 
 //go:embed static
@@ -80,19 +81,33 @@ func shellHandler(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	layout := r.URL.Query().Get("layout")
-	if layout != "mobile" {
-		layout = "dockview"
-	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	layout := pickLayout(r)
 	_ = shellTemplate.Execute(w, shellData{Layout: layout, Dockview: layout == "dockview", Spec: specFor(layout)})
+}
+
+// pickLayout reads ?layout=, and with none picks mobile for a phone's user
+// agent ("Mobi" is in every major mobile browser's) and dockview otherwise. The
+// layout select and the mobile More drawer pass ?layout= explicitly, so either
+// can be forced on any device.
+func pickLayout(r *http.Request) string {
+	switch r.URL.Query().Get("layout") {
+	case "mobile":
+		return "mobile"
+	case "dockview":
+		return "dockview"
+	}
+	if strings.Contains(r.UserAgent(), "Mobi") {
+		return "mobile"
+	}
+	return "dockview"
 }
 
 const shellHTML = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>agentweb — mcpkit</title>
 {{if .Dockview}}<link rel="stylesheet" href="/static/dockview.css">{{end}}
 <style>
@@ -213,22 +228,26 @@ body { font: 14px/1.5 system-ui, -apple-system, sans-serif; background: var(--bg
 .bg-bar { display: flex; height: 12px; border-radius: 999px; overflow: hidden; border: 1px solid var(--line); }
 .bg-bar-in { background: var(--accent); }
 .bg-bar-out { background: #16a34a; }
-.mobile-tiles { display: flex; flex-direction: column; gap: .6rem; }
-/* Mobile overlay */
-.mobile-root { position: relative; height: 100%; }
-.mobile-home { padding: 1.2rem; }
-.mobile-title { font-size: 20px; font-weight: 600; margin-bottom: 1rem; }
-.mobile-launch { display: flex; flex-direction: column; align-items: flex-start; gap: .2rem; width: 100%; text-align: left; padding: 1rem; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--fg); cursor: pointer; }
-.mobile-launch-name { font-weight: 600; }
-.mobile-launch-sub { font-size: 12px; color: var(--muted); }
-.mobile-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--bg); }
-.mobile-overlay-bar { display: flex; align-items: center; justify-content: space-between; padding: .6rem .9rem; border-bottom: 1px solid var(--line); background: var(--panel); }
-.mobile-overlay-title { font-weight: 600; }
-.mobile-overlay-close { background: none; border: 0; font-size: 18px; color: var(--fg); cursor: pointer; }
-.mobile-overlay-body { flex: 1; min-height: 0; }
+/* Mobile: the chat is the hero, a bottom bar switches panels, More holds the rest */
+body[data-layout="mobile"] .topbar label { display: none; }
+.mw { display: flex; flex-direction: column; height: 100%; min-height: 0; position: relative; }
+.mw-backbar { display: flex; align-items: center; gap: .6rem; padding: .4rem .6rem; border-bottom: 1px solid var(--line); background: var(--panel); }
+.mw-back { background: none; border: 0; color: var(--accent); font: inherit; padding: .3rem .2rem; cursor: pointer; }
+.mw-backbar-title { font-weight: 600; }
+.mw-content { flex: 1; min-height: 0; position: relative; }
+.mw-pane { position: absolute; inset: 0; display: flex; flex-direction: column; overflow-y: auto; background: var(--bg); }
+.mw-pane[hidden] { display: none; }
+.mw-tabbar { display: flex; border-top: 1px solid var(--line); background: var(--panel); padding-bottom: env(safe-area-inset-bottom); }
+.mw-tab { flex: 1; position: relative; background: none; border: 0; color: var(--muted); font: inherit; font-size: 13px; padding: .7rem .2rem; cursor: pointer; }
+.mw-tab.active { color: var(--accent); font-weight: 600; box-shadow: inset 0 2px 0 var(--accent); }
+.mw-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-left: .3rem; vertical-align: super; }
+.mw-scrim { position: absolute; inset: 0; background: rgba(0,0,0,.35); z-index: 10; }
+.mw-sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 11; display: flex; flex-direction: column; background: var(--panel); border-top: 1px solid var(--line); border-radius: 14px 14px 0 0; padding: .5rem 0 calc(.5rem + env(safe-area-inset-bottom)); box-shadow: 0 -6px 20px rgba(0,0,0,.15); }
+.mw-sheet-item { display: block; text-align: left; background: none; border: 0; color: var(--fg); font: inherit; font-size: 15px; padding: .85rem 1.2rem; text-decoration: none; cursor: pointer; }
+.mw-sheet-item:hover { background: var(--line); }
 </style>
 </head>
-<body>
+<body data-layout="{{.Layout}}">
 <div class="topbar">
   <span class="topbar-brand">agentweb</span>
   <span class="topbar-status" data-slot="status">connecting…</span>
