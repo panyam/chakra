@@ -34,6 +34,7 @@ export const DEFAULT_DOCK_LAYOUT: DockPanelSpec[] = [
   { id: "tools", title: "Tools & Offload", position: { direction: "within", referencePanel: "timeline" } },
   { id: "memory", title: "Memory", position: { direction: "within", referencePanel: "timeline" } },
   { id: "budget", title: "Budget", position: { direction: "below", referencePanel: "conversation" }, initialHeight: 470 },
+  { id: "sessions", title: "Sessions", position: { direction: "within", referencePanel: "budget" } },
 ];
 
 // DOCK_LAYOUT_KEY is the localStorage key the rearranged dockview layout persists
@@ -44,7 +45,7 @@ export const DOCK_LAYOUT_KEY = "agentweb-dock-layout";
 // Persisted with each saved layout as its "version marker" (see SavedLayout): a
 // self-updating one, derived from the registry rather than a hand-bumped integer.
 // Every id here shows in the Panels menu and counts toward reconcile.
-export const DOCK_PANELS: readonly PanelId[] = ["conversation", "subagents", "timeline", "tools", "memory", "budget"];
+export const DOCK_PANELS: readonly PanelId[] = ["conversation", "subagents", "timeline", "tools", "memory", "budget", "sessions"];
 
 // RECONCILE_AUTO_OPEN is the subset a reconcile pass OPENS for an existing saved
 // layout when the panel is new since the save. The observability panels (#1198)
@@ -53,7 +54,9 @@ export const DOCK_PANELS: readonly PanelId[] = ["conversation", "subagents", "ti
 // as-is — the new panels appear in the Panels menu without popping open over
 // their arrangement. A fresh user (no saved layout) still gets the full
 // DEFAULT_DOCK_LAYOUT.
-export const RECONCILE_AUTO_OPEN: readonly PanelId[] = ["conversation"];
+// Sessions is here too: without it there is no way to start a session on a
+// server that needs one, so an existing layout must not hide it in the menu.
+export const RECONCILE_AUTO_OPEN: readonly PanelId[] = ["conversation", "sessions"];
 
 // DockStorage is the minimal Web Storage subset dock persistence needs, so tests
 // inject a fake without a DOM. localStorage satisfies it directly.

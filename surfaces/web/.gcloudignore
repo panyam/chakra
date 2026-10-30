@@ -7,3 +7,5 @@
 *_test.go
 static/*.js.map
 /agentweb
+deploy.sh
+.agentweb-token

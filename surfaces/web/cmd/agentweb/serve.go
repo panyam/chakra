@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"log"
 	"net"
@@ -45,6 +46,32 @@ func serve(ctx context.Context, ln net.Listener, handler http.Handler) error {
 		return nil
 	}
 	return err
+}
+
+// tokenHeader carries the access token on every HostService call.
+const tokenHeader = "X-Agentweb-Token"
+
+// tokenGuard requires token in tokenHeader on every HostService call, when a
+// token is set. The origin guard only stops other sites' pages; a script can
+// send any Origin it likes, so a server anyone can reach needs this too. The
+// shell and static assets stay public: the page has to load before it can ask
+// for the token. An empty token disables the guard.
+func tokenGuard(token string, next http.Handler) http.Handler {
+	if token == "" {
+		return next
+	}
+	want := []byte(token)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, connectPrefix) &&
+			subtle.ConstantTimeCompare([]byte(r.Header.Get(tokenHeader)), want) != 1 {
+			// Connect clients read the code from this JSON body.
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"code":"unauthenticated","message":"missing or wrong access token"}`))
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // originGuard rejects HostService calls from a browser page on another site.

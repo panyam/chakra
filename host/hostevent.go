@@ -67,6 +67,11 @@ const (
 	// HostElicitResolved reports that a pending ask (AskID) was answered, by
 	// which surface (By), so every other surface retracts its prompt.
 	HostElicitResolved HostEventKind = "elicit-resolved"
+	// HostUserInput carries the user's input for a turn as they typed it
+	// (Message), before any InputTransform expands it. It is emitted when
+	// RunTurn starts, so a surface that joins later, or reloads and replays
+	// the log, can show what was asked and not only what was answered.
+	HostUserInput HostEventKind = "user-input"
 )
 
 // HostEvent is one domain event the host announces: a thing that

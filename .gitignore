@@ -61,3 +61,7 @@ examples/multi-agent/multi-agent
 # Node artifacts for the agentweb frontend.
 node_modules/
 surfaces/web/web/dist/
+
+# agentweb deploy: the App Engine access token and the generated deploy config.
+surfaces/web/.agentweb-token
+surfaces/web/app.deploy.yaml

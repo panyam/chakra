@@ -1,5 +1,7 @@
 import { IslandPage, lazy, type EventBus, type LCMComponent, type Registry } from "@panyam/tsappkit";
-import { hostClient } from "./api.js";
+import { hostClient, scoped } from "./api.js";
+import { createSessionsStore } from "./sessions.js";
+import { loadSettings } from "./settings.js";
 import { createPanelStores, type PanelStores } from "./stores.js";
 import { WatchStream } from "./watch.js";
 import { mobileOverlaysIsland } from "./MobileOverlays.js";
@@ -37,16 +39,28 @@ export class AgentWebPage extends IslandPage<PageContext> {
   // Called once, before the first island mounts. The Watch replays from offset
   // 0 then follows live, fanning each event to every panel projection, so a
   // turn streamed once lands in whichever islands are mounted.
+  //
+  // Every call carries the browser's access token, and every session call the
+  // active session's id (scoped), so the stores and the Watch stream address
+  // that session without knowing about sessions. The first status call doubles
+  // as the check that there is a session to show: when it fails, the Sessions
+  // panel says why and the Watch never starts.
   protected makeContext(): PageContext {
-    const client = hostClient();
-    const stores = createPanelStores(client);
+    const storage = safeStorage();
+    const settings = loadSettings(storage);
+    const base = hostClient(settings.token);
+    const client = scoped(base, settings.active);
+    const sessions = createSessionsStore(base, storage);
+    const stores = createPanelStores(client, sessions);
     const watch = new WatchStream(client, (ev) => stores.ingest(ev));
-    watch.start();
     window.addEventListener("beforeunload", () => watch.stop());
     void client
       .getStatus({})
-      .then((st) => stores.conversation.setStatus({ model: st.modelLabel, session: st.runId }))
-      .catch(() => {});
+      .then((st) => {
+        stores.conversation.setStatus({ model: st.modelLabel, session: st.runId });
+        watch.start();
+      })
+      .catch((e) => sessions.diagnose(e));
     return { stores };
   }
 
@@ -59,5 +73,16 @@ export class AgentWebPage extends IslandPage<PageContext> {
       u.searchParams.set("layout", sel.value);
       location.assign(u.toString());
     });
+  }
+}
+
+// safeStorage returns localStorage, or null where touching it throws (some
+// private modes, blocked site data). The page works without it; it just won't
+// remember keys or sessions.
+function safeStorage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
   }
 }

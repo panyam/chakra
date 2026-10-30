@@ -17,6 +17,9 @@ export const HostEventKind = {
   Message: "message",
   ElicitRequest: "elicit-request",
   ElicitResolved: "elicit-resolved",
+  // UserInput carries a turn's input as typed (Message), so a page that
+  // replays the log shows what was asked, not only the answers.
+  UserInput: "user-input",
   // observability kinds (#1198)
   SubAgentEvent: "sub-agent-event",
   SessionWarn: "session-warn",

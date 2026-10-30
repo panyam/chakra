@@ -1,3 +1,4 @@
+import { createEffect, createRoot } from "solid-js";
 import { DockviewComponent, themeDark, themeLight } from "dockview-core";
 import type { DockviewApi } from "dockview-core";
 import type { PanelId } from "./panels.js";
@@ -10,6 +11,7 @@ import { timelineIsland } from "./TimelinePanel.js";
 import { memoryIsland } from "./MemoryPanel.js";
 import { toolsIsland } from "./ToolsPanel.js";
 import { budgetIsland } from "./BudgetPanel.js";
+import { sessionsIsland } from "./SessionsPanel.js";
 import {
   DEFAULT_DOCK_LAYOUT,
   DOCK_LAYOUT_KEY,
@@ -59,6 +61,9 @@ function mountIsland(id: PanelId, host: HTMLElement, stores: PanelStores): void 
       break;
     case "budget":
       budgetIsland(host, stores.budget);
+      break;
+    case "sessions":
+      sessionsIsland(host, stores.sessions);
       break;
   }
 }
@@ -122,6 +127,18 @@ export class DockviewWorkspace {
     });
 
     this.buildPanelsMenu();
+
+    // With no session to show, bring Sessions forward (reopening it if the user
+    // closed it): it's the only panel that can help.
+    createRoot(() =>
+      createEffect(() => {
+        if (!this.stores.sessions.problem()) return;
+        if (!this.dockview.getPanel("sessions")) {
+          this.dockview.addPanel({ id: "sessions", component: "sessions", title: "Sessions", position: { direction: "right" } });
+        }
+        this.dockview.getPanel("sessions")?.api.setActive();
+      }),
+    );
 
     // Follow the shell's theme: a forced data-theme on <html>, else the OS scheme.
     const applyTheme = () => dock.updateOptions({ theme: this.currentTheme() });

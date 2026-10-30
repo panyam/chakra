@@ -100,6 +100,18 @@ func (m *SessionManager) Create(ctx context.Context) (string, *host.App, error) 
 	if err != nil {
 		return "", nil, err
 	}
+	id, err := m.Adopt(ctx, app)
+	if err != nil {
+		return "", nil, err
+	}
+	return id, app, nil
+}
+
+// Adopt adds an App built elsewhere (by a session builder from a request's
+// provider spec) under a newly minted id, attaching a run when the manager has a
+// store, exactly as Create does for a factory-built App. On an AttachRun error
+// the App is closed and nothing is stored.
+func (m *SessionManager) Adopt(ctx context.Context, app *host.App) (string, error) {
 	id := m.mintID()
 	if m.store != nil {
 		// session_id == run id: attach (create) the run so it lands on the
@@ -107,13 +119,13 @@ func (m *SessionManager) Create(ctx context.Context) (string, *host.App, error) 
 		// create-or-resume, but the minted id is unique so this always creates.
 		if err := app.AttachRun(ctx, id); err != nil {
 			app.Close()
-			return "", nil, err
+			return "", err
 		}
 	}
 	m.mu.Lock()
 	m.sessions[id] = app
 	m.mu.Unlock()
-	return id, app, nil
+	return id, nil
 }
 
 // Get returns the App for id and whether it was found. An empty id resolves to

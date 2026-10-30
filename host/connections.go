@@ -84,6 +84,11 @@ type ConnectionConfig struct {
 	// Empty means unauthenticated (local endpoints).
 	APIKeyEnv string `json:"apiKeyEnv,omitempty"`
 
+	// APIKey is the key itself, for a caller that has one in hand rather than
+	// in the environment (agentweb, where the browser supplies it). It wins
+	// over APIKeyEnv. It is never read from or written to a config file.
+	APIKey string `json:"-"`
+
 	// Dim is the embedding vector width, meaningful only when this
 	// connection is used as an embedder (the ConnectionsConfig.Embedder
 	// role). It must match the embedding model's true output width; the
@@ -140,14 +145,14 @@ type ProviderBuilder func(ConnectionConfig) (agent.Provider, error)
 // Anthropic Messages-API provider when Type is "anthropic", otherwise an
 // OpenAI-wire provider (lmstudio / openai / ollama / gemini / any BaseURL).
 // The base URL resolves from BaseURL or the Type table and the key from
-// APIKeyEnv.
+// APIKey, else APIKeyEnv.
 func DefaultProviderBuilder(conn ConnectionConfig) (agent.Provider, error) {
 	base, err := resolveBaseURL(conn)
 	if err != nil {
 		return nil, err
 	}
-	var key string
-	if conn.APIKeyEnv != "" {
+	key := conn.APIKey
+	if key == "" && conn.APIKeyEnv != "" {
 		key = os.Getenv(conn.APIKeyEnv)
 	}
 	var p agent.Provider

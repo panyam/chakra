@@ -145,6 +145,10 @@ export function createConversationStore(client: Client<typeof HostService>): Con
   // mis-attribute one marker, which is cosmetic (this is a subtle origin badge,
   // not a correctness barrier — the ask barrier is what serializes control).
   let pendingLocalTurns = 0;
+  // localEchoes are inputs this surface already put in the transcript when it
+  // submitted them, oldest first, so their user-input events don't add them
+  // again. Any other user-input (a replay after a reload, another tab) is shown.
+  const localEchoes: string[] = [];
 
   const push = (t: Turn) => setTurns((prev) => [...prev, t]);
 
@@ -202,6 +206,18 @@ export function createConversationStore(client: Client<typeof HostService>): Con
       case HostEventKind.Message:
         if (ev.Message) push({ role: "system", text: ev.Message });
         break;
+      case HostEventKind.UserInput: {
+        const text = ev.Message ?? "";
+        if (localEchoes.length > 0 && localEchoes[0] === text) {
+          localEchoes.shift();
+          break;
+        }
+        push({ role: "user", text });
+        // The transcript now shows who asked, so the reply needs no "from
+        // another surface" marker: count it as a known turn.
+        pendingLocalTurns++;
+        break;
+      }
       case HostEventKind.SessionChanged:
         setStatus((s) => ({ ...s, session: ev.RunID ?? "" }));
         break;
@@ -259,6 +275,7 @@ export function createConversationStore(client: Client<typeof HostService>): Con
       if (claimed) return;
     }
     pendingLocalTurns++; // this surface expects the next turn-begin
+    localEchoes.push(text);
     setBusy(true);
     setAwaiting(true);
     try {
@@ -267,6 +284,10 @@ export function createConversationStore(client: Client<typeof HostService>): Con
       // The turn never started on the host, so no turn-begin will arrive for it;
       // release the pending-turn credit so a later remote turn is not mislabeled.
       pendingLocalTurns = Math.max(0, pendingLocalTurns - 1);
+      // The host may or may not have announced it before failing; drop the
+      // echo only if it's still waiting, so a later identical input still shows.
+      const i = localEchoes.indexOf(text);
+      if (i >= 0) localEchoes.splice(i, 1);
       setAwaiting(false);
       // A failed turn is also announced as a turn-failed frame; surface the
       // transport error too so a submit that never reached the host is visible.

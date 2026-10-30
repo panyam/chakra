@@ -24,6 +24,7 @@ import (
 	"github.com/panyam/chakra/host"
 	agentsurfaces "github.com/panyam/chakra/surfaces"
 	web "github.com/panyam/chakra/surfaces/web"
+	webv1 "github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1"
 	"github.com/panyam/mcpkit/core"
 )
 
@@ -46,6 +47,8 @@ func main() {
 	checkpointStore := flag.String("checkpoint-store", "", "with --workspace, where snapshots live (empty = under the first workspace directory). Worth setting so the store sits outside what the agent can read and edit")
 	allowOrigin := flag.String("allow-origin", os.Getenv("AGENTWEB_ALLOW_ORIGIN"), "comma-separated origins, besides localhost, allowed to call the API (e.g. 192.168.1.5 to use agentweb from a phone on the LAN, or *.example.com)")
 	watchWindow := flag.Duration("watch-window", envDuration("AGENTWEB_WATCH_WINDOW"), "end each event stream after this long so the client reconnects (e.g. 3s). For hosts that buffer whole responses, such as App Engine standard; 0 keeps streams open")
+	byok := flag.Bool("byok", os.Getenv("AGENTWEB_BYOK") != "", "bring your own key: each CreateSession names its provider and key, there is no default session, and sessions are reachable only by id. --config, when given, supplies everything but the model (default on when AGENTWEB_BYOK is set)")
+	accessToken := flag.String("access-token", os.Getenv("AGENTWEB_ACCESS_TOKEN"), "require this token in the X-Agentweb-Token header on every API call (default $AGENTWEB_ACCESS_TOKEN). Set it whenever the server is reachable by anyone but you")
 	active := flag.String("active", "", "override the active chat connection at startup (a name in the config's connections; default = the config's active)")
 	flag.Parse()
 
@@ -81,6 +84,19 @@ func main() {
 	} else {
 		mgr = web.NewSessionManager(factory)
 	}
+	svcOpts := []web.Option{web.WithWatchWindow(*watchWindow)}
+	if *byok {
+		// Every session is built from the provider its CreateSession names, and
+		// none exists until one does: a default session would need a key of its
+		// own, and would be reachable by anyone.
+		svcOpts = append(svcOpts,
+			web.WithSessionBuilder(func(ctx context.Context, spec *webv1.ProviderSpec) (*host.App, error) {
+				return buildSessionApp(opts, spec)
+			}),
+			web.WithPrivateSessions())
+		serveWith(*addr, *allowOrigin, *accessToken, mgr, svcOpts)
+		return
+	}
 	defaultApp, err := factory(context.Background())
 	if err != nil {
 		log.Fatalf("agentweb: %v", err)
@@ -94,15 +110,23 @@ func main() {
 		}
 	}
 	mgr.SetDefault(defaultApp)
+	serveWith(*addr, *allowOrigin, *accessToken, mgr, svcOpts)
+}
 
-	ln, err := net.Listen("tcp", *addr)
+// serveWith listens on addr and serves mgr's sessions behind the origin guard
+// and, when token is set, the token guard, until the process is stopped.
+func serveWith(addr, allowOrigin, token string, mgr *web.SessionManager, svcOpts []web.Option) {
+	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("agentweb: %v", err)
 	}
-	handler := originGuard(newOriginChecker(*allowOrigin), web.HandlerWithSessions(mgr, web.WithWatchWindow(*watchWindow)))
-	fmt.Fprintf(os.Stderr, "agentweb serving at http://%s/ (Connect: /%s, Ctrl-C to stop)\n", *addr, "chakra.web.v1.HostService")
-	if *allowOrigin == "" && !isLoopback(*addr) {
+	handler := originGuard(newOriginChecker(allowOrigin), tokenGuard(token, web.HandlerWithSessions(mgr, svcOpts...)))
+	fmt.Fprintf(os.Stderr, "agentweb serving at http://%s/ (Connect: /%s, Ctrl-C to stop)\n", addr, "chakra.web.v1.HostService")
+	if allowOrigin == "" && !isLoopback(addr) {
 		fmt.Fprintf(os.Stderr, "note: only localhost pages may call the API; pass --allow-origin <this machine's address> to use it from another device\n")
+	}
+	if token == "" && !isLoopback(addr) {
+		fmt.Fprintf(os.Stderr, "note: no --access-token, so anyone who can reach this address can use the API\n")
 	}
 	err = serve(context.Background(), ln, handler)
 	mgr.CloseAll()
@@ -235,6 +259,44 @@ func buildApp(o appOptions) (*host.App, error) {
 		return nil, err
 	}
 	return host.NewApp(cfg, io.Discard, strings.NewReader(""), append(opts, host.WithElicitationUI(awaitSurface))...)
+}
+
+// buildSessionApp builds a --byok session's App from the provider its
+// CreateSession named. "demo" gets the offline demo App; anything else is a
+// connection built with the browser's key, over --config's servers and
+// policies when one is given and a bare config otherwise. Errors name the field
+// to fix and never include the key.
+func buildSessionApp(o appOptions, spec *webv1.ProviderSpec) (*host.App, error) {
+	if spec == nil || spec.GetType() == "" {
+		return nil, fmt.Errorf("this server needs a provider for each session: set provider.type (and model and api_key)")
+	}
+	if spec.GetType() == "demo" {
+		o.demo = true
+		return buildApp(o)
+	}
+	if spec.GetModel() == "" {
+		return nil, fmt.Errorf("provider %q: model is required", spec.GetType())
+	}
+	conn := host.ConnectionConfig{Type: spec.GetType(), BaseURL: spec.GetBaseUrl(), Model: spec.GetModel(), APIKey: spec.GetApiKey()}
+	p, err := host.DefaultProviderBuilder(conn)
+	if err != nil {
+		return nil, fmt.Errorf("provider %q: %w", spec.GetType(), err)
+	}
+	cfg := &host.Config{}
+	if o.configPath != "" {
+		if cfg, err = host.LoadConfig(o.configPath); err != nil {
+			return nil, fmt.Errorf("load config: %w", err)
+		}
+		cfg.Connections = nil
+	}
+	// The model label the surfaces show comes from here; the provider does
+	// the talking.
+	cfg.Model = host.ModelConfig{BaseURL: "byok://" + spec.GetType(), Model: spec.GetModel()}
+	var opts []host.AppOption
+	if o.store != nil {
+		opts = append(opts, host.WithRunStore(o.store))
+	}
+	return host.NewApp(cfg, io.Discard, strings.NewReader(""), append(opts, host.WithProvider(p), host.WithElicitationUI(awaitSurface))...)
 }
 
 // awaitSurface is the local elicitation responder outside --demo. agentweb has
