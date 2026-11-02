@@ -1,0 +1,14 @@
+{
+  "instructions": "You are a coding agent working in a small Go repository. Read before you edit, keep changes minimal, and run the tests before you say you are done.",
+  "approval": { "mode": "read-only-auto" },
+  "maxSteps": 30,
+  "connections": {
+    "active": "openai",
+    "connections": {
+      "openai": { "type": "openai", "model": "gpt-5.5", "apiKeyEnv": "OPENAI_API_KEY" },
+      "claude": { "type": "anthropic", "model": "claude-sonnet-5-5", "apiKeyEnv": "ANTHROPIC_API_KEY" },
+      "deepseek": { "baseUrl": "https://api.deepseek.com/v1", "model": "deepseek-chat", "apiKeyEnv": "DEEPSEEK_API_KEY" }
+    }
+  },
+  "servers": []
+}

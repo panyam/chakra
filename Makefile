@@ -10,7 +10,7 @@ MODULES := . host surfaces surfaces/chat surfaces/web \
            store/redis store/gorm \
            ext/checkpoint ext/files ext/exec ext/lsp
 
-EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/host-exercise
+EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/host-exercise examples/coding-harness
 
 # CI runs these same targets rather than restating the module list, so adding a
 # module is one edit here. It overrides GOTESTFLAGS only to add -v.
@@ -32,7 +32,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/h
 # explicitly and the platform's own backend refuses. See the module README.
 GOTESTFLAGS ?= -race -timeout 300s
 
-.PHONY: help build test test-examples test-web testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg dogfood dogfood-web deploy-web weblogs \
+.PHONY: help build test test-examples test-web testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity deploy-web weblogs \
         check-no-binaries check-ext-isolation check-dep-consistency setup-hooks
 
 help: ## Show this help
@@ -161,6 +161,29 @@ dogfood-web: ## Mission exercise in the browser: agentweb on this repo (open htt
 		--checkpoint-store $(DOGFOOD_DIR)/checkpoints \
 		--session-store sqlite://$(DOGFOOD_DIR)/sessions.db \
 		$(if $(DOGFOOD_ACTIVE),--active $(DOGFOOD_ACTIVE))
+
+# Mission #162's exercise: chakra's coding agent (agentweb over the profile in
+# examples/coding-harness) fixes a failing test in a fixture repo, driven over
+# agentweb's Connect API. Scripted model, no key; exits non-zero only when a
+# result differs from examples/coding-harness/expected.go.
+coding-harness-exercise: ## Mission #162 exercise: PASS/FAIL per coding-agent behaviour (no model needed)
+	@cd examples/coding-harness && go run .
+
+# CH_ACTIVE picks the connection from examples/coding-harness/config.json;
+# CH_MODEL overrides its model.
+CH_ACTIVE ?= openai
+CH_MODEL ?=
+
+coding-harness-exercise-live: ## The same exercise with a real model, plus a metrics line (CH_ACTIVE=claude, CH_MODEL=gpt-5.4 etc.)
+	@cd examples/coding-harness && go run . --live --active $(CH_ACTIVE) $(if $(CH_MODEL),--model $(CH_MODEL))
+
+CH_ADDR ?= localhost:8091
+
+coding-harness-web: ## The coding agent in the browser on a fresh copy of the fixture (CH_WORKSPACE=dir to use another)
+	@cd examples/coding-harness && go run . --serve $(CH_ADDR) --active $(CH_ACTIVE) $(if $(CH_MODEL),--model $(CH_MODEL)) $(if $(CH_WORKSPACE),--workspace $(CH_WORKSPACE))
+
+coding-harness-parity: ## codex exec vs the coding harness, same fixture and model, side by side (needs codex and OPENAI_API_KEY; PARITY_MODEL=gpt-5.5)
+	@bash scripts/coding-harness-parity.sh
 
 # ---------------------------------------------------------------------------
 # Release
