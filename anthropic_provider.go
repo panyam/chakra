@@ -101,6 +101,9 @@ func NewAnthropicProvider(cfg AnthropicConfig) (*AnthropicProvider, error) {
 // message_delta → DeltaFinish + DeltaUsage. The stream ends with io.EOF after
 // message_stop.
 func (p *AnthropicProvider) Stream(ctx context.Context, req ProviderRequest) (Stream, error) {
+	if err := anthropicCheck(req); err != nil {
+		return nil, err
+	}
 	body := p.buildBody(req, true)
 	resp, err := p.post(ctx, body)
 	if err != nil {
@@ -117,6 +120,9 @@ func (p *AnthropicProvider) Stream(ctx context.Context, req ProviderRequest) (St
 // input_schema is the schema and the tool_use input is returned in
 // ProviderResponse.Text (Anthropic has no response_format).
 func (p *AnthropicProvider) Generate(ctx context.Context, req ProviderRequest) (*ProviderResponse, error) {
+	if err := anthropicCheck(req); err != nil {
+		return nil, err
+	}
 	structured := req.ResponseSchema.Len() > 0
 	body := p.buildBody(req, false)
 	resp, err := p.post(ctx, body)
@@ -446,4 +452,16 @@ func (s *anthropicStream) eventDeltas(msg anthropicSSE) ([]Delta, bool, error) {
 	}
 	// content_block_stop and ping carry no deltas.
 	return nil, false, nil
+}
+
+// anthropicCheck refuses the ProviderRequest fields the Messages API has no
+// counterpart for, so they fail loudly instead of being dropped.
+func anthropicCheck(req ProviderRequest) error {
+	if req.Seed != nil {
+		return fmt.Errorf("%w: Seed (the Anthropic Messages API has no seed)", ErrUnsupportedParam)
+	}
+	if req.Guided != nil {
+		return fmt.Errorf("%w: Guided (the Anthropic Messages API has no decoding constraint)", ErrUnsupportedParam)
+	}
+	return nil
 }

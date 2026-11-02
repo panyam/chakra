@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -109,6 +110,34 @@ type ProviderRequest struct {
 	// TurnRequest.Generation.
 	ToolChoice ToolChoice `json:"toolChoice,omitempty"`
 
+	// Seed fixes the sampler's random seed when non-nil, so the same prompt
+	// at the same temperature draws the same completion on a server that
+	// honors it. Vary it across calls to get distinct drafts of one prompt.
+	// Set it on a turn through RunnerConfig.Generation or
+	// TurnRequest.Generation.
+	//
+	// OpenAIProvider sends it as "seed" (OpenAI, llama.cpp, vLLM and Ollama
+	// read it; determinism on hosted APIs is best-effort). AnthropicProvider
+	// refuses a non-nil Seed with ErrUnsupportedParam, because the Messages
+	// API has no seed and a dropped one would quietly make every draft
+	// independent.
+	Seed *int `json:"seed,omitempty"`
+
+	// Guided, when non-nil, constrains decoding token by token so the
+	// completion matches a grammar, a regex or a JSON Schema. Unlike
+	// ResponseSchema, which asks for a schema and is honored only by
+	// Generate, a guided completion cannot come out malformed on a server
+	// that supports it. Stream and Generate both forward it.
+	//
+	// It targets self-hosted inference. OpenAIProvider maps it per
+	// OpenAIConfig.GuidedDialect and refuses it with ErrUnsupportedParam when
+	// no dialect is configured or the dialect lacks the requested kind.
+	// AnthropicProvider always refuses it. Constraining a step that also
+	// offers tools is server-defined, so it is meant for single calls (a
+	// translator, a classifier) rather than a tool-using turn, and is not on
+	// GenerationParams.
+	Guided *GuidedDecoding `json:"guided,omitempty"`
+
 	// ResponseSchema, when set, asks Generate for structured output
 	// conforming to this JSON Schema. Ignored by Stream.
 	ResponseSchema core.RawJSON `json:"responseSchema,omitempty"`
@@ -159,6 +188,11 @@ type GenerationParams struct {
 	// one that ignores it degrades to "auto", so forcing a call is a
 	// request, not a guarantee. Full contract on ProviderRequest.ToolChoice.
 	ToolChoice ToolChoice `json:"toolChoice,omitempty"`
+
+	// Seed fixes the sampler seed when non-nil. A pointer so that an explicit
+	// 0 is a seed rather than "unset". Providers without a seed refuse it
+	// rather than drop it. Full contract on ProviderRequest.Seed.
+	Seed *int `json:"seed,omitempty"`
 }
 
 // merge returns p overlaid with over: each field of over that is set wins,
@@ -175,6 +209,9 @@ func (p GenerationParams) merge(over GenerationParams) GenerationParams {
 	if !over.ToolChoice.IsZero() {
 		out.ToolChoice = over.ToolChoice
 	}
+	if over.Seed != nil {
+		out.Seed = over.Seed
+	}
 	return out
 }
 
@@ -184,6 +221,45 @@ func (p GenerationParams) applyTo(req *ProviderRequest) {
 	req.Temperature = p.Temperature
 	req.MaxTokens = p.MaxTokens
 	req.ToolChoice = p.ToolChoice
+	req.Seed = p.Seed
+}
+
+// GuidedDecoding is a decoding constraint. Exactly one field is set; a
+// provider refuses an empty or ambiguous one with ErrUnsupportedParam.
+//
+// Grammar is passed to the server verbatim, in that server's own grammar
+// language (GBNF for llama.cpp, xgrammar's EBNF for vLLM). The two overlap
+// but are not identical, so a grammar is written for its server.
+type GuidedDecoding struct {
+	// Grammar is a context-free grammar the completion must match.
+	Grammar string `json:"grammar,omitempty"`
+	// Regex is a regular expression the completion must match.
+	Regex string `json:"regex,omitempty"`
+	// JSONSchema is a schema the completion must conform to.
+	JSONSchema core.RawJSON `json:"jsonSchema,omitempty"`
+}
+
+// ErrUnsupportedParam reports a ProviderRequest field the provider, or the
+// server it is configured for, cannot honor. Providers return it wrapped with
+// the field's name, before sending anything, so a constraint the caller asked
+// for is never silently dropped. Test with errors.Is.
+var ErrUnsupportedParam = errors.New("agent: provider does not support request parameter")
+
+func (g *GuidedDecoding) kind() (string, error) {
+	var kinds []string
+	if g.Grammar != "" {
+		kinds = append(kinds, "grammar")
+	}
+	if g.Regex != "" {
+		kinds = append(kinds, "regex")
+	}
+	if g.JSONSchema.Len() > 0 {
+		kinds = append(kinds, "jsonSchema")
+	}
+	if len(kinds) != 1 {
+		return "", fmt.Errorf("%w: Guided needs exactly one of Grammar, Regex or JSONSchema, got %v", ErrUnsupportedParam, kinds)
+	}
+	return kinds[0], nil
 }
 
 // ToolChoice is the request-level tool-calling bias. The zero value ("")
