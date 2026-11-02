@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"strings"
 
@@ -30,7 +31,37 @@ type OpenAIConfig struct {
 	// custom TLS, or timeouts (note: an overall client timeout also bounds
 	// streaming reads; prefer per-request ctx deadlines for streams).
 	HTTPClient *http.Client
+
+	// GuidedDialect names the server family whose request fields carry
+	// ProviderRequest.Guided. Guided decoding has no OpenAI-standard field,
+	// so the provider cannot guess one. Empty means the endpoint takes no
+	// constraint and a request carrying one is refused. An unknown value
+	// fails NewOpenAIProvider.
+	GuidedDialect GuidedDialect
+
+	// ExtraBody holds server-specific top-level request fields sent on every
+	// request, such as llama.cpp's "cache_prompt": true. A key the provider
+	// sets for the request (model, messages, temperature when set, and so on)
+	// keeps the provider's value, so ExtraBody fills gaps and never rewrites
+	// the conversation. NewOpenAIProvider takes a shallow copy; changing the
+	// map afterwards has no effect.
+	ExtraBody map[string]any
 }
+
+// GuidedDialect selects how OpenAIProvider encodes ProviderRequest.Guided.
+type GuidedDialect string
+
+const (
+	// GuidedDialectLlamaCpp targets llama.cpp's llama-server: Grammar goes
+	// out as "grammar" (GBNF) and JSONSchema as "json_schema". It has no
+	// regex mode, so a Regex constraint is refused.
+	GuidedDialectLlamaCpp GuidedDialect = "llamacpp"
+
+	// GuidedDialectVLLM targets vLLM 0.12 and later: the constraint goes out
+	// as "structured_outputs" with one of "grammar", "regex" or "json". The
+	// older guided_* fields were removed in 0.12 and are not sent.
+	GuidedDialectVLLM GuidedDialect = "vllm"
+)
 
 // OpenAIProvider implements Provider over the OpenAI-compatible
 // chat-completions wire with no SDK dependency (net/http plus servicekit's
@@ -50,7 +81,60 @@ func NewOpenAIProvider(cfg OpenAIConfig) (*OpenAIProvider, error) {
 	if hc == nil {
 		hc = http.DefaultClient
 	}
+	switch cfg.GuidedDialect {
+	case "", GuidedDialectLlamaCpp, GuidedDialectVLLM:
+	default:
+		return nil, fmt.Errorf("agent: unknown OpenAIConfig.GuidedDialect %q", cfg.GuidedDialect)
+	}
+	cfg.ExtraBody = maps.Clone(cfg.ExtraBody)
 	return &OpenAIProvider{cfg: cfg, http: hc}, nil
+}
+
+// check refuses, before anything is sent, a request this endpoint cannot
+// honor as asked.
+func (p *OpenAIProvider) check(req ProviderRequest) error {
+	if req.Guided == nil {
+		return nil
+	}
+	kind, err := req.Guided.kind()
+	if err != nil {
+		return err
+	}
+	switch {
+	case p.cfg.GuidedDialect == "":
+		return fmt.Errorf("%w: Guided (OpenAIConfig.GuidedDialect is not set)", ErrUnsupportedParam)
+	case p.cfg.GuidedDialect == GuidedDialectLlamaCpp && kind == "regex":
+		return fmt.Errorf("%w: Guided.Regex (llama.cpp has no regex constraint)", ErrUnsupportedParam)
+	}
+	return nil
+}
+
+// guidedFields returns the top-level body fields carrying g under the
+// configured dialect. check has already validated the pair.
+func (p *OpenAIProvider) guidedFields(g *GuidedDecoding) map[string]any {
+	var schema any
+	if g.JSONSchema.Len() > 0 {
+		_ = g.JSONSchema.Bind(&schema)
+	}
+	switch p.cfg.GuidedDialect {
+	case GuidedDialectLlamaCpp:
+		if g.Grammar != "" {
+			return map[string]any{"grammar": g.Grammar}
+		}
+		return map[string]any{"json_schema": schema}
+	case GuidedDialectVLLM:
+		so := map[string]any{}
+		switch {
+		case g.Grammar != "":
+			so["grammar"] = g.Grammar
+		case g.Regex != "":
+			so["regex"] = g.Regex
+		default:
+			so["json"] = schema
+		}
+		return map[string]any{"structured_outputs": so}
+	}
+	return nil
 }
 
 // ProviderError reports a non-2xx response from the model endpoint. The body
@@ -70,6 +154,9 @@ func (e *ProviderError) Error() string {
 // arrive as DeltaToolCallStart followed by DeltaToolCallArgs fragments on the
 // same index. The stream ends with io.EOF after the servers [DONE] marker.
 func (p *OpenAIProvider) Stream(ctx context.Context, req ProviderRequest) (Stream, error) {
+	if err := p.check(req); err != nil {
+		return nil, err
+	}
 	body := p.buildBody(req, true)
 	resp, err := p.post(ctx, body)
 	if err != nil {
@@ -85,6 +172,9 @@ func (p *OpenAIProvider) Stream(ctx context.Context, req ProviderRequest) (Strea
 // req.ResponseSchema is set, the request carries response_format json_schema
 // and the structured document is returned in ProviderResponse.Text.
 func (p *OpenAIProvider) Generate(ctx context.Context, req ProviderRequest) (*ProviderResponse, error) {
+	if err := p.check(req); err != nil {
+		return nil, err
+	}
 	body := p.buildBody(req, false)
 	resp, err := p.post(ctx, body)
 	if err != nil {
@@ -217,6 +307,12 @@ func (p *OpenAIProvider) buildBody(req ProviderRequest, stream bool) map[string]
 	if req.MaxTokens > 0 {
 		body["max_tokens"] = req.MaxTokens
 	}
+	if req.Seed != nil {
+		body["seed"] = *req.Seed
+	}
+	if req.Guided != nil {
+		maps.Copy(body, p.guidedFields(req.Guided))
+	}
 	if len(req.Tools) > 0 && !req.ToolChoice.IsZero() {
 		choice := req.ToolChoice
 		if choice.Mode == "function" {
@@ -239,6 +335,11 @@ func (p *OpenAIProvider) buildBody(req ProviderRequest, stream bool) map[string]
 					"schema": schema,
 				},
 			}
+		}
+	}
+	for k, v := range p.cfg.ExtraBody {
+		if _, set := body[k]; !set {
+			body[k] = v
 		}
 	}
 	return body

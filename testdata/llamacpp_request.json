@@ -1,0 +1,12 @@
+{
+  "model": "qwen",
+  "messages": [
+    {"role": "system", "content": "card"},
+    {"role": "user", "content": "question"}
+  ],
+  "grammar": "root ::= \"a\"",
+  "cache_prompt": true,
+  "max_tokens": 512,
+  "temperature": 0.7,
+  "seed": 3
+}
