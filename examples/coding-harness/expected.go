@@ -1,0 +1,20 @@
+package main
+
+// expectedFailures lists the checks known to fail on the scripted run, each
+// with the ticket that fixes it. A run that differs from this list in either
+// direction fails, so a ticket that makes a check pass removes its line here,
+// and that diff is how mission #162 records progress. The mission is done when
+// this map is empty.
+//
+// Live runs are not held to this list; they print the same table to compare.
+var expectedFailures = map[string]string{
+	"agents_md_loaded":  "#146",
+	"shell_command":     "#154",
+	"escalation_asked":  "#153",
+	"patch_edit":        "#156",
+	"skill_loaded":      "#147",
+	"plan_published":    "#148",
+	"steered_mid_turn":  "#149",
+	"review_findings":   "#152",
+	"structured_result": "#145",
+}

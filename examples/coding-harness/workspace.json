@@ -1,0 +1,14 @@
+{
+  "exec": {
+    "sandbox": "platform",
+    "commands": [
+      {
+        "name": "test",
+        "argv": ["go", "test", "./..."],
+        "description": "Run the module's Go tests (go test ./...) in the workspace root.",
+        "readOnly": true,
+        "timeout": "3m"
+      }
+    ]
+  }
+}

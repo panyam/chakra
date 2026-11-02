@@ -1,0 +1,284 @@
+// Command coding-harness is mission #162's exercise and its coding agent. The
+// agent is agentweb's server and UI over a host.App wired for coding
+// (profile.go); nothing here changes how a turn runs.
+//
+// With no flags it runs the exercise: it copies testdata/fixture (a Go module
+// with a failing test and an AGENTS.md) to a temp directory, drives the agent
+// over agentweb's Connect API with a scripted model, runs the fixture's tests,
+// and prints PASS or FAIL per behaviour. It exits non-zero only when the
+// results differ from expectedFailures.
+//
+// --live uses a real model from config.json instead and prints a metrics line;
+// --serve serves the agent in the browser on a copy of the fixture (or
+// --workspace) for working with it by hand.
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
+	"text/tabwriter"
+	"time"
+
+	"github.com/panyam/chakra/surfaces/web"
+)
+
+type options struct {
+	live      bool
+	active    string
+	model     string
+	keep      bool
+	jsonlPath string
+	metrics   string
+	timeout   time.Duration
+}
+
+func main() {
+	var o options
+	serve := flag.String("serve", "", "serve the agent in the browser on this address (e.g. localhost:8091) instead of running the exercise")
+	workspace := flag.String("workspace", "", "with --serve, the directory to work in (default: a fresh copy of the fixture)")
+	flag.BoolVar(&o.live, "live", false, "use a real model from config.json instead of the scripted one")
+	flag.StringVar(&o.active, "active", "", "the config.json connection to use (default: the config's active)")
+	flag.StringVar(&o.model, "model", "", "override the connection's model")
+	flag.BoolVar(&o.keep, "keep", false, "keep the temp workspace and print where it is")
+	flag.StringVar(&o.jsonlPath, "jsonl", "", "write every Watch frame to this file as JSONL")
+	flag.StringVar(&o.metrics, "metrics", "", "write the metrics line as JSON to this file")
+	flag.DurationVar(&o.timeout, "timeout", 0, "give up after this long (default 2m scripted, 15m live)")
+	verbose := flag.Bool("v", false, "keep the host's logging")
+	flag.Parse()
+	if !*verbose {
+		log.SetOutput(io.Discard)
+	}
+
+	var err error
+	if *serve != "" {
+		err = serveUI(*serve, *workspace, o)
+	} else {
+		err = runExercise(o)
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "coding-harness:", err)
+		os.Exit(1)
+	}
+}
+
+// exerciseRun is one run of the exercise and its outcomes.
+type exerciseRun struct {
+	result   *runResult
+	outcomes map[string]outcome
+	root     string
+}
+
+type outcome struct {
+	pass   bool
+	detail string
+}
+
+// exercise copies the fixture, drives one run, and evaluates every check.
+func exercise(ctx context.Context, o options) (*exerciseRun, error) {
+	fixture, err := filepath.Abs(filepath.Join("testdata", "fixture"))
+	if err != nil {
+		return nil, err
+	}
+	tmp, err := os.MkdirTemp("", "coding-harness-")
+	if err != nil {
+		return nil, err
+	}
+	// The file tools compare against resolved paths, and macOS temp dirs sit
+	// behind a /var -> /private/var symlink.
+	if tmp, err = filepath.EvalSymlinks(tmp); err != nil {
+		return nil, err
+	}
+	root := filepath.Join(tmp, "repo")
+	if err := copyTree(fixture, root); err != nil {
+		return nil, err
+	}
+
+	p := profile{
+		dir:         ".",
+		root:        root,
+		active:      o.active,
+		model:       o.model,
+		approval:    "allow",
+		checkpoints: filepath.Join(tmp, "checkpoints"),
+		recorder:    &recorder{},
+	}
+	if !o.live {
+		if p.provider, err = scriptedProvider(fixture); err != nil {
+			return nil, err
+		}
+		// CI is Linux, and the exec sandbox backend is darwin-only.
+		p.unconfined = runtime.GOOS != "darwin"
+	}
+
+	timeout := o.timeout
+	if timeout == 0 {
+		timeout = 2 * time.Minute
+		if o.live {
+			timeout = 15 * time.Minute
+		}
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	res, err := drive(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	res.finish(root, fixture)
+
+	run := &exerciseRun{result: res, outcomes: map[string]outcome{}, root: tmp}
+	for _, c := range checks {
+		pass, detail := c.run(res, fixture)
+		run.outcomes[c.id] = outcome{pass, detail}
+	}
+	if !o.keep {
+		_ = os.RemoveAll(tmp)
+	}
+	return run, nil
+}
+
+// unexpected lists the checks whose outcome differs from expectedFailures.
+func (r *exerciseRun) unexpected() []string {
+	var out []string
+	for _, c := range checks {
+		_, pinned := expectedFailures[c.id]
+		if r.outcomes[c.id].pass == pinned {
+			out = append(out, c.id)
+		}
+	}
+	return out
+}
+
+func runExercise(o options) error {
+	run, err := exercise(context.Background(), o)
+	if err != nil {
+		return err
+	}
+	res := run.result
+
+	mode := "scripted"
+	if o.live {
+		mode = "live"
+	}
+	fmt.Printf("coding-harness (%s), agentweb wire\n\n", mode)
+	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "RESULT\tCHECK\tWIRING\tDETAIL")
+	for _, c := range checks {
+		oc := run.outcomes[c.id]
+		status := "PASS"
+		if !oc.pass {
+			status = "FAIL"
+			if t, ok := expectedFailures[c.id]; ok {
+				status = "FAIL " + t
+			}
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", status, c.id, c.wiring, oc.detail)
+	}
+	tw.Flush()
+
+	m := metricsOf(res)
+	fmt.Printf("\n%s\n", m)
+	if o.keep {
+		fmt.Printf("workspace kept at %s\n", run.root)
+	}
+	if o.jsonlPath != "" {
+		f, err := os.Create(o.jsonlPath)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		if err := res.writeJSONL(f); err != nil {
+			return err
+		}
+	}
+	if o.metrics != "" {
+		data, _ := json.MarshalIndent(m, "", "  ")
+		if err := os.WriteFile(o.metrics, data, 0o644); err != nil {
+			return err
+		}
+	}
+
+	if o.live {
+		return nil
+	}
+	if bad := run.unexpected(); len(bad) > 0 {
+		return fmt.Errorf("results differ from expected.go for %v: a check that now passes should lose its line there", bad)
+	}
+	fmt.Println("\nmatches expected.go")
+	return nil
+}
+
+// metrics is the live variant's baseline line, and what the parity script
+// compares against codex.
+type metrics struct {
+	Steps       int  `json:"steps"`
+	ToolCalls   int  `json:"tool_calls"`
+	InputTok    int  `json:"input_tokens"`
+	OutputTok   int  `json:"output_tokens"`
+	WallSeconds int  `json:"wall_seconds"`
+	TestsPassed bool `json:"tests_passed"`
+	// TestFilesUntouched is AGENTS.md's "never edit *_test.go" rule.
+	TestFilesUntouched bool   `json:"test_files_untouched"`
+	TurnError          string `json:"turn_error,omitempty"`
+}
+
+func metricsOf(r *runResult) metrics {
+	m := metrics{ToolCalls: len(r.toolCalls()), WallSeconds: int(r.wall.Round(time.Second).Seconds()), TestsPassed: r.testsPassed, TestFilesUntouched: len(r.testFilesChanged) == 0, TurnError: r.turnErr}
+	if r.turn != nil {
+		m.Steps = r.turn.Steps
+		m.InputTok = r.turn.Usage.InputTokens
+		m.OutputTok = r.turn.Usage.OutputTokens
+	}
+	return m
+}
+
+func (m metrics) String() string {
+	tests := "fail"
+	if m.TestsPassed {
+		tests = "pass"
+	}
+	s := fmt.Sprintf("steps=%d tool_calls=%d in_tok=%d out_tok=%d wall=%ds tests=%s",
+		m.Steps, m.ToolCalls, m.InputTok, m.OutputTok, m.WallSeconds, tests)
+	if m.TurnError != "" {
+		s += " turn_error=" + m.TurnError
+	}
+	return s
+}
+
+// serveUI serves the coding agent in agentweb's browser UI.
+func serveUI(addr, workspace string, o options) error {
+	root := workspace
+	if root == "" {
+		tmp, err := os.MkdirTemp("", "coding-harness-")
+		if err != nil {
+			return err
+		}
+		if tmp, err = filepath.EvalSymlinks(tmp); err != nil {
+			return err
+		}
+		root = filepath.Join(tmp, "repo")
+		if err := copyTree(filepath.Join("testdata", "fixture"), root); err != nil {
+			return err
+		}
+	}
+	root, err := filepath.Abs(root)
+	if err != nil {
+		return err
+	}
+	ckpt, err := os.MkdirTemp("", "coding-harness-checkpoints-")
+	if err != nil {
+		return err
+	}
+	p := profile{dir: ".", root: root, active: o.active, model: o.model, checkpoints: ckpt}
+	mgr := web.NewSessionManager(p.build)
+	fmt.Printf("coding-harness on http://%s/ working in %s\n", addr, root)
+	return http.ListenAndServe(addr, web.HandlerWithSessions(mgr))
+}
