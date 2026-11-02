@@ -1,0 +1,29 @@
+# Changelog
+
+All notable changes to this project are recorded here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
+[Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
+the same version.
+
+## [v0.2.0] - 2026-11-02
+
+Full notes in [docs/releases/v0.2.0.md](docs/releases/v0.2.0.md).
+
+### Breaking
+- `AgentSourceConfig.InputSchema` and `AsyncAgentSourceConfig.InputSchema` are `core.RawJSON`, no longer `json.RawMessage`. Wrap with `core.NewRawJSON(raw)` (PR 48).
+- `AddFunc` / `AddAsyncFunc` take a trailing `opts ...FuncOption`. Calls compile unchanged (PR 100).
+
+### Added
+- Per-request seed, guided decoding (llama.cpp, vLLM) and `OpenAIConfig.ExtraBody`, with `ErrUnsupportedParam` for parameters a provider can't honor (PR 170).
+- A step chain before every model call, carrying compaction and the step budget (PR 128).
+- Host: server instructions in the system prompt, input rewriting by extensions, fresh server-advertised agents, event hints, stateless `list_changed`, a skills catalog (PRs 101, 107, 63, 135, 138, 136).
+- Extensions: `delete_file`, per-hunk edit approval, `run_test_one`, a repo map without opening files, turn-by-turn `/undo` (PRs 118, 123, 94, 133, 103).
+- agentweb: bring-your-own-key sessions, phone layout, App Engine deployment (PRs 168, 167, 166).
+- `make coding-harness-exercise` and `make host-exercise` (PRs 173, 115).
+
+### Fixed
+- Invalid JSON tool arguments no longer break encoding (PR 120). A step-capped turn keeps its messages (PR 119). `/undo` across directories and restarts (PR 72). Checkpoint restore keeps file modes (PR 132).
+
+## [v0.1.0] - 2026-08-21
+
+First release after the move out of mcpkit. Tag only, with no notes.
