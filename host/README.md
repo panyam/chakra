@@ -171,6 +171,24 @@ it can't equal a configured server's id.
 
 Surfaces fill these in from the workspace; see `surfaces.WorkspaceSkillDirs`.
 
+### Workspace roots
+
+`Config.Roots` (or `WithRoots`) are the directories the host declares to MCP
+servers as roots. With at least one, every client advertises the `roots`
+capability and answers `roots/list` with `file://` URIs, so a server that works
+on a project (a language server behind MCP, a repo tool) can find it. With
+none, the capability isn't advertised at all.
+
+- On the stateless wire a server asks inside a tool call (SEP-2322 input),
+  which the host answers like any other mid-call input. On the session wire it
+  can also ask on its own after `notifications/roots/list_changed`.
+- `App.SetRoots` swaps the list and sends that notification to every connected
+  session-wire server. The stateless wire has no such notification, and its
+  servers see the new list on their next ask. A host that started with no roots
+  can't add them later, since capabilities are fixed at initialize.
+- agentchat, agentweb and the coding harness pass the same roots they confine
+  `ext/files` and `ext/exec` to.
+
 A server's own `instructions` (from its initialize result) go into the system
 prompt too, in their own section between `Config.Instructions` and the skill
 blocks, in config order. Each carries the same untrusted-origin header as a

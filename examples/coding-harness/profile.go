@@ -99,6 +99,7 @@ func (p profile) build(context.Context) (*host.App, error) {
 	return host.NewApp(cfg, io.Discard, strings.NewReader(""),
 		host.WithExtension(exts...),
 		host.WithSkillDirs(skillDirs...),
+		host.WithRoots(ws.Roots...),
 		host.WithProvider(prov),
 		host.WithElicitationUI(awaitSurface),
 	)

@@ -136,6 +136,13 @@ type Config struct {
 	// more, which is how a surface adds workspace folders.
 	SkillDirs []SkillDir `json:"skillDirs,omitempty"`
 
+	// Roots are the workspace directories the host declares to MCP servers,
+	// which a server reads with roots/list (as file:// URIs). Empty means the
+	// host advertises no roots capability, so servers see a host without a
+	// workspace rather than one with an empty list. WithRoots adds more, which
+	// is how a surface passes its workspace roots.
+	Roots []string `json:"roots,omitempty"`
+
 	// Offload configures tool-result offloading. Nil means off: tool
 	// results flow into the conversation verbatim. Set it to store
 	// over-threshold results out of band and hand the model a compact

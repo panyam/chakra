@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http/httptest"
+	"net/url"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -41,6 +43,11 @@ var checks = []check{
 		cfg.Servers[0].Events = []host.EventConfig{{Name: demoEvent}}
 	}, checkEventHint},
 	{"agent-delegable", "the server's agent can be delegated to", nil, checkAgentDelegable},
+	// The workspace is this exercise's own folder, which is what a surface
+	// started in a repo would declare.
+	{"roots", "a server asking roots/list sees the workspace roots", func(cfg *host.Config) {
+		cfg.Roots = []string{"."}
+	}, checkRoots},
 }
 
 // runCheck gives a check its own demo server, so no check sees another's
@@ -224,6 +231,48 @@ func checkAgentDelegable(ctx context.Context, _ *demo, cfg *host.Config) (bool, 
 		return false, fmt.Sprintf("delegated, but the result was %q", clip(got, 80)), nil
 	}
 	return true, "delegated and got the child's answer back", nil
+}
+
+func checkRoots(ctx context.Context, _ *demo, cfg *host.Config) (bool, string, error) {
+	var want []string
+	for _, r := range cfg.Roots {
+		abs, err := filepath.Abs(r)
+		if err != nil {
+			return false, "", err
+		}
+		want = append(want, (&url.URL{Scheme: "file", Path: filepath.ToSlash(abs)}).String())
+	}
+	asked := false
+	p := &scripted{decide: func(req agent.ProviderRequest) agent.StubTurn {
+		if !asked && offers(req, rootsTool) {
+			asked = true
+			return agent.StubTurn{ToolCalls: []agent.ToolCall{{ID: "r", Name: rootsTool, Args: core.NewRawJSON([]byte(`{}`))}}}
+		}
+		return agent.StubTurn{Text: "ok"}
+	}}
+	app, err := newApp(cfg, p)
+	if err != nil {
+		return false, "", err
+	}
+	defer app.Close()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for !asked && time.Now().Before(deadline) {
+		if err := app.RunTurn(ctx, "where is the workspace?"); err != nil {
+			return false, "", err
+		}
+		if !asked {
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+	if !asked {
+		return false, fmt.Sprintf("no %q tool offered within 5s", rootsTool), nil
+	}
+	got := lastToolResult(p.last())
+	if got != strings.Join(want, "\n") {
+		return false, fmt.Sprintf("roots/list answered %q", clip(got, 80)), nil
+	}
+	return true, fmt.Sprintf("roots/list answered %d root(s), the workspace", len(want)), nil
 }
 
 func newApp(cfg *host.Config, p agent.Provider, opts ...host.AppOption) (*host.App, error) {
