@@ -143,6 +143,17 @@ func TestHelperProcess(t *testing.T) {
 			time.Sleep(50 * time.Millisecond)
 		}
 
+	case "staged":
+		// Prints each word, then sleeps the duration after it: output that
+		// arrives between a model's collections.
+		for i := 1; i < len(args); i += 2 {
+			fmt.Println(args[i])
+			if i+1 < len(args) {
+				d, _ := time.ParseDuration(args[i+1])
+				time.Sleep(d)
+			}
+		}
+
 	case "isatty":
 		fi, _ := os.Stdin.Stat()
 		fmt.Printf("tty=%v\n", fi.Mode()&os.ModeCharDevice != 0)

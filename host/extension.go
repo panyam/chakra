@@ -187,6 +187,17 @@ type Announcer interface {
 	SetAnnounce(announce func(message string))
 }
 
+// ProcessReporter is an optional interface an Extension implements to show
+// the output of processes its tools started while they run, such as a dev
+// server between the model's polls. The host calls SetProcessOutput once,
+// while applying extensions and before any turn, with a function that is safe
+// to call from any goroutine; each call becomes a HostProcessOutput event.
+// It reaches the surfaces only, never the model's context, so a tool keeps
+// returning the output it collects as before.
+type ProcessReporter interface {
+	SetProcessOutput(report func(ProcessOutput))
+}
+
 // TurnEnder is an optional interface an Extension implements to hear that a
 // turn the host ran is over, whether it finished, stopped partway (the step
 // cap or the context budget) or failed. result is nil when the turn failed
@@ -509,6 +520,9 @@ func (a *App) applyExtensions(exts []Extension, provider agent.Provider) ([]agen
 		}
 		if an, ok := ext.(Announcer); ok {
 			an.SetAnnounce(func(msg string) { a.emit(HostEvent{Kind: HostMessage, Message: msg}) })
+		}
+		if pr, ok := ext.(ProcessReporter); ok {
+			pr.SetProcessOutput(func(o ProcessOutput) { a.emit(HostEvent{Kind: HostProcessOutput, ProcessOutput: &o}) })
 		}
 		a.approvalRenderers = append(a.approvalRenderers, ext.ApprovalRenderers()...)
 		a.approvalChoosers = append(a.approvalChoosers, ext.ApprovalChoosers()...)

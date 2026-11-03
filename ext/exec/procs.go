@@ -14,6 +14,7 @@ import (
 	"time"
 
 	agent "github.com/panyam/chakra"
+	"github.com/panyam/chakra/host"
 	"github.com/panyam/mcpkit/core"
 )
 
@@ -44,6 +45,12 @@ type ProcessConfig struct {
 	DefaultYield time.Duration
 	// MaxYield caps the wait a model can ask for. Default 30s.
 	MaxYield time.Duration
+	// StreamBudget is how many bytes of one process's output are shown to
+	// the user as they arrive, in agentweb and agentchat, before streaming
+	// pauses for that process; the model still reads all of it. Default
+	// 4 MiB; negative streams without limit. The host keeps streamed output
+	// in its event log, which Config.MaxEventLogRetention bounds by count.
+	StreamBudget int
 }
 
 const (
@@ -63,6 +70,8 @@ type procManager struct {
 	mu    sync.Mutex
 	procs map[string]*proc
 	next  int
+	// report receives output as it arrives, when the host shows it.
+	report func(host.ProcessOutput)
 }
 
 func newProcManager(cfg ProcessConfig) *procManager {
@@ -77,6 +86,9 @@ func newProcManager(cfg ProcessConfig) *procManager {
 	}
 	if cfg.MaxYield <= 0 {
 		cfg.MaxYield = defaultMaxYield
+	}
+	if cfg.StreamBudget == 0 {
+		cfg.StreamBudget = defaultStreamBudget
 	}
 	return &procManager{cfg: cfg, procs: map[string]*proc{}}
 }
@@ -110,6 +122,8 @@ type tailBuffer struct {
 	buf   []byte
 	max   int
 	total int64
+	// tee, when set, also gets each write, for streaming to the surfaces.
+	tee func([]byte)
 }
 
 func (b *tailBuffer) Write(p []byte) (int, error) {
@@ -120,6 +134,9 @@ func (b *tailBuffer) Write(p []byte) (int, error) {
 		b.buf = append([]byte(nil), b.buf[over:]...)
 	}
 	b.total += int64(len(p))
+	if b.tee != nil {
+		b.tee(p)
+	}
 	return len(p), nil
 }
 
@@ -277,6 +294,16 @@ func (s *Source) execCommand(args map[string]any) *core.ToolResult {
 		cmd.Env = append(os.Environ(), s.egress.env()...)
 	}
 	p := &proc{command: a.Cmd, cmd: cmd, tty: a.TTY, out: &tailBuffer{max: m.cfg.MaxOutput}, done: make(chan struct{}), started: time.Now()}
+	m.mu.Lock()
+	report := m.report
+	m.mu.Unlock()
+	var stream *outputStream
+	if report != nil {
+		// Teed before the start, so the first output isn't missed; it waits
+		// in the stream until the process has its id.
+		stream = newOutputStream(m.cfg.StreamBudget)
+		p.out.tee = stream.add
+	}
 
 	policy := Policy{Write: s.write, DenyRead: s.denyRead, Dir: dir, AllowNetwork: s.shell.allowNetwork}
 	if a.TTY {
@@ -315,6 +342,9 @@ func (s *Source) execCommand(args map[string]any) *core.ToolResult {
 	p.id = fmt.Sprintf("p%d", m.next)
 	m.procs[p.id] = p
 	m.mu.Unlock()
+	if stream != nil {
+		go stream.run(p, report)
+	}
 	return m.collect(p, m.yield(a.YieldMS), "$ "+a.Cmd)
 }
 

@@ -8,6 +8,11 @@ import { EventKind, HostEventKind, type HostEvent, type ToolResult } from "./hos
 // ("[tool result NB, stored as res:...]") — and surfaces the ref, since the
 // blob itself is fetched internally via read_tool_result and is not exposed on
 // the web bridge (so the panel shows the stub + ref, not the full blob).
+//
+// A process started with exec_command keeps printing after its call returns.
+// Its output arrives as process-output events keyed by the process id, which
+// the call's result names as session_id; output can arrive before that result
+// does, so it is held per process until a call claims it.
 
 // ToolStatus is the terminal disposition of a call (running until it lands).
 export type ToolStatus = "running" | "ok" | "error" | "denied" | "cancelled" | "unavailable";
@@ -21,6 +26,31 @@ export interface ToolCallEntry {
   preview: string;
   offloaded: boolean;
   ref: string;
+  // process is the id of the process this call started, and output what it
+  // has printed so far (the tail, escape sequences stripped). exitCode stays
+  // null while it runs; streamPaused says the host stopped streaming it.
+  process: string;
+  output: string;
+  exitCode: number | null;
+  streamPaused: boolean;
+}
+
+// OUTPUT_KEEP bounds the output kept per row; older output is dropped first.
+const OUTPUT_KEEP = 64 * 1024;
+
+// ANSI matches terminal escape sequences, which a tty process prints. The panel
+// shows plain text; a terminal view would render them instead.
+// eslint-disable-next-line no-control-regex
+const ANSI = /\x1b\[[0-9;?]*[ -\/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-Z\\-_]/g;
+
+interface ProcState {
+  output: string;
+  exitCode: number | null;
+  paused: boolean;
+}
+
+function keepTail(s: string): string {
+  return s.length > OUTPUT_KEEP ? s.slice(s.length - OUTPUT_KEEP) : s;
 }
 
 export interface ToolStore {
@@ -63,7 +93,7 @@ export function createToolStore(): ToolStore {
   // by reference, so a mutated-in-place entry would never re-render.
   const update = (id: string, name: string, patch: Partial<ToolCallEntry>): void => {
     const base: ToolCallEntry =
-      idx.has(id) ? ring[idx.get(id)!] : { id, name: name || "tool", args: "", status: "running", preview: "", offloaded: false, ref: "" };
+      idx.has(id) ? ring[idx.get(id)!] : { id, name: name || "tool", args: "", status: "running", preview: "", offloaded: false, ref: "", process: "", output: "", exitCode: null, streamPaused: false };
     const next = { ...base, ...patch };
     if (name && !next.name) next.name = name;
     if (idx.has(id)) ring = ring.map((e, i) => (i === idx.get(id)! ? next : e));
@@ -74,7 +104,34 @@ export function createToolStore(): ToolStore {
     setCalls(ring);
   };
 
+  const procs = new Map<string, ProcState>();
+  const owner = new Map<string, string>(); // process id -> the call that started it
+
+  const showProcess = (procId: string): void => {
+    const callId = owner.get(procId);
+    const st = procs.get(procId);
+    if (!callId || !st) return;
+    update(callId, "", { process: procId, output: st.output, exitCode: st.exitCode, streamPaused: st.paused });
+  };
+
+  const ingestOutput = (o: NonNullable<HostEvent["ProcessOutput"]>): void => {
+    if (!o.ID) return;
+    const st = procs.get(o.ID) ?? { output: "", exitCode: null, paused: false };
+    let add = "";
+    if (o.Dropped) add += `… ${o.Dropped} bytes dropped …\n`;
+    add += (o.Text ?? "").replace(ANSI, "");
+    st.output = keepTail(st.output + add);
+    if (o.Paused) st.paused = true;
+    if (o.Exited) st.exitCode = o.ExitCode ?? 0;
+    procs.set(o.ID, st);
+    showProcess(o.ID);
+  };
+
   const ingest = (ev: HostEvent): void => {
+    if (ev.Kind === HostEventKind.ProcessOutput) {
+      if (ev.ProcessOutput) ingestOutput(ev.ProcessOutput);
+      return;
+    }
     if (ev.Kind !== HostEventKind.RunnerEvent) return;
     const re = ev.RunnerEvent;
     if (!re) return;
@@ -95,6 +152,14 @@ export function createToolStore(): ToolStore {
           offloaded: ref !== "",
           ref,
         });
+        // The first call naming a process started it; write_stdin and
+        // kill_process name it too, and leave it where it is.
+        const procId = re.toolResult?.structuredContent?.session_id;
+        if (typeof procId === "string" && procId && !owner.has(procId)) {
+          owner.set(procId, id);
+          if (!procs.has(procId)) procs.set(procId, { output: "", exitCode: null, paused: false });
+          showProcess(procId);
+        }
         break;
       }
       case EventKind.ToolError:
@@ -119,6 +184,8 @@ export function createToolStore(): ToolStore {
     reset: () => {
       ring = [];
       idx.clear();
+      procs.clear();
+      owner.clear();
       setCalls([]);
     },
   };

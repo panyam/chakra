@@ -1,4 +1,4 @@
-import { For, Show, createSignal } from "solid-js";
+import { For, Show, createEffect, createSignal } from "solid-js";
 import { SolidIsland } from "@panyam/tsappkit-solid";
 import type { ToolStore, ToolCallEntry } from "./tools.js";
 
@@ -7,7 +7,8 @@ import type { ToolStore, ToolCallEntry } from "./tools.js";
 // args/preview. Fed by the ToolStore projection off Watch (#1198). The offload
 // blob is fetched internally by the model via read_tool_result and is not
 // exposed on the web bridge, so an offloaded row shows the stub + ref, not the
-// full blob.
+// full blob. A call that started a process shows its output live below the
+// row, as the process prints it (#214).
 
 const STATUS_CLASS: Record<ToolCallEntry["status"], string> = {
   running: "tool-running",
@@ -17,6 +18,25 @@ const STATUS_CLASS: Record<ToolCallEntry["status"], string> = {
   cancelled: "tool-cancelled",
   unavailable: "tool-unavailable",
 };
+
+function processState(c: ToolCallEntry): string {
+  if (c.exitCode !== null) return `exited ${c.exitCode}`;
+  return c.streamPaused ? "running · streaming paused" : "running";
+}
+
+// LiveOutput is the process's output, kept scrolled to the end while it grows.
+function LiveOutput(props: { text: string }) {
+  let el: HTMLPreElement | undefined;
+  createEffect(() => {
+    props.text;
+    if (el) el.scrollTop = el.scrollHeight;
+  });
+  return (
+    <pre class="tool-live" ref={el}>
+      {props.text}
+    </pre>
+  );
+}
 
 function Row(props: { call: ToolCallEntry }) {
   const [open, setOpen] = createSignal(false);
@@ -31,8 +51,16 @@ function Row(props: { call: ToolCallEntry }) {
             offloaded · {c().ref}
           </span>
         </Show>
+        <Show when={c().process}>
+          <span class="tool-proc" title={`process ${c().process}`}>
+            {c().process} · {processState(c())}
+          </span>
+        </Show>
         <span class="tool-preview">{c().preview}</span>
       </div>
+      <Show when={c().output}>
+        <LiveOutput text={c().output} />
+      </Show>
       <Show when={open()}>
         <div class="tool-detail">
           <Show when={c().args}>

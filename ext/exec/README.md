@@ -118,8 +118,18 @@ turn is still there in the next, and `Extension.Close` kills them all. Each call
 output since the last one, cut from the middle past 16 KiB. A process keeps at most `MaxOutput`
 bytes (1 MiB), and a read says how much older output it missed. At most `Max` (8) run at once.
 
+While a process runs, its output also streams to the surfaces as it prints (#214), so agentweb's
+Tools panel and agentchat show a dev server or a build between the model's polls. The extension
+implements `host.ProcessReporter`; each batch, sent every 250ms or at 8 KiB, becomes a
+`process-output` event keyed by the process's `session_id`, and the last one carries the exit code.
+None of it reaches the model, whose results are the same with or without a surface watching.
+Streaming pauses after `StreamBudget` bytes per process (4 MiB; negative for no limit), because
+the host keeps every event in its log and a server left running would grow it without end.
+`MaxEventLogRetention` bounds the log by count across all kinds, so it can't protect a session's
+turns from a noisy process the way a per-process budget does.
+
 In a workspace file: `"exec": {"shell": {"processes": true}}`, or an object with `max`,
-`maxOutput`, `defaultYield` and `maxYield`.
+`maxOutput`, `defaultYield`, `maxYield` and `streamBudget`.
 
 ## Network by host, through a local proxy (#158)
 

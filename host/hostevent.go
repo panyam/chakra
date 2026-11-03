@@ -73,7 +73,39 @@ const (
 	// RunTurn starts, so a surface that joins later, or reloads and replays
 	// the log, can show what was asked and not only what was answered.
 	HostUserInput HostEventKind = "user-input"
+	// HostProcessOutput carries output a process printed (ProcessOutput),
+	// reported as it arrives rather than when the model next collects it, so
+	// a surface can show a dev server or a build while it runs. It is for the
+	// user only: the model's tool results are unchanged, and the RunStore
+	// does not keep it.
+	HostProcessOutput HostEventKind = "process-output"
 )
+
+// ProcessOutput is one stretch of a process's output, from an extension that
+// implements ProcessReporter. Successive events for one process arrive in
+// order, and the last one has Exited set.
+type ProcessOutput struct {
+	// Source is the reporting extension's Name, and ID the process id it
+	// gives the model (exec_command's session_id), so a surface can attach
+	// the output to the tool call whose result names that id.
+	Source string
+	ID     string
+	// Command is the command line the process was started with.
+	Command string
+	// Text is the output since the previous event. A terminal process's
+	// output includes its escape sequences.
+	Text string
+	// Dropped counts bytes left out before Text, because one event's text is
+	// capped and a longer burst keeps only its end.
+	Dropped int64
+	// Paused is set once, on the event after which the process's streaming
+	// budget is spent: later output still reaches the model, but no longer
+	// streams. The exit is still reported.
+	Paused bool
+	// Exited and ExitCode report that the process has finished.
+	Exited   bool
+	ExitCode int
+}
 
 // HostEvent is one domain event the host announces: a thing that
 // happened, fire-and-forget, fanned out to every Observer. It is a tagged
@@ -129,6 +161,9 @@ type HostEvent struct {
 	AskID  int64
 	Elicit *core.ElicitationRequest
 	By     string
+
+	// ProcessOutput is the output on HostProcessOutput.
+	ProcessOutput *ProcessOutput
 }
 
 // Observer receives the host's HostEvent stream and does whatever it

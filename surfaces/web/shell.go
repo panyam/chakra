@@ -217,6 +217,8 @@ body { font: 14px/1.5 system-ui, -apple-system, sans-serif; background: var(--bg
 .tool-preview { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tool-detail { padding: .2rem .7rem .5rem; }
 .tool-detail-label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-top: .3rem; }
+.tool-proc { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 .4rem; white-space: nowrap; }
+.tool-live { white-space: pre-wrap; word-break: break-word; margin: 0 .5rem .4rem; padding: .3rem .45rem; max-height: 14em; overflow: auto; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; }
 .tool-pre { white-space: pre-wrap; word-break: break-word; margin: .1rem 0 0; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 /* Budget gauges */
 .obs-budget { padding: .8rem .7rem; gap: .8rem; }
