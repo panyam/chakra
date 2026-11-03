@@ -121,6 +121,34 @@ bytes (1 MiB), and a read says how much older output it missed. At most `Max` (8
 In a workspace file: `"exec": {"shell": {"processes": true}}`, or an object with `max`,
 `maxOutput`, `defaultYield` and `maxYield`.
 
+## Network by host, through a local proxy (#158)
+
+`AllowNetwork` is all or nothing. `Config.Network` sits between: commands reach the hosts it lists
+and nothing else beyond loopback.
+
+```json
+"exec": {"network": {"allow": ["proxy.golang.org", "sum.golang.org", "*.npmjs.org"], "ask": true}}
+```
+
+The extension starts a proxy on `127.0.0.1` (HTTP, including `CONNECT` for HTTPS, and SOCKS5 on one
+port) and gives every command, `run_*`, `shell` and `exec_command` alike, `HTTP_PROXY`,
+`HTTPS_PROXY` and `ALL_PROXY`, with `NO_PROXY` for loopback. The sandbox already confines a
+command's network to loopback, so the proxy is its only way out, and the proxy decides per host.
+`*.npmjs.org` covers subdomains, not the apex.
+
+With `ask`, a connection to an unlisted host becomes a question for the user, through the same
+queue as approval asks (`host.Asker`), and the answer holds for the session. Without `ask`, or with
+nobody to answer (headless `exec`), it's refused, and the conversation gets a line naming the host
+(`host.Announcer`) so the user can see why a command failed.
+
+Limits:
+
+- Without a sandbox (`exec.Unconfined()`, or Linux until #32), commands can ignore the proxy
+  variables, so the allowlist is advice rather than enforcement there.
+- `Network` and `AllowNetwork` can't both be set; `AllowNetwork` already lets everything out.
+- A read-only mode (GET and HEAD only) isn't offered: the proxy can't see methods inside an HTTPS
+  tunnel without decrypting it.
+
 ## Arguments, when they are permitted at all
 
 `Args` is nil by default and the tool then exposes no argument. A command that

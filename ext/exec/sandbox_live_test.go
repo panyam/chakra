@@ -6,6 +6,7 @@ import (
 	"context"
 	"net"
 	"os"
+	osexec "os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -263,5 +264,39 @@ func TestLiveProcessesRunUnderTheSandbox(t *testing.T) {
 	out, _ = callProc(t, src, ExecCommandTool, map[string]any{"cmd": "test -t 0 && echo is-a-tty", "tty": true})
 	if !strings.Contains(out, "is-a-tty") {
 		t.Errorf("tty under the sandbox: %q", out)
+	}
+}
+
+// TestLiveSandboxedCurlGoesThroughTheAllowlist is #158 under the real backend:
+// a sandboxed curl, which can only reach loopback, gets to an allowed host
+// through the proxy and is refused another.
+func TestLiveSandboxedCurlGoesThroughTheAllowlist(t *testing.T) {
+	curl, err := osexec.LookPath("curl")
+	if err != nil {
+		t.Skip("no curl")
+	}
+	ok := okServer(t, "reached the allowed host")
+	fakeHosts(t, map[string]string{"allowed.test": ok.Listener.Addr().String(), "blocked.test": ok.Listener.Addr().String()})
+	root := t.TempDir()
+	src, err := NewSource(Config{
+		Roots: []string{root},
+		Commands: []CommandSpec{
+			{Name: "get_allowed", Argv: []string{curl, "-s", "http://allowed.test/"}, Description: "Fetch.", ReadOnly: true},
+			{Name: "get_blocked", Argv: []string{curl, "-s", "http://blocked.test/"}, Description: "Fetch.", ReadOnly: true},
+		},
+		Network: &NetworkConfig{Allow: []string{"allowed.test"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer src.Close()
+	if src.sandbox.Name() == "unconfined" {
+		t.Fatal("expected the platform sandbox")
+	}
+	if got := call(t, src, "run_get_allowed", nil); !strings.Contains(got, "reached the allowed host") {
+		t.Errorf("allowed host: %q", got)
+	}
+	if got := call(t, src, "run_get_blocked", nil); !strings.Contains(got, "allowlist") || strings.Contains(got, "reached the allowed host") {
+		t.Errorf("blocked host: %q", got)
 	}
 }

@@ -139,6 +139,11 @@ type ExecFile struct {
 	// Shell turns on the general "shell" tool with these prefix rules. See
 	// exec.ShellConfig.
 	Shell *ShellFile `json:"shell,omitempty"`
+
+	// Network lets commands reach the listed hosts through a local proxy:
+	// {"allow": ["proxy.golang.org", "*.npmjs.org"], "ask": true}. See
+	// exec.NetworkConfig.
+	Network *exec.NetworkConfig `json:"network,omitempty"`
 }
 
 // ShellFile is exec.ShellConfig as JSON.
@@ -355,6 +360,7 @@ func (e *ExecFile) config() (*exec.Config, error) {
 		}
 		cfg.Commands = append(cfg.Commands, spec)
 	}
+	cfg.Network = e.Network
 	if e.Shell != nil {
 		sh := &exec.ShellConfig{AllowNetwork: e.Shell.AllowNetwork}
 		if sh.Timeout, err = parseDuration("exec.shell.timeout", e.Shell.Timeout); err != nil {

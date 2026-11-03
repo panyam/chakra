@@ -146,6 +146,8 @@ func TestHelperProcess(t *testing.T) {
 	case "isatty":
 		fi, _ := os.Stdin.Stat()
 		fmt.Printf("tty=%v\n", fi.Mode()&os.ModeCharDevice != 0)
+	case "getenv":
+		fmt.Printf("%s=%s\n", args[1], os.Getenv(args[1]))
 
 	case "read":
 		b, err := os.ReadFile(args[1])

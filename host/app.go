@@ -144,7 +144,8 @@ type App struct {
 	steer steerQueue
 
 	// confirm puts a yes/no question to the user through the same queue as
-	// approval asks and elicitations; sampling uses it.
+	// approval asks and elicitations; sampling uses it, and Asker extensions
+	// get it.
 	confirm func(ctx context.Context, message string) (bool, error)
 
 	// chatProvider is the session's model, as the Runner sees it.
@@ -367,7 +368,6 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	// Elicitations broadcast to every surface via the event log and resolve on
 	// the first responder; the local UI is one responder (barrierElicit).
 	coord := agent.NewElicitationCoordinator(app.barrierElicit(elicUI))
-	app.confirm = coord.Confirm
 	for _, sc := range cfg.Servers {
 		app.skills.track(sc.ID)
 	}
@@ -396,6 +396,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	ask := func(ctx context.Context, info agent.ToolCallInfo) (bool, error) {
 		return coord.Confirm(ctx, app.renderApproval(ctx, info))
 	}
+	app.confirm = coord.Confirm
 	choose := func(ctx context.Context, info agent.ToolCallInfo) (agent.Choice, error) {
 		return app.chooseApproval(ctx, info, agent.ElicitationUI(coord.Handler()))
 	}
