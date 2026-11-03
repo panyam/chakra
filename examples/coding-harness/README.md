@@ -13,11 +13,16 @@ change how a turn runs, that's a gap in a hook point, and it gets its own ticket
 | `make coding-harness-exercise` | Scripted model, PASS/FAIL per behaviour, compared against `expected.go`. CI runs this one. | nothing |
 | `make coding-harness-exercise-live` | Same flow with a real model, plus `steps tool_calls in_tok out_tok wall tests` | `CH_ACTIVE` (default `openai`), its key |
 | `make coding-harness-web` | Plain agentweb at http://localhost:8091 over this directory's config and workspace files, on a fresh copy of the fixture | same as live; `CH_WORKSPACE=dir` for another repo, `CH_ADDR` |
-| `make coding-harness-parity` | `codex exec` and the live harness on the same fixture, prompt and model, side by side | `codex` on PATH, `OPENAI_API_KEY`; `PARITY_MODEL` (default `gpt-5.5`), `PARITY_INSTRUCTIONS` |
+| `make coding-harness-parity` | `codex exec` and the live harness on the same fixture, prompt and model, side by side | `codex` on PATH, `OPENAI_API_KEY`; `PARITY_MODEL` (default `gpt-5.5`), `PARITY_ACTIVE` (default `openai-responses`), `PARITY_INSTRUCTIONS` |
 
 `CH_INSTRUCTIONS` (`--instructions` on both binaries) picks how `AGENTS.md` and the like load: `chakra` (the
 default), `codex` or `claude`, the presets in `ext/agentsmd`. `PARITY_INSTRUCTIONS=codex` makes
 the chakra side load them the way Codex does.
+
+Codex talks to the Responses API, so parity runs chakra over the `openai-responses` connection
+with both sides pinned to medium reasoning effort, and both keep their reasoning
+between tool steps. `PARITY_ACTIVE=openai` puts chakra back on chat completions, which shows
+what that continuity is worth. `CH_ACTIVE=openai-responses` does the same for the live exercise.
 
 Each run copies `testdata/fixture` to a temp directory. The fixture is a Go module whose
 `stats.Sum` skips the first element, an `AGENTS.md` with three rules at the root, and
