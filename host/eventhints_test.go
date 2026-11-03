@@ -75,8 +75,9 @@ func hintApp(t *testing.T, url string, evs []EventConfig) *App {
 	return app
 }
 
-// #81: a hint the server declares on its event type applies with nothing in
-// host config. Before, only config hints were read, and this rendered raw.
+// #81: when the server declares a hint on its event type, the hint applies
+// with nothing in host config. Before, only config hints were read, and this
+// rendered raw.
 func TestServerDeclaredEventHintApplies(t *testing.T) {
 	ts, yield, _ := startHintedEventsServer(t, "the cart holds {{count}} items")
 	app := hintApp(t, ts.URL, []EventConfig{{Name: "cart.changed"}})
@@ -95,8 +96,9 @@ func TestConfigHintBeatsTheServersHint(t *testing.T) {
 	}
 }
 
-// An event type the server adds after connect takes effect without a restart:
-// its hint is read and, since it is configured, it gets subscribed.
+// When the server adds an event type after connect, the type takes effect
+// without a restart. Its hint is read, and since the type is configured, it
+// gets subscribed.
 func TestEventTypeAddedLaterGetsItsHintAndSubscription(t *testing.T) {
 	ts, _, reg := startHintedEventsServer(t, "cart {{count}}")
 	app := hintApp(t, ts.URL, []EventConfig{{Name: "cart.changed"}, {Name: "cart.cleared"}})

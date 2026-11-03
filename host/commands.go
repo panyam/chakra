@@ -62,8 +62,8 @@ const (
 // surface (terminal today, a web client later) rather than printed by the
 // command. Only the fields for the result's Kind are set. Commands return
 // data rather than printing to an io.Writer, so every surface can reuse
-// one command set (the web-version unlock; see the render-seam follow-up
-// issue 992, which folds these into the unified HostEvent stream).
+// one command set, and a web version becomes possible. Issue 992, the
+// render-seam follow-up, folds these into the unified HostEvent stream.
 type CmdResult struct {
 	Kind    CmdKind
 	Message string
@@ -83,11 +83,11 @@ type CmdResult struct {
 	Quit           bool
 }
 
-// ServerStatus is one MCP server's state for the /mcp view: the client-layer
-// connection status plus the host-layer CanLogin (an interactive oauth auth
-// type is configured, so a needs-login server can be logged in). Kept a
-// host-layer struct because CanLogin is a config fact the client layer does not
-// carry.
+// ServerStatus is one MCP server's state for the /mcp view. It holds the
+// client-layer connection status plus the host-layer CanLogin. CanLogin is
+// true when an interactive oauth auth type is configured, so a needs-login
+// server can be logged in. The struct is host-layer because CanLogin is a
+// config fact the client layer does not carry.
 type ServerStatus struct {
 	client.MemberStatus
 	CanLogin bool
@@ -95,9 +95,9 @@ type ServerStatus struct {
 
 // Command is one slash command. Run receives the raw argument string
 // (everything after the command word, trimmed) and returns a structured
-// result. Complete, when set, offers argument completions for a prefix —
-// the seam the TUI tab-palette (issue 987) drives; nil means no argument
-// completion.
+// result. When Complete is set, it offers argument completions for a
+// prefix, and the TUI tab-palette (issue 987) calls it. Nil means no
+// argument completion.
 type Command struct {
 	Name     string
 	Aliases  []string
@@ -107,7 +107,7 @@ type Command struct {
 }
 
 // CommandRegistry holds the slash commands a surface dispatches. It is the
-// single source of the command set: the REPL, the future TUI palette, and
+// single source of the command set. The REPL, the future TUI palette, and
 // a web dispatcher all read from one registry, so a new command registered
 // once appears on every surface.
 type CommandRegistry struct {
@@ -120,8 +120,9 @@ func NewCommandRegistry() *CommandRegistry {
 	return &CommandRegistry{cmds: map[string]*Command{}}
 }
 
-// Register adds c under its name and aliases. A duplicate name/alias
-// overwrites — last registration wins — so a surface can shadow a default.
+// Register adds c under its name and aliases. A duplicate name or alias
+// overwrites, and the last registration wins, so a surface can shadow a
+// default.
 func (r *CommandRegistry) Register(c *Command) {
 	if _, seen := r.cmds[c.Name]; !seen {
 		r.names = append(r.names, c.Name)
@@ -144,7 +145,7 @@ func (r *CommandRegistry) Names() []string {
 }
 
 // Match returns the canonical names beginning with prefix (the "/" is
-// optional), sorted — the command-name completion the TUI palette uses.
+// optional), sorted. The TUI palette uses it for command-name completion.
 func (r *CommandRegistry) Match(prefix string) []string {
 	prefix = strings.TrimPrefix(prefix, "/")
 	var out []string
@@ -246,9 +247,9 @@ func (a *App) registerBuiltinCommands() {
 					return o.setApprovalMode(approvalModeName(mode))
 				})
 			}
-			// Message carries the mode as text for surfaces that receive the
-			// result serialized: Approval's fields are unexported, so over
-			// Dispatch it arrives empty (issue 71).
+			// Approval's fields are unexported, so a surface that receives
+			// the result serialized over Dispatch gets it empty (issue 71).
+			// Message holds the mode as text for those surfaces.
 			msg := "approval gate off"
 			if a.approval != nil {
 				msg = "approval mode: " + approvalModeName(a.approval.DefaultMode())

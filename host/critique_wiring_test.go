@@ -12,7 +12,7 @@ import (
 // critiqueTestProvider drives one turn that proposes a tool call, and answers
 // every critique pass with a refusal.
 //
-// The two are told apart by ResponseSchema: the critique gate is the only
+// ResponseSchema tells the two apart, because the critique gate is the only
 // caller here that asks for a structured verdict. A scripted StubProvider
 // cannot express this, because the critique call is interleaved into the same
 // provider and would consume a scripted turn.
@@ -82,12 +82,13 @@ func (e dangerExt) Tools() (agent.ToolSource, error) {
 	return src, err
 }
 
-// TestCritiqueConfigRefusesARealCall is the end-to-end wiring proof: a host
-// config with a Critique block installs the gate, and a turn that proposes a
-// gated call has it refused before the tool runs.
+// TestCritiqueConfigRefusesARealCall proves the wiring end to end. A host
+// config with a Critique block installs the gate. A turn then proposes a
+// gated call, and the gate refuses it before the tool runs.
 //
-// Issue 1293's lesson was that a seam nothing registers is a seam nobody has
-// validated, so this drives a real turn rather than asserting on construction.
+// Issue 1293 taught us that nobody has validated a seam until something
+// registers on it. So this drives a real turn rather than asserting on
+// construction.
 func TestCritiqueConfigRefusesARealCall(t *testing.T) {
 	var ran bool
 	cfg := &Config{

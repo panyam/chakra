@@ -28,10 +28,10 @@ func classifyRm(_ context.Context, info agent.ToolCallInfo) (agent.CallClass, bo
 	return agent.CallClass{Disposition: agent.DispositionReadOnly, Key: "ls"}, true
 }
 
-// TestExtensionClassifierReachesTheGate checks the wiring: an extension's
-// classifier is collected, handed to the gate the config builds, and its
-// reason shows in the default prompt. The gate's own decisions are tested in
-// the agent package.
+// TestExtensionClassifierReachesTheGate checks the wiring. The config builds
+// a gate. The host collects an extension's classifier and hands it to that
+// gate, and the classifier's reason shows in the default prompt. The gate's
+// own decisions are tested in the agent package.
 func TestExtensionClassifierReachesTheGate(t *testing.T) {
 	a := appWith(t,
 		classifierExt{name: "noop", classifiers: []ApprovalClassifier{nil}},

@@ -77,7 +77,7 @@ func TestBearerAuthReachesTheWire(t *testing.T) {
 
 	// Without the bearer, the guarded server rejects the connection. Under
 	// graceful degradation (docs/AGENT_SERVER_STATE.md) this no longer fails
-	// boot — the agent starts and the server surfaces as not-ready (401 ->
+	// boot. The agent starts and the server shows as not-ready (401 ->
 	// needs-login). The not-ready state shows the un-bearered request was
 	// refused.
 	cfg.Servers[0].Auth = nil
@@ -102,8 +102,8 @@ func TestClientCredentialsWiring(t *testing.T) {
 			Scopes: []string{"mcp:basic"}, AllowInsecure: true,
 		},
 	}
-	// The OAuth flow itself is ext/auth's tested territory; agentchat owns
-	// only the env-to-field wiring, so inspect exactly that.
+	// ext/auth tests the OAuth flow itself. agentchat owns only the
+	// env-to-field wiring, so inspect exactly that.
 	src := clientCredentialsSource(sc)
 	if src.ServerURL != sc.URL || src.ClientID != "svc-client" || src.ClientSecret != "svc-secret" {
 		t.Fatalf("wiring: %+v", src)

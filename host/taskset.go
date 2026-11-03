@@ -8,12 +8,11 @@ import (
 
 // taskSet tracks the background tasks a turn detached, keyed by task id.
 //
-// It owns its own mutex rather than borrowing the App's, because the
-// membership it guards is unrelated to a turn: a completion poll goroutine
-// removes an entry while a turn is running, and /tasks reads the set between
-// turns. Keeping the lock here also keeps its scope honest — every path that
-// touches the map goes through a method, so there is no site that reads it
-// unlocked.
+// It owns its own mutex rather than borrowing the App's. The mutex guards set
+// membership, and membership is unrelated to a turn. A completion poll
+// goroutine removes an entry while a turn is running, and /tasks reads the
+// set between turns. A lock kept here also keeps its scope honest. Every path
+// that touches the map goes through a method, so no site reads it unlocked.
 type taskSet struct {
 	mu sync.Mutex
 	m  map[string]*client.BackgroundTask
@@ -38,8 +37,8 @@ func (t *taskSet) remove(id string) {
 	delete(t.m, id)
 }
 
-// get returns the task, or nil when it is unknown — already finished, or
-// never detached.
+// get returns the task, or nil when it is unknown because it already
+// finished or never detached.
 func (t *taskSet) get(id string) *client.BackgroundTask {
 	t.mu.Lock()
 	defer t.mu.Unlock()

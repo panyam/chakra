@@ -17,7 +17,7 @@ import (
 	"github.com/panyam/mcpkit/server"
 )
 
-// fakeBacking records tool calls and returns a fixed result — the stand-in for
+// fakeBacking records tool calls and returns a fixed result. It stands in for
 // the advertising server in the serverAgentSource unit tests.
 type fakeBacking struct{ calls []string }
 
@@ -91,10 +91,10 @@ func newAgentsFixture(t *testing.T, defs []agents.AgentDef, ttlMs *int) *agentsF
 
 func ttl(ms int) *int { return &ms }
 
-// TestServerAgentSource_LazyResolution is the progressive-disclosure guard: the
-// roster produces one delegate tool per agent WITHOUT any agents/get, and
-// agents/get fires only on first delegation and is cached thereafter. Proven to
-// fail if discovery eager-resolved the roster.
+// TestServerAgentSource_LazyResolution guards progressive disclosure. The
+// roster produces one delegate tool per agent WITHOUT any agents/get.
+// agents/get fires only on first delegation and is cached after that. Proven
+// to fail if discovery eager-resolved the roster.
 func TestServerAgentSource_LazyResolution(t *testing.T) {
 	fx := newAgentsFixture(t, rosterFixture(), ttl(60_000))
 	src := newServerAgentSource(serverAgentDeps{
@@ -410,10 +410,11 @@ func TestConnectionRegistry_AgentRolesValidated(t *testing.T) {
 	}
 }
 
-// agentsIntegrationServer stands up a real MCP server that both advertises an
-// agent (agents.Register) and serves that agent's one scoped tool as a real
-// tool, so the full host path — discover roster, delegate, agents/get, loop the
-// child's tool call back over the wire — is exercised end to end.
+// agentsIntegrationServer stands up a real MCP server. It advertises an agent
+// (agents.Register) and serves that agent's one scoped tool as a real tool. So
+// the test exercises the full host path end to end. The host discovers the
+// roster, delegates, calls agents/get, and loops the child's tool call back
+// over the wire.
 func agentsIntegrationServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	srv := server.NewServer(core.ServerInfo{Name: "agents-int", Version: "0.0.1"})
@@ -437,10 +438,10 @@ func agentsIntegrationServer(t *testing.T) *httptest.Server {
 	return ts
 }
 
-// TestApp_DiscoversAndDelegatesToServerAgent is the end-to-end acceptance: an
-// App connected to an agents-advertising server exposes a delegate tool for the
-// advertised agent, and delegating to it runs a child whose scoped tool call
-// reaches the real server tool.
+// TestApp_DiscoversAndDelegatesToServerAgent is the end-to-end acceptance. An
+// App connects to an agents-advertising server and exposes a delegate tool for
+// the advertised agent. Delegating to it runs a child, and the child's scoped
+// tool call reaches the real server tool.
 func TestApp_DiscoversAndDelegatesToServerAgent(t *testing.T) {
 	ts := agentsIntegrationServer(t)
 	cfg := testConfig(ts.URL)
@@ -479,8 +480,8 @@ func TestApp_DiscoversAndDelegatesToServerAgent(t *testing.T) {
 	// The child's scoped tool ran against the real server: its output shows the
 	// loop-back worked end to end.
 	if !strings.Contains(out.String(), "pipeline-A") {
-		// tolerate: the transcript may not echo tool output; the wire round-trip
-		// is what matters and is asserted by the run completing without error.
+		// tolerate: the transcript may not echo tool output. The wire round-trip
+		// matters, and the run completing without error asserts it.
 		t.Logf("transcript did not echo server tool output (informational): %q", out.String())
 	}
 }

@@ -19,16 +19,17 @@ import (
 	"github.com/panyam/oneauth/testutil"
 )
 
-// authGatedServer stands up a oneauth test authorization server (which
-// auto-approves the PKCE authorization-code flow) plus an mcpkit MCP server that
-// validates the AS's JWTs and advertises PRM + a 401 challenge. Together they
-// let the agentchat oauth auth type discover the AS and complete a real login
-// against it — no browser, no Docker. Returns the MCP server URL (base, no /mcp).
+// authGatedServer stands up a oneauth test authorization server and an mcpkit
+// MCP server. The AS auto-approves the PKCE authorization-code flow. The MCP
+// server validates the AS's JWTs and advertises PRM + a 401 challenge.
+// Together they let the agentchat oauth auth type discover the AS and
+// complete a real login against it, with no browser and no Docker. Returns
+// the MCP server URL (base, no /mcp).
 func authGatedServer(t *testing.T) string {
 	t.Helper()
 
-	// Delegating handler: the auth middleware needs the server URL, which is
-	// only known after httptest allocates it.
+	// A delegating handler, because the auth middleware needs the server URL
+	// and httptest only allocates it later.
 	var handler http.Handler
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if handler == nil {
@@ -111,21 +112,22 @@ func waitServerState(t *testing.T, app *App, id, want string, within time.Durati
 	t.Fatalf("server %q did not reach %q within %s (last=%q)", id, want, within, last)
 }
 
-// TestOAuthLoginFlowE2E is the end-to-end acceptance for issue 1123: an
-// agentchat server configured with the interactive oauth auth type, driven
-// through the real PKCE authorization-code flow against oneauth's test AS. The
+// TestOAuthLoginFlowE2E is the end-to-end acceptance for issue 1123. It
+// configures an agentchat server with the interactive oauth auth type and
+// drives the real PKCE authorization-code flow against oneauth's test AS. The
 // first login attempt is dismissed (opener errors), so the server parks at
-// needs-login; App.LoginServer (the /mcp overlay's login action) forces a fresh
-// flow that completes, the server reaches ready, and its tool becomes callable
-// with the acquired token.
+// needs-login. App.LoginServer (the /mcp overlay's login action) then forces
+// a fresh flow. That flow completes, the server reaches ready, and its tool
+// becomes callable with the acquired token.
 func TestOAuthLoginFlowE2E(t *testing.T) {
 	mcpURL := authGatedServer(t)
 
 	var mu sync.Mutex
 	attempts := 0
-	// The browser opener: the first call (initial connect) fails as if the user
-	// dismissed the login; later calls complete the flow by following the AS's
-	// redirects (the test AS auto-approves), as a headless browser stand-in.
+	// The browser opener is a headless browser stand-in. The first call
+	// (initial connect) fails as if the user dismissed the login. Later calls
+	// complete the flow by following the AS's redirects (the test AS
+	// auto-approves).
 	opener := func(authURL string) error {
 		mu.Lock()
 		attempts++
@@ -137,8 +139,8 @@ func TestOAuthLoginFlowE2E(t *testing.T) {
 		return oneauthclient.FollowRedirects(nil)(authURL)
 	}
 
-	// Pin a public client id (the test AS accepts an arbitrary public client for
-	// the PKCE flow) rather than DCR, which the test AS does not serve.
+	// Pin a public client id rather than use DCR, since the test AS does not
+	// serve DCR. It accepts an arbitrary public client for the PKCE flow.
 	t.Setenv("OAUTH_E2E_CLIENT", "test-cli")
 	cfg := testConfig(mcpURL) // one server at mcpURL+"/mcp", id "test"
 	cfg.Servers[0].Auth = &AuthConfig{Type: "oauth", ClientIDEnv: "OAUTH_E2E_CLIENT", AllowInsecure: true}

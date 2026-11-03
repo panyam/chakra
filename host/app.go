@@ -25,17 +25,17 @@ type App struct {
 	runner *agent.Runner
 
 	// team drives the conversation as a handoff Team (Config.Team) instead of
-	// the single runner. activeTeamAgent is the persisted active member, so
-	// control stays where it was transferred across user turns. Both zero in
-	// single-agent mode. Guarded by turnMu.
+	// the single runner. activeTeamAgent is the persisted active member, so the
+	// member that received control still has it on the next user turn. Both are
+	// zero in single-agent mode. Guarded by turnMu.
 	team            *agent.Team
 	activeTeamAgent string
 
-	// teamEventSink is the per-turn persistence tap for team member events: the
-	// Team forwards them tagged (HostSubAgentEvent renders the attribution),
-	// while this buffers the flat Event into the turn's PersistingEmit so the
-	// event log is unchanged. Set under turnMu for the duration of a team turn,
-	// nil otherwise.
+	// teamEventSink is the per-turn persistence tap for team member events. The
+	// Team forwards each event tagged, and HostSubAgentEvent renders the
+	// attribution. This sink buffers the flat Event into the turn's
+	// PersistingEmit, so the event log is unchanged. It is set under turnMu for
+	// the duration of a team turn, and nil otherwise.
 	teamEventSink func(agent.Event)
 
 	sources  *agent.MultiSource
@@ -43,19 +43,20 @@ type App struct {
 	replOut  io.Writer // terminal REPL draws its own prompt here
 	failover *agent.FailoverProvider
 
-	// servers is the connected MCP servers: the Group owning their connection
-	// lifecycle, the clients, the persona-visible tool mirror, and the oauth
-	// token sources. See docs/AGENT_SERVER_STATE.md and serverSet.
+	// servers holds the connected MCP servers. It has the Group that owns their
+	// connection lifecycle, the clients, the persona-visible tool mirror, and
+	// the oauth token sources. See docs/AGENT_SERVER_STATE.md and serverSet.
 	servers serverSet
 
-	// streams is the inbound event plumbing over those servers: live
-	// subscriptions, the fan-in that merges them, and the context bounding
-	// them. Only populated when the async control plane is on. See streamSet.
+	// streams holds the inbound event plumbing for those servers. It has the
+	// live subscriptions, the fan-in that merges them, and the context that
+	// bounds them. Only populated when the async control plane is on. See
+	// streamSet.
 	streams streamSet
 
 	// agentPool backs the runner-control meta-tools (Config.RunnerControl,
-	// issue 1166): the registry of spawnable personas + their live handles. Nil
-	// when runner control is off.
+	// issue 1166). It holds the registry of spawnable personas and their live
+	// handles. Nil when runner control is off.
 	agentPool *agent.AgentPool
 
 	// tp is the tracer provider, held so the ready-observer can load a late
@@ -66,14 +67,15 @@ type App struct {
 	// held for construction-time and lifecycle warnings.
 	log *slog.Logger
 
-	// Skills load in the ready-observer (late servers too), so their prompt
-	// blocks and load_skill catalog are shared mutable state read live: the
-	// dynamic system prompt (buildInstructions -> RunnerConfig.InstructionsFunc)
-	// and the load_skill tool. serverOrder keeps assembly deterministic.
+	// Skills load in the ready-observer, for late servers too. So their prompt
+	// blocks and load_skill catalog are shared mutable state. Two readers read
+	// that state live, the dynamic system prompt (buildInstructions ->
+	// RunnerConfig.InstructionsFunc) and the load_skill tool. serverOrder keeps
+	// assembly deterministic.
 	skills *skillSet
 
-	// watchCtx bounds the subscriptions/listen streams the host opens for
-	// list_changed on the stateless wire, and Close ends them.
+	// watchCtx bounds the host's subscriptions/listen streams for list_changed
+	// on the stateless wire, and Close ends them.
 	watchCtx  context.Context
 	watchStop context.CancelFunc
 
@@ -91,16 +93,17 @@ type App struct {
 	// holds turnMu for the whole turn, so an interrupt arriving mid-turn
 	// could never take turnMu to find the channel.
 	//
-	// Clearing it between turns is load-bearing: agent.TurnRequest.Control
-	// warns that a buffered cancel-all sent while nothing drains would land
-	// on the next turn's first dispatch, so a send with no turn running has
-	// to be dropped rather than queued.
+	// RunTurn must clear it between turns. Imagine a cancel-all sent while no
+	// turn is running. Nothing drains the buffer, so agent.TurnRequest.Control
+	// warns that the send would reach the next turn's first dispatch. So a send
+	// with no turn running has to be dropped rather than queued.
 	ctrlMu sync.Mutex
 	ctrl   chan agent.Control
 
-	// session is the persistence seam (WithRunStore): the store, the active
-	// run turns append to, and the /sessions paging position. See
-	// sessionState for why its locking is deliberately not uniform.
+	// session is the persistence seam (WithRunStore). It holds the store, the
+	// /sessions paging position, and the active run. Each turn appends to the
+	// active run. sessionState explains why its locking is deliberately not
+	// uniform.
 	session sessionState
 
 	// toolResultStore backs tool-result offloading when Config.Offload
@@ -112,9 +115,9 @@ type App struct {
 	// /memory command can list it.
 	memory *agent.MemorySource
 
-	// connections + providerSwitch are the runtime provider-switch seam
-	// (Config.Connections): the Runner holds the switch, /provider swaps
-	// its underlying. Both nil when Connections is not configured.
+	// connections and providerSwitch form the runtime provider-switch seam
+	// (Config.Connections). The Runner holds the switch, and /provider swaps
+	// the provider under it. Both are nil when Connections is not configured.
 	connections    *ConnectionRegistry
 	providerSwitch *providerSwitch
 
@@ -158,11 +161,11 @@ type App struct {
 	// registration order, appended after the host's own.
 	stepStages []agent.StepStage
 
-	// toolOrigins records what each source id IS, so spotlight provenance is
-	// derived from where a tool came from rather than restated in config.
-	// Recorded where sources are added, because that is the only place the
-	// distinction is still known: a server id and an extension name are both
-	// arbitrary strings by the time anything reads them back.
+	// toolOrigins records what each source id IS, so spotlight provenance comes
+	// from a tool's origin rather than from config. An origin is recorded where
+	// its source is added. Later, a server id and an extension name are both
+	// arbitrary strings, and anything that reads them back can't tell them
+	// apart.
 	toolOrigins map[string]agent.Provenance
 
 	// commands is the slash-command registry every surface dispatches
@@ -184,7 +187,7 @@ type App struct {
 }
 
 // AppOption customizes construction. The provider override exists so tests
-// (and offline demos) can run the full app on a scripted StubProvider.
+// and offline demos can run the full app on a scripted StubProvider.
 type AppOption func(*appOptions)
 
 type appOptions struct {
@@ -240,11 +243,11 @@ func WithTracerProvider(tp core.TracerProvider) AppOption {
 	return func(o *appOptions) { o.tp = tp }
 }
 
-// WithMeterProvider opts the agent Runner (and its sub-agents) into OTel metric
-// emission (issue 1023): the per-turn and per-tool-call instruments that back
-// the mcpkit-agent Grafana dashboard. Pair it with WithTracerProvider off the
-// same OTLP endpoint so traces and metrics land in one collector. Nil means
-// noop.
+// WithMeterProvider opts the agent Runner and its sub-agents into OTel metric
+// emission (issue 1023). The Runner then emits the per-turn and per-tool-call
+// instruments behind the mcpkit-agent Grafana dashboard. Pair it with
+// WithTracerProvider on the same OTLP endpoint, so traces and metrics reach
+// one collector. Nil means noop.
 func WithMeterProvider(mp core.MeterProvider) AppOption {
 	return func(o *appOptions) { o.mp = mp }
 }
@@ -256,24 +259,24 @@ func WithLogger(l *slog.Logger) AppOption {
 	return func(o *appOptions) { o.logger = l }
 }
 
-// WithConfigOverlay enables runtime-config persistence: mutable picks changed
-// via slash commands (the /provider active connection and the /approve mode)
-// are written back to the sibling local-overlay file derived from configPath
-// (kitchen-sink.json -> kitchen-sink.local.json), so they survive a restart
-// once the launcher loads the config with LoadConfigWithOverlay. configPath is
-// the base config path, not the overlay path. Without this option the picks are
-// session-only. A persist failure degrades to a warning, never a failed
-// command (mirrors the RunStore persistence contract).
+// WithConfigOverlay enables runtime-config persistence. Slash commands change
+// two mutable picks, the /provider active connection and the /approve mode.
+// The host writes those picks to the local-overlay file beside configPath
+// (kitchen-sink.json -> kitchen-sink.local.json). They survive a restart once
+// the launcher loads the config with LoadConfigWithOverlay. configPath is the
+// base config path, not the overlay path. Without this option the picks are
+// session-only. A persist failure degrades to a warning and never fails the
+// command. The RunStore persistence contract works the same way.
 func WithConfigOverlay(configPath string) AppOption {
 	return func(o *appOptions) { o.configPath = configPath }
 }
 
 // registerServerTools wraps a now-ready server's client as a ToolSource (with
 // its per-server allow filter) and adds it to the aggregate and, when
-// sub-agents are configured, the sub-agent view. It is called from the
-// connection Group's observer on StateReady — possibly concurrently for
-// several servers — so it relies on MultiSource.Add being safe for concurrent
-// use. A registration failure degrades to a warning, never a crash.
+// sub-agents are configured, the sub-agent view. The connection Group's
+// observer calls it on StateReady, possibly for several servers at once. So
+// it relies on MultiSource.Add being safe for concurrent use. A registration
+// failure degrades to a warning, never a crash.
 func (a *App) registerServerTools(sc ServerConfig, c *client.Client) {
 	if c == nil {
 		return
@@ -360,9 +363,9 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 		tp:      o.tp, log: o.logger}
 	// Bring the retained event log up before anything can emit (the
 	// server-connect hooks below capture app and fire asynchronously).
-	// MaxEventLogRetention 0 keeps the unbounded log; a positive value caps the
-	// retained window (NewBoundedQueue evicts the oldest, offsets stay absolute
-	// so Subscribe's deep replay still stitches).
+	// MaxEventLogRetention 0 keeps the unbounded log, and a positive value caps
+	// the retained window. NewBoundedQueue evicts the oldest events. Offsets are
+	// still absolute, so Subscribe's deep replay still stitches.
 	if cfg.MaxEventLogRetention > 0 {
 		app.events.log = gocurrent.NewBoundedQueue[HostEvent](cfg.MaxEventLogRetention)
 	} else {
@@ -394,7 +397,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	if o.configPath != "" {
 		app.overlay = &configOverlay{path: overlayPathFor(o.configPath)}
 	}
-	// The approval "ask" prompt rides the same FIFO seam as elicitation, so a
+	// The approval "ask" prompt uses the same FIFO seam as elicitation, so a
 	// gated tool call never stacks a dialog against a concurrent elicitation.
 	ask := func(ctx context.Context, info agent.ToolCallInfo) (bool, error) {
 		return coord.Confirm(ctx, app.renderApproval(ctx, info))
@@ -405,19 +408,20 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	}
 	app.approval = cfg.Approval.buildApproval(ask, choose, app.rememberKey, app.classifyApproval)
 
-	// serverTools mirrors the server sources only — no meta-tools, no
-	// sub-agents — so a sub-agent or fan-out persona gets a filtered view of the
-	// servers without seeing the meta-tools or the other personas (which would
-	// let it recurse). Built only when personas are configured.
+	// serverTools mirrors only the server sources, with no meta-tools and no
+	// sub-agents. A sub-agent or fan-out persona gets this filtered view of the
+	// servers. It can't see the meta-tools or the other personas, so it can't
+	// recurse. Built only when personas are configured.
 	if len(cfg.SubAgents) > 0 || len(cfg.FanOut) > 0 || cfg.Team != nil {
 		app.servers.tools = agent.NewMultiSource()
 	}
 
 	// Build one client per server and hand it to the connection Group, which
 	// connects them asynchronously and calls the observer as each transitions.
-	// A server's tools register the moment it becomes ready (registerServerTools),
-	// so a server that is down at boot — or comes up late — wires its tools in
-	// without blocking or failing the agent. Required servers block boot below.
+	// A server's tools register the moment it becomes ready (registerServerTools).
+	// So a server can be down at boot or come up late, and it still wires its
+	// tools in without blocking or failing the agent. Required servers block
+	// boot below.
 	serverByID := make(map[string]ServerConfig, len(cfg.Servers))
 	clientByID := make(map[string]*client.Client, len(cfg.Servers))
 	onState := func(ch client.StateChange) {
@@ -498,11 +502,12 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	}
 	// Wait for the initial connect round to settle (bounded) so reachable
 	// servers are ready and their tools + skills registered before the first
-	// turn; a down server fails fast and does not block, and a slow one wires
-	// in later via the observer. Skills (eager blocks + the load_skill catalog)
-	// are loaded in the ready-observer (onServerSkills) into shared state that
-	// the dynamic system prompt (buildInstructions) and load_skill read live, so
-	// a server that connects after boot contributes its skills on the next turn.
+	// turn. A down server fails fast and does not block, and a slow one wires
+	// in later via the observer. The ready-observer (onServerSkills) loads
+	// skills, both eager blocks and the load_skill catalog, into shared state.
+	// The dynamic system prompt (buildInstructions) and load_skill read that
+	// state live. So a server that connects after boot contributes its skills
+	// on the next turn.
 	_ = app.servers.group.WaitSettled(context.Background())
 	app.loadLocalSkills()
 
@@ -610,9 +615,10 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 
 	// Server-advertised agents (experimental/ext/agents, issue 1144): discover
 	// each connected server's roster (agents/list) and add a lazy delegate per
-	// agent to the main aggregate. Resolution (agents/get: instructions +
-	// scoped tools) is deferred to first delegation, so scoped schemas never
-	// bloat the supervisor's context. Degrades to a warning per server.
+	// agent to the main aggregate. Resolution waits for the first delegation.
+	// It calls agents/get for the instructions and scoped tools, so scoped
+	// schemas never bloat the supervisor's context. Degrades to a warning per
+	// server.
 	app.registerServerAgents(multi, newAgentModels(provider, app.connections), o.tp, o.mp, cfg.Servers, clientByID)
 
 	// Runner-control meta-tools: let the main model spawn/await/cancel the
@@ -638,9 +644,9 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	}
 
 	// Offloading wraps the whole aggregate, so one read_tool_result and
-	// one store cover every server's tools. The stub it substitutes is a
-	// normal ToolResult, so the transcript and persisted log see exactly
-	// what the model saw.
+	// one store cover every server's tools. Offloading substitutes a stub,
+	// and the stub is a normal ToolResult. So the transcript and persisted
+	// log see exactly what the model saw.
 	var runnerTools agent.ToolSource = multi
 	if cfg.Offload != nil {
 		store := o.toolResultStore
@@ -678,7 +684,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 		StepStages:       append(stepStages(cfg), app.steerStage()),
 		TracerProvider:   o.tp,
 		MeterProvider:    o.mp,
-		// Only the main Runner carries the tree budget; sub-agent / fan-out /
+		// Only the main Runner sets the tree budget; sub-agent / fan-out /
 		// team member Runners inherit the shared counter through ctx.
 		TreeBudget: agent.TreeBudget{MaxSteps: cfg.MaxTreeSteps, MaxTokens: cfg.MaxTreeTokens},
 		// The main agent is the parent that reacts to upward sub-agent signals
@@ -687,7 +693,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 		SignalPolicy: signalPolicyFor(cfg.SignalPolicy),
 		// The main agent's turn may break the fan-out barrier on a mid-flight
 		// signal and re-plan (issue 1167); off by default. Sub-agent Runners
-		// stay pure fan-out-then-join.
+		// are always pure fan-out-then-join.
 		Interruptible: cfg.Interruptible,
 		// Grant sub-agent "preempt" signals the authority to cancel siblings only
 		// when the operator opts in (issue 1176); nil (default) keeps preempt
@@ -705,10 +711,10 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	// invoked here, so registering before the Runner exists is safe.
 	app.registerBuiltinCommands()
 
-	// Extensions contribute across every seam at once, applied after the
-	// built-in producers so their prompt sections and context stages land
-	// after the host's own, and before the gate below so their middleware
-	// wraps outside it. registerBuiltinCommands has already run, so a
+	// Extensions contribute across every seam at once. They apply after the
+	// built-in producers, so their prompt sections and context stages come
+	// after the host's own. They apply before the gate below, so their
+	// middleware wraps outside it. registerBuiltinCommands has already run, so a
 	// collision with a built-in /command is caught here rather than
 	// silently shadowing it.
 	extMW, err := app.applyExtensions(o.extensions, provider)
@@ -803,8 +809,8 @@ func (a *App) Close() {
 }
 
 // ServerTools returns the tools exposed by a single connected MCP server, in
-// that server's own (unqualified) naming — the data behind the /mcp overlay's
-// per-server tool view. found is false for an unknown or not-yet-ready server
+// that server's own (unqualified) naming. The /mcp overlay's per-server tool
+// view shows this data. found is false for an unknown or not-yet-ready server
 // id (app state, not an error). Each server's source is registered in the
 // aggregate under its own id, so looking it up by that id returns only that
 // server's tools (respecting its Allow filter) and never the meta-tools or
@@ -816,10 +822,10 @@ func (a *App) ServerTools(ctx context.Context, id string) (defs []core.ToolDef, 
 	return a.sources.SourceTools(ctx, id)
 }
 
-// loginSource is the subset of an interactive OAuth token source the host needs
-// to force a fresh login: dropping the cached token so the client's next
-// connect re-runs the browser authorization-code flow. *extauth.OAuthTokenSource
-// satisfies it.
+// loginSource covers what the host needs from an interactive OAuth token
+// source to force a fresh login. It drops the cached token, so the client's
+// next connect re-runs the browser authorization-code flow.
+// *extauth.OAuthTokenSource satisfies it.
 type loginSource interface{ Invalidate() }
 
 // canLogin reports whether an interactive (oauth) auth type is configured for
@@ -828,9 +834,9 @@ func (a *App) canLogin(id string) bool { return a.servers.oauth[id] != nil }
 
 // LoginServer forces a fresh interactive login for an oauth-configured server:
 // it drops any cached token and reconnects, so the client's next connect runs
-// the browser authorization-code flow again. A server without an interactive
-// (oauth) auth type, or an unknown id, is a no-op — canLogin / the server
-// status CanLogin flag tells a surface when to offer it.
+// the browser authorization-code flow again. It is a no-op for an unknown id
+// or for a server without an interactive (oauth) auth type. canLogin and the
+// server status CanLogin flag tell a surface when to offer it.
 func (a *App) LoginServer(id string) {
 	src := a.servers.oauth[id]
 	if src == nil {
@@ -910,9 +916,9 @@ func (a *App) runOneTurn(ctx context.Context, input string, opts TurnOptions, an
 		a.emit(HostEvent{Kind: HostTurnFailed, Err: err.Error()})
 		return nil, err
 	}
-	// Before the user message exists, so the expanded text is what history
-	// keeps and the model reads. Ahead of ensureRunLocked too, so a failed
-	// transform leaves no empty run in the session list.
+	// This runs before the user message exists, so history keeps the expanded
+	// text and the model reads it. It also runs ahead of ensureRunLocked, so a
+	// failed transform leaves no empty run in the session list.
 	{
 		transformed, terr := a.transformInput(ctx, input)
 		if terr != nil {
@@ -933,9 +939,9 @@ func (a *App) runOneTurn(ctx context.Context, input string, opts TurnOptions, an
 			return nil, err
 		}
 		if a.team != nil {
-			// Team member events render attributed via OnEvent, so the persisting
-			// tap must NOT also render (that would double-render) — a nil next
-			// makes pe buffer-only; teamEventSink feeds it below.
+			// Team member events render attributed via OnEvent. If the persisting
+			// tap also rendered them, they would render twice. A nil next makes pe
+			// buffer-only, and teamEventSink feeds it below.
 			pe = NewPersistingEmit(a.session.store, a.session.runID, nil)
 		} else {
 			pe = NewPersistingEmit(a.session.store, a.session.runID, emit)
@@ -954,7 +960,7 @@ func (a *App) runOneTurn(ctx context.Context, input string, opts TurnOptions, an
 		// looping handoffs internally; result.Messages spans every hop. Member
 		// events flow through the Team's OnEvent (attributed render + persist via
 		// the sink), so the emit passed here is unused. Persist the ending active
-		// agent so control stays transferred next turn.
+		// agent so it still has control on the next turn.
 		a.teamEventSink = func(agent.Event) {}
 		if pe != nil {
 			a.teamEventSink = pe.Emit
@@ -1016,16 +1022,16 @@ func (a *App) runOneTurn(ctx context.Context, input string, opts TurnOptions, an
 }
 
 // InterruptToolCalls cancels every tool call currently in flight without
-// ending the turn. Each cancelled call fails fast, its result is fed back to
-// the model as "cancelled by user" (rendering as EventToolCancelled, which is
-// deliberately distinct from an error), and the model gets to react — pick a
-// different tool, ask what to do, or answer without it.
+// ending the turn. Each cancelled call fails fast, and its result goes back
+// to the model as "cancelled by user". The transcript renders it as
+// EventToolCancelled, which is deliberately distinct from an error. The model
+// then reacts. It can pick a different tool, ask what to do, or answer
+// without it.
 //
-// This is the softer half of interrupting, and the reason a surface should
-// reach for it before cancelling the turn's context: cancelling ctx aborts
-// everything and throws the turn's work away, while this keeps the
-// conversation alive. A natural binding is escalating, first press soft and
-// second press hard.
+// This is the softer half of interrupting. A surface should try it before
+// cancelling the turn's context. Cancelling ctx aborts everything and throws
+// the turn's work away, while this keeps the conversation alive. A natural
+// binding is escalating, first press soft and second press hard.
 //
 // It reports whether an interrupt was delivered. False means there was
 // nothing to interrupt: no turn running, a team-mode turn (Team owns its own
@@ -1071,10 +1077,11 @@ func (a *App) Providers() (names []string, active string) {
 	return a.connections.Names(), a.connections.Active()
 }
 
-// ModelLabel is the human-facing name of the active model for a status line:
-// with a ConnectionRegistry, the active connection's name and its model id
-// ("openai (gpt-5.5)"), or the name alone when the two match or the
-// connection names no model; else the single-model identifier.
+// ModelLabel is the human-facing name of the active model for a status line.
+// With a ConnectionRegistry it returns the active connection's name and its
+// model id ("openai (gpt-5.5)"). It returns the name alone when the two match
+// or the connection names no model. Without a registry it returns the
+// single-model identifier.
 func (a *App) ModelLabel() string {
 	if _, active := a.Providers(); active != "" {
 		if m := a.connections.ActiveModel(); m != "" && m != active {
@@ -1106,7 +1113,7 @@ func (a *App) SwitchProvider(name string) error {
 func (a *App) emit(ev HostEvent) (offset int) { return a.events.emit(ev) }
 
 // promptREPL draws the terminal REPL's input marker. The prompt is
-// surface chrome, not a host event — the REPL owns it because the REPL is
+// surface chrome, not a host event. The REPL owns it because the REPL is
 // the terminal surface's own loop.
 func (a *App) promptREPL() {
 	if a.replOut != nil {

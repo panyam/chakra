@@ -11,10 +11,10 @@ import (
 
 // overlayPathFor derives the writable local-overlay path beside a base config:
 // kitchen-sink.json -> kitchen-sink.local.json. The overlay holds only the
-// mutable picks a user changes at runtime (active connection, approval mode),
-// kept separate from the hand-authored base so writing it back never clobbers
-// the base file's formatting or unrelated keys. A path with no extension gets
-// ".local" appended.
+// mutable picks that change at runtime, the active connection and the approval
+// mode. It is a separate file from the hand-authored base, so writing it back
+// never clobbers the base file's formatting or unrelated keys. A path with no
+// extension gets ".local" appended.
 func overlayPathFor(configPath string) string {
 	ext := filepath.Ext(configPath)
 	return strings.TrimSuffix(configPath, ext) + ".local" + ext
@@ -22,9 +22,9 @@ func overlayPathFor(configPath string) string {
 
 // configOverlay persists mutable config picks to a sparse JSON file that is
 // merged over the base config on the next load (later wins, via
-// LoadConfigWithOverlay). Only the keys a slash command changes are written,
-// so the file stays a small delta rather than a full config copy. Safe for
-// concurrent use.
+// LoadConfigWithOverlay). Only the keys changed by slash commands are
+// written, so the file is a small delta rather than a full config copy. Safe
+// for concurrent use.
 type configOverlay struct {
 	path string
 	mu   sync.Mutex
@@ -57,7 +57,7 @@ func (o *configOverlay) mutate(fn func(map[string]any)) error {
 }
 
 // ensureObj fetches-or-creates a nested JSON object under key, so a write to
-// connections.active leaves any sibling keys the overlay already holds intact.
+// connections.active leaves intact any sibling keys already in the overlay.
 func ensureObj(m map[string]any, key string) map[string]any {
 	c, _ := m[key].(map[string]any)
 	if c == nil {

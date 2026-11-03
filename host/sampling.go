@@ -12,9 +12,10 @@ import (
 )
 
 // SamplingConfig lets connected MCP servers ask the session's model for a
-// completion (sampling/createMessage). Off unless Enabled: a server that can
-// sample spends the user's model budget on prompts the server wrote, so the
-// host only advertises the capability when the operator asks for it.
+// completion (sampling/createMessage). It is off unless Enabled. A server
+// that can sample writes its own prompts and spends the user's model budget
+// on them. So the host only advertises the capability when the operator asks
+// for it.
 type SamplingConfig struct {
 	// Enabled advertises the sampling capability to every server and answers
 	// their requests.
@@ -35,8 +36,8 @@ type SamplingConfig struct {
 }
 
 // samplingState is the session's running total of what sampling has cost.
-// It isn't charged to a turn's tree budget: a request arrives on a server's
-// connection, not inside a turn the host can attribute it to.
+// It isn't charged to a turn's tree budget. A request arrives on a server's
+// connection, not inside a turn, so the host cannot attribute it to one.
 type samplingState struct {
 	mu       sync.Mutex
 	requests int

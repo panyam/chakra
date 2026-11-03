@@ -8,11 +8,11 @@ import (
 )
 
 // buildTeam assembles the handoff Team (Config.Team) from persona members over
-// the shared provider + serverTools, wiring OnHandoff to a HostHandoff event so
-// a surface can render the control transfer. Each member is built like a
-// sub-agent (serverTools-only, memory-free per A7) with its handoff tools merged
-// in by agent.NewTeam. The returned Team drives RunTurn instead of the single
-// Runner; activeTeamAgent is seeded to Start.
+// the shared provider + serverTools. It wires OnHandoff to a HostHandoff
+// event, so a surface can render the control transfer. Each member is built
+// like a sub-agent (serverTools-only, memory-free per A7), and agent.NewTeam
+// merges in its handoff tools. The returned Team drives RunTurn instead of the
+// single Runner. activeTeamAgent is seeded to Start.
 func (a *App) buildTeam(serverTools *agent.MultiSource, provider agent.Provider, tp core.TracerProvider, mp core.MeterProvider) (*agent.Team, error) {
 	tc := a.cfg.Team
 	members := make([]agent.TeamMember, 0, len(tc.Members))
@@ -28,9 +28,10 @@ func (a *App) buildTeam(serverTools *agent.MultiSource, provider agent.Provider,
 		Start:       tc.Start,
 		MaxHandoffs: tc.MaxHandoffs,
 		OnHandoff:   func(from, to string) { a.emit(HostEvent{Kind: HostHandoff, From: from, To: to}) },
-		// Each member's events render attributed by agent name (HostSubAgentEvent)
-		// and are buffered for persistence via the per-turn sink, so the event log
-		// is unchanged while the surface can tell which agent is speaking.
+		// Each member's events render attributed by agent name
+		// (HostSubAgentEvent). The per-turn sink buffers them for persistence.
+		// The event log is unchanged, and the surface can tell which agent is
+		// speaking.
 		OnEvent: func(e agent.SubAgentEvent) {
 			if a.teamEventSink != nil {
 				a.teamEventSink(e.Event)
@@ -41,10 +42,10 @@ func (a *App) buildTeam(serverTools *agent.MultiSource, provider agent.Provider,
 }
 
 // validateTeamExclusive rejects a Team combined with the single-agent-only
-// features. Team replaces the main agent's loop, so its per-runner facilities
-// (memory, sub-agents, fan-out) have no single agent to attach to; integrating
-// them into team members is a deferred follow-up. Fail loud rather than
-// silently ignore a configured feature.
+// features. Team replaces the main agent's loop. The per-runner facilities
+// (memory, sub-agents, fan-out) then have no single agent to attach to.
+// Integrating them into team members is a deferred follow-up. Fail loud
+// rather than silently ignore a configured feature.
 func validateTeamExclusive(cfg *Config) error {
 	if cfg.Team == nil {
 		return nil

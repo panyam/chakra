@@ -8,19 +8,19 @@ import (
 	"github.com/panyam/chakra"
 )
 
-// WithRunStore enables session persistence: every completed turn's
-// messages (and its event stream) are appended to a run in store, so a
-// surface can resume or fork the session later — across process
-// restarts when the store is durable. Nil (the default) keeps the
-// pre-persistence behavior: history lives only in memory.
+// WithRunStore enables session persistence. Each completed turn appends its
+// messages and its event stream to a run in store, so a surface can resume
+// or fork the session later. With a durable store, that works across process
+// restarts. Nil, the default, keeps the pre-persistence behavior, and history
+// lives only in memory.
 func WithRunStore(store agent.RunStore) AppOption {
 	return func(o *appOptions) { o.store = store }
 }
 
 // WithToolResultStore supplies the backing store for tool-result
-// offloading (Config.Offload). Omitted, offloading uses an in-memory
-// store; pass a durable one (agent/store/redis, agent/store/gorm) so
-// offloaded blobs survive restarts. Ignored when Config.Offload is nil.
+// offloading (Config.Offload). Without it, offloading uses an in-memory
+// store. Pass a durable one (store/redis, store/gorm) so offloaded blobs
+// survive restarts. Ignored when Config.Offload is nil.
 func WithToolResultStore(store agent.ToolResultStore) AppOption {
 	return func(o *appOptions) { o.toolResultStore = store }
 }
@@ -42,11 +42,11 @@ func (a *App) RunID() string {
 	return a.session.runID
 }
 
-// AttachRun binds the session to runID with create-or-resume semantics:
-// an existing run's history is loaded and threaded (resume), an absent
-// one is created empty. This is the startup path for surfaces that name
-// sessions ("continue yesterday's run-x or start it fresh"); for a
-// must-exist switch mid-session, use Resume.
+// AttachRun binds the session to runID, resuming the run or creating it. An
+// existing run's history is loaded and threaded (resume), and an absent one
+// is created empty. Surfaces that name sessions call this at startup
+// ("continue yesterday's run-x or start it fresh"). For a must-exist switch
+// mid-session, use Resume.
 func (a *App) AttachRun(ctx context.Context, runID string) error {
 	a.turnMu.Lock()
 	defer a.turnMu.Unlock()
@@ -76,22 +76,22 @@ func (a *App) Sessions(ctx context.Context) ([]agent.RunInfo, error) {
 	return page.Runs, nil
 }
 
-// SessionPage is one page of the session picker: the runs on this page and
-// HasMore reporting whether another page exists (the underlying cursor is
-// remembered on the App so the next SessionsPage("") advance-from-last works
-// via the /sessions "more" flow — callers page by empty cursor for the first
-// page, then let the host thread its remembered cursor).
+// SessionPage is one page of the session picker. Runs holds the runs on this
+// page, and HasMore reports whether another page exists. The App remembers
+// the underlying cursor. A caller asks for the first page with
+// SessionsPage(""), and then calls PageMore for each later page. PageMore
+// uses the remembered cursor, the /sessions "more" flow.
 type SessionPage struct {
 	Runs    []agent.RunInfo
 	HasMore bool
 }
 
-// SessionsPage returns one page of runs newest-first (gorm / in-memory order
-// recency for free; redis SCAN is unordered — see the runstore docs). An empty
-// cursor starts from the most recent; any other value continues a prior page.
-// The response's next cursor is remembered on the App so PageMore advances
-// without the surface handling the opaque cursor. Errors when no RunStore is
-// configured.
+// SessionsPage returns one page of runs newest-first. The gorm and in-memory
+// stores order by recency for free, and redis SCAN is unordered (see the
+// runstore docs). An empty cursor starts from the most recent; any other value
+// continues a prior page. The response's next cursor is remembered on the App
+// so PageMore advances without the surface handling the opaque cursor. Errors
+// when no RunStore is configured.
 func (a *App) SessionsPage(ctx context.Context, cursor string) (SessionPage, error) {
 	if a.session.store == nil {
 		return SessionPage{}, fmt.Errorf("host: no RunStore configured")
@@ -114,15 +114,16 @@ func (a *App) PageMore(ctx context.Context) (SessionPage, error) {
 	return a.SessionsPage(ctx, cursor)
 }
 
-// maxSessionSearchScan bounds SearchSessions: id-substring search has no
-// store-side filter, so the host walks pages — capped so a huge run set can't
-// turn a search into an unbounded scan. Content search is a future index.
+// maxSessionSearchScan bounds SearchSessions. Id-substring search has no
+// store-side filter, so the host walks pages. The cap keeps a huge run set
+// from turning a search into an unbounded scan. Content search is a future
+// index.
 const maxSessionSearchScan = 1000
 
 // SearchSessions returns runs whose ID contains query (case-insensitive),
 // newest-first, walking pages up to maxSessionSearchScan runs. The scan is
-// bounded, so a match past the cap is not found — a deliberate limit until a
-// real search index exists.
+// bounded, so a match past the cap is not found. The limit is deliberate
+// until a real search index exists.
 func (a *App) SearchSessions(ctx context.Context, query string) ([]agent.RunInfo, error) {
 	if a.session.store == nil {
 		return nil, fmt.Errorf("host: no RunStore configured")
@@ -150,10 +151,10 @@ func (a *App) SearchSessions(ctx context.Context, query string) ([]agent.RunInfo
 	return out, nil
 }
 
-// Resume switches the session to an existing run: its persisted
-// messages replace the in-memory history and subsequent turns append to
-// it. An unknown runID is an error (nothing changes), so a typo cannot
-// silently start an empty session — use AttachRun for create-or-resume.
+// Resume switches the session to an existing run. Its persisted messages
+// replace the in-memory history, and subsequent turns append to it. An
+// unknown runID is an error and changes nothing, so a typo cannot silently
+// start an empty session. Use AttachRun for create-or-resume.
 func (a *App) Resume(ctx context.Context, runID string) error {
 	a.turnMu.Lock()
 	defer a.turnMu.Unlock()
@@ -176,14 +177,15 @@ func (a *App) resumeLocked(ctx context.Context, runID string) error {
 	return nil
 }
 
-// Fork copies the current run's log into a new run (newRunID empty asks
-// the store to generate one) and switches the session to the copy,
-// which diverges from the next turn on while the original stays
-// untouched. atMessage positive forks from an earlier point — only the
-// first atMessage messages carry over (checkpoint/rewind), and the
-// in-memory history rewinds to match by reloading the fork; zero or
-// negative forks the whole log, and history is already the shared
-// prefix so no reload is needed.
+// Fork copies the current run's log into a new run and switches the session
+// to the copy. An empty newRunID asks the store to generate the ID. The copy
+// diverges from the next turn on, and the original is left untouched.
+//
+// A positive atMessage forks from an earlier point (checkpoint/rewind). Only
+// the first atMessage messages carry over, and the in-memory history rewinds
+// to match by reloading the fork. A zero or negative atMessage forks the
+// whole log. History is already the shared prefix then, so no reload is
+// needed.
 func (a *App) Fork(ctx context.Context, newRunID string, atMessage int) (string, error) {
 	a.turnMu.Lock()
 	defer a.turnMu.Unlock()
@@ -226,9 +228,9 @@ func (a *App) ensureRunLocked(ctx context.Context) error {
 }
 
 // persistTurnLocked appends the completed turn (user message + appended
-// messages) and flushes the teed event stream. Persistence failures are
-// rendered as warnings, not turn failures: the turn already succeeded
-// and the in-memory session stays usable; only durability degraded.
+// messages) and flushes the teed event stream. A persistence failure renders
+// as a warning, not a turn failure. The turn already succeeded and the
+// in-memory session is still usable. Only durability degraded.
 // Caller holds turnMu.
 func (a *App) persistTurnLocked(ctx context.Context, msgs []agent.Message, pe *PersistingEmit) {
 	resp, err := a.session.store.AppendMessages(ctx, agent.AppendMessagesRequest{RunID: a.session.runID, Messages: msgs})
@@ -245,10 +247,10 @@ func (a *App) persistTurnLocked(ctx context.Context, msgs []agent.Message, pe *P
 // messages, because RunTurn rolled the history back and the message log has to
 // match it. Without this a failed turn left no trace in the store, so a restart
 // lost the only record of edits the turn had made (issue 71). The flush runs
-// detached from ctx because a turn the user cancelled fails with ctx already
-// done, and that is exactly the turn worth keeping. A step-limited turn is not
-// this path: it keeps its messages and goes through persistTurnLocked instead
-// (issue 109). Caller holds turnMu.
+// detached from ctx. Imagine the user cancels a turn. It fails with ctx
+// already done, and that turn is exactly the one worth keeping. A
+// step-limited turn doesn't take this path. It keeps its messages and goes
+// through persistTurnLocked instead (issue 109). Caller holds turnMu.
 func (a *App) persistFailedTurnLocked(ctx context.Context, pe *PersistingEmit) {
 	a.flushEventsLocked(context.WithoutCancel(ctx), pe)
 }
@@ -262,22 +264,21 @@ func (a *App) flushEventsLocked(ctx context.Context, pe *PersistingEmit) {
 		return
 	}
 	// The turn's events are now in the RunStore, so mark the event log as
-	// persisted through its current length: everything appended up to here
-	// (this turn's runner events among them) is covered by the store, and
-	// Subscribe drains the Queue only from this offset forward. Advancing only
-	// on a successful Flush keeps unpersisted events in the Queue-tail half of
-	// the replay (no gap). eventLog.Len() is the absolute offset space, so this
-	// stays correct under a bounded (evicting) log.
+	// persisted through its current length. The store now covers everything
+	// appended up to here, including this turn's runner events. Subscribe
+	// drains the Queue only from this offset forward. Advancing only on a
+	// successful Flush keeps unpersisted events in the Queue-tail half of the
+	// replay, so the replay has no gap. eventLog.Len() is in the absolute
+	// offset space, so this is still correct under a bounded (evicting) log.
 	a.events.persisted.Store(int64(a.events.log.Len()))
 }
 
-// PersistingEmit tees a Runner event stream into a RunStore event log.
-// Use its Emit as the emit argument to Runner.Run (wrapping the
-// surface's own handler), then Flush once the turn completes. Events
-// buffer in memory and land in one AppendEvents call per turn — the
-// per-turn durability grain — rather than one store round-trip per
-// text delta. Not safe for concurrent use, which matches the Runner's
-// guarantee that emit is never called concurrently.
+// PersistingEmit tees a Runner event stream into a RunStore event log. Use its
+// Emit as the emit argument to Runner.Run (wrapping the surface's own handler),
+// then Flush once the turn completes. Events buffer in memory and reach the
+// store in one AppendEvents call per turn, rather than one store round-trip per
+// text delta, so durability is per turn. Not safe for concurrent use, which
+// matches the Runner's guarantee that emit is never called concurrently.
 type PersistingEmit struct {
 	store agent.RunStore
 	runID string
@@ -295,23 +296,23 @@ func NewPersistingEmit(store agent.RunStore, runID string, next func(agent.Event
 
 // Emit forwards the event to the wrapped handler verbatim and buffers a
 // persistence copy. The two differ only for turn-end: the buffered copy
-// drops TurnResult.Messages (see redactForPersist), so live consumers
-// (renderers) still see the whole event while the event log does not
-// duplicate what the message log already holds.
+// drops TurnResult.Messages (see redactForPersist). Live consumers such as
+// renderers still see the whole event, and the event log doesn't duplicate
+// what the message log already holds.
 func (p *PersistingEmit) Emit(e agent.Event) {
 	p.buf = append(p.buf, redactForPersist(e))
 	p.next(e)
 }
 
 // redactForPersist strips TurnResult.Messages from a turn-end event
-// before it lands in the persisted event log. The RunStore message log
-// is the authoritative copy of those messages; re-storing them inside
+// before it goes into the persisted event log. The RunStore message log
+// is the authoritative copy of those messages. Re-storing them inside
 // the turn-end event doubles the payload (and, with large tool results,
-// the offloaded stubs). Everything else on the TurnResult — Text, Usage,
-// Steps, FinishReason, Structured — stays for replay and audit. Non
-// turn-end events pass through unchanged. The original event and its
-// TurnResult are never mutated: the copy is shallow with Messages
-// nilled, so the live handler's view is untouched.
+// the offloaded stubs). The rest of the TurnResult (Text, Usage, Steps,
+// FinishReason, Structured) is kept for replay and audit. Non turn-end
+// events pass through unchanged. The original event and its TurnResult
+// are never mutated. The copy is shallow with Messages nilled, so the
+// live handler's view is untouched.
 func redactForPersist(e agent.Event) agent.Event {
 	if e.Kind != agent.EventTurnEnd || e.Result == nil {
 		return e
@@ -323,9 +324,9 @@ func redactForPersist(e agent.Event) agent.Event {
 }
 
 // Flush appends the buffered events to the run and clears the buffer.
-// A run the store does not know is reported as an error here (unlike
-// the raw AppendEvents Found=false) because by construction the caller
-// created the run before the turn began.
+// If the store doesn't know the run, Flush returns an error, where the raw
+// AppendEvents only reports Found=false. By construction, the caller created
+// the run before the turn began, so a missing run is an error here.
 func (p *PersistingEmit) Flush(ctx context.Context) error {
 	if len(p.buf) == 0 {
 		return nil

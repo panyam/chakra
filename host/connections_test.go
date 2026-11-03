@@ -387,7 +387,7 @@ func TestLocalConnectionsReportWhatTheyCanSend(t *testing.T) {
 
 // "responseSchema": false on a connection makes the built provider ask for
 // json_object rather than json_schema, so the structured finalize can run on
-// DeepSeek (#215). control: a connection without it still sends
+// DeepSeek (#215). As a control, a connection without it still sends
 // json_schema.
 func TestConnectionResponseSchemaFalseSendsJSONObject(t *testing.T) {
 	var format string

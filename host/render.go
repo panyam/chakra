@@ -16,8 +16,9 @@ import (
 )
 
 // renderer maps the agent event stream onto the terminal, line-based so
-// interleaved tool events from parallel calls stay readable. ANSI styling is
-// suppressed when the resolved color decision is off (see envColorEnabled).
+// interleaved tool events from parallel calls are still readable. ANSI
+// styling is suppressed when the resolved color decision is off (see
+// envColorEnabled).
 type renderer struct {
 	out      io.Writer
 	plain    bool
@@ -34,10 +35,11 @@ func newRenderer(out io.Writer, colorEnabled bool) *renderer {
 	return &renderer{out: out, plain: !colorEnabled}
 }
 
-// envColorEnabled resolves the color decision from the environment alone: off
-// when NO_COLOR is present (any value, per no-color.org) or the terminal is
-// TERM=dumb, on otherwise. It is the surface-agnostic default; a CLI layers its
-// own --no-color flag on top and threads the result via NewTerminalRendererColor.
+// envColorEnabled resolves the color decision from the environment alone. It
+// is off when NO_COLOR is present (any value, per no-color.org) or the
+// terminal is TERM=dumb, and on otherwise. It is the surface-agnostic default.
+// A CLI layers its own --no-color flag on top and threads the result via
+// NewTerminalRendererColor.
 func envColorEnabled() bool {
 	if _, ok := os.LookupEnv("NO_COLOR"); ok {
 		return false
@@ -64,7 +66,7 @@ func (r *renderer) handle(e agent.Event) {
 		fmt.Fprint(r.out, r.dim("· thinking: "))
 	case agent.EventThinkingDelta:
 		// Stream the reasoning text itself (dimmed), so a reasoning model's
-		// chain-of-thought is readable — not a row of dots.
+		// chain-of-thought is readable instead of a row of dots.
 		fmt.Fprint(r.out, r.dim(e.Text))
 	case agent.EventThinkingEnd:
 		r.thinking = false
@@ -331,8 +333,8 @@ func (r *renderer) sessions(runs []agent.RunInfo, active string) {
 }
 
 // command renders a CmdResult by dispatching to the shape-specific
-// renderer for its Kind — the terminal implementation of the structured
-// command output (a web surface would serialize the CmdResult instead).
+// renderer for its Kind. It is the terminal implementation of the structured
+// command output. A web surface would serialize the CmdResult instead.
 func (r *renderer) command(res CmdResult) {
 	switch res.Kind {
 	case CmdMessage:
@@ -366,8 +368,8 @@ func (r *renderer) command(res CmdResult) {
 	}
 }
 
-// On implements Observer: the terminal rendering of the host's HostEvent
-// stream. It dispatches each kind to the shape-specific formatter; the
+// On implements Observer by rendering the host's HostEvent stream to the
+// terminal. It dispatches each kind to the shape-specific formatter. The
 // formatters are unchanged, so behavior is identical to the pre-seam
 // direct calls.
 func (r *renderer) On(ev HostEvent) {
@@ -422,10 +424,11 @@ func (r *renderer) gutter(depth int) string {
 	return r.dim(strings.Repeat("│ ", depth))
 }
 
-// subAgent renders a persona's nested activity under a border-left gutter keyed
-// to depth and tagged by scope: the tools it calls (name + compact args) and
-// its final answer. Other lifecycle events (deltas, turn boundaries) are
-// omitted to keep the nested transcript terse.
+// subAgent renders a persona's nested activity, meaning the tools it calls
+// (name + compact args) and its final answer. Each line sits under a
+// border-left gutter keyed to depth and is tagged by scope. Other lifecycle
+// events (deltas, turn boundaries) are omitted to keep the nested transcript
+// terse.
 func (r *renderer) subAgent(sa agent.SubAgentEvent) {
 	g := r.gutter(sa.Depth)
 	switch sa.Event.Kind {

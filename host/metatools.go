@@ -13,7 +13,7 @@ import (
 // FuncSource so the model can manage its own subscriptions, standing
 // behaviors, and background tasks through ordinary tool calls. These are
 // pure surface wiring over App state (subscription registry, TriggerPolicy,
-// background-task registry) plus the agent-module runtime seams; nothing here
+// background-task registry) plus the agent-module runtime seams. Nothing here
 // is agent API. Registered under the source id "host".
 func (a *App) registerMetaTools(multi *agent.MultiSource) error {
 	fs := agent.NewFuncSource()

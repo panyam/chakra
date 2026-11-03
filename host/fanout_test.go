@@ -10,11 +10,12 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// TestAppFanOutDelegatesToAllMembers is the 1033 host payoff: a FanOut group
-// config exposes one tool the main agent calls once, and the task reaches every
-// member (each surfaces a scoped HostSubAgentEvent), with their answers folded
-// into the aggregate fed back to the main agent. Concurrency itself is proven at
-// the primitive layer (TestFanOutRunsMembersConcurrently); this covers wiring.
+// TestAppFanOutDelegatesToAllMembers checks the host side of 1033. A FanOut
+// group config exposes one tool, and the main agent calls it once. The task
+// reaches every member, and each surfaces a scoped HostSubAgentEvent. Their
+// answers are folded into one aggregate, which goes back to the main agent.
+// TestFanOutRunsMembersConcurrently proves the concurrency at the primitive
+// layer, so this test covers wiring.
 func TestAppFanOutDelegatesToAllMembers(t *testing.T) {
 	ts := startTestServer(t)
 
@@ -70,7 +71,7 @@ func TestAppFanOutDelegatesToAllMembers(t *testing.T) {
 		t.Fatalf("expected sub-agent events scoped to both members, saw %v", scopes)
 	}
 
-	// the aggregate fed back to the main agent carries every member's answer
+	// the main agent gets back an aggregate with every member's answer
 	fed := toolMsgByID(t, stub.Requests()[3].Messages, "f1").Text
 	if !strings.Contains(fed, "finding-A") || !strings.Contains(fed, "finding-B") {
 		t.Fatalf("aggregate missing a member's answer: %q", fed)

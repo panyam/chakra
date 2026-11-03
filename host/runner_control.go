@@ -10,11 +10,11 @@ import (
 // cancel_agent / list_agents, issue 1166) to the main aggregate, so the main
 // model can run personas in the background with handles.
 //
-// Each pooled agent is a persona child Runner built exactly like the blocking
-// tool registerSubAgents builds (shared provider, serverTools-only, memory-free
-// per A7). The same persona is thus reachable both as a direct blocking tool and
-// as a spawnable background agent — two invocation modes over one child. The
-// pool forwards each background child's event stream as a HostSubAgentEvent, so
+// registerSubAgents builds each persona as a blocking tool. Each pooled agent
+// is a persona child Runner built exactly the same way (shared provider,
+// serverTools-only, memory-free per A7). So the same persona is reachable as
+// a direct blocking tool and as a spawnable background agent. The pool
+// forwards each background child's event stream as a HostSubAgentEvent, so
 // spawned activity renders the same way a blocking sub-agent's does.
 func (a *App) registerRunnerControl(multi, serverTools *agent.MultiSource, provider agent.Provider, tp core.TracerProvider, mp core.MeterProvider) error {
 	pool := agent.NewAgentPool(func(e agent.SubAgentEvent) {

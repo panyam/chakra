@@ -89,8 +89,9 @@ func (l *messageLog) On(ev HostEvent) {
 	}
 }
 
-// TestAnnouncerLinesReachSurfaces checks an extension implementing Announcer
-// is handed a function whose lines arrive as HostMessage events.
+// TestAnnouncerLinesReachSurfaces checks that an extension implementing
+// Announcer gets a function. Each line it passes to that function arrives as
+// a HostMessage event.
 func TestAnnouncerLinesReachSurfaces(t *testing.T) {
 	ts := startTestServer(t)
 	log := &messageLog{}
@@ -118,9 +119,9 @@ type askExt struct {
 func (*askExt) Name() string                                            { return "asker" }
 func (e *askExt) SetAsk(fn func(context.Context, string) (bool, error)) { e.ask = fn }
 
-// TestAskerQuestionsGoThroughTheAskQueue checks the wiring: an Asker extension
-// gets a function whose question is answered the way approval asks are, here
-// on the terminal.
+// TestAskerQuestionsGoThroughTheAskQueue checks the wiring. An Asker
+// extension gets a function for asking questions. Each question is answered
+// the way approval asks are, here on the terminal.
 func TestAskerQuestionsGoThroughTheAskQueue(t *testing.T) {
 	ts := startTestServer(t)
 	ext := &askExt{}

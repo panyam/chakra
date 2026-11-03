@@ -17,12 +17,12 @@ import (
 )
 
 // SkillDir is a local folder of skills, each in <Path>/<name>/SKILL.md. Its
-// skills join the same catalog MCP-served skills use: the model sees name and
-// description, load_skill returns the body, and loading one is approved like
-// any other call, with the approval bound to the skill's files.
+// skills join the catalog that also holds MCP-served skills. The model sees
+// name and description, and load_skill returns the body. Loading one is
+// approved like any other call, with the approval bound to the skill's files.
 type SkillDir struct {
 	// Path is the folder. A leading "~" is the home directory. A folder
-	// that doesn't exist contributes nothing; it isn't an error, so a
+	// that doesn't exist contributes nothing and isn't an error, so a
 	// default list can name folders most repositories don't have.
 	Path string `json:"path"`
 
@@ -33,8 +33,8 @@ type SkillDir struct {
 
 	// Own marks a folder the user wrote, such as one in their home
 	// directory. Its skills are introduced as the user's own. Any other
-	// folder is treated as repository content: followed for work there, but
-	// ranked below the host's instructions.
+	// folder is treated as repository content. The model follows it for work
+	// in that repository, but ranks it below the host's instructions.
 	Own bool `json:"own,omitempty"`
 }
 

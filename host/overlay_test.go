@@ -49,10 +49,10 @@ func writeBase(t *testing.T) string {
 	return base
 }
 
-// TestLoadConfigWithOverlay_MergeSemantics pins the contract the whole feature
-// rests on: a sparse overlay overrides the scalars it names, preserves the maps
-// and slices it omits, and adds nested objects — so a one-line "active" change
-// never wipes servers or the connections catalog.
+// TestLoadConfigWithOverlay_MergeSemantics pins the feature's core contract. A
+// sparse overlay overrides the scalars it names, preserves the maps and slices
+// it omits, and adds nested objects. So a one-line "active" change never wipes
+// servers or the connections catalog.
 func TestLoadConfigWithOverlay_MergeSemantics(t *testing.T) {
 	base := writeBase(t)
 	overlay := overlayPathFor(base)
@@ -82,8 +82,9 @@ func TestLoadConfigWithOverlay_MergeSemantics(t *testing.T) {
 }
 
 // TestLoadConfigWithOverlay_SliceReplaceWhenPresent pins the other half of the
-// contract: a slice the overlay DOES carry replaces the base slice wholesale
-// (json semantics), so this is a deliberate, documented behavior not an accident.
+// contract. When the overlay DOES have a slice, that slice replaces the base
+// slice wholesale (json semantics). This is deliberate, documented behavior,
+// not an accident.
 func TestLoadConfigWithOverlay_SliceReplaceWhenPresent(t *testing.T) {
 	base := writeBase(t)
 	overlay := overlayPathFor(base)
@@ -110,7 +111,7 @@ func TestLoadConfigWithOverlay_NoOverlayFile(t *testing.T) {
 	}
 }
 
-// TestConfigOverlay_WriteBackRoundTrip is the end-to-end acceptance: writing a
+// TestConfigOverlay_WriteBackRoundTrip is the end-to-end acceptance. Writing a
 // pick through the overlay and reloading gets it back, both picks coexist in a
 // sparse file, and the base catalog survives.
 func TestConfigOverlay_WriteBackRoundTrip(t *testing.T) {
@@ -153,10 +154,10 @@ func TestConfigOverlay_WriteBackRoundTrip(t *testing.T) {
 	}
 }
 
-// TestDispatchPersistsPicksToOverlay wires the whole path: /provider and
-// /approve dispatched through the App write their picks to the overlay when
-// WithConfigOverlay is set, so a real slash command (not just the writer)
-// persists.
+// TestDispatchPersistsPicksToOverlay wires the whole path. The App dispatches
+// /provider and /approve, and they write their picks to the overlay when
+// WithConfigOverlay is set. So a real slash command persists, not just the
+// writer.
 func TestDispatchPersistsPicksToOverlay(t *testing.T) {
 	baseDir := t.TempDir()
 	basePath := filepath.Join(baseDir, "kitchen-sink.json")

@@ -37,16 +37,17 @@ func validateStepRoutes(routes []StepRoute, conns map[string]ConnectionConfig) e
 	return nil
 }
 
-// StepRouteStage is a request-scoped step stage that sends each step the
-// first matching route covers to that route's connection, which resolve
-// turns into a provider. A step no route covers stays on the Runner's
-// configured provider and, when def is non-nil, is labelled def() so
-// TurnResult.UsageByModel and EventStep name both sides of the split.
+// StepRouteStage is a request-scoped step stage. For each step, it finds the
+// first route that covers the step. It sends the step to that route's
+// connection, and resolve turns the connection into a provider. If no route
+// covers a step, the step runs on the Runner's configured provider. When def
+// is non-nil, that step is labelled def(), so TurnResult.UsageByModel and
+// EventStep name both sides of the split.
 //
 // Routes are matched by step number alone, so the same steps go to the same
-// connection on every turn. That keeps prompt-cache misses to the boundaries
-// between routes; each boundary still makes the next call cold on the
-// connection it moves to.
+// connection on every turn. Prompt-cache misses then happen only at the
+// boundaries between routes. Each boundary still makes the next call cold on
+// the connection it moves to.
 //
 // A resolve error ends the turn.
 func StepRouteStage(routes []StepRoute, resolve func(connection string) (agent.Provider, error), def func() string) agent.StepStage {

@@ -230,10 +230,10 @@ func TestAppFailedTurnPersistsNothing(t *testing.T) {
 	}
 }
 
-// TestAppStepLimitedTurnPersists is the store half of issue 109: a
+// TestAppStepLimitedTurnPersists is the store half of issue 109. A
 // step-capped turn keeps its messages in the run log too, so a restarted
 // session resumes with the work the turn had already done. Only ErrMaxSteps
-// behaves this way; every other failure still persists nothing
+// behaves this way. Every other failure still persists nothing
 // (TestAppFailedTurnPersistsNothing).
 func TestAppStepLimitedTurnPersists(t *testing.T) {
 	ctx := context.Background()
@@ -454,9 +454,9 @@ func TestPersistingEmitRedactsTurnEndMessages(t *testing.T) {
 	}
 }
 
-// TestAppFailedTurnPersistsItsEvents is issue 71: a turn that fails after
-// running tools leaves its tool calls and the error in the event
-// log, so a restarted host can still show what it did. Messages stay out
+// TestAppFailedTurnPersistsItsEvents is issue 71. When a turn fails after
+// running tools, its tool calls and the error are left in the event log, so
+// a restarted host can still show what it did. Messages are left out
 // (TestAppFailedTurnPersistsNothing), since the history rolls back.
 func TestAppFailedTurnPersistsItsEvents(t *testing.T) {
 	ctx := context.Background()

@@ -10,8 +10,8 @@ import (
 
 // steerQueue holds input a user sent while a turn was running. The turn's
 // steer stage drains it before each model call, so the model reads the
-// input in the same turn; whatever arrives after the turn's last call is
-// handed back when the turn ends and runs as the next turn.
+// input in the same turn. Input that arrives after the turn's last call is
+// handed back when the turn ends, and runs as the next turn.
 type steerQueue struct {
 	mu     sync.Mutex
 	active bool
@@ -53,13 +53,13 @@ func (q *steerQueue) end() []string {
 	return out
 }
 
-// Submit is how a surface hands the App a user message without knowing
+// Submit hands the App a user message, and the surface doesn't need to know
 // whether a turn is running. With no turn running it runs one, as
-// RunTurnWith does with opts, and returns when it ends. While a turn runs it queues the message as
-// a steer and returns at once with steered true: the model reads it before
-// its next call in that turn, and it joins the turn's record. A steer that
-// arrives after the turn's last model call runs as the next turn when this
-// one ends, so nothing is dropped.
+// RunTurnWith does with opts, and returns when it ends. While a turn runs it
+// queues the message as a steer and returns at once with steered true. The
+// model reads the steer before its next call in that turn, and the steer
+// joins the turn's record. A steer that arrives after the turn's last model
+// call runs as the next turn when this one ends, so nothing is dropped.
 //
 // A steer is announced as a HostUserInput event with Label "steer" when it
 // is queued, so every surface can show it in place.
@@ -77,9 +77,9 @@ func (a *App) Submit(ctx context.Context, input string, opts TurnOptions) (steer
 }
 
 // steerStage drains queued steers into the turn's record before each model
-// call. It is a session-scope stage because a steer is something the user
-// said: it belongs in history and the session store like the message that
-// started the turn, not only in the view of one call.
+// call. It is a session-scope stage because the user said the steer. So it
+// belongs in history and the session store like the message that started
+// the turn, not only in the view of one call.
 func (a *App) steerStage() agent.StepStage {
 	return agent.StepStage{
 		Name:  "host.steer",

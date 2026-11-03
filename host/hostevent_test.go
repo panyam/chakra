@@ -10,8 +10,8 @@ import (
 )
 
 // recordObserver captures the HostEvent stream so a test can assert what the
-// host emitted, independent of any terminal formatting — the proof that a
-// non-terminal surface (web) gets everything it needs.
+// host emitted, independent of any terminal formatting. Those assertions show
+// that a non-terminal surface (web) gets everything it needs.
 type recordObserver struct {
 	mu  sync.Mutex
 	evs []HostEvent
@@ -102,7 +102,7 @@ func TestSurface_CommandEmitsUICommand(t *testing.T) {
 }
 
 // TestSurface_DefaultRendererStillFormats pins that the default terminal
-// path is unchanged: with no WithObserver, output still lands on the writer.
+// path is unchanged. With no WithObserver, output still goes to the writer.
 func TestSurface_DefaultRendererStillFormats(t *testing.T) {
 	ts := startTestServer(t)
 	var out strings.Builder
@@ -121,8 +121,9 @@ func TestSurface_DefaultRendererStillFormats(t *testing.T) {
 }
 
 // TestObserver_FanOutToMany pins that events reach every registered
-// observer — the reason these are HostEvents, not UI events: a renderer
-// and a tracer (here two recorders) both see the stream.
+// observer. A renderer and a tracer both see the stream, and here two
+// recorders stand in for them. They are HostEvents, not UI events, for this
+// reason.
 func TestObserver_FanOutToMany(t *testing.T) {
 	ts := startTestServer(t)
 	a, b := &recordObserver{}, &recordObserver{}

@@ -7,30 +7,31 @@ import (
 	"github.com/panyam/chakra"
 )
 
-// sessionState is the persistence half of a session: where runs are stored,
-// which run is active, and where the /sessions picker last paged to.
+// sessionState is the persistence half of a session. It records where runs
+// are stored, which run is active, and where the /sessions picker last paged
+// to.
 //
 // Locking here is deliberately not uniform, because the state is not.
 //
 //   - store is set once at construction and read-only afterwards.
 //   - runID is guarded by the App's turnMu, not by anything here. It changes
-//     only at points a turn already owns (attach, resume, fork, lazy create),
-//     so giving it a second lock would add a hierarchy without removing a
-//     race. runIDAtomic mirrors it for readers that cannot take turnMu.
-//   - cursor has its own mutex because paging is a UI action unrelated to a
-//     turn and can arrive while one is running.
+//     only at points a turn already owns (attach, resume, fork, lazy create).
+//     A second lock would add a hierarchy without removing a race.
+//     runIDAtomic mirrors it for readers that cannot take turnMu.
+//   - cursor has its own mutex. Paging is a UI action unrelated to a turn,
+//     and it can arrive while one is running.
 //
-// Held by value on App rather than by pointer, because every field is
-// zero-value usable: a nil store is "persistence off", and the rest are a
-// string, an atomic, and a mutex. That keeps a partially-constructed App
-// (which the tests build freely) working instead of panicking on a nil
-// cluster — the failure mode a pointer would introduce for no gain. Never
-// copy it; the mutex and atomic make a copy meaningless.
+// App holds it by value rather than by pointer, because every field is
+// zero-value usable. A nil store means persistence is off, and the rest are
+// a string, an atomic, and a mutex. The tests build partially-constructed
+// Apps freely, and those keep working. A pointer would make them panic on a
+// nil cluster, for no gain. Never copy it, because a copy of the mutex and
+// atomic is meaningless.
 type sessionState struct {
 	store agent.RunStore
 
-	// runID is the run turns append to. Guarded by App.turnMu; write through
-	// setRunID so the atomic mirror stays in step.
+	// runID is the run that turns append to. App.turnMu guards it. Write
+	// through setRunID so the atomic mirror matches it.
 	runID string
 
 	// runIDAtomic mirrors runID for a lock-free read. The session-scoped
@@ -43,19 +44,19 @@ type sessionState struct {
 }
 
 // setRunID updates the active run id and its lock-free mirror together.
-// Caller holds turnMu (every write site does). Routing all four writers
-// (AttachRun, resumeLocked, Fork, ensureRunLocked) through here keeps the
-// mirror from drifting out of sync.
+// Caller holds turnMu (every write site does). All four writers (AttachRun,
+// resumeLocked, Fork, ensureRunLocked) go through here, so the mirror cannot
+// drift out of sync.
 func (s *sessionState) setRunID(id string) {
 	s.runID = id
 	s.runIDAtomic.Store(id)
 }
 
 // currentRunID reads the active run id WITHOUT taking turnMu, so it is safe
-// to call from inside a turn (the memory namespace func runs while RunTurn
-// already holds turnMu — a locking read would deadlock there). Returns ""
-// before any run is set, which the session-scoped namespace func maps to the
-// shared default scratchpad.
+// to call from inside a turn. The memory namespace func runs while RunTurn
+// already holds turnMu, and a locking read would deadlock there. It returns
+// "" before any run is set, and the session-scoped namespace func maps ""
+// to the shared default scratchpad.
 func (s *sessionState) currentRunID() string {
 	if v := s.runIDAtomic.Load(); v != nil {
 		return v.(string)

@@ -25,8 +25,8 @@ type msArg struct {
 
 func main() {
 	if os.Getenv("HANG") == "1" {
-		// Sleep rather than select{}: a Go program with no goroutine left to
-		// wake would die of a deadlock at once, which is not a hang.
+		// Sleep rather than select{}. A Go program with no goroutine left to
+		// wake would die of a deadlock at once, and that is not a hang.
 		time.Sleep(time.Hour)
 	}
 	srv := server.NewServer(core.ServerInfo{Name: "stdio-demo", Version: "0.0.1"})

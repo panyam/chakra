@@ -10,12 +10,12 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// TestSubAgentCannotReachParentMemory is the enforcement guard for the issue
-// 1151 decision: a sub-agent persona has no working memory and cannot touch the
-// parent's scratchpad. The persona is built over serverTools only, so a
-// remember call from inside it hits an unknown tool and the parent's memory
-// store stays empty. If a change ever hands personas the memory-bearing
-// aggregate, remember succeeds and this fails.
+// TestSubAgentCannotReachParentMemory enforces the issue 1151 decision. A
+// sub-agent persona has no working memory and cannot touch the parent's
+// scratchpad. The persona is built over serverTools only, so a remember call
+// from inside it hits an unknown tool, and the parent's memory store is still
+// empty. If a change ever hands personas the aggregate that has memory,
+// remember succeeds and this fails.
 func TestSubAgentCannotReachParentMemory(t *testing.T) {
 	ts := startTestServer(t)
 
@@ -51,12 +51,12 @@ func TestSubAgentCannotReachParentMemory(t *testing.T) {
 	}
 
 	// The worker actually ran (main delegated, worker took two turns, main
-	// synthesized) — so the guard below can't pass vacuously.
+	// synthesized), so the guard below can't pass vacuously.
 	if n := len(stub.Requests()); n != 4 {
 		t.Fatalf("expected 4 model calls (main + worker×2 + main), got %d", n)
 	}
 
-	// The worker's remember hit an unknown tool: its second request carries the
+	// The worker's remember hit an unknown tool. Its second request has the
 	// tool result for m1, and it does not confirm a save.
 	fed := toolMsgByID(t, stub.Requests()[2].Messages, "m1").Text
 	if !strings.Contains(fed, "unknown tool") {

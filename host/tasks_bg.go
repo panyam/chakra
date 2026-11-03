@@ -18,12 +18,12 @@ func (a *App) onTaskDetach(bt *client.BackgroundTask) {
 	a.emit(HostEvent{Kind: HostTaskDetached, Task: bt})
 }
 
-// onTaskComplete runs on the background poll goroutine: it surfaces the
-// outcome as a transcript line, feeds a task.completed event into the
-// injection policy (so the next turn carries the result as context), and
-// gives the trigger policy a shot at a proactive turn (a host that wants
-// "tell the user immediately" binds a trigger on task.completed; nothing is
-// hardcoded, so N finishing tasks cannot nag by default).
+// onTaskComplete runs on the background poll goroutine. It shows the outcome
+// as a transcript line. It feeds a task.completed event into the injection
+// policy, so the next turn includes the result as context. Then it gives the
+// trigger policy a chance to start a proactive turn. A host that wants "tell
+// the user immediately" binds a trigger on task.completed. Nothing is
+// hardcoded, so N finishing tasks cannot nag by default.
 func (a *App) onTaskComplete(serverID string, bt *client.BackgroundTask) {
 	a.tasks.remove(bt.TaskID)
 	a.emit(HostEvent{Kind: HostTaskCompleted, Task: bt})

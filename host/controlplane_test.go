@@ -19,8 +19,8 @@ type userData struct {
 	Email string `json:"email"`
 }
 
-// controlPlaneServer: an events source (user.created) + a plain tool
-// (send_email) the model calls from the trigger's proactive turn.
+// controlPlaneServer serves an events source (user.created) and a plain tool
+// (send_email). The model calls send_email from the trigger's proactive turn.
 func controlPlaneServer(t *testing.T) (*httptest.Server, func(context.Context, userData) error, *[]string) {
 	t.Helper()
 	srv := testutil.NewTestServer()
@@ -43,11 +43,11 @@ func controlPlaneServer(t *testing.T) (*httptest.Server, func(context.Context, u
 	return ts, yield, &sent
 }
 
-// TestControlPlaneSubscribeTriggerAct is the flagship acceptance: the model,
-// through conversation, subscribes to an event and installs a standing
-// trigger; when the event later fires, the trigger's proactive turn runs and
-// the model calls send_email — the Msg-1/2/3 transcript, deterministic via
-// StubProvider.
+// TestControlPlaneSubscribeTriggerAct is the flagship acceptance. Through
+// conversation, the model subscribes to an event and installs a standing
+// trigger. Later the event fires, the trigger's proactive turn runs, and the
+// model calls send_email. This is the Msg-1/2/3 transcript, made
+// deterministic by StubProvider.
 func TestControlPlaneSubscribeTriggerAct(t *testing.T) {
 	ts, yield, sent := controlPlaneServer(t)
 	cfg := testConfig(ts.URL)

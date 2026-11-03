@@ -24,8 +24,8 @@ func texts(msgs []agent.Message) []string {
 }
 
 // TestPipelineDurableAppendsBeforeUser pins that durable stages contribute
-// history that precedes the user's message: events describe what happened
-// before the user spoke, so they cannot land after it.
+// history that precedes the user's message. Events describe what happened
+// before the user spoke, so they cannot come after it.
 func TestPipelineDurableAppendsBeforeUser(t *testing.T) {
 	p := contextPipeline{durable: []ContextStage{
 		{Name: "events", Run: func(_ context.Context, msgs []agent.Message) []agent.Message {
@@ -38,7 +38,7 @@ func TestPipelineDurableAppendsBeforeUser(t *testing.T) {
 	}
 }
 
-// TestPipelineTransientWeavesBeforeUserInOrder pins the salience rule: each
+// TestPipelineTransientWeavesBeforeUserInOrder pins the salience rule. Each
 // transient producer inserts just before the user's message, so the last
 // stage registered ends up closest to it. Recall registers after the summary,
 // so it follows the summary rather than preceding it.
@@ -54,10 +54,10 @@ func TestPipelineTransientWeavesBeforeUserInOrder(t *testing.T) {
 	}
 }
 
-// TestPipelineTransientNeverMutatesHistory is the invariant the whole
-// durable/transient split exists to protect. A transient block written back
-// into history would be re-injected next turn and eventually summarized
-// alongside real conversation, so the per-turn view must not alias it.
+// TestPipelineTransientNeverMutatesHistory pins the invariant behind the
+// whole durable/transient split. Suppose a transient block were written back
+// into history. It would be re-injected next turn and eventually summarized
+// alongside real conversation. So the per-turn view must not alias history.
 func TestPipelineTransientNeverMutatesHistory(t *testing.T) {
 	p := contextPipeline{transient: []ContextStage{stubStage("memory.recall", "RECALL")}}
 	history := []agent.Message{{Role: agent.RoleUser, Text: "hello"}}
@@ -78,7 +78,7 @@ func TestPipelineTransientNeverMutatesHistory(t *testing.T) {
 }
 
 // TestPipelineEmptyStagesArePassThrough pins that a host with no producers
-// configured pays nothing: history is returned unchanged and the per-turn
+// configured costs nothing. History is returned unchanged and the per-turn
 // view is just a copy.
 func TestPipelineEmptyStagesArePassThrough(t *testing.T) {
 	var p contextPipeline
@@ -92,9 +92,9 @@ func TestPipelineEmptyStagesArePassThrough(t *testing.T) {
 	}
 }
 
-// TestDeclaredStageOrder pins the assembled pipeline a real App builds, which
-// is the whole point of the issue: the order is declared in one place instead
-// of emerging from where the code happened to sit.
+// TestDeclaredStageOrder pins the pipeline that a real App assembles. The
+// issue existed to declare the order in one place, instead of letting it
+// follow from where the code happened to sit.
 func TestDeclaredStageOrder(t *testing.T) {
 	ts := startTestServer(t)
 	cfg := testConfig(ts.URL)

@@ -49,7 +49,7 @@ func TestAppOffloadsLargeToolResult(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// the result fed back to the model on the second call is the stub
+	// on the second call, the model gets the stub back as the result
 	fed := toolMsg(t, stub.Requests()[1].Messages).Text
 	if strings.Contains(fed, big) {
 		t.Fatal("full payload leaked into the conversation; offloading did not fire")

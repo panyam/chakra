@@ -38,8 +38,8 @@ func testConfig(url string) *Config {
 	}
 }
 
-// TestAppBootsWithDownOptionalServer is the graceful-degrade acceptance: a down
-// optional server must not fail boot; the reachable server is ready, the down
+// TestAppBootsWithDownOptionalServer is the graceful-degrade acceptance. A down
+// optional server must not fail boot. The reachable server is ready, the down
 // one is not, and /servers lists both (docs/AGENT_SERVER_STATE.md).
 func TestAppBootsWithDownOptionalServer(t *testing.T) {
 	ts := startTestServer(t)
@@ -68,10 +68,11 @@ func TestAppBootsWithDownOptionalServer(t *testing.T) {
 	}
 }
 
-// TestAppCloseDoesNotHang is the host-level regression for the close hang: with
-// a ready server (open SSE stream) AND a down server (a background retry loop),
-// app.Close must tear both down promptly, not block. A generous deadline turns
-// a hang into a fast, clear failure instead of a whole-suite timeout.
+// TestAppCloseDoesNotHang is the host-level regression for the close hang. The
+// app has a ready server (open SSE stream) AND a down server (a background
+// retry loop). app.Close must tear both down promptly, not block. A generous
+// deadline turns a hang into a fast, clear failure instead of a whole-suite
+// timeout.
 func TestAppCloseDoesNotHang(t *testing.T) {
 	ts := startTestServer(t)
 	cfg := testConfig(ts.URL)
@@ -222,7 +223,7 @@ func TestAppStepLimitKeepsHistory(t *testing.T) {
 		t.Fatalf("transcript missing the step-cap error:\n%s", out.String())
 	}
 
-	// The next turn is scripted to answer; what it was SENT is the point.
+	// The next turn is scripted to answer. The test checks what it was SENT.
 	if err := app.RunTurn(context.Background(), "keep going"); err != nil {
 		t.Fatalf("turn after a step cap: %v", err)
 	}
@@ -666,11 +667,11 @@ func TestAppHealthWithoutFailover(t *testing.T) {
 	}
 }
 
-// TestAppContextBudgetKeepsHistory is the #7 counterpart of the step cap: a
-// turn that grows past its compaction budget and can't be compacted back under
-// ends with ErrContextBudget and keeps what it did. Wiring only; the behavior
-// is tested at the agent layer. The chat stub doubles as the summarizer, so
-// its second scripted turn is the summary.
+// TestAppContextBudgetKeepsHistory is the #7 counterpart of the step cap. A
+// turn grows past its compaction budget and can't be compacted back under it.
+// The turn ends with ErrContextBudget and keeps what it did. Wiring only; the
+// behavior is tested at the agent layer. The chat stub doubles as the
+// summarizer, so its second scripted turn is the summary.
 func TestAppContextBudgetKeepsHistory(t *testing.T) {
 	ts := startTestServer(t)
 	big := strings.Repeat("y", 400)

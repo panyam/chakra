@@ -19,13 +19,14 @@ type PromptSectionFunc func(ctx context.Context) string
 // Section implements PromptSection.
 func (f PromptSectionFunc) Section(ctx context.Context) string { return f(ctx) }
 
-// SystemPromptBuilder assembles the system prompt from ordered sections. It is
-// the host-layer composition over the Runner's low-level InstructionsFunc hook:
-// Build runs each turn and joins the non-empty sections, so prompt assembly is
-// composable — reorder, insert profile/domain-guide sections, or replace the
-// section list — instead of being hard-coded. The default builder mirrors the
-// previous fixed assembly (base instructions, then per-server skill blocks in
-// config order); WithSystemPromptBuilder lets a caller customize it.
+// SystemPromptBuilder assembles the system prompt from ordered sections. It
+// composes at the host layer over the Runner's low-level InstructionsFunc
+// hook. Build runs each turn and joins the non-empty sections. So a caller
+// can reorder sections, insert profile or domain-guide sections, or replace
+// the section list, instead of living with a hard-coded prompt. The default
+// builder mirrors the previous fixed assembly (base instructions, then
+// per-server skill blocks in config order). WithSystemPromptBuilder lets a
+// caller customize it.
 type SystemPromptBuilder struct {
 	Sections []PromptSection
 }

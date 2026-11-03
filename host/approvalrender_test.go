@@ -15,9 +15,9 @@ func callInfo(name, args string) agent.ToolCallInfo {
 	}
 }
 
-// rendererExt is a minimal extension that contributes nothing but renderers,
-// which is also the shape a caller uses when they want a renderer without a
-// tool of their own.
+// rendererExt is a minimal extension that contributes nothing but renderers.
+// A caller who wants a renderer without a tool of their own uses the same
+// shape.
 type rendererExt struct {
 	BaseExtension
 	name      string
@@ -96,11 +96,11 @@ func TestFirstClaimWins(t *testing.T) {
 	}
 }
 
-// TestRendererSeesPostMiddlewareArguments is the security property this seam
-// has to preserve. A user approves what they were shown, so what they are
-// shown must be the call that runs, not the one the model proposed. If a
-// middleware rewrote the arguments and the prompt rendered the original, the
-// approval would be for a call that never executes.
+// TestRendererSeesPostMiddlewareArguments pins the security property this
+// seam has to preserve. A user approves what they were shown, so they must be
+// shown the call that runs, not the one the model proposed. Suppose a
+// middleware rewrote the arguments and the prompt rendered the original. The
+// approval would then be for a call that never executes.
 func TestRendererSeesPostMiddlewareArguments(t *testing.T) {
 	var seen string
 	a := appWith(t, rendererExt{name: "x", renderers: []ApprovalRenderer{
@@ -111,8 +111,8 @@ func TestRendererSeesPostMiddlewareArguments(t *testing.T) {
 	}})
 
 	// ToolCallInfo.Call.Args is documented as the arguments "as rewritten by
-	// any earlier middleware rather than as the model produced them", so the
-	// rewritten value is what a renderer must receive.
+	// any earlier middleware rather than as the model produced them", so a
+	// renderer must receive the rewritten value.
 	rewritten := `{"path":"REWRITTEN.md"}`
 	a.renderApproval(context.Background(), callInfo("edit_file", rewritten))
 
@@ -131,8 +131,8 @@ func TestNoRenderersLeavesTheDefaultUntouched(t *testing.T) {
 }
 
 // TestDefaultStillTrimsLargeArguments keeps the fallback's own behaviour. The
-// trim is right for an unknown tool whose arguments are an opaque blob; what
-// the seam changes is that it is no longer imposed on tools that know better.
+// trim is right for an unknown tool whose arguments are an opaque blob. With
+// the seam, tools that know better are no longer forced to trim.
 func TestDefaultStillTrimsLargeArguments(t *testing.T) {
 	a := appWith(t)
 	big := `{"blob":"` + strings.Repeat("x", 500) + `"}`
@@ -146,9 +146,9 @@ func TestDefaultStillTrimsLargeArguments(t *testing.T) {
 	}
 }
 
-// TestCustomRendererIsNotTrimmed is the other half: a renderer that decided a
-// long prompt is correct gets it through intact. A diff trimmed to 200
-// characters is unreviewable, which is the whole reason for the seam.
+// TestCustomRendererIsNotTrimmed is the other half. When a renderer decides a
+// long prompt is correct, the prompt gets through intact. A diff trimmed to
+// 200 characters is unreviewable, and the seam exists to fix that.
 func TestCustomRendererIsNotTrimmed(t *testing.T) {
 	long := "Apply 1 change:\n" + strings.Repeat("  - a line of context\n", 60)
 	a := appWith(t, rendererExt{name: "x", renderers: []ApprovalRenderer{

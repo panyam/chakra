@@ -124,8 +124,8 @@ func TestApp_DispatchToolsAndQuit(t *testing.T) {
 	}
 }
 
-// TestApp_ProviderCompleter pins the argument-completion seam the TUI
-// palette (issue 987) will drive.
+// TestApp_ProviderCompleter pins the argument-completion seam. The TUI
+// palette (issue 987) will drive it.
 func TestApp_ProviderCompleter(t *testing.T) {
 	app, _ := newCmdApp(t)
 	cmd, ok := app.Commands().Lookup("provider")
@@ -291,10 +291,10 @@ func TestApp_SessionsNoStoreErrors(t *testing.T) {
 	}
 }
 
-// TestApp_DispatchApproveStatesTheMode pins the half of issue 71 a web surface
-// sees: CmdResult.Approval is an *agent.TieredApproval with unexported fields,
-// so over Dispatch it serializes to nothing, and Message is all the browser
-// can show.
+// TestApp_DispatchApproveStatesTheMode pins the part of issue 71 that a web
+// surface sees. CmdResult.Approval is an *agent.TieredApproval with
+// unexported fields, so over Dispatch it serializes to nothing. Message is
+// all the browser can show.
 func TestApp_DispatchApproveStatesTheMode(t *testing.T) {
 	noGate, _ := newCmdApp(t)
 	if res, _ := noGate.Dispatch(context.Background(), "/approve"); res.Message != "approval gate off" {

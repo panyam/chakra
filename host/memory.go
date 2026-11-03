@@ -6,14 +6,14 @@ import (
 	"github.com/panyam/chakra"
 )
 
-// memorySourceID is the MultiSource id the working-memory tools register
-// under, alongside the "host" meta-tools and the per-server ids.
+// memorySourceID is the MultiSource id for the working-memory tools. It sits
+// alongside the "host" meta-tools and the per-server ids.
 const memorySourceID = "memory"
 
 // WithMemoryStore supplies the backing store for working memory
-// (Config.Memory). Omitted, memory uses an in-memory store that dies with
-// the process; pass a durable one (agent/store/redis, agent/store/gorm) to
-// survive restarts. Per-session isolation is orthogonal — set
+// (Config.Memory). Without it, memory uses an in-memory store that dies with
+// the process. Pass a durable one (store/redis, store/gorm) to survive
+// restarts. Per-session isolation is a separate setting. Set
 // MemoryConfig.SessionScoped to namespace the store by run id. Ignored when
 // Config.Memory is nil.
 func WithMemoryStore(store agent.MemoryStore) AppOption {
@@ -30,8 +30,8 @@ func (a *App) registerMemory(multi *agent.MultiSource, store agent.MemoryStore) 
 	}
 	var opts []agent.MemorySourceOption
 	if a.cfg.Memory != nil && a.cfg.Memory.SessionScoped {
-		// currentRunID is lock-free: it runs during a turn while turnMu is
-		// already held (both the memory tools and the summary/recall injection),
+		// currentRunID is lock-free. The memory tools and the summary/recall
+		// injection both call it during a turn, while turnMu is already held,
 		// so RunID would deadlock here.
 		opts = append(opts, agent.WithMemoryNamespaceFunc(a.session.currentRunID))
 		if a.session.store == nil {
@@ -49,14 +49,15 @@ func (a *App) registerMemory(multi *agent.MultiSource, store agent.MemoryStore) 
 	return nil
 }
 
-// memoryStages are the transient context producers memory contributes: the
-// ambient scratchpad summary, then the recall relevant to this turn. Both are
-// woven in just before the user message, recall closest because it was
-// retrieved for these exact words while the summary is ambient.
+// memoryStages returns memory's transient context producers. The first is the
+// ambient scratchpad summary, and the second is the recall relevant to this
+// turn. Both are woven in just before the user message. Recall goes closest,
+// because it was retrieved for these exact words while the summary is
+// ambient.
 //
-// Neither is written into history — see contextPipeline on why that split is
-// structural. A producer whose store errors contributes nothing rather than
-// failing the turn.
+// Neither is written into history. See contextPipeline on why that split is
+// structural. If a producer's store errors, the producer contributes nothing
+// and the turn goes on.
 func (a *App) memoryStages() []ContextStage {
 	if a.memory == nil || a.cfg.Memory == nil {
 		return nil
