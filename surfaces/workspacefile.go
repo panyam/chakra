@@ -160,8 +160,8 @@ type ShellFile struct {
 
 // ProcessesFile is exec.ProcessConfig: true for the defaults, false or absent
 // for off, or {"max": 4, "maxOutput": 262144, "defaultYield": "5s",
-// "maxYield": "30s", "streamBudget": 1048576}. A negative streamBudget streams
-// without limit.
+// "maxYield": "30s", "streamBudget": 1048576, "detach": true}. A negative
+// streamBudget streams without limit. detach is exec.ProcessConfig.AllowDetach.
 type ProcessesFile struct {
 	On           bool
 	Max          int    `json:"max,omitempty"`
@@ -169,6 +169,7 @@ type ProcessesFile struct {
 	DefaultYield string `json:"defaultYield,omitempty"`
 	MaxYield     string `json:"maxYield,omitempty"`
 	StreamBudget int    `json:"streamBudget,omitempty"`
+	Detach       bool   `json:"detach,omitempty"`
 }
 
 // UnmarshalJSON accepts true, false, or an object.
@@ -378,7 +379,7 @@ func (e *ExecFile) config() (*exec.Config, error) {
 			sh.Rules = append(sh.Rules, pr)
 		}
 		if pf := e.Shell.Processes; pf != nil && pf.On {
-			pc := &exec.ProcessConfig{Max: pf.Max, MaxOutput: pf.MaxOutput, StreamBudget: pf.StreamBudget}
+			pc := &exec.ProcessConfig{Max: pf.Max, MaxOutput: pf.MaxOutput, StreamBudget: pf.StreamBudget, AllowDetach: pf.Detach}
 			if pc.DefaultYield, err = parseDuration("exec.shell.processes.defaultYield", pf.DefaultYield); err != nil {
 				return nil, err
 			}

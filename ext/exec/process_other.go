@@ -15,3 +15,6 @@ func killProcessGroup(cmd *osexec.Cmd) {
 		_ = cmd.Process.Kill()
 	}
 }
+
+// setDetached is a no-op for the same reason as setProcessGroup.
+func setDetached(*osexec.Cmd) {}

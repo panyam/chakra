@@ -81,7 +81,7 @@ class ChakraAgent(BaseInstalledAgent):
             "approval": {"mode": "allow"},
         }
         workspace = {
-            "exec": {"sandbox": "unconfined", "shell": {"timeout": "10m", "rules": [], "processes": True}},
+            "exec": {"sandbox": "unconfined", "shell": {"timeout": "10m", "rules": [], "processes": {"detach": True}}},
             "skills": {"dirs": []},
         }
         await self.exec_as_agent(environment, command=f"mkdir -p {_HOME}")

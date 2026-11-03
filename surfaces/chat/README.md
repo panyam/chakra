@@ -137,8 +137,9 @@ go run . --config chat.json --workspace ~/code/project \
 - **`exec.network`**: `{"allow": [...hosts], "ask": true}` lets sandboxed commands reach the
   listed hosts through a local proxy, and asks about others; see `ext/exec/README.md`.
 - **`exec.shell.processes`**: `true` (or an object with limits) adds `exec_command`,
-  `write_stdin`, `list_processes` and `kill_process` for commands that keep running; see
-  `ext/exec/README.md`.
+  `write_stdin`, `list_processes` and `kill_process` for commands that keep running.
+  `{"detach": true}` also lets `exec_command` leave a command running after the session
+  ends. See `ext/exec/README.md`.
 - **`editTools`**: `["edit_file"]`, `["apply_patch"]`, or both (the default).
   `apply_patch` takes a multi-file patch in the `*** Begin Patch` format. Some
   models are trained on that format; see `ext/files/README.md`.
