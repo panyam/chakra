@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/panyam/chakra"
@@ -58,5 +61,51 @@ func TestExtensionStepStagesRunBeforeEveryModelCall(t *testing.T) {
 		if len(notes) != 1 || notes[0] != want {
 			t.Errorf("call %d carried notes %q, want just %q", i+1, notes, want)
 		}
+	}
+}
+
+type announceExt struct {
+	BaseExtension
+	announce func(string)
+}
+
+func (*announceExt) Name() string                  { return "announcer" }
+func (e *announceExt) SetAnnounce(fn func(string)) { e.announce = fn }
+func (e *announceExt) TurnStart(context.Context) error {
+	e.announce("instruction files loaded")
+	return nil
+}
+
+type messageLog struct {
+	mu   sync.Mutex
+	msgs []string
+}
+
+func (l *messageLog) On(ev HostEvent) {
+	if ev.Kind == HostMessage {
+		l.mu.Lock()
+		l.msgs = append(l.msgs, ev.Message)
+		l.mu.Unlock()
+	}
+}
+
+// TestAnnouncerLinesReachSurfaces checks an extension implementing Announcer
+// is handed a function whose lines arrive as HostMessage events.
+func TestAnnouncerLinesReachSurfaces(t *testing.T) {
+	ts := startTestServer(t)
+	log := &messageLog{}
+	app, err := NewApp(testConfig(ts.URL), io.Discard, strings.NewReader(""),
+		WithProvider(agent.NewStubProvider(agent.StubTurn{Text: "ok"})), WithExtension(&announceExt{}), WithObserver(log))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	if err := app.RunTurn(context.Background(), "hi"); err != nil {
+		t.Fatal(err)
+	}
+	log.mu.Lock()
+	defer log.mu.Unlock()
+	if !slices.Contains(log.msgs, "instruction files loaded") {
+		t.Errorf("messages = %q, want the extension's line", log.msgs)
 	}
 }

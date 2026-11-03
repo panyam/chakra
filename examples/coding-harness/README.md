@@ -1,7 +1,8 @@
 # coding-harness
 
-Mission #162's coding agent and its exercise. The agent is agentweb's server and browser UI over a
-`host.App` wired for coding in `profile.go`. Every way it differs from `agentchat --workspace` is
+Mission #162's coding agent and its exercise. The agent is agentweb over `config.json` and
+`workspace.json` here; `profile.go` builds the same `host.App` for the exercise, which also needs a
+scripted model and a recorder that agentweb can't take from outside. Every way it differs from `agentchat --workspace` is
 a choice made there, of config, extension, tool or provider. If a mission ticket would have to
 change how a turn runs, that's a gap in a hook point, and it gets its own ticket.
 
@@ -11,10 +12,10 @@ change how a turn runs, that's a gap in a hook point, and it gets its own ticket
 |---|---|---|
 | `make coding-harness-exercise` | Scripted model, PASS/FAIL per behaviour, compared against `expected.go`. CI runs this one. | nothing |
 | `make coding-harness-exercise-live` | Same flow with a real model, plus `steps tool_calls in_tok out_tok wall tests` | `CH_ACTIVE` (default `openai`), its key |
-| `make coding-harness-web` | The agent in the browser at http://localhost:8091 on a fresh copy of the fixture | same as live; `CH_WORKSPACE=dir` for another repo |
+| `make coding-harness-web` | Plain agentweb at http://localhost:8091 over this directory's config and workspace files, on a fresh copy of the fixture | same as live; `CH_WORKSPACE=dir` for another repo, `CH_ADDR` |
 | `make coding-harness-parity` | `codex exec` and the live harness on the same fixture, prompt and model, side by side | `codex` on PATH, `OPENAI_API_KEY`; `PARITY_MODEL` (default `gpt-5.5`), `PARITY_INSTRUCTIONS` |
 
-`CH_INSTRUCTIONS` (or `--instructions`) picks how `AGENTS.md` and the like load: `chakra` (the
+`CH_INSTRUCTIONS` (`--instructions` on both binaries) picks how `AGENTS.md` and the like load: `chakra` (the
 default), `codex` or `claude`, the presets in `ext/agentsmd`. `PARITY_INSTRUCTIONS=codex` makes
 the chakra side load them the way Codex does.
 

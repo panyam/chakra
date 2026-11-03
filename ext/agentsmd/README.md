@@ -54,6 +54,13 @@ mention) are a different mechanism and aren't covered here.
   with a stat per file, and says which version a changed file replaces or that a file no longer
   applies.
 
+## What the user sees
+
+The extension implements `host.Announcer`, so each surface shows a line in the conversation when
+the startup files load ("Instruction files loaded: AGENTS.md."), when a subdirectory's file is
+found, and, under `changes: notice`, when one changes, appears or goes. The model's context
+itself doesn't show in any UI, so these lines are how a user can tell what it's following.
+
 ## Trust
 
 The files come from whoever can commit to the repository. The prompt says they rank below the

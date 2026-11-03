@@ -368,3 +368,41 @@ func TestPresetReturnsACopy(t *testing.T) {
 		t.Error("changing a preset's copy changed Presets")
 	}
 }
+
+// TestAnnouncesWhatTheModelIsFollowing checks the lines a user sees: what
+// loaded at startup, a subdirectory file once found, and each change once.
+func TestAnnouncesWhatTheModelIsFollowing(t *testing.T) {
+	dir := tree(t, map[string]string{".git/": "", "AGENTS.md": "v1", "a/AGENTS.md": "a1"})
+	e := newExt(t, preset(t, "chakra"), "", dir)
+	var lines []string
+	e.SetAnnounce(func(s string) { lines = append(lines, s) })
+	expect := func(want ...string) {
+		t.Helper()
+		if strings.Join(lines, "\n") != strings.Join(want, "\n") {
+			t.Errorf("announced %q, want %q", lines, want)
+		}
+		lines = nil
+	}
+
+	prompt(e)
+	prompt(e)
+	expect("Instruction files loaded: AGENTS.md.")
+	call(t, e, map[string]any{"path": "a/x.go"})
+	expect("Instruction files found in a: " + filepath.Join("a", "AGENTS.md") + ".")
+	block(t, e)
+	block(t, e)
+	expect()
+
+	write(t, filepath.Join(dir, "AGENTS.md"), "v2")
+	write(t, filepath.Join(dir, "a/AGENTS.override.md"), "ov")
+	block(t, e)
+	block(t, e)
+	expect("Instruction files changed during this session: AGENTS.md.",
+		"Instruction files added during this session: "+filepath.Join("a", "AGENTS.override.md")+".",
+		"Instruction files replaced or deleted during this session: "+filepath.Join("a", "AGENTS.md")+".")
+
+	empty := newExt(t, preset(t, "chakra"), "", t.TempDir())
+	empty.SetAnnounce(func(s string) { lines = append(lines, s) })
+	prompt(empty)
+	expect("No instruction files found.")
+}

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/ext/agentsmd"
 	"github.com/panyam/chakra/host"
 	agentsurfaces "github.com/panyam/chakra/surfaces"
 	web "github.com/panyam/chakra/surfaces/web"
@@ -42,6 +43,7 @@ func main() {
 	sessionStore := flag.String("session-store", "", "session persistence backend: memory | sqlite://path.db | redis://host:port | postgres://user:pass@host:port/db (empty = off, sessions live only in memory)")
 	var workspace repeatedPath
 	flag.Var(&workspace, "workspace", "expose file tools (read/edit/write/list/search) confined to these directories, plus checkpoint /undo. Repeatable: a session that spans repositories passes each one. The first is primary (empty = off; there is no default directory on purpose)")
+	instructions := flag.String("instructions", "", "with --workspace, how AGENTS.md and the like load: chakra, codex, claude, or off (default: the workspace config's \"instructions\", else chakra)")
 	workspaceConfig := flag.String("workspace-config", "", "with --workspace, a JSON file adding the exec allowlist (commands the agent may run, sandboxed), language servers, and the repo map. See examples/dogfood/workspace.json")
 	noCheckpoint := flag.Bool("no-checkpoint", false, "with --workspace, skip the file snapshot taken before each write, disabling /undo and /checkpoints")
 	checkpointStore := flag.String("checkpoint-store", "", "with --workspace, where snapshots live (empty = under the first workspace directory). Worth setting so the store sits outside what the agent can read and edit")
@@ -49,6 +51,7 @@ func main() {
 	watchWindow := flag.Duration("watch-window", envDuration("AGENTWEB_WATCH_WINDOW"), "end each event stream after this long so the client reconnects (e.g. 3s). For hosts that buffer whole responses, such as App Engine standard; 0 keeps streams open")
 	byok := flag.Bool("byok", os.Getenv("AGENTWEB_BYOK") != "", "bring your own key: each CreateSession names its provider and key, there is no default session, and sessions are reachable only by id. --config, when given, supplies everything but the model (default on when AGENTWEB_BYOK is set)")
 	accessToken := flag.String("access-token", os.Getenv("AGENTWEB_ACCESS_TOKEN"), "require this token in the X-Agentweb-Token header on every API call (default $AGENTWEB_ACCESS_TOKEN). Set it whenever the server is reachable by anyone but you")
+	model := flag.String("model", "", "override the model of the active connection (or of the config's single model) at startup")
 	active := flag.String("active", "", "override the active chat connection at startup (a name in the config's connections; default = the config's active)")
 	flag.Parse()
 
@@ -69,11 +72,16 @@ func main() {
 		configPath:      *configPath,
 		demo:            *demo,
 		active:          *active,
+		model:           *model,
 		store:           store,
 		workspace:       workspace,
 		workspaceConfig: *workspaceConfig,
 		checkpointStore: *checkpointStore,
 		noCheckpoint:    *noCheckpoint,
+		instructions:    *instructions,
+	}
+	if err := checkInstructions(opts.instructions); err != nil {
+		log.Fatalf("agentweb: %v", err)
 	}
 	factory := func(ctx context.Context) (*host.App, error) {
 		return buildApp(opts)
@@ -168,11 +176,23 @@ type appOptions struct {
 	configPath      string
 	demo            bool
 	active          string
+	model           string
 	store           agent.RunStore
 	workspace       []string
 	workspaceConfig string
 	checkpointStore string
 	noCheckpoint    bool
+	instructions    string
+}
+
+// checkInstructions refuses an --instructions value no preset has, at
+// startup rather than on the first session.
+func checkInstructions(name string) error {
+	if name == "" || name == "off" {
+		return nil
+	}
+	_, err := agentsmd.Preset(name)
+	return err
 }
 
 // buildApp builds one App: the factory the SessionManager calls for the default
@@ -196,6 +216,17 @@ func buildApp(o appOptions) (*host.App, error) {
 		wsCfg := agentsurfaces.WorkspaceConfig{Roots: o.workspace, NoCheckpoint: o.noCheckpoint, CheckpointStore: o.checkpointStore}
 		if err := wsCfg.LoadFile(o.workspaceConfig); err != nil {
 			return nil, err
+		}
+		switch o.instructions {
+		case "":
+		case "off":
+			wsCfg.NoInstructions = true
+		default:
+			p, err := agentsmd.Preset(o.instructions)
+			if err != nil {
+				return nil, err
+			}
+			wsCfg.Instructions, wsCfg.NoInstructions = &p, false
 		}
 		wsCfg.Offloading = cfg.Offload != nil
 		wsExts, err := agentsurfaces.WorkspaceExtensions(wsCfg)
@@ -253,6 +284,15 @@ func buildApp(o appOptions) (*host.App, error) {
 			return nil, fmt.Errorf("--active %q: no such connection in the config", o.active)
 		}
 		cfg.Connections.Active = o.active
+	}
+	if o.model != "" {
+		if cfg.Connections != nil {
+			conn := cfg.Connections.Connections[cfg.Connections.Active]
+			conn.Model = o.model
+			cfg.Connections.Connections[cfg.Connections.Active] = conn
+		} else {
+			cfg.Model.Model = o.model
+		}
 	}
 	opts, err := withWorkspace(cfg)
 	if err != nil {

@@ -343,6 +343,14 @@ func (r *ConnectionRegistry) Active() string {
 	return r.active
 }
 
+// ActiveModel returns the model id the active connection is configured
+// with, or "" when it names none.
+func (r *ConnectionRegistry) ActiveModel() string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.conns[r.active].Model
+}
+
 // provider returns the built provider for name, building and caching on
 // first use. Caller holds r.mu.
 func (r *ConnectionRegistry) providerLocked(name string) (agent.Provider, error) {
