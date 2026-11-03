@@ -5,6 +5,12 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
+## [Unreleased]
+
+### Added
+- `NewResponsesProvider`, a provider for OpenAI's Responses API. It chains tool steps with `previous_response_id` so a reasoning model keeps its reasoning between steps, and sends full history, reported through `ResponsesConfig.OnFullHistory`, when the history no longer matches a stored response (compaction, fork, resume, provider switch) (#157).
+- Host: an `openai-responses` connection type, with `reasoningEffort`. Its full-history notices arrive as `session-warn` events (#157).
+
 ## [v0.2.2] - 2026-11-03
 
 ### Added

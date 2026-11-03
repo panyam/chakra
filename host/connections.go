@@ -66,7 +66,10 @@ func (c *ConnectionsConfig) EmbedderConnection() (ConnectionConfig, bool) {
 // resolve, or construction fails.
 type ConnectionConfig struct {
 	// Type names a built-in endpoint profile ("lmstudio", "llamacpp",
-	// "openai", "ollama", "gemini", "anthropic", "openrouter", "litellm").
+	// "openai", "openai-responses", "ollama", "gemini", "anthropic",
+	// "openrouter", "litellm"). "openai-responses" builds through
+	// agent.NewResponsesProvider against OpenAI's /v1/responses, which keeps
+	// a reasoning model's reasoning across tool steps.
 	// "llamacpp" and "ollama" build through agent.NewLlamaCppProvider and
 	// agent.NewOllamaProvider, so a llama-server connection takes a grammar
 	// and caches its prompt with no further settings. All but
@@ -111,6 +114,12 @@ type ConnectionConfig struct {
 	// this connection is assigned an agent role (ConnectionsConfig.AgentRoles),
 	// where an agent hinting vision skips connections without it.
 	Vision bool `json:"vision,omitempty"`
+
+	// ReasoningEffort is sent as the Responses API's reasoning.effort, with
+	// summary "auto" so the reasoning streams as thinking. Read only for
+	// Type "openai-responses", and only reasoning models accept it: leave it
+	// empty for any other model, or the request is refused.
+	ReasoningEffort string `json:"reasoningEffort,omitempty"`
 }
 
 // ThinkingHint delimits a model's inline reasoning. An empty OpenTag
@@ -131,14 +140,15 @@ type ThinkingHint struct {
 // base URL is the gateway; "litellm" defaults to the proxy's local port and is
 // typically overridden with BaseURL for a hosted deployment.
 var connectionBaseURLs = map[string]string{
-	"lmstudio":   "http://localhost:1234/v1",
-	"llamacpp":   agent.DefaultLlamaCppBaseURL,
-	"openai":     "https://api.openai.com/v1",
-	"ollama":     agent.DefaultOllamaBaseURL,
-	"gemini":     "https://generativelanguage.googleapis.com/v1beta/openai",
-	"anthropic":  "https://api.anthropic.com",
-	"openrouter": "https://openrouter.ai/api/v1",
-	"litellm":    "http://localhost:4000/v1",
+	"lmstudio":         "http://localhost:1234/v1",
+	"llamacpp":         agent.DefaultLlamaCppBaseURL,
+	"openai":           "https://api.openai.com/v1",
+	"openai-responses": "https://api.openai.com/v1",
+	"ollama":           agent.DefaultOllamaBaseURL,
+	"gemini":           "https://generativelanguage.googleapis.com/v1beta/openai",
+	"anthropic":        "https://api.anthropic.com",
+	"openrouter":       "https://openrouter.ai/api/v1",
+	"litellm":          "http://localhost:4000/v1",
 }
 
 // ProviderBuilder builds a Provider from a resolved connection. Injected
@@ -153,6 +163,13 @@ type ProviderBuilder func(ConnectionConfig) (agent.Provider, error)
 // The base URL resolves from BaseURL or the Type table and the key from
 // APIKey, else APIKeyEnv.
 func DefaultProviderBuilder(conn ConnectionConfig) (agent.Provider, error) {
+	return buildProvider(conn, nil)
+}
+
+// buildProvider is DefaultProviderBuilder with a sink for the Responses
+// provider's full-history notices, which the App turns into HostSessionWarn
+// events.
+func buildProvider(conn ConnectionConfig, onFullHistory func(reason string)) (agent.Provider, error) {
 	base, err := resolveBaseURL(conn)
 	if err != nil {
 		return nil, err
@@ -168,6 +185,14 @@ func DefaultProviderBuilder(conn ConnectionConfig) (agent.Provider, error) {
 			BaseURL: base,
 			Model:   conn.Model,
 			APIKey:  key,
+		})
+	case "openai-responses":
+		p, err = agent.NewResponsesProvider(agent.ResponsesConfig{
+			BaseURL:         base,
+			Model:           conn.Model,
+			APIKey:          key,
+			ReasoningEffort: conn.ReasoningEffort,
+			OnFullHistory:   onFullHistory,
 		})
 	case "llamacpp":
 		p, err = agent.NewLlamaCppProvider(agent.LlamaCppConfig{BaseURL: base, Model: conn.Model, APIKey: key})

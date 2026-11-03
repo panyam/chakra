@@ -26,8 +26,9 @@ const (
 	// HostSessionChanged reports the active session id changing (RunID;
 	// empty = none).
 	HostSessionChanged HostEventKind = "session-changed"
-	// HostSessionWarn reports degraded persistence (Err) — the turn still
-	// succeeded.
+	// HostSessionWarn reports something degraded that did not fail the turn
+	// (Err): persistence, a server's tool or event registration, or a model
+	// connection that had to resend full history.
 	HostSessionWarn HostEventKind = "session-warn"
 	// HostTriggerFired reports a proactive-turn trigger (Label).
 	HostTriggerFired HostEventKind = "trigger-fired"
