@@ -21,6 +21,9 @@ the same version.
 - Host: MCP servers over stdio. `ServerConfig.Command` (with `args`, `dir`, `env`, `envPass` and `startupTimeoutSec`) launches a server that speaks MCP on stdin and stdout, in a clean environment that holds only `PATH`, `HOME` and what's named. A crash fails the call in flight as not available, and the next call starts a fresh process (#161).
 - Host: `ServerConfig.CallTimeoutSec` ends a tool call on any server after that many seconds (#161).
 
+### Fixed
+- The Responses provider's stream errors carry the server's code and message. OpenAI nests them under `error`, and a quota failure showed as `agent: stream error : ` (#220 follow-up).
+
 ## [v0.2.3] - 2026-11-03
 
 ### Added
