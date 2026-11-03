@@ -85,10 +85,12 @@ func (a *App) runProactiveTurn(ctx context.Context, firing *agent.TriggerFiring)
 		agent.Message{Role: agent.RoleSystem, Text: firing.Binding.Instructions})
 	result, err := a.runner.Run(ctx, a.history, func(e agent.Event) { a.emit(HostEvent{Kind: HostRunnerEvent, RunnerEvent: e}) })
 	if err != nil {
+		a.endExtensionTurns(ctx, nil, err)
 		a.emit(HostEvent{Kind: HostTurnFailed, Err: err.Error()})
 		return
 	}
 	a.history = append(a.history, result.Messages...)
+	a.endExtensionTurns(ctx, result, nil)
 	a.emit(HostEvent{Kind: HostTurnDone, Result: result})
 	a.promptREPL()
 }

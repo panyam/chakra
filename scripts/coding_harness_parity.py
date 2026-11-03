@@ -97,7 +97,7 @@ def chakra_side(out):
         "steps": m.get("steps"),
         "tool_calls": m.get("tool_calls"),
         "input_tokens": m.get("input_tokens"),
-        "cached_input": "n/a",
+        "cached_input": m.get("cached_input_tokens", "n/a"),
         "output_tokens": m.get("output_tokens"),
         "wall_seconds": m.get("wall_seconds"),
         "tests_passed": m.get("tests_passed"),

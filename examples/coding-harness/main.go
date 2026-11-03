@@ -212,9 +212,11 @@ func runExercise(o options) error {
 // metrics is the live variant's baseline line, and what the parity script
 // compares against codex.
 type metrics struct {
-	Steps       int  `json:"steps"`
-	ToolCalls   int  `json:"tool_calls"`
-	InputTok    int  `json:"input_tokens"`
+	Steps     int `json:"steps"`
+	ToolCalls int `json:"tool_calls"`
+	InputTok  int `json:"input_tokens"`
+	// CachedTok is the part of InputTok the provider's prompt cache served.
+	CachedTok   int  `json:"cached_input_tokens"`
 	OutputTok   int  `json:"output_tokens"`
 	WallSeconds int  `json:"wall_seconds"`
 	TestsPassed bool `json:"tests_passed"`
@@ -231,6 +233,7 @@ func metricsOf(r *runResult) metrics {
 	if r.turn != nil {
 		m.Steps = r.turn.Steps
 		m.InputTok = r.turn.Usage.InputTokens
+		m.CachedTok = r.turn.Usage.CachedInputTokens
 		m.OutputTok = r.turn.Usage.OutputTokens
 		m.SchemaValid = r.turn.Structured.Len() > 0 && r.turn.StructuredError == ""
 	}
@@ -242,8 +245,8 @@ func (m metrics) String() string {
 	if m.TestsPassed {
 		tests = "pass"
 	}
-	s := fmt.Sprintf("steps=%d tool_calls=%d in_tok=%d out_tok=%d wall=%ds tests=%s",
-		m.Steps, m.ToolCalls, m.InputTok, m.OutputTok, m.WallSeconds, tests)
+	s := fmt.Sprintf("steps=%d tool_calls=%d in_tok=%d cached_tok=%d out_tok=%d wall=%ds tests=%s",
+		m.Steps, m.ToolCalls, m.InputTok, m.CachedTok, m.OutputTok, m.WallSeconds, tests)
 	if m.TurnError != "" {
 		s += " turn_error=" + m.TurnError
 	}
