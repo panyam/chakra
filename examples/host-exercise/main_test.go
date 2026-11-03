@@ -58,6 +58,8 @@ func TestChecksCanTellPassFromFail(t *testing.T) {
 		}, false},
 		// A host with no workspace declares no roots capability.
 		{"roots", func(cfg *host.Config) { cfg.Roots = nil }, false},
+		// A host without sampling configured declares no sampling capability.
+		{"sampling", func(cfg *host.Config) { cfg.Sampling = nil }, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.check, func(t *testing.T) {

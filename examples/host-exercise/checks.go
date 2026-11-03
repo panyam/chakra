@@ -48,6 +48,11 @@ var checks = []check{
 	{"roots", "a server asking roots/list sees the workspace roots", func(cfg *host.Config) {
 		cfg.Roots = []string{"."}
 	}, checkRoots},
+	// Ask mode, so the request has to be approved before it reaches the model.
+	{"sampling", "a server's sampling request is approved, then answered by the session's model", func(cfg *host.Config) {
+		cfg.Sampling = &host.SamplingConfig{Enabled: true}
+		cfg.Approval = &host.ApprovalConfig{Mode: "ask", Rules: map[string]string{sampleTool: "allow"}}
+	}, checkSampling},
 }
 
 // runCheck gives a check its own demo server, so no check sees another's
@@ -273,6 +278,57 @@ func checkRoots(ctx context.Context, _ *demo, cfg *host.Config) (bool, string, e
 		return false, fmt.Sprintf("roots/list answered %q", clip(got, 80)), nil
 	}
 	return true, fmt.Sprintf("roots/list answered %d root(s), the workspace", len(want)), nil
+}
+
+func checkSampling(ctx context.Context, _ *demo, cfg *host.Config) (bool, string, error) {
+	const reply = "Three bugs fixed and apply_patch added."
+	called := false
+	p := &scripted{decide: func(req agent.ProviderRequest) agent.StubTurn {
+		switch {
+		case req.Instructions == samplePrompt:
+			return agent.StubTurn{Text: reply}
+		case !called && offers(req, sampleTool):
+			called = true
+			return agent.StubTurn{ToolCalls: []agent.ToolCall{{ID: "s", Name: sampleTool, Args: core.NewRawJSON([]byte(`{}`))}}}
+		}
+		return agent.StubTurn{Text: "ok"}
+	}}
+	var mu sync.Mutex
+	var asked []string
+	approve := func(_ context.Context, req core.ElicitationRequest) (core.ElicitationResult, error) {
+		mu.Lock()
+		asked = append(asked, req.Message)
+		mu.Unlock()
+		return core.ElicitationResult{Action: "accept", Content: map[string]any{"confirm": true}}, nil
+	}
+	app, err := newApp(cfg, p, host.WithElicitationUI(approve))
+	if err != nil {
+		return false, "", err
+	}
+	defer app.Close()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for !called && time.Now().Before(deadline) {
+		if err := app.RunTurn(ctx, "summarize the release"); err != nil {
+			return false, "", err
+		}
+		if !called {
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+	if !called {
+		return false, fmt.Sprintf("no %q tool offered within 5s", sampleTool), nil
+	}
+	got := lastToolResult(p.last())
+	mu.Lock()
+	defer mu.Unlock()
+	if got != "sampled: "+reply {
+		return false, fmt.Sprintf("the tool got %q", clip(got, 80)), nil
+	}
+	if len(asked) != 1 || !strings.Contains(asked[0], `MCP server "demo" asks to use your model`) {
+		return false, fmt.Sprintf("answered, but the approval asks were %q", asked), nil
+	}
+	return true, "approved once, then answered by the session's model", nil
 }
 
 func newApp(cfg *host.Config, p agent.Provider, opts ...host.AppOption) (*host.App, error) {

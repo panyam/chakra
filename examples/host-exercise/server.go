@@ -29,6 +29,9 @@ const (
 	rotatingSkill    = "release-notes"
 	rootsTool        = "workspace_roots"
 	noRoots          = "the client declared no roots capability"
+	sampleTool       = "summarize_release"
+	samplePrompt     = "You summarize release notes in one line."
+	noSampling       = "the client declared no sampling capability"
 )
 
 // skillFiles is the demo skills tree. release-notes is the one rotate swaps.
@@ -96,6 +99,7 @@ func newDemo() (*demo, error) {
 			return core.TextResult("two open regressions"), nil
 		})
 	srv.RegisterTool(core.ToolDef{Name: rootsTool, Description: "list the client's workspace roots", InputSchema: map[string]any{"type": "object"}}, workspaceRoots)
+	srv.RegisterTool(core.ToolDef{Name: sampleTool, Description: "summarize the release notes using the client's model", InputSchema: map[string]any{"type": "object"}}, summarizeRelease)
 	if _, err := agents.Register(agents.Config{Server: srv, Agents: []agents.AgentDef{{
 		Name:         demoAgent,
 		Description:  "looks things up before a release",
@@ -172,4 +176,25 @@ func (l *lockedFS) set(name, body string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.m[name] = &fstest.MapFile{Data: []byte(body)}
+}
+
+// summarizeRelease asks the client's model for a summary through
+// sampling/createMessage, as SEP-2322 input so it works on both wires, and
+// answers what came back.
+func summarizeRelease(ctx core.ToolContext, _ core.ToolRequest) (core.ToolResponse, error) {
+	if caps := ctx.ClientCaps(); caps == nil || caps.Sampling == nil {
+		return core.TextResult(noSampling), nil
+	}
+	if !ctx.HasInputResponses() {
+		return ctx.RequestInput(core.InputRequests{"sample": core.NewSamplingInputRequest(core.CreateMessageRequest{
+			SystemPrompt: samplePrompt,
+			Messages:     []core.SamplingMessage{{Role: "user", Content: core.Content{Type: "text", Text: "Fixed three bugs; added apply_patch."}}},
+			MaxTokens:    200,
+		})})
+	}
+	res, err := core.DecodeSamplingInputResponse(ctx.InputResponse("sample"))
+	if err != nil {
+		return core.TextResult("sampling failed: " + err.Error()), nil
+	}
+	return core.TextResult("sampled: " + res.Content.Text), nil
 }
