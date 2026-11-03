@@ -64,6 +64,7 @@ require (
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/panyam/chakra/ext/exec v0.2.2 // indirect
+	github.com/panyam/chakra/ext/git v0.0.0-00010101000000-000000000000 // indirect
 	github.com/panyam/chakra/ext/lsp v0.2.2 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents v0.8.15 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.8.12 // indirect
@@ -171,5 +172,7 @@ replace github.com/panyam/mcpkit/ext/otel => ../../../../mcpkit/main/ext/otel
 replace github.com/panyam/mcpkit/ext/skills => ../../../../mcpkit/main/ext/skills
 
 replace github.com/panyam/chakra/ext/exec => ../../ext/exec
+
+replace github.com/panyam/chakra/ext/git => ../../ext/git
 
 replace github.com/panyam/chakra/ext/agentsmd => ../../ext/agentsmd

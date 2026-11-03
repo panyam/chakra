@@ -50,6 +50,8 @@ type runResult struct {
 	// testFilesChanged lists *_test.go files that differ from the fixture.
 	testFilesChanged []string
 	wall             time.Duration
+	// review is /review's result after the run, as Dispatch returned it.
+	review string
 }
 
 // drive runs the task over agentweb's Connect API against an in-process
@@ -159,12 +161,24 @@ func drive(ctx context.Context, p profile) (*runResult, error) {
 		}
 	}
 	res.wall = time.Since(start)
-	cancel()
-	<-watchDone
-
+	// The checks read the main agent's requests, so take them before the
+	// review adds its sub-agent's, whose instructions are its rubric.
 	if p.recorder != nil {
 		res.requests = p.recorder.requests()
 	}
+
+	// Then a review of what the turn left uncommitted, as a person would ask
+	// for one before committing (#152). It runs outside any turn, and its
+	// sub-agent's events arrive on the same Watch.
+	review, err := client.Dispatch(ctx, connect.NewRequest(&webv1.DispatchRequest{Line: "/review", SessionId: sid}))
+	if err != nil {
+		return nil, fmt.Errorf("review: %w", err)
+	}
+	res.review = string(review.Msg.GetPayload())
+	time.Sleep(300 * time.Millisecond) // let the Watch deliver the reviewer's last events
+	cancel()
+	<-watchDone
+
 	res.summarizeTurns()
 	return res, nil
 }
@@ -256,6 +270,22 @@ func (r *runResult) writeJSONL(w io.Writer) error {
 }
 
 // copyTree copies the fixture into dst.
+// commitFixture makes the copied fixture a git repository with everything
+// committed, as a real checkout would be, so ext/git can run and the agent's
+// fix is the uncommitted change /review looks at.
+func commitFixture(root string) error {
+	for _, args := range [][]string{
+		{"init", "-q", "-b", "main"},
+		{"add", "-A"},
+		{"-c", "user.name=fixture", "-c", "user.email=fixture@example.com", "-c", "commit.gpgsign=false", "commit", "-qm", "fixture"},
+	} {
+		if out, err := exec.Command("git", append([]string{"-C", root}, args...)...).CombinedOutput(); err != nil {
+			return fmt.Errorf("git %s: %v\n%s", args[0], err, out)
+		}
+	}
+	return nil
+}
+
 func copyTree(src, dst string) error {
 	return filepath.WalkDir(src, func(path string, d os.DirEntry, err error) error {
 		if err != nil {

@@ -31,6 +31,11 @@ type Config struct {
 	// MaxOutput caps each tool's text in bytes, DefaultMaxOutput when 0. A
 	// longer output is cut with a note saying how much was left out.
 	MaxOutput int
+
+	// Review, when set, offers the review tool and the /review command
+	// (#152), which need a host that lends sub-agents a provider
+	// (host.SubAgentUser). Off by default, since a review spends model calls.
+	Review *ReviewConfig
 }
 
 // Source is the git tool set over one workspace, an agent.ToolSource.
@@ -38,6 +43,7 @@ type Source struct {
 	git  runner
 	cfg  Config
 	defs []core.ToolDef
+	rev  *reviewer // nil unless Config.Review is set
 }
 
 // NewSource checks that git is on PATH and that Root is inside a git work
@@ -74,6 +80,10 @@ func NewSource(cfg Config) (*Source, error) {
 	if cfg.WorktreeDir != "" {
 		s.defs = append(s.defs, worktreeDefs()...)
 	}
+	if cfg.Review != nil {
+		s.rev = &reviewer{src: s, cfg: *cfg.Review}
+		s.defs = append(s.defs, reviewDef())
+	}
 	return s, nil
 }
 
@@ -91,6 +101,9 @@ func (s *Source) Tools(context.Context) ([]core.ToolDef, error) {
 func (s *Source) Call(ctx context.Context, name string, args map[string]any) (*core.ToolResult, error) {
 	if !s.offers(name) {
 		return nil, fmt.Errorf("git: unknown tool %q", name)
+	}
+	if name == "review" {
+		return s.rev.call(ctx, args), nil
 	}
 	var out string
 	var err error

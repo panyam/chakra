@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 
@@ -45,6 +46,15 @@ func (e *Extension) Tools() (agent.ToolSource, error) { return e.src, nil }
 // Source is the tool set, for a caller that wants Diff without going through
 // a tool call, such as a review (#152).
 func (e *Extension) Source() *Source { return e.src }
+
+// UseSubAgents implements host.SubAgentUser: the review sub-agent runs on
+// the session's provider, with its read-only tools, and renders like the
+// host's own sub-agents.
+func (e *Extension) UseSubAgents(h host.SubAgentHost) {
+	if e.src.rev != nil {
+		e.src.rev.host = h
+	}
+}
 
 // SetAnnounce implements host.Announcer.
 func (e *Extension) SetAnnounce(fn func(string)) { e.announce = fn }
@@ -102,13 +112,38 @@ func (e *Extension) LastTurn() TurnDiff {
 // Commands adds /diff, which shows the last turn's changes ("/diff stat" for
 // the summary alone).
 func (e *Extension) Commands() []*host.Command {
-	return []*host.Command{{
+	cmds := []*host.Command{{
 		Name: "diff",
 		Help: "show what the last turn changed in the workspace (/diff stat for files and line counts)",
 		Run: func(_ context.Context, args string) (host.CmdResult, error) {
 			return host.CmdResult{Kind: host.CmdMessage, Message: e.diffText(args)}, nil
 		},
 	}}
+	if e.src.rev != nil {
+		cmds = append(cmds, &host.Command{
+			Name: "review",
+			Help: "have a reviewer sub-agent check the uncommitted changes (/review base REF, /review commit REF, then -- instructions)",
+			Run:  e.reviewCommand,
+		})
+	}
+	return cmds
+}
+
+// reviewCommand runs a review outside any turn and shows its findings. The
+// reviewer's events still reach the surfaces as a sub-agent's.
+func (e *Extension) reviewCommand(ctx context.Context, args string) (host.CmdResult, error) {
+	t, instr, err := parseReviewArgs(args)
+	if err != nil {
+		return host.CmdResult{Kind: host.CmdMessage, Message: err.Error()}, nil
+	}
+	_, rv, err := e.src.rev.review(ctx, t, instr)
+	switch {
+	case errors.Is(err, ErrNothingToReview):
+		return host.CmdResult{Kind: host.CmdMessage, Message: "nothing to review: no changes in " + describeTarget(t)}, nil
+	case err != nil:
+		return host.CmdResult{}, err
+	}
+	return host.CmdResult{Kind: host.CmdMessage, Message: rv.render()}, nil
 }
 
 func (e *Extension) diffText(args string) string {

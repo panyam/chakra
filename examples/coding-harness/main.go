@@ -25,6 +25,8 @@ import (
 	"runtime"
 	"text/tabwriter"
 	"time"
+
+	"github.com/panyam/chakra/host"
 )
 
 type options struct {
@@ -90,6 +92,9 @@ func exercise(ctx context.Context, o options) (*exerciseRun, error) {
 	}
 	root := filepath.Join(tmp, "repo")
 	if err := copyTree(fixture, root); err != nil {
+		return nil, err
+	}
+	if err := commitFixture(root); err != nil {
 		return nil, err
 	}
 
@@ -179,6 +184,10 @@ func runExercise(o options) error {
 
 	m := metricsOf(res)
 	fmt.Printf("\n%s\n", m)
+	var review host.CmdResult
+	if json.Unmarshal([]byte(res.review), &review) == nil && review.Message != "" {
+		fmt.Printf("\n/review after the run:\n%s", review.Message)
+	}
 	if o.keep {
 		fmt.Printf("workspace kept at %s\n", run.root)
 	}

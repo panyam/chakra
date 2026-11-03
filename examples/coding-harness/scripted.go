@@ -43,5 +43,9 @@ func scriptedProvider(fixture string) (agent.Provider, error) {
 		agent.StubTurn{Text: "Fixed Sum's loop, which skipped the first element. go test ./... passes. I changed Sum in stats/stats.go."},
 		// The finalizing call for result.schema.json.
 		agent.StubTurn{Text: `{"status":"fixed","summary":"Sum skipped the first element; the loop now starts at 0.","files_changed":["stats/stats.go"],"tests_passed":true}`},
+		// The driver's /review afterwards (#152): the reviewer reads the
+		// diff it was handed and answers, then its findings are coerced.
+		agent.StubTurn{Text: "The loop now starts at 0, which fixes Sum. Nothing else changed."},
+		agent.StubTurn{Text: `{"findings":[],"verdict":"correct","summary":"Sum's loop now covers every element."}`},
 	), nil
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/panyam/chakra/ext/checkpoint"
 	"github.com/panyam/chakra/ext/exec"
 	"github.com/panyam/chakra/ext/files"
+	"github.com/panyam/chakra/ext/git"
 	"github.com/panyam/chakra/ext/lsp"
 	"github.com/panyam/chakra/host"
 	"github.com/panyam/mcpkit/core"
@@ -92,6 +93,11 @@ type WorkspaceConfig struct {
 	// so an /undo after a command restores only the file-tool edits around
 	// it. Mark commands ReadOnly only when that is true of them.
 	Exec *exec.Config
+
+	// Git adds ext/git: read-only git tools, a per-turn diff, and, as its
+	// fields say, commit and branch tools, worktrees and review. Nil adds
+	// nothing. Its Root is overwritten with the first of this config's Roots.
+	Git *git.Config
 
 	// Offloading says the host stores large tool results (host.Config.Offload
 	// is set). Exec results then carry the whole capture instead of a 32 KiB
@@ -236,6 +242,16 @@ func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 			return nil, fmt.Errorf("workspace lsp: %w", lspErr)
 		}
 		exts = append(exts, lx)
+	}
+
+	if cfg.Git != nil {
+		gc := *cfg.Git
+		gc.Root = cfg.Roots[0]
+		gx, err := git.New(gc)
+		if err != nil {
+			return nil, fmt.Errorf("workspace git: %w", err)
+		}
+		exts = append(exts, gx)
 	}
 
 	if !cfg.NoInstructions {

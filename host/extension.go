@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/panyam/chakra"
+	"github.com/panyam/mcpkit/core"
 )
 
 // Extension contributes capability to an App across every seam at once.
@@ -197,6 +198,31 @@ type Announcer interface {
 // the turn.
 type TurnEnder interface {
 	TurnEnd(ctx context.Context, result *agent.TurnResult, err error)
+}
+
+// SubAgentUser is an optional interface for an Extension whose tools run a
+// sub-agent of their own, such as a review over a diff. The host calls
+// UseSubAgents once, while applying extensions and before asking for the
+// extension's tools, with what a child agent needs from the session. A child
+// built from it renders on every surface like the host's own personas.
+type SubAgentUser interface {
+	UseSubAgents(SubAgentHost)
+}
+
+// SubAgentHost is what the host lends an extension's sub-agents.
+type SubAgentHost struct {
+	// Provider is the session's provider. With a connections registry it's
+	// the runtime switch, so a child follows /provider like the main agent.
+	Provider agent.Provider
+	// ReadOnlyTools is the session's tool set narrowed to tools that declare
+	// readOnlyHint, listed at call time, so it includes extensions applied
+	// after this one. Calls go straight to the tools, outside the main
+	// agent's middleware and permission gate, which is why only tools that
+	// declare they change nothing are in it.
+	ReadOnlyTools agent.ToolSource
+	// OnEvent forwards a child's events to the surfaces as HostSubAgentEvent.
+	// Pass it as AgentSourceConfig.OnEvent.
+	OnEvent func(agent.SubAgentEvent)
 }
 
 // BaseExtension implements every optional Extension seam as a no-op, so an
@@ -425,7 +451,7 @@ func (a *App) closeExtensions() {
 // so extension middleware reaches RunnerConfig. Middleware is returned rather
 // than applied because the caller must still append the permission gate after
 // it.
-func (a *App) applyExtensions(exts []Extension) ([]agent.ToolMiddleware, error) {
+func (a *App) applyExtensions(exts []Extension, provider agent.Provider) ([]agent.ToolMiddleware, error) {
 	var mw []agent.ToolMiddleware
 	seen := map[string]bool{}
 	a.extensions = exts
@@ -438,6 +464,17 @@ func (a *App) applyExtensions(exts []Extension) ([]agent.ToolMiddleware, error) 
 			return nil, fmt.Errorf("host: duplicate extension %q", name)
 		}
 		seen[name] = true
+
+		if su, ok := ext.(SubAgentUser); ok {
+			su.UseSubAgents(SubAgentHost{
+				Provider: provider,
+				ReadOnlyTools: agent.NewFilterSource(a.sources, func(d core.ToolDef) bool {
+					ro, _ := d.Annotations["readOnlyHint"].(bool)
+					return ro
+				}),
+				OnEvent: func(e agent.SubAgentEvent) { a.emit(HostEvent{Kind: HostSubAgentEvent, SubAgent: e}) },
+			})
+		}
 
 		src, err := ext.Tools()
 		if err != nil {
