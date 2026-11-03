@@ -51,9 +51,17 @@ export class AgentWebPage extends IslandPage<PageContext> {
     const storage = safeStorage();
     const settings = loadSettings(storage);
     const base = hostClient(settings.token);
-    const client = scoped(base, settings.active);
-    const sessions = createSessionsStore(base, storage);
+    // shell.go marks a profile's page (/code/ for the coding agent) on body.
+    const page = { profile: document.body.dataset.profile ?? "", path: location.pathname };
+    const sessions = createSessionsStore(base, storage, undefined, page);
+    const client = scoped(base, sessions.activeId());
     const stores = createPanelStores(client, sessions);
+    if (page.profile && !sessions.activeId()) {
+      // ensureProfile reloads once the session exists, so nothing here
+      // talks to the chat session in the meantime.
+      void sessions.ensureProfile();
+      return { stores };
+    }
     // The status line names the model and the session, and a turn can change
     // either (a command the model ran, a session it started); read it again
     // after each. Slash commands refresh it themselves (conversation.ts).

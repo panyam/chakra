@@ -22,6 +22,19 @@ export interface SessionsStore {
   create: (label: string, providerId: string) => Promise<void>;
   switchTo: (id: string) => void;
   close: (id: string) => Promise<void>;
+  // activeId is the session this page shows: the chat page's active one, or
+  // on a profile's page (/code/) that profile's.
+  activeId: () => string;
+  // ensureProfile creates a session of this page's profile when the page has
+  // none, makes it active and reloads. It does nothing on the chat page.
+  ensureProfile: () => Promise<void>;
+}
+
+// PageInfo says which page this is: the chat page has no profile, and a
+// profile's page (such as /code/ for "coding") names it.
+export interface PageInfo {
+  profile: string;
+  path: string;
 }
 
 // createSessionsStore manages the browser's settings and the session lifecycle.
@@ -33,6 +46,8 @@ export function createSessionsStore(
   client: Client<typeof HostService>,
   storage: SettingsStorage | null,
   reload: () => void = () => location.reload(),
+  page: PageInfo = { profile: "", path: "/" },
+  navigate: (path: string) => void = (p) => location.assign(p),
 ): SessionsStore {
   const [settings, setSettings] = createSignal(loadSettings(storage));
   const [problem, setProblem] = createSignal<Problem>("");
@@ -52,10 +67,51 @@ export function createSessionsStore(
     setError(ce.rawMessage || ce.message);
   };
 
+  // activeOf is the active session for a profile ("" is chat).
+  const activeOf = (s: Settings, profile: string): string => (profile ? (s.activeProfiles[profile] ?? "") : s.active);
+  const withActive = (s: Settings, profile: string, id: string): Settings =>
+    profile ? { ...s, activeProfiles: { ...s.activeProfiles, [profile]: id } } : { ...s, active: id };
+  const activeId = () => activeOf(settings(), page.profile);
+
+  const ensureProfile = async (): Promise<void> => {
+    if (!page.profile || activeId()) return;
+    setBusy(true);
+    setError("");
+    try {
+      const resp = await client.createSession({ profile: page.profile });
+      const id = resp.sessionId;
+      update((s) =>
+        withActive(
+          {
+            ...s,
+            sessions: [
+              ...s.sessions,
+              { id, label: `${page.profile} ${s.sessions.filter((x) => x.profile === page.profile).length + 1}`, provider: page.profile, created: Date.now(), profile: page.profile, path: page.path },
+            ],
+          },
+          page.profile,
+          id,
+        ),
+      );
+      reload();
+    } catch (e) {
+      report(e);
+      setProblem("no-session");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const diagnose = (e: unknown): void => {
     const code = ConnectError.from(e).code;
     if (code === Code.Unauthenticated) {
       setProblem("token");
+    } else if (code === Code.NotFound && page.profile) {
+      // A profile's page starts a fresh session of its own kind rather than
+      // asking: the server restarted, and the browser has nothing to pick.
+      const gone = activeId();
+      update((s) => withActive({ ...s, sessions: s.sessions.filter((x) => x.id !== gone) }, page.profile, ""));
+      void ensureProfile();
     } else if (code === Code.NotFound) {
       if (settings().active) {
         const gone = settings().active;
@@ -104,10 +160,11 @@ export function createSessionsStore(
         return;
       }
     }
-    const wasActive = settings().active === id;
+    const wasActive = activeId() === id;
     update((s) => {
       const sessions = s.sessions.filter((x) => x.id !== id);
-      return { ...s, sessions, active: wasActive ? (sessions[0]?.id ?? "") : s.active };
+      const next = sessions.find((x) => (x.profile ?? "") === page.profile)?.id ?? "";
+      return wasActive ? withActive({ ...s, sessions }, page.profile, next) : { ...s, sessions };
     });
     if (wasActive) reload();
   };
@@ -130,10 +187,17 @@ export function createSessionsStore(
     removeProvider: (id) => update((s) => ({ ...s, providers: s.providers.filter((x) => x.id !== id) })),
     create,
     switchTo: (id) => {
-      if (id === settings().active) return;
-      update((s) => ({ ...s, active: id }));
-      reload();
+      // A session of another kind lives on its own page, so switching to it
+      // opens that page with it active.
+      const entry = settings().sessions.find((x) => x.id === id);
+      const profile = entry?.profile ?? "";
+      if (profile === page.profile && id === activeId()) return;
+      update((s) => withActive(s, profile, id));
+      if (profile === page.profile) reload();
+      else navigate(entry?.path ?? "/");
     },
     close,
+    activeId,
+    ensureProfile,
   };
 }

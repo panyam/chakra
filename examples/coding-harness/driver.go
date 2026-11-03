@@ -270,38 +270,3 @@ func (r *runResult) writeJSONL(w io.Writer) error {
 	}
 	return nil
 }
-
-// commitFixture makes the copied fixture a git repository with everything
-// committed, as a real checkout would be, so ext/git can run. Then the
-// agent's fix shows up as an uncommitted change, and /review looks at that.
-func commitFixture(root string) error {
-	for _, args := range [][]string{
-		{"init", "-q", "-b", "main"},
-		{"add", "-A"},
-		{"-c", "user.name=fixture", "-c", "user.email=fixture@example.com", "-c", "commit.gpgsign=false", "commit", "-qm", "fixture"},
-	} {
-		if out, err := exec.Command("git", append([]string{"-C", root}, args...)...).CombinedOutput(); err != nil {
-			return fmt.Errorf("git %s: %v\n%s", args[0], err, out)
-		}
-	}
-	return nil
-}
-
-// copyTree copies the fixture into dst.
-func copyTree(src, dst string) error {
-	return filepath.WalkDir(src, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, _ := filepath.Rel(src, path)
-		target := filepath.Join(dst, rel)
-		if d.IsDir() {
-			return os.MkdirAll(target, 0o755)
-		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(target, data, 0o644)
-	})
-}

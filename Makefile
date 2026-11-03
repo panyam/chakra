@@ -194,7 +194,7 @@ coding-harness-exercise-live: ## The same exercise with a real model, plus a met
 
 CH_ADDR ?= localhost:8091
 
-coding-harness-web: ## agentweb over the coding agent's config, on a fresh copy of the fixture (CH_WORKSPACE=dir, CH_INSTRUCTIONS=codex)
+coding-harness-web: ## agentweb with chat at / and the coding agent at /code/, on a fresh fixture copy per session (CH_WORKSPACE=dir, CH_INSTRUCTIONS=codex)
 	@CH_ADDR=$(CH_ADDR) CH_ACTIVE=$(CH_ACTIVE) CH_MODEL=$(CH_MODEL) CH_WORKSPACE=$(CH_WORKSPACE) CH_INSTRUCTIONS=$(CH_INSTRUCTIONS) bash scripts/coding-harness-web.sh
 
 # Terminal-Bench 2 through Harbor, its official harness (#195). TB_AGENTS run

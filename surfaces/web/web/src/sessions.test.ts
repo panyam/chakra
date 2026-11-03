@@ -18,7 +18,7 @@ class MemStorage {
 const provider = { id: "p1", label: "anthro", type: "anthropic", baseUrl: "", model: "m", apiKey: "sk-secret-1234" };
 
 function seed(storage: MemStorage, s: Partial<Settings>) {
-  saveSettings(storage, { token: "", providers: [], sessions: [], active: "", ...s });
+  saveSettings(storage, { token: "", providers: [], sessions: [], active: "", activeProfiles: {}, ...s });
 }
 
 // fakeClient records calls; createSession mints ids, closeSession can fail.
@@ -46,7 +46,7 @@ describe("settings", () => {
     seed(st, { token: "t", providers: [provider] });
     expect(loadSettings(st).providers[0].apiKey).toBe("sk-secret-1234");
     st.setItem(SETTINGS_KEY, "{not json");
-    expect(loadSettings(st)).toEqual({ token: "", providers: [], sessions: [], active: "" });
+    expect(loadSettings(st)).toEqual({ token: "", providers: [], sessions: [], active: "", activeProfiles: {} });
     expect(loadSettings(null).sessions).toEqual([]);
   });
 
@@ -101,6 +101,71 @@ describe("sessions store", () => {
     expect(store.problem()).toBe("no-session");
     store.diagnose(new ConnectError("", Code.Unauthenticated));
     expect(store.problem()).toBe("token");
+  });
+});
+
+describe("profile pages (#178)", () => {
+  const code = { profile: "coding", path: "/code/" };
+
+  it("a profile's page with no session creates one of its kind, apart from chat's", async () => {
+    const st = new MemStorage();
+    seed(st, { active: "chat1", sessions: [{ id: "chat1", label: "C", provider: "p", created: 1 }] });
+    const { client, calls } = fakeClient();
+    let reloads = 0;
+    const store = createRoot(() => createSessionsStore(client, st, () => reloads++, code));
+    expect(store.activeId()).toBe("");
+    await store.ensureProfile();
+    expect(calls).toEqual([{ method: "createSession", req: { profile: "coding" } }]);
+    const saved = loadSettings(st);
+    expect(saved.active).toBe("chat1");
+    expect(saved.activeProfiles).toEqual({ coding: "s1" });
+    expect(saved.sessions[1]).toMatchObject({ id: "s1", label: "coding 1", profile: "coding", path: "/code/" });
+    expect(reloads).toBe(1);
+
+    await store.ensureProfile();
+    expect(calls.length).toBe(1);
+  });
+
+  it("the chat page never creates a profile session", async () => {
+    const { client, calls } = fakeClient();
+    const store = createRoot(() => createSessionsStore(client, new MemStorage(), () => {}));
+    await store.ensureProfile();
+    expect(calls).toEqual([]);
+  });
+
+  it("switching to a session of another kind opens its page", () => {
+    const st = new MemStorage();
+    seed(st, {
+      active: "chat1",
+      sessions: [
+        { id: "chat1", label: "C", provider: "p", created: 1 },
+        { id: "code1", label: "coding 1", provider: "coding", created: 2, profile: "coding", path: "/code/" },
+      ],
+    });
+    const went: string[] = [];
+    let reloads = 0;
+    const store = createRoot(() => createSessionsStore(fakeClient().client, st, () => reloads++, undefined, (p) => went.push(p)));
+    store.switchTo("code1");
+    expect(went).toEqual(["/code/"]);
+    expect(loadSettings(st).activeProfiles).toEqual({ coding: "code1" });
+    expect(loadSettings(st).active).toBe("chat1");
+    expect(reloads).toBe(0);
+
+    const onCode = createRoot(() => createSessionsStore(fakeClient().client, st, () => reloads++, code, (p) => went.push(p)));
+    onCode.switchTo("chat1");
+    expect(went).toEqual(["/code/", "/"]);
+  });
+
+  it("a profile page whose session is gone starts a fresh one", async () => {
+    const st = new MemStorage();
+    seed(st, { activeProfiles: { coding: "old" }, sessions: [{ id: "old", label: "coding 1", provider: "coding", created: 1, profile: "coding", path: "/code/" }] });
+    const { client, calls } = fakeClient();
+    const store = createRoot(() => createSessionsStore(client, st, () => {}, code));
+    store.diagnose(new ConnectError("", Code.NotFound));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toEqual([{ method: "createSession", req: { profile: "coding" } }]);
+    expect(loadSettings(st).sessions.map((x) => x.id)).toEqual(["s1"]);
   });
 });
 

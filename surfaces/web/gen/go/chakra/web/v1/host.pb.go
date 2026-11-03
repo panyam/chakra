@@ -710,7 +710,11 @@ type CreateSessionRequest struct {
 	// provider is the model this session talks to, with the key the browser
 	// holds. A server started with a session builder (agentweb --byok) requires
 	// it; one that builds every session from its own config ignores it.
-	Provider      *ProviderSpec `protobuf:"bytes,1,opt,name=provider,proto3" json:"provider,omitempty"`
+	Provider *ProviderSpec `protobuf:"bytes,1,opt,name=provider,proto3" json:"provider,omitempty"`
+	// profile picks which kind of session to build: "" or "chat" is the
+	// server's default, and "coding" is the coding agent when the server has
+	// one (agentweb --coding). An unknown profile is InvalidArgument.
+	Profile       string `protobuf:"bytes,2,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -750,6 +754,13 @@ func (x *CreateSessionRequest) GetProvider() *ProviderSpec {
 		return x.Provider
 	}
 	return nil
+}
+
+func (x *CreateSessionRequest) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
 }
 
 type CreateSessionResponse struct {
@@ -1084,9 +1095,10 @@ const file_chakra_web_v1_host_proto_rawDesc = "" +
 	"modelLabel\x12\x15\n" +
 	"\x06run_id\x18\x02 \x01(\tR\x05runId\x12\x1c\n" +
 	"\tproviders\x18\x03 \x03(\tR\tproviders\x12'\n" +
-	"\x0factive_provider\x18\x04 \x01(\tR\x0eactiveProvider\"O\n" +
+	"\x0factive_provider\x18\x04 \x01(\tR\x0eactiveProvider\"i\n" +
 	"\x14CreateSessionRequest\x127\n" +
-	"\bprovider\x18\x01 \x01(\v2\x1b.chakra.web.v1.ProviderSpecR\bprovider\"6\n" +
+	"\bprovider\x18\x01 \x01(\v2\x1b.chakra.web.v1.ProviderSpecR\bprovider\x12\x18\n" +
+	"\aprofile\x18\x02 \x01(\tR\aprofile\"6\n" +
 	"\x15CreateSessionResponse\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\"l\n" +

@@ -54,6 +54,13 @@ func main() {
 	accessToken := flag.String("access-token", os.Getenv("AGENTWEB_ACCESS_TOKEN"), "require this token in the X-Agentweb-Token header on every API call (default $AGENTWEB_ACCESS_TOKEN). Set it whenever the server is reachable by anyone but you")
 	model := flag.String("model", "", "override the model of the active connection (or of the config's single model) at startup")
 	active := flag.String("active", "", "override the active chat connection at startup (a name in the config's connections; default = the config's active)")
+	var co codingOptions
+	flag.StringVar(&co.dir, "coding", "", "also serve the coding agent at /code/, built from this directory's config.json and workspace.json (e.g. examples/coding-harness)")
+	flag.StringVar(&co.workspace, "coding-workspace", "", "with --coding, the repository every coding session works in")
+	flag.StringVar(&co.fixture, "coding-fixture", "", "with --coding, a directory copied into a fresh git repository for each coding session, instead of --coding-workspace")
+	flag.StringVar(&co.active, "coding-active", "", "with --coding, the connection in its config.json to use (default: that config's active)")
+	flag.StringVar(&co.model, "coding-model", "", "with --coding, override that connection's model")
+	flag.StringVar(&co.instructions, "coding-instructions", "", "with --coding, how AGENTS.md and the like load for coding sessions (default: its workspace.json's)")
 	flag.Parse()
 
 	// A configured --session-store makes web sessions durable. Each session_id
@@ -96,6 +103,17 @@ func main() {
 		mgr = web.NewSessionManager(factory)
 	}
 	svcOpts := []web.Option{web.WithWatchWindow(*watchWindow)}
+	if co.dir != "" {
+		if *byok {
+			log.Fatalf("agentweb: --coding needs the server's own keys, so it can't be used with --byok")
+		}
+		prof, err := codingProfile(co)
+		if err != nil {
+			log.Fatalf("agentweb: %v", err)
+		}
+		svcOpts = append(svcOpts, web.WithProfile(prof))
+		fmt.Fprintf(os.Stderr, "agentweb: the coding agent is at http://%s/code/\n", *addr)
+	}
 	if *byok {
 		// Each CreateSession names a provider, and its session is built from
 		// that provider. No session exists until the first CreateSession. A
