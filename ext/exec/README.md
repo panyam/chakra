@@ -197,7 +197,7 @@ Linux has no backend yet. Delegating to `bubblewrap` is the obvious shape, but
 it could not be verified here. CI runs on `ubuntu-latest`, and there the
 AppArmor restriction on unprivileged user namespaces can block `bwrap` outright.
 So a bubblewrap backend would have shipped less proven than the darwin path.
-Issue 1320 starts by establishing what a runner actually permits, before writing
+Issue #32 starts by establishing what a runner actually permits, before writing
 anything.
 
 ### What the profile does
@@ -342,7 +342,7 @@ profile.
 ## Status
 
 Experimental, on the unreleased agent line. Issue 1312; child of the coding
-epic 1252. The Linux backend is 1320. Issue 1313 is the test and build feedback
+epic 1252. The Linux backend is chakra #32. Issue 1313 is the test and build feedback
 loop, which consumes this. Two issues hold open questions about the tool set
 itself. Issue 1323 asks what happens when an allowlist gets large. Issue 1324
 asks whether the allowlist may change after construction, and who is allowed to

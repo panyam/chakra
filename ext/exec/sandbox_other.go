@@ -10,6 +10,7 @@ package exec
 // namespaces can block bwrap outright, so the backend would have shipped less
 // proven than the darwin one. A deployed agent on Linux is also the case most
 // likely to be inside a container already. Unconfined exists for that case.
+// The Linux backend is #32.
 //
 // Returning nil makes construction fail with an error naming the choices,
 // rather than running a command with no confinement at all.
