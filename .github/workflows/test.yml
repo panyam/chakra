@@ -95,7 +95,7 @@ jobs:
       - name: Test every module
         run: make test GOTESTFLAGS='-v -race -count=1 -timeout 300s'
 
-      - if: (github.ref == 'refs/heads/main' || github.head_ref == 'ci/per-job-go-cache') && !cancelled()
+      - if: github.ref == 'refs/heads/main' && !cancelled()
         uses: actions/cache/save@v6.1.0
         with:
           path: |
@@ -165,7 +165,7 @@ jobs:
       - name: Test every example
         run: make test-examples GOTESTFLAGS='-v -race -count=1 -timeout 300s'
 
-      - if: (github.ref == 'refs/heads/main' || github.head_ref == 'ci/per-job-go-cache') && !cancelled()
+      - if: github.ref == 'refs/heads/main' && !cancelled()
         uses: actions/cache/save@v6.1.0
         with:
           path: |
