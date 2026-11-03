@@ -89,6 +89,11 @@ message SubmitRequest {
   string input = 1;
   // session_id selects the conversation (App). Empty routes to the default.
   string session_id = 2;
+  // response_schema, a JSON Schema document, asks for this turn's final
+  // answer as JSON valid against it, on the turn-done event's
+  // Result.structured (Result.structuredError says why when no attempt
+  // validated). Empty asks for nothing.
+  string response_schema = 3;
 }
 message SubmitResponse {}
 

@@ -165,6 +165,9 @@ var checks = []check{
 			if raw := string(r.turn.Structured.Raw()); raw == "" || raw == "null" {
 				return false, "no structured result"
 			}
+			if r.turn.StructuredError != "" {
+				return false, "not valid against the schema: " + r.turn.StructuredError
+			}
 			var v map[string]any
 			if err := json.Unmarshal(r.turn.Structured.Raw(), &v); err != nil {
 				return false, err.Error()

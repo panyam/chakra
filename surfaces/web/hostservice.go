@@ -154,7 +154,14 @@ func (s *HostService) Submit(ctx context.Context, req *connect.Request[webv1.Sub
 	if err != nil {
 		return nil, err
 	}
-	if err := app.RunTurn(ctx, req.Msg.GetInput()); err != nil {
+	var opts host.TurnOptions
+	if raw := req.Msg.GetResponseSchema(); raw != "" {
+		if !json.Valid([]byte(raw)) {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("response_schema is not JSON"))
+		}
+		opts.ResponseSchema = core.NewRawJSON(json.RawMessage(raw))
+	}
+	if err := app.RunTurnWith(ctx, req.Msg.GetInput(), opts); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&webv1.SubmitResponse{}), nil

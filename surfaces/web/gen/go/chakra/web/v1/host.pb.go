@@ -142,9 +142,14 @@ type SubmitRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Input string                 `protobuf:"bytes,1,opt,name=input,proto3" json:"input,omitempty"`
 	// session_id selects the conversation (App). Empty routes to the default.
-	SessionId     string `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	SessionId string `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// response_schema, a JSON Schema document, asks for this turn's final
+	// answer as JSON valid against it, on the turn-done event's
+	// Result.structured (Result.structuredError says why when no attempt
+	// validated). Empty asks for nothing.
+	ResponseSchema string `protobuf:"bytes,3,opt,name=response_schema,json=responseSchema,proto3" json:"response_schema,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *SubmitRequest) Reset() {
@@ -187,6 +192,13 @@ func (x *SubmitRequest) GetInput() string {
 func (x *SubmitRequest) GetSessionId() string {
 	if x != nil {
 		return x.SessionId
+	}
+	return ""
+}
+
+func (x *SubmitRequest) GetResponseSchema() string {
+	if x != nil {
+		return x.ResponseSchema
 	}
 	return ""
 }
@@ -1002,11 +1014,12 @@ const file_chakra_web_v1_host_proto_rawDesc = "" +
 	"\fresume_after\x18\x02 \x01(\x04R\vresumeAfter\"5\n" +
 	"\x05Frame\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x18\n" +
-	"\apayload\x18\x02 \x01(\fR\apayload\"D\n" +
+	"\apayload\x18\x02 \x01(\fR\apayload\"m\n" +
 	"\rSubmitRequest\x12\x14\n" +
 	"\x05input\x18\x01 \x01(\tR\x05input\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x02 \x01(\tR\tsessionId\"\x10\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\x12'\n" +
+	"\x0fresponse_schema\x18\x03 \x01(\tR\x0eresponseSchema\"\x10\n" +
 	"\x0eSubmitResponse\"D\n" +
 	"\x0fDispatchRequest\x12\x12\n" +
 	"\x04line\x18\x01 \x01(\tR\x04line\x12\x1d\n" +
