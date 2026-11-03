@@ -513,3 +513,19 @@ func TestNBObserver_ParallelToolsGroupIntoOneCell(t *testing.T) {
 		t.Fatalf("batch cell should contain both tools: %q", tool.body)
 	}
 }
+
+func TestNotebookEnterDuringATurnSteersIt(t *testing.T) {
+	m := newNotebookModel(nil, nil, 5, 0)
+	m.running = true
+	var sent []string
+	m.sendSteer = func(line string) { sent = append(sent, line) }
+	m.ta.SetValue("also check Mean")
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = next.(notebookModel)
+	if len(sent) != 1 || sent[0] != "also check Mean" || !m.running {
+		t.Fatalf("sent %q, running %v", sent, m.running)
+	}
+	if last := m.cells[len(m.cells)-1]; last.body != "also check Mean" || !strings.Contains(last.label, "running turn") {
+		t.Errorf("last cell = %+v", last)
+	}
+}

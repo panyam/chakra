@@ -12,6 +12,9 @@ export interface Turn {
   role: "user" | "assistant" | "system";
   text: string;
   from?: string;
+  // steer marks user input sent while a turn was running: the host queued it
+  // for that turn's next model call instead of starting a new turn.
+  steer?: boolean;
 }
 
 // PendingAsk is a live elicitation/approval the host broadcast to every surface.
@@ -212,6 +215,11 @@ export function createConversationStore(client: Client<typeof HostService>): Con
           localEchoes.shift();
           break;
         }
+        if (ev.Label === "steer") {
+          // Another surface steered the running turn; no new turn follows.
+          push({ role: "user", text, steer: true });
+          break;
+        }
         push({ role: "user", text });
         // The transcript now shows who asked, so the reply needs no "from
         // another surface" marker: count it as a known turn.
@@ -268,9 +276,28 @@ export function createConversationStore(client: Client<typeof HostService>): Con
     return true;
   };
 
+  // steer sends input while a turn runs. The host queues it for the turn's
+  // next model call and Submit returns at once, so nothing here waits on it.
+  const steer = async (text: string): Promise<void> => {
+    push({ role: "user", text, steer: true });
+    localEchoes.push(text);
+    try {
+      await client.submit({ input: text });
+    } catch (e) {
+      const i = localEchoes.indexOf(text);
+      if (i >= 0) localEchoes.splice(i, 1);
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   const submit = async (input: string): Promise<void> => {
     const text = input.trim();
-    if (!text || busy()) return;
+    if (!text) return;
+    if (awaiting() && !text.startsWith("/")) {
+      setError("");
+      return steer(text);
+    }
+    if (busy()) return;
     setError("");
     setResolved(null);
     push({ role: "user", text });

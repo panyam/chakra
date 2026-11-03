@@ -204,7 +204,11 @@ func (x *SubmitRequest) GetResponseSchema() string {
 }
 
 type SubmitResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// steered is true when a turn was already running: the input was queued
+	// for that turn's next model call (or the next turn, if it arrived after
+	// the last one) and Submit returned without waiting.
+	Steered       bool `protobuf:"varint,1,opt,name=steered,proto3" json:"steered,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -237,6 +241,13 @@ func (x *SubmitResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use SubmitResponse.ProtoReflect.Descriptor instead.
 func (*SubmitResponse) Descriptor() ([]byte, []int) {
 	return file_chakra_web_v1_host_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *SubmitResponse) GetSteered() bool {
+	if x != nil {
+		return x.Steered
+	}
+	return false
 }
 
 type DispatchRequest struct {
@@ -1019,8 +1030,9 @@ const file_chakra_web_v1_host_proto_rawDesc = "" +
 	"\x05input\x18\x01 \x01(\tR\x05input\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x02 \x01(\tR\tsessionId\x12'\n" +
-	"\x0fresponse_schema\x18\x03 \x01(\tR\x0eresponseSchema\"\x10\n" +
-	"\x0eSubmitResponse\"D\n" +
+	"\x0fresponse_schema\x18\x03 \x01(\tR\x0eresponseSchema\"*\n" +
+	"\x0eSubmitResponse\x12\x18\n" +
+	"\asteered\x18\x01 \x01(\bR\asteered\"D\n" +
 	"\x0fDispatchRequest\x12\x12\n" +
 	"\x04line\x18\x01 \x01(\tR\x04line\x12\x1d\n" +
 	"\n" +

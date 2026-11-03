@@ -333,3 +333,39 @@ describe("ConversationStore user-input", () => {
       dispose();
     }));
 });
+
+describe("ConversationStore steering", () => {
+  it("sends input typed during this page's turn at once, marked as a steer", async () => {
+    const submitted: string[] = [];
+    let finishFirst: () => void = () => {};
+    const client = {
+      submit: (req: { input: string }) => {
+        submitted.push(req.input);
+        if (submitted.length === 1) return new Promise((resolve) => (finishFirst = () => resolve({})));
+        return Promise.resolve({ steered: true });
+      },
+      respondToAsk: async () => ({}),
+    } as unknown as Parameters<typeof createConversationStore>[0];
+    await createRoot(async (dispose) => {
+      const store = createConversationStore(client);
+      const first = store.submit("fix Sum");
+      expect(store.awaiting()).toBe(true);
+      await store.submit("also check Mean");
+      expect(submitted).toEqual(["fix Sum", "also check Mean"]);
+      expect(store.turns()).toEqual([
+        { role: "user", text: "fix Sum" },
+        { role: "user", text: "also check Mean", steer: true },
+      ]);
+      // The host's own announcement of the steer doesn't add it twice.
+      store.ingest({ Kind: "user-input", Message: "fix Sum" });
+      store.ingest({ Kind: "user-input", Message: "also check Mean", Label: "steer" });
+      expect(store.turns()).toHaveLength(2);
+      // A steer from another surface shows as one.
+      store.ingest({ Kind: "user-input", Message: "and Max", Label: "steer" });
+      expect(store.turns()[2]).toEqual({ role: "user", text: "and Max", steer: true });
+      finishFirst();
+      await first;
+      dispose();
+    });
+  });
+});

@@ -119,13 +119,23 @@ func drive(ctx context.Context, p profile) (*runResult, error) {
 		submitErr <- err
 	}()
 
-	steered := false
+	// The steer goes in after the first tool result. A host that steers
+	// queues it for the running turn and returns at once; one that doesn't
+	// runs it as a turn of its own. Either way the run is over once both
+	// Submits have returned.
+	steerErr := make(chan error, 1)
 	select {
 	case <-firstToolEnd:
-		steered = true
 		go func() {
-			_, _ = client.Submit(ctx, connect.NewRequest(&webv1.SubmitRequest{Input: steerText, SessionId: sid}))
+			_, err := client.Submit(ctx, connect.NewRequest(&webv1.SubmitRequest{Input: steerText, SessionId: sid}))
+			steerErr <- err
 		}()
+		if err := <-submitErr; err != nil {
+			return nil, fmt.Errorf("submit: %w", err)
+		}
+		if err := <-steerErr; err != nil {
+			return nil, fmt.Errorf("steer: %w", err)
+		}
 	case err := <-submitErr:
 		if err != nil {
 			return nil, fmt.Errorf("submit: %w", err)
@@ -133,16 +143,19 @@ func drive(ctx context.Context, p profile) (*runResult, error) {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
-
-	want := 1
-	if steered {
-		want = 2
+	// Every turn-done was emitted before its Submit returned, but the Watch
+	// may still be delivering them. Take the first, then any more until the
+	// stream goes quiet (a late steer runs as a second turn).
+	select {
+	case <-turnsDone:
+	case <-ctx.Done():
+		return nil, fmt.Errorf("waiting for the turn to finish: %w", ctx.Err())
 	}
-	for i := 0; i < want; i++ {
+	for quiet := false; !quiet; {
 		select {
 		case <-turnsDone:
-		case <-ctx.Done():
-			return nil, fmt.Errorf("waiting for turn %d: %w", i+1, ctx.Err())
+		case <-time.After(300 * time.Millisecond):
+			quiet = true
 		}
 	}
 	res.wall = time.Since(start)
@@ -165,15 +178,24 @@ func respond(ctx context.Context, client webv1connect.HostServiceClient, sid str
 // summarizeTurns picks the first turn's result out of the events and notes
 // whether the steer arrived as a turn of its own.
 func (r *runResult) summarizeTurns() {
-	inputs := 0
+	inputs, turns := 0, 0
 	for _, ev := range r.events {
 		switch ev.Kind {
 		case host.HostUserInput:
+			if ev.Label == "steer" {
+				continue // queued into a running turn, not a turn of its own
+			}
 			inputs++
 			if ev.Message == steerText {
 				r.steerTurnSeen = true
 			}
 		case host.HostTurnDone:
+			turns++
+			if turns > 1 {
+				// A steer that arrives after the turn's last model call
+				// runs next, without a user-input event of its own.
+				r.steerTurnSeen = true
+			}
 			if inputs == 1 && r.turn == nil {
 				r.turn = ev.Result
 			}

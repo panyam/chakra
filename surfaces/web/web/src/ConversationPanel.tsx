@@ -49,6 +49,9 @@ export function Conversation(props: { store: ConversationStore; compact?: boolea
                 <Show when={t.from}>
                   <span class="conv-from"> · from {t.from}</span>
                 </Show>
+                <Show when={t.steer}>
+                  <span class="conv-from"> · sent during the turn</span>
+                </Show>
               </span>
               <div class="conv-text">{t.text}</div>
             </div>
@@ -127,15 +130,15 @@ export function Conversation(props: { store: ConversationStore; compact?: boolea
           class="conv-ta"
           rows="1"
           value={text()}
-          disabled={s.busy()}
-          placeholder="Message the agent…  (Enter to send)"
+          disabled={s.busy() && !s.awaiting()}
+          placeholder={s.awaiting() ? "Add to the running turn…  (Enter to send)" : "Message the agent…  (Enter to send)"}
           onInput={(e) => {
             setText(e.currentTarget.value);
             grow();
           }}
           onKeyDown={onKeyDown}
         />
-        <button type="button" class="conv-send" disabled={!text().trim() || s.busy()} aria-label="Send" onClick={send}>
+        <button type="button" class="conv-send" disabled={!text().trim() || (s.busy() && !s.awaiting())} aria-label="Send" onClick={send}>
           ↑
         </button>
       </div>

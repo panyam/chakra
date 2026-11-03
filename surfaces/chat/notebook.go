@@ -254,10 +254,13 @@ type notebookModel struct {
 	modalHost      // an open interactive dialog (/mcp, /sessions) as the focused layer
 	showAll   bool // ? toggled the full-help view
 
-	nav           bool // false = insert, true = nav
-	raw           bool // ctrl+o: show cells as raw markdown, not glamour-rendered (1083)
-	sel           int  // selected cell index in nav mode
-	running       bool
+	nav     bool // false = insert, true = nav
+	raw     bool // ctrl+o: show cells as raw markdown, not glamour-rendered (1083)
+	sel     int  // selected cell index in nav mode
+	running bool
+	// sendSteer, when set, replaces App.Submit for input typed during a
+	// turn; tests use it.
+	sendSteer     func(line string)
 	atBottom      bool // whether the viewport is scrolled to the end (for auto-follow)
 	liveScheduled bool // a liveFlushMsg tick is pending (coalesces per-token renders)
 
@@ -489,7 +492,7 @@ func (m notebookModel) updateInsert(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.KeyEnter:
 		if m.running {
-			return m, nil
+			return m.steerTurn()
 		}
 		line := strings.TrimSpace(m.ta.Value())
 		if line == "" {
@@ -677,6 +680,28 @@ func firstLine(s string) string {
 		return s[:i]
 	}
 	return s
+}
+
+// steerTurn sends the typed line into the running turn (App.Submit), as the
+// inline TUI does, and shows it as its own cell. Slash commands wait for the
+// turn to end.
+func (m notebookModel) steerTurn() (tea.Model, tea.Cmd) {
+	line := strings.TrimSpace(m.ta.Value())
+	if line == "" || strings.HasPrefix(line, "/") {
+		return m, nil
+	}
+	m.ta.Reset()
+	m.history = append(m.history, line)
+	m.histIdx = len(m.history)
+	m.cells = append(m.cells, nbCell{label: "you · added to the running turn", body: line})
+	m.refresh()
+	send := m.sendSteer
+	if send == nil {
+		app := m.app
+		send = func(line string) { go func() { _, _ = app.Submit(context.Background(), line, host.TurnOptions{}) }() }
+	}
+	send(line)
+	return m, nil
 }
 
 // submit adds the user's line as a cell and runs it (command or turn) on a

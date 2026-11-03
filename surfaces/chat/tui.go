@@ -263,6 +263,9 @@ type tuiModel struct {
 	history   []string
 	histIdx   int // len(history) == "not navigating"
 	running   bool
+	// sendSteer, when set, replaces App.Submit for input typed during a
+	// turn; tests use it.
+	sendSteer func(line string)
 	pending   string
 	usage     usageMsg // last turn's tokens, for the status line
 	window    int      // context window for the "N% left" gauge (0 = off)
@@ -389,7 +392,7 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.dumpRaw()
 		case key.Matches(msg, m.keys.Send):
 			if m.running {
-				return m, nil
+				return m.steerTurn()
 			}
 			line := strings.TrimSpace(m.ta.Value())
 			if line == "" {
@@ -446,6 +449,26 @@ func (m tuiModel) View() string {
 	b.WriteString("\n")
 	b.WriteString(m.ta.View())
 	return b.String()
+}
+
+// steerTurn sends the typed line into the running turn: the host queues it
+// for the turn's next model call (App.Submit). A slash command still waits
+// for the turn to end, since commands act on the session between turns.
+func (m tuiModel) steerTurn() (tea.Model, tea.Cmd) {
+	line := strings.TrimSpace(m.ta.Value())
+	if line == "" || strings.HasPrefix(line, "/") {
+		return m, nil
+	}
+	m.ta.Reset()
+	m.history = append(m.history, line)
+	m.histIdx = len(m.history)
+	send := m.sendSteer
+	if send == nil {
+		app := m.app
+		send = func(line string) { go func() { _, _ = app.Submit(context.Background(), line, host.TurnOptions{}) }() }
+	}
+	send(line)
+	return m, tea.Println(lipgloss.NewStyle().Faint(true).Render("↳ added to the running turn: ") + line)
 }
 
 // submit routes a line to a command dispatch or a conversational turn,
