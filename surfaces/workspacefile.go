@@ -48,6 +48,9 @@ type WorkspaceFile struct {
 	//	"skills": {"dirs": [".agents/skills", "~/my-skills"]}
 	Skills *SkillsFile `json:"skills,omitempty"`
 
+	// Plan adds update_plan; see WorkspaceConfig.Plan.
+	Plan bool `json:"plan,omitempty"`
+
 	// Git enables ext/git over the first root. Absent means none.
 	//
 	//	"git": {"review": true}
@@ -266,6 +269,7 @@ func (f *WorkspaceFile) Apply(cfg *WorkspaceConfig) error {
 			LanguageID: ls.LanguageID,
 		})
 	}
+	cfg.Plan = f.Plan
 	if f.Git != nil {
 		cfg.Git = &git.Config{Mutations: f.Git.Mutations, WorktreeDir: f.Git.WorktreeDir}
 		if f.Git.Review {

@@ -16,5 +16,6 @@
     }
   },
   "skills": {"dirs": [".agents/skills"]},
-  "git": {"review": true}
+  "git": {"review": true},
+  "plan": true
 }

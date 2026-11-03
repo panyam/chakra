@@ -55,8 +55,12 @@ const (
 	// the turn continues with, which also joins the record as a RoleSystem
 	// note. Another step follows unless the turn is at MaxSteps.
 	EventTurnContinued EventKind = "turn-continued"
-	EventTurnEnd       EventKind = "turn-end"
-	EventError         EventKind = "error"
+	// EventPlan carries the plan a model published with update_plan (#148),
+	// on Plan, whole each time: a surface replaces the plan it showed. Step is
+	// the step whose tool call published it.
+	EventPlan    EventKind = "plan"
+	EventTurnEnd EventKind = "turn-end"
+	EventError   EventKind = "error"
 )
 
 // Event is one increment of a running turn, the payload surfaces consume
@@ -103,6 +107,9 @@ type Event struct {
 
 	// Signal is the upward signal a child raised, on EventSignal.
 	Signal *Signal `json:"signal,omitempty"`
+
+	// Plan is the model's whole current plan, on EventPlan.
+	Plan *Plan `json:"plan,omitempty"`
 }
 
 // CompactionInfo reports what a compaction pass did: the message count

@@ -20,6 +20,13 @@ func scriptedProvider(fixture string) (agent.Provider, error) {
 	}
 	return agent.NewStubProvider(
 		agent.StubTurn{ToolCalls: []agent.ToolCall{
+			call("p0", "update_plan", map[string]any{"plan": []map[string]string{
+				{"step": "Find why the tests fail", "status": "in_progress"},
+				{"step": "Fix it", "status": "pending"},
+				{"step": "Run go test ./...", "status": "pending"},
+			}}),
+		}},
+		agent.StubTurn{ToolCalls: []agent.ToolCall{
 			call("c0", "load_skill", map[string]any{"name": "go-testing"}),
 		}},
 		agent.StubTurn{ToolCalls: []agent.ToolCall{

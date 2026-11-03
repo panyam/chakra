@@ -137,6 +137,14 @@ go run . --config chat.json --workspace ~/code/project \
 - **`editTools`**: `["edit_file"]`, `["apply_patch"]`, or both (the default).
   `apply_patch` takes a multi-file patch in the `*** Begin Patch` format some
   models are trained on; see `ext/files/README.md`.
+- **`plan`**: `true` adds `update_plan`, a checklist the model publishes and
+  keeps current. It shows in the conversation as it changes, and stays in the
+  model's view after a compaction.
+- **`git`**: adds `ext/git` over the first root: `git_status`, `git_diff` and
+  `git_log`, a line after each turn saying what it changed (`/diff` shows it),
+  and with `"review": true` a `review` tool and `/review`. `"mutations": true`
+  adds commit and branch tools, and `"worktreeDir"` the worktree tools; see
+  `ext/git/README.md`.
 
 Unknown fields are an error, so a misspelt `readOnly` fails at startup instead
 of quietly making a command ask (or not ask). `examples/dogfood/workspace.json`

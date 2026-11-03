@@ -94,6 +94,9 @@ type WorkspaceConfig struct {
 	// it. Mark commands ReadOnly only when that is true of them.
 	Exec *exec.Config
 
+	// Plan adds update_plan, the model's published checklist (#148).
+	Plan bool
+
 	// Git adds ext/git: read-only git tools, a per-turn diff, and, as its
 	// fields say, commit and branch tools, worktrees and review. Nil adds
 	// nothing. Its Root is overwritten with the first of this config's Roots.
@@ -242,6 +245,10 @@ func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 			return nil, fmt.Errorf("workspace lsp: %w", lspErr)
 		}
 		exts = append(exts, lx)
+	}
+
+	if cfg.Plan {
+		exts = append(exts, host.NewPlanExtension())
 	}
 
 	if cfg.Git != nil {
