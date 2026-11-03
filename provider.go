@@ -314,16 +314,29 @@ func (tc ToolChoice) wire() any {
 // treats a missing report as zero when summing, which means a provider that
 // under-reports produces an undercount rather than an error.
 type Usage struct {
-	// InputTokens is the prompt side of the call: instructions, history, and
-	// tool definitions as the provider counted them. Cache reads and writes
-	// are not broken out; whatever the provider folds into its own input
-	// count is what appears here.
+	// InputTokens is the whole prompt side of the call: instructions,
+	// history, and tool definitions as the provider counted them, including
+	// any part a prompt cache served or wrote. OpenAI-wire servers already
+	// count it that way. AnthropicProvider adds Anthropic's separately
+	// reported cache reads and writes back in, so the figure means the same
+	// thing on every provider.
 	InputTokens int `json:"inputTokens"`
 
 	// OutputTokens is the completion side, including tokens spent on tool
 	// calls and on reasoning the provider billed for, even when that
 	// reasoning never reached Delta.Text.
 	OutputTokens int `json:"outputTokens"`
+
+	// CachedInputTokens is the part of InputTokens the provider's prompt
+	// cache served, so it never exceeds InputTokens. Zero means the cache
+	// served nothing or the provider didn't say; the two can't be told
+	// apart. OpenAIProvider reads usage.prompt_tokens_details.cached_tokens
+	// (OpenAI, current llama.cpp), falling back to llama.cpp's
+	// timings.cache_n. AnthropicProvider reads cache_read_input_tokens.
+	// Whether a cache is used at all is the server's or the caller's choice
+	// (OpenAIConfig.ExtraBody for llama.cpp's cache_prompt); this field only
+	// reports what happened.
+	CachedInputTokens int `json:"cachedInputTokens,omitempty"`
 }
 
 // DeltaKind discriminates Delta payloads.

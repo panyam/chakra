@@ -456,6 +456,7 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 		if resp.Usage != nil {
 			usage.InputTokens += resp.Usage.InputTokens
 			usage.OutputTokens += resp.Usage.OutputTokens
+			usage.CachedInputTokens += resp.Usage.CachedInputTokens
 			treeBudget.addTokens(resp.Usage.InputTokens + resp.Usage.OutputTokens)
 		}
 
@@ -484,6 +485,7 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 			turnSpan.SetAttribute("agent.steps", fmt.Sprint(step))
 			turnSpan.SetAttribute("agent.finish_reason", resp.FinishReason)
 			turnSpan.SetAttribute("agent.tokens.input", fmt.Sprint(usage.InputTokens))
+			turnSpan.SetAttribute("agent.tokens.cached", fmt.Sprint(usage.CachedInputTokens))
 			turnSpan.SetAttribute("agent.tokens.output", fmt.Sprint(usage.OutputTokens))
 			r.metrics.turnDone(ctx, step, usage.InputTokens, usage.OutputTokens, resp.FinishReason, time.Since(turnStart))
 			emit(Event{Kind: EventTurnEnd, Result: result})
@@ -543,6 +545,7 @@ func (r *Runner) partialResult(added []Message, usage Usage, steps int, err erro
 	turnSpan.SetAttribute("agent.steps", fmt.Sprint(steps))
 	turnSpan.SetAttribute("agent.finish_reason", finish)
 	turnSpan.SetAttribute("agent.tokens.input", fmt.Sprint(usage.InputTokens))
+	turnSpan.SetAttribute("agent.tokens.cached", fmt.Sprint(usage.CachedInputTokens))
 	turnSpan.SetAttribute("agent.tokens.output", fmt.Sprint(usage.OutputTokens))
 	emit(Event{Kind: EventError, Error: err.Error()})
 	turnSpan.RecordError(err)
@@ -646,6 +649,7 @@ func (r *Runner) finalizeStructured(ctx context.Context, instructions string, ms
 		if resp.Usage != nil {
 			usage.InputTokens += resp.Usage.InputTokens
 			usage.OutputTokens += resp.Usage.OutputTokens
+			usage.CachedInputTokens += resp.Usage.CachedInputTokens
 			treeBudgetFrom(ctx).addTokens(resp.Usage.InputTokens + resp.Usage.OutputTokens)
 		}
 		last = resp.Text

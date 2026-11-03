@@ -168,7 +168,7 @@ func (p *AnthropicProvider) Generate(ctx context.Context, req ProviderRequest) (
 	}
 	out.Reasoning = reason.String()
 	if full.Usage != nil {
-		out.Usage = &Usage{InputTokens: full.Usage.InputTokens, OutputTokens: full.Usage.OutputTokens}
+		out.Usage = &Usage{InputTokens: full.Usage.promptTokens(), OutputTokens: full.Usage.OutputTokens, CachedInputTokens: full.Usage.CacheReadTokens}
 	}
 	return out, nil
 }
@@ -333,8 +333,16 @@ func anthropicToolChoice(tc ToolChoice) any {
 }
 
 type anthropicUsage struct {
-	InputTokens  int `json:"input_tokens"`
-	OutputTokens int `json:"output_tokens"`
+	InputTokens         int `json:"input_tokens"`
+	CacheCreationTokens int `json:"cache_creation_input_tokens"`
+	CacheReadTokens     int `json:"cache_read_input_tokens"`
+	OutputTokens        int `json:"output_tokens"`
+}
+
+// promptTokens is the whole prompt. Anthropic reports cache reads and writes
+// apart from input_tokens, so they are added back to match Usage.InputTokens.
+func (u *anthropicUsage) promptTokens() int {
+	return u.InputTokens + u.CacheCreationTokens + u.CacheReadTokens
 }
 
 type anthropicContentBlock struct {
@@ -381,8 +389,9 @@ type anthropicSSE struct {
 // delta emitted at message_delta.
 type anthropicStream struct {
 	sseStream
-	inputTokens int
-	nameMap     map[string]string // safe→real tool name, to reverse sanitized names on tool_use blocks
+	inputTokens  int
+	cachedTokens int
+	nameMap      map[string]string // safe→real tool name, to reverse sanitized names on tool_use blocks
 }
 
 // decode unmarshals one Anthropic SSE event and expands it into Deltas.
@@ -401,7 +410,8 @@ func (s *anthropicStream) eventDeltas(msg anthropicSSE) ([]Delta, bool, error) {
 	switch msg.Type {
 	case "message_start":
 		if msg.Message != nil && msg.Message.Usage != nil {
-			s.inputTokens = msg.Message.Usage.InputTokens
+			s.inputTokens = msg.Message.Usage.promptTokens()
+			s.cachedTokens = msg.Message.Usage.CacheReadTokens
 		}
 	case "content_block_start":
 		if msg.ContentBlock != nil && msg.ContentBlock.Type == "tool_use" {
@@ -437,8 +447,9 @@ func (s *anthropicStream) eventDeltas(msg anthropicSSE) ([]Delta, bool, error) {
 		}
 		if msg.Usage != nil {
 			out = append(out, Delta{Kind: DeltaUsage, Usage: &Usage{
-				InputTokens:  s.inputTokens,
-				OutputTokens: msg.Usage.OutputTokens,
+				InputTokens:       s.inputTokens,
+				OutputTokens:      msg.Usage.OutputTokens,
+				CachedInputTokens: s.cachedTokens,
 			}})
 		}
 		return out, false, nil
