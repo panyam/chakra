@@ -1662,6 +1662,21 @@ deletes it.
 
 ---
 
+### Sandbox tests that pass for the wrong reason (#203, #155)
+
+Two from mission #162, both the second-guard shape above in a different costume.
+
+- **Escalation is a no-op when exec is unconfined** (#203), and CI is Linux, where exec is always
+  unconfined. So a test that expects an escalation ask passes on a Mac and sees no ask in CI. The
+  coding-harness exercise solves it with `standInSandbox`, which supplies a fake confinement on
+  Linux so the ask path still runs. Reach for the same thing rather than skipping on Linux.
+- **`t.TempDir()` is writable from inside the sandbox**, because the sandbox lets commands write
+  the temp directory. A live test that checks "the sandbox refused a write outside the workspace"
+  against a `t.TempDir()` path passes for no reason. Set `WritePaths: []string{}` and use a path
+  outside every allowed root (the `workspace(t)` helper in `ext/exec` builds one).
+
+---
+
 ## Examples
 
 Agent examples live under `examples/agents/`: `agent-async`, `multi-agent`, `kitchen-sink`,

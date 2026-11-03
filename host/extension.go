@@ -225,6 +225,16 @@ type SubAgentHost struct {
 	OnEvent func(agent.SubAgentEvent)
 }
 
+// Asker is an optional interface an Extension implements to ask the user a
+// yes/no question outside a tool call, such as whether a command may reach a
+// host its allowlist doesn't name. The host calls SetAsk once, while applying
+// extensions, with a function that puts the question through the same queue
+// as approval asks, so it never overlaps another dialog. A surface with
+// nobody to answer (headless exec) answers no.
+type Asker interface {
+	SetAsk(ask func(ctx context.Context, question string) (bool, error))
+}
+
 // BaseExtension implements every optional Extension seam as a no-op, so an
 // extension embeds it and overrides only what it contributes. It deliberately
 // does not supply Name: an unnamed extension is never what a caller meant.
@@ -494,6 +504,9 @@ func (a *App) applyExtensions(exts []Extension, provider agent.Provider) ([]agen
 		a.promptBuilder.Sections = append(a.promptBuilder.Sections, ext.PromptSections()...)
 		a.context.transient = append(a.context.transient, ext.ContextStages()...)
 		a.stepStages = append(a.stepStages, ext.StepStages()...)
+		if ak, ok := ext.(Asker); ok && a.confirm != nil {
+			ak.SetAsk(a.confirm)
+		}
 		if an, ok := ext.(Announcer); ok {
 			an.SetAnnounce(func(msg string) { a.emit(HostEvent{Kind: HostMessage, Message: msg}) })
 		}

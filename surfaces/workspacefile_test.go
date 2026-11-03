@@ -267,3 +267,38 @@ func TestWorkspaceFileInstructions(t *testing.T) {
 		}
 	}
 }
+
+func TestWorkspaceFileProcesses(t *testing.T) {
+	for body, want := range map[string]*exec.ProcessConfig{
+		`{"exec": {"sandbox": "unconfined", "shell": {"processes": true}}}`:                         {},
+		`{"exec": {"sandbox": "unconfined", "shell": {"processes": false}}}`:                        nil,
+		`{"exec": {"sandbox": "unconfined", "shell": {}}}`:                                          nil,
+		`{"exec": {"sandbox": "unconfined", "shell": {"processes": {"max": 2, "maxYield": "5s"}}}}`: {Max: 2, MaxYield: 5 * time.Second},
+	} {
+		var cfg WorkspaceConfig
+		if err := cfg.LoadFile(writeWorkspaceFile(t, body)); err != nil {
+			t.Fatalf("%s: %v", body, err)
+		}
+		got := cfg.Exec.Shell.Processes
+		if (got == nil) != (want == nil) || (got != nil && *got != *want) {
+			t.Errorf("%s: processes = %+v, want %+v", body, got, want)
+		}
+	}
+	if err := (&WorkspaceConfig{}).LoadFile(writeWorkspaceFile(t, `{"exec": {"shell": {"processes": {"maxx": 2}}}}`)); err == nil {
+		t.Error("an unknown processes field loaded")
+	}
+}
+
+func TestWorkspaceFileNetwork(t *testing.T) {
+	var cfg WorkspaceConfig
+	if err := cfg.LoadFile(writeWorkspaceFile(t, `{"exec": {"sandbox": "unconfined", "shell": {}, "network": {"allow": ["proxy.golang.org", "*.npmjs.org"], "ask": true}}}`)); err != nil {
+		t.Fatal(err)
+	}
+	n := cfg.Exec.Network
+	if n == nil || len(n.Allow) != 2 || n.Allow[1] != "*.npmjs.org" || !n.Ask {
+		t.Errorf("network = %+v", n)
+	}
+	if err := (&WorkspaceConfig{}).LoadFile(writeWorkspaceFile(t, `{"exec": {"shell": {}, "network": {"allowed": ["x"]}}}`)); err == nil {
+		t.Error("an unknown network field loaded")
+	}
+}

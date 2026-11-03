@@ -41,3 +41,13 @@ Chakra's turn is capped at 400 model calls, so the task's time budget ends a run
 Codex; chakra's default cap of 8 would end most tasks early. The adapter reads token usage, steps,
 tool calls and denied asks from the JSON lines `agentchat exec --json` writes, so they show up in
 Harbor's results next to the other agents'.
+
+Things that bit the first runs (2026-11):
+
+- Docker Desktop at 8 GB fell over partway through a run with two tasks at once under emulation.
+  16 GB with `TB_CONCURRENT=1` got through every task. Move a crashed job's folder aside before
+  rerunning, or `tbench-report` picks up its partial results as the newest job.
+- An exhausted OpenAI account answers `429` with `insufficient_quota` / `credit_balance_exhausted`.
+  chakra's retry deliberately doesn't retry it, so every trial fails fast with a model error, and
+  the report reads as 0/10 rather than "could not run". Check the error in a trial's log before
+  reading anything into a score of zero.

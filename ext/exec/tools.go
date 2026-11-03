@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/panyam/chakra"
+	agent "github.com/panyam/chakra"
 	"github.com/panyam/mcpkit/core"
 )
 
@@ -32,6 +32,8 @@ type Source struct {
 	write     []string
 	denyRead  []string
 	shell     *shell
+	procs     *procManager
+	egress    *egress
 }
 
 // command is one resolved allowlist entry.
@@ -136,7 +138,23 @@ func NewSource(cfg Config) (*Source, error) {
 			st = timeout
 		}
 		s.shell = &shell{rules: rules, timeout: st, allowNetwork: cfg.Shell.AllowNetwork}
+		if cfg.Shell.Processes != nil {
+			s.procs = newProcManager(*cfg.Shell.Processes)
+		}
 		s.defs = append(s.defs, s.shellDef())
+		if s.procs != nil {
+			s.defs = append(s.defs, s.procDefs()...)
+		}
+	}
+	if cfg.Network != nil {
+		if cfg.Shell != nil && cfg.Shell.AllowNetwork {
+			return nil, errProxyWithNetwork
+		}
+		eg, err := newEgress(*cfg.Network)
+		if err != nil {
+			return nil, err
+		}
+		s.egress = eg
 	}
 	return s, nil
 }
@@ -281,6 +299,18 @@ func (s *Source) Call(ctx context.Context, name string, args map[string]any) (*c
 	if name == ShellTool && s.shell != nil {
 		return s.callShell(ctx, args), nil
 	}
+	if s.procs != nil {
+		switch name {
+		case ExecCommandTool:
+			return s.execCommand(args), nil
+		case WriteStdinTool:
+			return s.writeStdin(args), nil
+		case ListProcessesTool:
+			return s.listProcesses(), nil
+		case KillProcessTool:
+			return s.killProcess(args), nil
+		}
+	}
 	c, ok := s.cmds[name]
 	if !ok {
 		return nil, fmt.Errorf("exec: unknown tool %q", name)
@@ -376,6 +406,9 @@ func (s *Source) spawn(ctx context.Context, sp spawnSpec) spawned {
 	// switch behaviour on argv[0].
 	cmd.Args = sp.argv
 	cmd.Dir = sp.dir
+	if s.egress != nil {
+		cmd.Env = append(os.Environ(), s.egress.env()...)
+	}
 	setProcessGroup(cmd)
 
 	stdout := newCapBuffer(s.maxOutput)

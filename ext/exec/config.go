@@ -58,6 +58,11 @@ type Config struct {
 	// rules instead of an allowlist. Nil leaves it off. See ShellConfig.
 	Shell *ShellConfig
 
+	// Network lets commands reach the listed hosts through a local proxy,
+	// and nothing else beyond loopback. Nil keeps the all-or-nothing
+	// AllowNetwork behaviour. See NetworkConfig.
+	Network *NetworkConfig
+
 	// Sandbox confines every command. Nil selects the platform's backend and
 	// fails construction when there is none, rather than running unconfined.
 	//

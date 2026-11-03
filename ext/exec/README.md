@@ -99,6 +99,56 @@ output caps. A forbidden rule still refuses an escalated call.
 `argv[0]` is looked up on the launching process's PATH at call time, not at
 construction as for allowlisted commands.
 
+## Commands that keep running (#155)
+
+`ShellConfig.Processes` adds four tools for commands that outlive one call: dev servers,
+watchers, programs that wait for input. They're named as Codex names them, so a model trained
+on Codex calls them without being taught:
+
+| Tool | Does | Judged as |
+|---|---|---|
+| `exec_command {cmd, workdir, yield_ms, tty}` | runs `cmd` through `bash -lc`; returns what it printed within `yield_ms`, or a `session_id` if it's still running | the shell's prefix rules, script by script |
+| `write_stdin {session_id, chars, yield_ms}` | types `chars`, or with none just collects new output | read-only when polling; otherwise asks (it types into a running program), remembered per process |
+| `list_processes` | what is running, and what finished but hasn't been read | read-only |
+| `kill_process {session_id}` | stops it and everything it started | reversible |
+
+Processes run under the same sandbox as `shell`, and `tty: true` gives one a pseudo-terminal
+(`github.com/creack/pty`). They belong to the session, not the turn, so a server started in one
+turn is still there in the next, and `Extension.Close` kills them all. Each call returns only the
+output since the last one, cut from the middle past 16 KiB. A process keeps at most `MaxOutput`
+bytes (1 MiB), and a read says how much older output it missed. At most `Max` (8) run at once.
+
+In a workspace file: `"exec": {"shell": {"processes": true}}`, or an object with `max`,
+`maxOutput`, `defaultYield` and `maxYield`.
+
+## Network by host, through a local proxy (#158)
+
+`AllowNetwork` is all or nothing. `Config.Network` sits between: commands reach the hosts it lists
+and nothing else beyond loopback.
+
+```json
+"exec": {"network": {"allow": ["proxy.golang.org", "sum.golang.org", "*.npmjs.org"], "ask": true}}
+```
+
+The extension starts a proxy on `127.0.0.1` (HTTP, including `CONNECT` for HTTPS, and SOCKS5 on one
+port) and gives every command, `run_*`, `shell` and `exec_command` alike, `HTTP_PROXY`,
+`HTTPS_PROXY` and `ALL_PROXY`, with `NO_PROXY` for loopback. The sandbox already confines a
+command's network to loopback, so the proxy is its only way out, and the proxy decides per host.
+`*.npmjs.org` covers subdomains, not the apex.
+
+With `ask`, a connection to an unlisted host becomes a question for the user, through the same
+queue as approval asks (`host.Asker`), and the answer holds for the session. Without `ask`, or with
+nobody to answer (headless `exec`), it's refused, and the conversation gets a line naming the host
+(`host.Announcer`) so the user can see why a command failed.
+
+Limits:
+
+- Without a sandbox (`exec.Unconfined()`, or Linux until #32), commands can ignore the proxy
+  variables, so the allowlist is advice rather than enforcement there.
+- `Network` and `AllowNetwork` can't both be set; `AllowNetwork` already lets everything out.
+- A read-only mode (GET and HEAD only) isn't offered: the proxy can't see methods inside an HTTPS
+  tunnel without decrypting it.
+
 ## Arguments, when they are permitted at all
 
 `Args` is nil by default and the tool then exposes no argument. A command that
