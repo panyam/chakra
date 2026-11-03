@@ -31,9 +31,9 @@ func captured(t *testing.T, s *Store, id string, paths ...string) *Checkpoint {
 }
 
 // TestRestoreRefusesToWriteThroughASymlink is the case this file exists for.
-// The gap between capture and /undo is a person deciding to type it, so a path
-// has minutes or hours in which to become a link pointing somewhere else. The
-// content is right there in the blob store and the rename would succeed.
+// A person has to decide to type /undo, so minutes or hours can pass after
+// capture. In that time a path can become a link pointing somewhere else. The
+// content is right there in the blob store, and the rename would succeed.
 func TestRestoreRefusesToWriteThroughASymlink(t *testing.T) {
 	s, work := newStore(t)
 	outside := filepath.Join(t.TempDir(), "important.conf")
@@ -63,9 +63,9 @@ func TestRestoreRefusesToWriteThroughASymlink(t *testing.T) {
 	}
 }
 
-// TestRestoreRefusesToDeleteThroughASymlink covers the absent case, which is
-// the more destructive of the two: undoing a creation means os.Remove, and a
-// path that became a link would delete someone else's file outright.
+// TestRestoreRefusesToDeleteThroughASymlink covers the absent case. It is the
+// more destructive of the two. Undoing a creation means os.Remove, so a path
+// that became a link would delete someone else's file outright.
 func TestRestoreRefusesToDeleteThroughASymlink(t *testing.T) {
 	s, work := newStore(t)
 	outside := filepath.Join(t.TempDir(), "important.conf")
@@ -152,14 +152,14 @@ func TestSymlinkAtCaptureIsNotFollowed(t *testing.T) {
 }
 
 // TestCaptureThroughASymlinkDoesNotStoreTheTarget isolates the capture side.
-// Its sibling above cannot: with a link still in place at restore time the
-// restore-side guard refuses either way, so that test passes even if capture
-// followed the link.
+// Its sibling above cannot. That test leaves the link in place at restore
+// time, so the restore-side guard refuses either way. It would pass even if
+// capture followed the link.
 //
 // Replacing the link with a real file removes that guard. If capture followed
-// it, the checkpoint holds the target's content under a regular-file kind, and
-// the restore writes a file the caller never named into a path that now looks
-// perfectly ordinary.
+// the link, the checkpoint holds the target's content under a regular-file
+// kind. The restore then writes a file that the caller never named, into a
+// path that now looks perfectly ordinary.
 func TestCaptureThroughASymlinkDoesNotStoreTheTarget(t *testing.T) {
 	s, work := newStore(t)
 	outside := filepath.Join(t.TempDir(), "target")
@@ -234,9 +234,9 @@ func TestReversalSucceedsWhenNothingIsRefused(t *testing.T) {
 	}
 }
 
-// TestUndoReportNamesRefusedPaths is A11's corollary at the surface a person
-// actually reads. A refusal that only reached the Restored count would be an
-// unreported hole, and an unreported hole stops being checked.
+// TestUndoReportNamesRefusedPaths checks A11's corollary in the report that a
+// person actually reads. A refusal that only reached the Restored count would
+// be an unreported hole, and nobody checks an unreported hole again.
 func TestUndoReportNamesRefusedPaths(t *testing.T) {
 	e := &Extension{}
 	cp := &Checkpoint{id: "turn-7"}
@@ -259,9 +259,8 @@ func TestUndoReportNamesRefusedPaths(t *testing.T) {
 	}
 }
 
-// TestRestoredCountExcludesRefusals is the specific lie worth preventing: the
-// report used to count captured paths, so a refused path was announced as
-// restored.
+// TestRestoredCountExcludesRefusals prevents a specific lie. The report used
+// to count captured paths, so it announced a refused path as restored.
 func TestRestoredCountExcludesRefusals(t *testing.T) {
 	e := &Extension{}
 	cp := &Checkpoint{id: "turn-7"}
@@ -276,7 +275,8 @@ func TestRestoredCountExcludesRefusals(t *testing.T) {
 
 // TestOldManifestIsNamedNotCalledCorrupt keeps an upgrade from sending someone
 // to look for a truncated write. The previous format stored a bare
-// path-to-hash map, which unmarshals into the current one as a type error.
+// path-to-hash map. Unmarshalling that map into the current format fails with
+// a type error.
 func TestOldManifestIsNamedNotCalledCorrupt(t *testing.T) {
 	s, _ := newStore(t)
 	old := map[string]any{

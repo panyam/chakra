@@ -14,9 +14,9 @@ import (
 // DefaultExclude is skipped by list_files and search_files unless a Config
 // overrides it.
 //
-// These are directories whose contents an agent almost never wants and which
-// are large enough to swamp a result set. Deliberately NOT sourced from
-// .gitignore: that file says what should not be committed, which is a
+// An agent almost never wants the contents of these directories, and they are
+// large enough to swamp a result set. The list is deliberately NOT sourced from
+// .gitignore. That file says what should not be committed, and that is a
 // different question from what is worth reading. A .env is ignored and is
 // sometimes exactly what is needed; a vendored dependency is committed and is
 // usually noise. Neither set contains the other, so borrowing one for the
@@ -26,10 +26,10 @@ var DefaultExclude = []string{
 	".venv", "__pycache__", ".next", ".cache",
 }
 
-// Default result limits. They bound the work a call does and the size of what
-// comes back; they are not a context-window mechanism. agent.OffloadingSource
-// already stores oversized results out of band, and duplicating that here
-// would give two truncation mechanisms disagreeing about the same output.
+// Default result limits. They bound how much work a call does and how much
+// comes back. They are not a context-window mechanism. agent.OffloadingSource
+// already stores oversized results out of band. Duplicating that here would
+// give two truncation mechanisms that disagree about the same output.
 const (
 	// DefaultListLimit caps paths returned by one list_files call.
 	DefaultListLimit = 500
@@ -91,8 +91,8 @@ func excluded(patterns []string, name, rel string) bool {
 // walkResult is what a traversal produced, including what it left out.
 //
 // The counts exist so the caller can say so. A truncated list that does not
-// admit it reads as a complete answer, which is the same class of failure as
-// an edit silently applying to a stale file.
+// admit it reads as a complete answer. That is the same class of failure as an
+// edit silently applying to a stale file.
 type walkResult struct {
 	paths      []string
 	skippedDir []string
@@ -103,11 +103,11 @@ type walkResult struct {
 // walk traverses one root, honouring excludes and the limit.
 //
 // It walks fs.WalkDir over the Root's fs.FS rather than filepath.WalkDir over
-// a joined path. That is the confinement: the walk cannot leave the root, and
-// a symlinked directory is reported as a plain entry rather than descended
-// into, so neither an escape nor a cycle is reachable. A symlink is left in
-// the listing as a name, since knowing it exists is useful; what is refused is
-// reading through it.
+// a joined path, and that choice confines it. The walk cannot leave the root.
+// It reports a symlinked directory as a plain entry and does not descend into
+// it, so neither an escape nor a cycle is reachable. The listing keeps a
+// symlink as a name, since knowing it exists is useful. Only reading through
+// it is refused.
 func (s *Source) walk(o walkOpts) (walkResult, error) {
 	var res walkResult
 	seenDir := map[string]bool{}
@@ -153,8 +153,8 @@ func (s *Source) walk(o walkOpts) (walkResult, error) {
 }
 
 // isBinary reports whether content looks binary, by the presence of a NUL byte
-// in its leading bytes. It is the same heuristic grep uses, and it is a
-// heuristic: a UTF-16 text file trips it, and a binary with no early NUL does
+// in its leading bytes. grep uses the same heuristic, and it is only a
+// heuristic. A UTF-16 text file trips it, and a binary with no early NUL does
 // not.
 func isBinary(b []byte) bool {
 	if len(b) > binarySniffLen {
@@ -166,9 +166,9 @@ func isBinary(b []byte) bool {
 // compilePattern turns the query into a matcher.
 //
 // A pattern that does not compile is returned as an error naming it, never as
-// zero matches. "No matches" and "your pattern was malformed" are answers a
-// caller acts on completely differently, and a search that reports the second
-// as the first sends the model looking for code that is there.
+// zero matches. A caller acts on "no matches" and "your pattern was malformed"
+// completely differently. A search that reported the second as the first would
+// send the model looking for code that is there.
 //
 // Go's regexp is RE2, so there is no backtracking and a pathological pattern
 // cannot hang the call.
@@ -204,8 +204,8 @@ func (m match) String() string {
 }
 
 // targetLabel names what a listing covered, for the "no files under X" and
-// error messages. Several roots have no single name, so it says so rather than
-// picking one and reading as though the others were not searched.
+// error messages. Several roots have no single name, so it says that. Picking
+// one would read as though the others were not searched.
 func targetLabel(targets []walkTarget) string {
 	if len(targets) == 1 {
 		return targets[0].root.abs(targets[0].dir)
@@ -215,8 +215,8 @@ func targetLabel(targets []walkTarget) string {
 
 // walkTargets resolves the optional dir argument to the subtrees to traverse.
 //
-// Absent means every root, because a workspace is the set of them and a
-// listing that silently covered only the first would read as complete. A dir
+// Absent means every root. A workspace is the set of roots, and a listing that
+// silently covered only the first would read as complete. A dir
 // names one subtree of one root, resolved the same way every other path is.
 func (s *Source) walkTargets(args map[string]any) ([]walkTarget, error) {
 	d, _ := args["dir"].(string)
@@ -238,8 +238,8 @@ func (s *Source) walkTargets(args map[string]any) ([]walkTarget, error) {
 //
 // The limit is applied to the merged list rather than per root, so raising the
 // number of roots does not quietly raise the cap. Each root is walked with the
-// full limit and the merge truncates, which over-collects by at most one
-// limit per root and keeps the per-root walk unaware that it has siblings.
+// full limit, and the merge truncates. That over-collects by at most one limit
+// per root, and the per-root walk never needs to know it has siblings.
 func (s *Source) walkAll(targets []walkTarget, limit int) (walkResult, error) {
 	var out walkResult
 	for _, t := range targets {
@@ -344,8 +344,8 @@ func (s *Source) search(args map[string]any) *core.ToolResult {
 		}
 		info, err := fs.Stat(wr.h.FS(), rel)
 		if err != nil {
-			// A symlink pointing out of the root lands here, which is the
-			// point: it stays visible as a name and is never read through.
+			// A symlink pointing out of the root ends up here, on purpose.
+			// It is still visible as a name and is never read through.
 			unreadable++
 			continue
 		}
@@ -411,9 +411,9 @@ func (s *Source) search(args map[string]any) *core.ToolResult {
 
 // writeOmissions appends what a listing left out.
 //
-// Silence here would be the bug: a capped list that does not say so reads as
-// the complete contents of the directory, and the caller concludes a file it
-// was looking for does not exist.
+// Saying nothing here would be a bug. A capped list that does not say so reads
+// as the complete contents of the directory. The caller then concludes that a
+// file it was looking for does not exist.
 func writeOmissions(b *strings.Builder, res walkResult, shown, total int, noun string) {
 	if res.truncated {
 		fmt.Fprintf(b, "\n\nshowing %d of %d %s(s); pass a narrower dir or raise limit", shown, total, noun)

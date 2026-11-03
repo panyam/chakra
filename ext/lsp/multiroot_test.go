@@ -10,11 +10,11 @@ import (
 	"time"
 )
 
-// twoRootStub starts one stub server covering two workspaces, which is the
-// arrangement the workspaceFolders array exists for. Measured against gopls,
-// rust-analyzer and typescript-language-server: one instance answers correctly
-// for a file in a folder that is not the rootUri, so this needs no server per
-// root.
+// twoRootStub starts one stub server covering two workspaces. The
+// workspaceFolders array exists for this arrangement. We measured gopls,
+// rust-analyzer and typescript-language-server, and one instance answers
+// correctly for a file in a folder that is not the rootUri. So this needs no
+// server per root.
 func twoRootStub(t *testing.T, s stubScript) (*client, string, string) {
 	t.Helper()
 	a, err := filepath.EvalSymlinks(t.TempDir())
@@ -39,9 +39,9 @@ func twoRootStub(t *testing.T, s stubScript) (*client, string, string) {
 }
 
 // TestInitializeSendsEveryRootAsAWorkspaceFolder asserts what reached the
-// server rather than what the client holds. One instance covering several
-// folders is the whole reason this needs no server per root, and it only works
-// if the folders are actually on the wire.
+// server rather than what the client holds. One instance can cover several
+// folders, so this needs no server per root. That only works if the folders
+// are actually on the wire.
 func TestInitializeSendsEveryRootAsAWorkspaceFolder(t *testing.T) {
 	c, a, b := twoRootStub(t, stubScript{})
 	if len(c.roots) != 2 || c.roots[0] != a || c.roots[1] != b {
@@ -62,9 +62,9 @@ func TestInitializeSendsEveryRootAsAWorkspaceFolder(t *testing.T) {
 	}
 }
 
-// TestDiagnosticsArriveForEitherRoot is the property the whole change is for. A
-// server told about both folders reports on a file in the second, which is the
-// caller an agent breaks when it edits an API in the first.
+// TestDiagnosticsArriveForEitherRoot checks the property this change exists
+// for. Imagine an agent edits an API in the first folder and breaks a caller
+// in the second. A server told about both folders reports on that caller.
 func TestDiagnosticsArriveForEitherRoot(t *testing.T) {
 	c, a, b := twoRootStub(t, stubScript{Diagnostics: map[string][]diagnostic{
 		"a.go": {{Message: "in the first root"}},
@@ -123,8 +123,8 @@ func TestPathFromURIAcceptsEitherRoot(t *testing.T) {
 	}
 }
 
-// TestToolsReachEitherRoot pins the model-facing half: a navigation call names
-// a file in the second workspace and is not refused for being outside the
+// TestToolsReachEitherRoot pins the model-facing half. A navigation call names
+// a file in the second workspace, and it is not refused for being outside the
 // first.
 func TestToolsReachEitherRoot(t *testing.T) {
 	a, err := filepath.EvalSymlinks(t.TempDir())

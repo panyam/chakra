@@ -18,11 +18,12 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// The long-running process tools (#155), named as Codex names them so a model
-// trained on Codex calls them without being taught: exec_command starts a
-// command and returns what it printed within a short wait, or a session id if
-// it is still running; write_stdin types into it, or with nothing to type
-// collects new output. list_processes and kill_process manage what is running.
+// The long-running process tools (#155) use Codex's names, so a model trained
+// on Codex calls them without being taught. exec_command starts a command. It
+// returns what the command printed within a short wait, or a session id if the
+// command is still running. write_stdin types into a running command, or
+// collects new output when there is nothing to type. list_processes and
+// kill_process manage the running processes.
 const (
 	ExecCommandTool   = "exec_command"
 	WriteStdinTool    = "write_stdin"
@@ -31,13 +32,14 @@ const (
 )
 
 // ProcessConfig turns on the long-running process tools, for commands that
-// outlive one tool call: dev servers, watchers, interactive prompts. They run
-// under the same sandbox as shell and are judged by the same prefix rules, so
-// it needs Config.Shell. Zero fields take the defaults.
+// outlive one tool call, such as dev servers, watchers and interactive
+// prompts. They run under the same sandbox as shell and are judged by the
+// same prefix rules, so ProcessConfig needs Config.Shell. Zero fields take the
+// defaults.
 type ProcessConfig struct {
 	// Max bounds how many processes run at once. Default 8.
 	Max int
-	// MaxOutput is the bytes of output kept per process; older output is
+	// MaxOutput caps the bytes of output kept per process. Older output is
 	// dropped first, and a read says how much it missed. Default 1 MiB.
 	MaxOutput int
 	// DefaultYield is how long a call waits for output when the model doesn't
@@ -45,11 +47,12 @@ type ProcessConfig struct {
 	DefaultYield time.Duration
 	// MaxYield caps the wait a model can ask for. Default 30s.
 	MaxYield time.Duration
-	// StreamBudget is how many bytes of one process's output are shown to
-	// the user as they arrive, in agentweb and agentchat, before streaming
-	// pauses for that process; the model still reads all of it. Default
-	// 4 MiB; negative streams without limit. The host keeps streamed output
-	// in its event log, which Config.MaxEventLogRetention bounds by count.
+	// StreamBudget caps how many bytes of one process's output agentweb and
+	// agentchat show the user as it arrives. Past the budget, streaming
+	// pauses for that process, and the model still reads all of the output.
+	// Default 4 MiB, and negative streams without limit. The host keeps
+	// streamed output in its event log, and host.Config.MaxEventLogRetention
+	// bounds that log by count.
 	StreamBudget int
 }
 
@@ -58,13 +61,13 @@ const (
 	defaultProcOutput   = 1 << 20
 	defaultYield        = 10 * time.Second
 	defaultMaxYield     = 30 * time.Second
-	// procReadMax bounds what one call returns to the model; the middle of a
+	// procReadMax bounds what one call returns to the model. The middle of a
 	// longer stretch is dropped, as for run_* and shell.
 	procReadMax = 16 << 10
 )
 
 // procManager owns a session's processes. They outlive the turn that started
-// them, so nothing here hangs off a turn's context; Close kills them all.
+// them, so nothing here derives from a turn's context. Close kills them all.
 type procManager struct {
 	cfg   ProcessConfig
 	mu    sync.Mutex
@@ -107,8 +110,8 @@ type proc struct {
 	done chan struct{}
 	exit int
 
-	// readMu serializes reads, so two calls on one process in the same step
-	// (tool calls run in parallel) don't both claim the same output.
+	// readMu serializes reads. Tool calls in one step run in parallel, and two
+	// calls on one process must not both claim the same output.
 	readMu sync.Mutex
 	// read is how much of the output the model has been shown.
 	read int64
@@ -238,9 +241,9 @@ func decodeArgs(args map[string]any, into any) error {
 	return json.Unmarshal(raw, into)
 }
 
-// shellArgv is how a cmd string runs: bash -lc, or sh -c where there is no
-// bash. The prefix rules read the same argv, so a script is judged command by
-// command.
+// shellArgv builds the argv that runs a cmd string. It uses bash -lc, or sh -c
+// where there is no bash. The prefix rules read the same argv, so a script is
+// judged command by command.
 func shellArgv(cmd string) []string {
 	if _, err := osexec.LookPath("bash"); err == nil {
 		return []string{"bash", "-lc", cmd}
@@ -299,8 +302,8 @@ func (s *Source) execCommand(args map[string]any) *core.ToolResult {
 	m.mu.Unlock()
 	var stream *outputStream
 	if report != nil {
-		// Teed before the start, so the first output isn't missed; it waits
-		// in the stream until the process has its id.
+		// The stream is teed before the start, so the first output isn't
+		// missed. That output waits in the stream until the process has its id.
 		stream = newOutputStream(m.cfg.StreamBudget)
 		p.out.tee = stream.add
 	}
@@ -484,9 +487,9 @@ func (m *procManager) killAll() {
 
 // classifyProcs judges the process tools' calls. exec_command is judged by the
 // shell's prefix rules, like shell. write_stdin with nothing to send only
-// reads; with text it types into a running program, which can do anything
-// that program does, so it asks unless the mode runs everything. An approval
-// is remembered per process.
+// reads. With text it types into a running program, and that input can make
+// the program do anything. So it asks unless the mode runs everything. An
+// approval is remembered per process.
 func (s *Source) classifyProcs(_ context.Context, info agent.ToolCallInfo) (agent.CallClass, bool) {
 	if s.procs == nil {
 		return agent.CallClass{}, false

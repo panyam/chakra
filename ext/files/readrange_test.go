@@ -8,7 +8,8 @@ import (
 const fiveLines = "one\ntwo\nthree\nfour\nfive\n"
 
 // #109: a model that needed one function from a 38 KB file had to read all of
-// it, which then rode along in every later step of the turn.
+// it. The whole file then stayed in the context for every later step of the
+// turn.
 func TestReadLineRangeReturnsThoseLinesWithTheWholeFileHash(t *testing.T) {
 	s, root := newTestSource(t)
 	write(t, root, "f.txt", fiveLines)

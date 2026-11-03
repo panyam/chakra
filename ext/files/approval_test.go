@@ -30,7 +30,7 @@ func renderCall(t *testing.T, name, args string) (string, bool) {
 }
 
 // TestEditApprovalShowsTheDiff is the reason the seam exists. The default host
-// prompt would render this call's JSON trimmed to 200 characters, which cuts
+// prompt would render this call's JSON trimmed to 200 characters. That cuts
 // off the change the user is being asked to approve.
 func TestEditApprovalShowsTheDiff(t *testing.T) {
 	got, ok := renderCall(t, "edit_file", `{
@@ -105,11 +105,11 @@ func TestWriteApprovalDistinguishesCreateFromReplace(t *testing.T) {
 	}
 }
 
-// TestWriteApprovalSaysAnExistingFileWillBeRefused is the prompt telling the
-// truth about a call that cannot run. write_file without expect_hash is a
-// create, and a create on an existing path is refused, so a "Create old.go?"
-// prompt asks the user to approve a write the tool will never perform. The
-// prompt names the reason and the two ways forward instead.
+// TestWriteApprovalSaysAnExistingFileWillBeRefused checks that the prompt tells
+// the truth about a call that cannot run. write_file without expect_hash is a
+// create, and a create on an existing path is refused. So a "Create old.go?"
+// prompt would ask the user to approve a write that the tool will never
+// perform. The prompt names the reason and the two ways forward instead.
 func TestWriteApprovalSaysAnExistingFileWillBeRefused(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "old.go"), []byte("package main\n"), 0o644); err != nil {
@@ -143,8 +143,8 @@ func TestWriteApprovalSaysAnExistingFileWillBeRefused(t *testing.T) {
 		t.Errorf("prompt should still show the content being written:\n%s", got)
 	}
 
-	// The same path with expect_hash is a replace, and is not described as one
-	// that will be refused: it runs if the hash still matches.
+	// The same path with expect_hash is a replace. The prompt does not say it
+	// will be refused, because it runs if the hash still matches.
 	replace := render(`{"path":"old.go","content":"x\n","expect_hash":"abc"}`)
 	if !strings.Contains(replace, "Replace old.go") {
 		t.Errorf("a replace should say so:\n%s", replace)
@@ -155,9 +155,9 @@ func TestWriteApprovalSaysAnExistingFileWillBeRefused(t *testing.T) {
 }
 
 // TestWriteApprovalOnlyCallsAnExistingFileByItsName keeps a directory from
-// being reported as an existing file: write_file refuses that with its own
-// message, and claiming "pass expect_hash" about a directory would be advice
-// that cannot work.
+// being reported as an existing file. write_file refuses a directory with its
+// own message. Telling the user to "pass expect_hash" for a directory would be
+// advice that cannot work.
 func TestWriteApprovalOnlyCallsAnExistingFileByItsName(t *testing.T) {
 	root := t.TempDir()
 	if err := os.Mkdir(filepath.Join(root, "somedir"), 0o755); err != nil {
@@ -178,7 +178,7 @@ func TestWriteApprovalOnlyCallsAnExistingFileByItsName(t *testing.T) {
 	}
 }
 
-// TestWriteApprovalCapsItsOwnPreview is the renderer exercising the freedom
+// TestWriteApprovalCapsItsOwnPreview checks that the renderer uses the freedom
 // the seam gives it. The default's 200-character trim is wrong for a diff, but
 // unbounded output is wrong for a whole-file write, so the renderer picks.
 func TestWriteApprovalCapsItsOwnPreview(t *testing.T) {
@@ -211,9 +211,9 @@ func TestUnknownToolsAreDeclined(t *testing.T) {
 	}
 }
 
-// TestDeleteApprovalNamesTheFile is the call that destroys content. The
-// default rendering trims the JSON, and for a delete that is the whole
-// question: which file is about to go.
+// TestDeleteApprovalNamesTheFile covers the call that destroys content. The
+// default rendering trims the JSON. For a delete, the whole question is which
+// file is about to go.
 func TestDeleteApprovalNamesTheFile(t *testing.T) {
 	got, ok := renderCall(t, "delete_file", `{"path":"old.go","expect_hash":"abc"}`)
 	if !ok {
@@ -227,8 +227,9 @@ func TestDeleteApprovalNamesTheFile(t *testing.T) {
 	}
 }
 
-// TestMalformedArgumentsDecline is where the generic rendering is the honest
-// one: it shows the raw text rather than a summary built from a guess.
+// TestMalformedArgumentsDecline covers the case where the generic rendering is
+// the honest one. It shows the raw text instead of a summary built from a
+// guess.
 func TestMalformedArgumentsDecline(t *testing.T) {
 	cases := map[string]string{
 		"not json":      `{"path": `,
@@ -247,8 +248,8 @@ func TestMalformedArgumentsDecline(t *testing.T) {
 	}
 }
 
-// TestRendererIsRegistered pins the wiring, since a renderer that is never
-// collected is a diff nobody sees.
+// TestRendererIsRegistered pins the wiring. If nothing collects the renderer,
+// nobody sees its diff.
 func TestRendererIsRegistered(t *testing.T) {
 	e, err := New(Config{Roots: []string{t.TempDir()}})
 	if err != nil {

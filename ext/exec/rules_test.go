@@ -89,7 +89,7 @@ func TestCommandsOfSplitsPlainScripts(t *testing.T) {
 			t.Errorf("%q: got %q, want %q", script, got, want)
 		}
 	}
-	// One quoted word must stay one word, so 'a b' doesn't become two.
+	// A quoted 'a b' must split as one word, not two.
 	cmds, _ := commandsOf([]string{"sh", "-c", `grep 'a b' f`})
 	if len(cmds[0]) != 3 {
 		t.Errorf("quoted word split: %q", cmds[0])
@@ -97,8 +97,8 @@ func TestCommandsOfSplitsPlainScripts(t *testing.T) {
 }
 
 // TestCommandsOfRefusesWhatItCannotRead lists the constructs that could hide
-// a command from the rules. Each must make the splitter give up, so the call
-// is treated as matching nothing and is asked about.
+// a command from the rules. Each must make the splitter give up. The call is
+// then treated as matching nothing, and it needs approval.
 func TestCommandsOfRefusesWhatItCannotRead(t *testing.T) {
 	for _, script := range []string{
 		"echo $(rm -rf ~)",

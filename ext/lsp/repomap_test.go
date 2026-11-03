@@ -9,9 +9,9 @@ func entry(path string, syms ...string) *fileEntry {
 	return &fileEntry{path: path, symbols: syms}
 }
 
-// TestRankPrefersWhatOthersLeanOn is the property that makes this a map rather
-// than a listing. core.go is referenced by both other files and should outrank
-// them; a listing ordered by name or size would not know that.
+// TestRankPrefersWhatOthersLeanOn checks the property that makes this a map
+// rather than a listing. core.go is referenced by both other files and should
+// outrank them. A listing ordered by name or size would not know that.
 func TestRankPrefersWhatOthersLeanOn(t *testing.T) {
 	dir := t.TempDir()
 	write := func(name, body string) string {
@@ -57,7 +57,7 @@ func TestRankIgnoresSubstringMatches(t *testing.T) {
 	}
 }
 
-// TestRankDropsAmbiguousNames pins that a name declared in two files carries no
+// TestRankDropsAmbiguousNames pins that a name declared in two files gives no
 // direction and is not pointed at a guess.
 func TestRankDropsAmbiguousNames(t *testing.T) {
 	dir := t.TempDir()
@@ -95,8 +95,8 @@ func TestRenderStaysWithinBudget(t *testing.T) {
 	}
 }
 
-// TestRenderReportsWhatWasNeverIndexed pins the other cap. A map that stayed
-// quiet about stopping early reads as the whole repository.
+// TestRenderReportsWhatWasNeverIndexed pins the other cap. If a map stopped
+// early and didn't say so, it would read as the whole repository.
 func TestRenderReportsWhatWasNeverIndexed(t *testing.T) {
 	out := render([]*fileEntry{entry("/repo/a.go", "Thing")}, 1000, 37)
 	if !strings.Contains(out, "37 file(s) were never indexed") {
@@ -110,8 +110,8 @@ func TestRenderEmptyWhenNothingFits(t *testing.T) {
 	}
 }
 
-// TestRepoMapIsEmptyUntilReady pins that an early turn is missing the map
-// rather than blocked on it. The prompt builder drops empty sections.
+// TestRepoMapIsEmptyUntilReady pins that an early turn goes without the map
+// instead of blocking on it. The prompt builder drops empty sections.
 func TestRepoMapIsEmptyUntilReady(t *testing.T) {
 	m := &repoMap{}
 	if got := m.get(); got != "" {
@@ -136,10 +136,10 @@ func TestRepoMapOffByDefault(t *testing.T) {
 	}
 }
 
-// TestRankIgnoresSubstringMatchesEndToEnd covers what the unit test above
-// cannot: that rank actually uses whole-identifier matching. Testing mentions
-// directly passes even if the ranking calls strings.Contains instead, which a
-// mutation run demonstrated.
+// TestRankIgnoresSubstringMatchesEndToEnd checks that rank actually uses
+// whole-identifier matching, which the unit test above cannot check. Testing
+// mentions directly passes even if the ranking calls strings.Contains
+// instead. A mutation run showed that.
 func TestRankIgnoresSubstringMatchesEndToEnd(t *testing.T) {
 	score := func(body string) float64 {
 		dir := t.TempDir()

@@ -12,16 +12,16 @@ import (
 // DefaultTimeout bounds a command that does not set its own.
 const DefaultTimeout = 2 * time.Minute
 
-// DefaultMaxOutput caps the bytes a command's stdout, and separately its
-// stderr, may hold in memory. It guards against a runaway process rather than
-// shaping what the model reads, which is DefaultInlineOutput's job, so it is
-// set well above a realistic failing go test transcript.
+// DefaultMaxOutput caps the bytes held in memory for a command's stdout, and
+// separately for its stderr. It guards against a runaway process.
+// DefaultInlineOutput shapes what the model reads, so this cap is set well
+// above a realistic failing go test transcript.
 const DefaultMaxOutput = 1 << 20
 
-// DefaultInlineOutput caps the bytes of each stream a result carries when the
-// host is not offloading. Output beyond it is dropped from the middle, keeping
-// the head and the tail, because a failing build usually states the problem
-// at one end or the other.
+// DefaultInlineOutput caps how many bytes of each stream go into a result when
+// the host is not offloading. Output beyond it is dropped from the middle and
+// the head and tail are kept, because a failing build usually states the
+// problem at one end or the other.
 const DefaultInlineOutput = 32 << 10
 
 // toolPrefix namespaces the generated tool names so a command called "test"
@@ -35,23 +35,23 @@ var nameRE = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 // Config configures the command source.
 //
 // There is no mode in which the model supplies a command. Commands come from
-// here, and the model chooses among them, for the reason files.Config.Roots
-// and lsp.ServerSpec.Command already give: a model's instructions can come
-// from content it read rather than from the user, so anything the model can
-// name is something an injected instruction can name.
+// here, and the model chooses among them. files.Config.Roots and
+// lsp.ServerSpec.Command follow the same rule for the same reason. A model's
+// instructions can come from content it read rather than from the user. So if
+// the model can name something, an injected instruction can name it too.
 type Config struct {
 	// Roots are the directories a command may run in and write to. At least
-	// one is required, and the first is primary: a relative Dir or path
+	// one is required. The first is primary, and a relative Dir or path
 	// argument resolves against it.
 	//
-	// A set rather than one directory, matching files.Config.Roots, because a
-	// session that stays inside one repository is the exception (issue 1314).
+	// Roots is a set rather than one directory, as files.Config.Roots is,
+	// because few sessions keep to one repository (panyam/mcpkit#1314).
 	Roots []string
 
 	// Commands is the allowlist. Each entry becomes one tool, so the model
-	// picks a tool rather than composing a command line. Empty is an error:
-	// an exec extension with nothing to run is a misconfiguration, not a
-	// degenerate case worth supporting.
+	// picks a tool rather than composing a command line. Empty is an error,
+	// because an exec extension with nothing to run is a misconfiguration. It
+	// isn't a degenerate case worth supporting.
 	Commands []CommandSpec
 
 	// Shell turns on the general command tool, "shell", governed by prefix
@@ -66,10 +66,10 @@ type Config struct {
 	// Sandbox confines every command. Nil selects the platform's backend and
 	// fails construction when there is none, rather than running unconfined.
 	//
-	// Unconfined() is the deliberate opt-out, and has to be written here. It
-	// is the right setting for a process an operator already isolated, which
-	// is the ordinary deployed case: a container the operator built is the
-	// boundary, and a second fence inside it protects nothing.
+	// Unconfined() is the deliberate opt-out, and has to be written here. Use
+	// it when an operator has already isolated the process, as in the
+	// ordinary deployed case. There the operator's container is the boundary,
+	// and a second fence inside it protects nothing.
 	Sandbox Sandbox
 
 	// Timeout bounds any command whose spec does not set its own. Zero means
@@ -80,35 +80,36 @@ type Config struct {
 	// dropping from the middle beyond it. Zero means DefaultMaxOutput.
 	MaxOutput int
 
-	// InlineOutput caps the bytes of each stream the result carries, in both
-	// its text and its structured content. Zero means DefaultInlineOutput.
-	// Negative returns all of MaxOutput, for a host whose OffloadingSource
-	// stores large results: that puts the middle of a long run, where a
-	// failing assertion usually sits, in the store where read_tool_result can
-	// grep it. A timed-out run always gets the DefaultInlineOutput view,
-	// since offloading leaves error results inline.
+	// InlineOutput caps how many bytes of each stream go into the result, in
+	// both its text and its structured content. Zero means
+	// DefaultInlineOutput. Negative returns all of MaxOutput, for a host whose
+	// OffloadingSource stores large results. A failing assertion usually sits
+	// in the middle of a long run. With a negative value that middle goes to
+	// the store, and read_tool_result can grep it there. A timed-out run
+	// always gets the DefaultInlineOutput view, since offloading leaves error
+	// results inline.
 	InlineOutput int
 
-	// WritePaths are directories outside Roots that commands may still write
-	// to. Nil means DefaultWritePaths, which covers the build and module
-	// caches a toolchain needs; an explicitly empty non-nil slice means none.
+	// WritePaths lists directories outside Roots where commands may still
+	// write. Nil means DefaultWritePaths, which covers the build and module
+	// caches that toolchains need. An explicitly empty non-nil slice means
+	// none.
 	//
-	// A toolchain that needs a path not listed here fails with a sandbox
-	// denial rather than silently writing outside confinement, which is the
-	// failure direction to prefer.
+	// Suppose a toolchain needs a path not listed here. It fails with a
+	// sandbox denial rather than writing silently outside confinement. We
+	// prefer that failure to the other one.
 	WritePaths []string
 
-	// DenyRead are paths a command may not read even though reads are
-	// otherwise unrestricted. Nil means DefaultDenyRead; an explicitly empty
-	// non-nil slice means no read is denied.
+	// DenyRead blocks commands from reading these paths. Reads are otherwise
+	// unrestricted. Nil means DefaultDenyRead, and an explicitly empty non-nil
+	// slice means no read is denied.
 	//
-	// Reads are broadly allowed on purpose. Confining them would break every
-	// real toolchain, which reads compilers, SDKs, module caches and system
-	// libraries scattered across the filesystem, and the resulting failures
-	// look like bugs rather than policy. The exposure that leaves is a
-	// command reading credentials, so the default denies the well-known
-	// credential locations rather than pretending to a confinement the
-	// profile does not have.
+	// Reads are broadly allowed on purpose. A real toolchain reads compilers,
+	// SDKs, module caches and system libraries from all over the filesystem.
+	// Confining reads would break every one of them, and the failures would
+	// look like bugs rather than policy. That leaves one exposure, a command
+	// reading credentials. So the default denies the well-known credential
+	// locations, and doesn't pretend the profile confines more than it does.
 	DenyRead []string
 }
 
@@ -128,8 +129,8 @@ var DefaultWritePaths = []string{
 }
 
 // DefaultDenyRead lists credential locations a build or test command has no
-// business reading. It is not exhaustive and cannot be: it is the difference
-// between a profile that stops the obvious exfiltration and one that stops
+// business reading. It is not exhaustive and cannot be. Even so, a profile
+// with it stops the obvious exfiltration, and a profile without it stops
 // none.
 var DefaultDenyRead = []string{
 	"$HOME/.ssh",
@@ -162,18 +163,18 @@ type CommandSpec struct {
 	Dir string
 
 	// Description tells the model when to reach for this command. It becomes
-	// the tool description, which is the only thing the model has to choose
+	// the tool description. The model has only that description to choose
 	// between two entries.
 	Description string
 
-	// Args permits trailing arguments the model supplies. Nil means the
-	// command takes none and the tool exposes no argument at all, which is
-	// the default because an allowlist that accepts free-form arguments is a
-	// weaker statement than it appears to be.
+	// Args lets the model supply trailing arguments. Nil means the command
+	// takes none and the tool exposes no argument at all. Nil is the default,
+	// because accepting free-form arguments makes an allowlist weaker than it
+	// appears to be.
 	Args *ArgPolicy
 
-	// AllowNetwork lets this command reach the network. Off by default: a
-	// build that fetches at test time is a build that can also post.
+	// AllowNetwork lets this command reach the network. It is off by default,
+	// because a build that can fetch at test time can also post.
 	AllowNetwork bool
 
 	// ReadOnly marks a command with no side effects worth reviewing, and
@@ -185,10 +186,10 @@ type CommandSpec struct {
 	// tool's destructiveHint. It makes the command auto-allowed under
 	// ModeReversibleAuto.
 	//
-	// The zero value declares the command destructive, so a command nobody
-	// classified is asked about. Only the operator who wrote the allowlist
-	// knows which entries are safe to run unattended, and a default
-	// that guessed on their behalf would guess in the permissive direction.
+	// The zero value declares the command destructive, so an unclassified
+	// command needs approval. Only the operator who wrote the allowlist knows
+	// which entries are safe to run unattended. A default that guessed for
+	// them would guess in the permissive direction.
 	Reversible bool
 
 	// Timeout overrides Config.Timeout for this command.
@@ -197,16 +198,16 @@ type CommandSpec struct {
 
 // ArgPolicy constrains the trailing arguments a model may supply.
 //
-// It exists so the test loop can run a subset rather than only whole suites,
-// which is the difference between a useful feedback loop and one that reruns
-// everything to learn one thing.
+// It lets the test loop run a subset rather than only whole suites. Without
+// it, the loop reruns everything to learn one thing.
 type ArgPolicy struct {
 	// Max is the most arguments accepted, and must be positive.
 	Max int
 
-	// Match is a regular expression every argument must match end to end. It
-	// is required: a policy that permits arguments without constraining them
-	// is the free-form command line this package exists to avoid.
+	// Match is a regular expression, and every argument must match it end to
+	// end. It is required. A policy that permits arguments without
+	// constraining them gives back the free-form command line, and this
+	// package exists to avoid that.
 	Match string
 
 	// Paths additionally requires every argument to name a path inside a
@@ -233,7 +234,7 @@ func (p *ArgPolicy) validate() error {
 }
 
 // expandPaths resolves $HOME and $TMPDIR in a path list and drops entries that
-// expand to nothing, so a default list stays usable on a machine where one of
+// expand to nothing, so a default list still works on a machine where one of
 // the variables is unset.
 func expandPaths(in []string) []string {
 	var out []string
@@ -267,12 +268,15 @@ func expandPaths(in []string) []string {
 // resolveBoth returns a path and, when it differs, the same path with symlinks
 // resolved.
 //
-// Both, because it is not knowable from here which spelling a rule will be
-// matched against. Seatbelt matches the resolved path, so a rule naming /tmp
-// silently covers nothing on darwin where /tmp is a link to /private/tmp. That
-// failure is invisible in the profile, which lists the rule the operator asked
-// for: the write denial appears to be in force and is not, and a read denial
-// that appears to be in force and is not is worse than an absent one.
+// It returns both because this code can't know which spelling a rule will be
+// matched against. Seatbelt matches the resolved path. On darwin /tmp is a
+// link to /private/tmp, so a rule naming /tmp silently covers nothing. The
+// profile doesn't show that failure, because it lists the rule the operator
+// asked for. For a WritePaths entry the failure is closed. Writes outside the
+// listed paths are refused anyway, so the command just can't write there. For
+// a DenyRead entry the failure is open. The read denial appears to be in
+// force and is not, which is worse than having no rule, because the operator
+// believes the path is protected.
 func resolveBoth(p string) []string {
 	real, err := filepath.EvalSymlinks(p)
 	if err != nil || real == p {

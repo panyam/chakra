@@ -90,8 +90,9 @@ func TestFindReferencesRendersEveryUse(t *testing.T) {
 }
 
 // TestReferencesOutsideTheWorkspaceAreNamedButNotQuoted pins the confinement.
-// A definition in a dependency is a real answer, and reading that file to quote
-// it would reach outside the root that confines everything else the agent does.
+// A definition in a dependency is a real answer. Quoting it would mean reading
+// a file outside the root, and the root confines everything else the agent
+// does.
 func TestReferencesOutsideTheWorkspaceAreNamedButNotQuoted(t *testing.T) {
 	root := workspace(t, map[string]string{"a.go": "package a\n\nfunc Get() int { return 1 }\n"})
 	s := toolsFor(t, root, stubScript{
@@ -112,9 +113,9 @@ func TestReferencesOutsideTheWorkspaceAreNamedButNotQuoted(t *testing.T) {
 	}
 }
 
-// TestAmbiguousSymbolIsRefusedAtTheTool carries findSymbol's discipline out to
-// the model: an ambiguous name comes back as an IsError result it can correct,
-// rather than as a confident answer about the wrong symbol.
+// TestAmbiguousSymbolIsRefusedAtTheTool extends findSymbol's rule to the
+// model. An ambiguous name comes back as an IsError result the model can
+// correct, rather than as a confident answer about the wrong symbol.
 func TestAmbiguousSymbolIsRefusedAtTheTool(t *testing.T) {
 	root := workspace(t, map[string]string{"a.go": "package a\n"})
 	s := toolsFor(t, root, stubScript{Symbols: map[string][]documentSymbol{"a.go": {
@@ -173,8 +174,8 @@ func TestMissingArgumentsAreRefused(t *testing.T) {
 	}
 }
 
-// TestUnknownToolIsADispatchError pins the split ToolSource declares: a tool
-// that ran and failed reports through IsError, while a name this source does
+// TestUnknownToolIsADispatchError pins the split that ToolSource declares. A
+// tool that ran and failed reports through IsError. A name this source does
 // not serve is a dispatch failure.
 func TestUnknownToolIsADispatchError(t *testing.T) {
 	root := workspace(t, map[string]string{"a.go": "package a\n"})
@@ -201,11 +202,11 @@ func TestNoResultsIsNotAnError(t *testing.T) {
 	}
 }
 
-// TestWedgedServerRefusesRatherThanHanging is the production shape of the
-// bound. The navigation tools pass the Runner's context straight down, and that
-// context often carries no deadline, so before the backstop a server that read
-// a request and never answered would hold the turn open with nothing to explain
-// it.
+// TestWedgedServerRefusesRatherThanHanging tests the bound the way production
+// hits it. The navigation tools pass the Runner's context straight down, and
+// that context often has no deadline. Before the backstop, a server that read
+// a request and never answered would hold the turn open with nothing to
+// explain it.
 func TestWedgedServerRefusesRatherThanHanging(t *testing.T) {
 	root := workspace(t, map[string]string{"a.go": "package a\n"})
 	ext := newStubExtension(t, root, stubScript{

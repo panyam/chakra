@@ -16,12 +16,12 @@ import (
 
 // Source serves one tool per allowlisted command over agent.ToolSource.
 //
-// One tool each rather than a single run_command taking a name, because the
-// safety annotations that drive the approval gate are per tool. Collapsed into
-// one tool, every command would share one destructiveHint, and the operator
-// could not say that `go build` may run unattended while `terraform apply`
-// asks. The containment is the same either way: the model picks from a fixed
-// set and never composes a command line.
+// Each command gets its own tool rather than one run_command taking a name.
+// The approval gate reads safety annotations, and those are per tool. With one
+// tool, every command would share one destructiveHint. The operator could not
+// then let `go build` run unattended while `terraform apply` asks. The
+// containment is the same either way. The model picks from a fixed set and
+// never composes a command line.
 type Source struct {
 	roots     []string
 	cmds      map[string]*command
@@ -48,10 +48,10 @@ type command struct {
 // NewSource resolves the allowlist and the sandbox, failing on anything it
 // cannot settle now rather than on the first call.
 //
-// Resolution at construction is the point of several of these checks. Argv[0]
-// goes through PATH once, here, so the tool runs the binary that was on PATH
-// when the operator configured it and not whatever a later PATH change puts
-// in its place.
+// Several of these checks exist so that resolution happens at construction.
+// Argv[0] goes through PATH once, here. So the tool runs the binary that was on
+// PATH when the operator configured it, and a later PATH change can't swap in
+// another binary.
 func NewSource(cfg Config) (*Source, error) {
 	if len(cfg.Roots) == 0 {
 		return nil, errors.New("exec: Config.Roots needs at least one directory")
@@ -69,9 +69,10 @@ func NewSource(cfg Config) (*Source, error) {
 		if err != nil {
 			return nil, fmt.Errorf("exec: resolve root %s: %w", r, err)
 		}
-		// Through symlinks, because containment is compared against these and
-		// /tmp is a symlink to /private/tmp on darwin. Comparing an unresolved
-		// root against a resolved path would reject a path inside it.
+		// Resolve through symlinks. Containment checks compare against these
+		// roots, and on darwin /tmp is a symlink to /private/tmp. Comparing an
+		// unresolved root against a resolved path would reject a path inside
+		// it.
 		real, err := filepath.EvalSymlinks(abs)
 		if err != nil {
 			return nil, fmt.Errorf("exec: resolve root %s: %w", r, err)
@@ -198,13 +199,13 @@ func (s *Source) resolveCommand(spec CommandSpec, defaultTimeout time.Duration) 
 	return &command{spec: spec, tool: toolPrefix + spec.Name, path: path, dir: dir, timeout: timeout}, nil
 }
 
-// confine resolves a path and checks it lands inside a root.
+// confine resolves a path and checks that it is inside a root.
 //
 // It resolves symlinks on the longest part of the path that exists, then
 // re-attaches the rest. Requiring the whole path to exist would reject the
-// build patterns these commands take (`./agent/...` names no file), and
-// skipping symlinks entirely would accept a link inside a root pointing out
-// of one.
+// build patterns these commands take, since `./ext/...` names no file.
+// Skipping symlinks entirely would accept a link that sits inside a root and
+// points out of it.
 func (s *Source) confine(p string) (string, error) {
 	p = filepath.Clean(p)
 	if !filepath.IsAbs(p) {
@@ -251,7 +252,7 @@ func toolDef(c *command) core.ToolDef {
 
 	// readOnlyHint only when claimed, and destructiveHint only when the
 	// command was declared reversible. An absent destructiveHint reads as
-	// destructive, which is the default an unclassified command should get.
+	// destructive, and an unclassified command should get that default.
 	annotations := map[string]any{}
 	if c.spec.ReadOnly {
 		annotations["readOnlyHint"] = true
@@ -380,13 +381,14 @@ type spawnSpec struct {
 	dir          string
 	timeout      time.Duration
 	allowNetwork bool
-	// unconfined skips the sandbox: an escalated shell call the user approved.
+	// unconfined skips the sandbox, for an escalated shell call that the user
+	// approved.
 	unconfined bool
 	tool       string
 }
 
-// spawned is a finished process: the result the model reads and the parts a
-// caller inspects to add to it.
+// spawned is a finished process. It holds the result for the model, and the
+// parts a caller inspects before adding to that result.
 type spawned struct {
 	result         *core.ToolResult
 	exit           int
@@ -401,9 +403,9 @@ func (s *Source) spawn(ctx context.Context, sp spawnSpec) spawned {
 	defer cancel()
 
 	cmd := osexec.Command(sp.path, sp.argv[1:]...)
-	// Args[0] is what the process sees as its own name. Keeping the
-	// configured spelling rather than the resolved path matters to tools that
-	// switch behaviour on argv[0].
+	// Args[0] is what the process sees as its own name. Some tools switch
+	// behaviour on argv[0], so we keep the configured spelling rather than
+	// the resolved path.
 	cmd.Args = sp.argv
 	cmd.Dir = sp.dir
 	if s.egress != nil {
@@ -461,11 +463,10 @@ func (s *Source) spawn(ctx context.Context, sp spawnSpec) spawned {
 
 // renderRun turns a finished command into the result the model reads.
 //
-// A non-zero exit is not a tool error. The whole point of running a build or a
-// test is to learn that it failed, and flagging that as an error would tell
-// the model the tool malfunctioned rather than that the code did. A timeout is
-// the other way round: the command did not finish, so nothing it printed is a
-// verdict.
+// A non-zero exit is not a tool error. We run a build or a test to learn
+// whether it failed. Flagging a failure as an error would tell the model that
+// the tool malfunctioned, when the code did. A timeout is the other way round.
+// The command did not finish, so nothing it printed is a verdict.
 func renderRun(timeout time.Duration, argv []string, exit int, elapsed time.Duration, timedOut bool, stdout, stderr streamView, waitErr error) *core.ToolResult {
 	var b strings.Builder
 	line := strings.Join(argv, " ")
@@ -500,7 +501,7 @@ func renderRun(timeout time.Duration, argv []string, exit int, elapsed time.Dura
 	}
 }
 
-// streamView is one stream as the result carries it.
+// streamView is one stream as it appears in the result.
 type streamView struct {
 	text    string
 	dropped bool

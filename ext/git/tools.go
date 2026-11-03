@@ -22,19 +22,19 @@ type Config struct {
 	// workspace gets read-only git unless the wiring asks for more.
 	Mutations bool
 
-	// WorktreeDir, when set, offers git_worktree_add and git_worktree_remove,
-	// which create and remove worktrees as directories directly under it,
-	// named by the call. It's kept apart from Root so a worktree never lands
-	// inside the tree it was made from.
+	// WorktreeDir offers git_worktree_add and git_worktree_remove when set.
+	// Those tools create and remove worktrees as directories directly under
+	// it, and the call names each one. It's kept apart from Root, so a
+	// worktree is never created inside the tree it came from.
 	WorktreeDir string
 
 	// MaxOutput caps each tool's text in bytes, DefaultMaxOutput when 0. A
 	// longer output is cut with a note saying how much was left out.
 	MaxOutput int
 
-	// Review, when set, offers the review tool and the /review command
-	// (#152), which need a host that lends sub-agents a provider
-	// (host.SubAgentUser). Off by default, since a review spends model calls.
+	// Review offers the review tool and the /review command (#152) when set.
+	// They need a host that lends sub-agents a provider (host.SubAgentUser).
+	// It is off by default, since a review spends model calls.
 	Review *ReviewConfig
 }
 
@@ -87,17 +87,17 @@ func NewSource(cfg Config) (*Source, error) {
 	return s, nil
 }
 
-// Tools lists the tools Config enabled: the reads always, the mutations and
-// worktree tools only when asked for.
+// Tools lists the tools Config enabled. The reads are always there, and the
+// mutation and worktree tools only when asked for.
 func (s *Source) Tools(context.Context) ([]core.ToolDef, error) {
 	out := make([]core.ToolDef, len(s.defs))
 	copy(out, s.defs)
 	return out, nil
 }
 
-// Call runs one tool. A git failure (an unknown ref, nothing to commit) comes
-// back as an IsError result for the model to act on; an error is returned
-// only for a tool this source doesn't offer.
+// Call runs one tool. A git failure, such as an unknown ref or nothing to
+// commit, comes back as an IsError result for the model to act on. Call
+// returns an error only for a tool this source doesn't offer.
 func (s *Source) Call(ctx context.Context, name string, args map[string]any) (*core.ToolResult, error) {
 	if !s.offers(name) {
 		return nil, fmt.Errorf("git: unknown tool %q", name)
@@ -160,9 +160,9 @@ func (s *Source) diff(ctx context.Context, args map[string]any) (string, error) 
 // DiffTarget says which changes Diff reports. With neither Base nor Commit
 // set, it's the uncommitted ones.
 type DiffTarget struct {
-	// Base diffs the working tree against where HEAD forked from this
-	// branch or commit (their merge base), so only this branch's changes
-	// show, not ones Base gained since.
+	// Base diffs the working tree against the merge base of HEAD and this
+	// branch or commit. So only this branch's changes show. If Base gained
+	// commits since then, they don't show.
 	Base string
 	// Commit is that one commit's change.
 	Commit string
@@ -172,9 +172,9 @@ type DiffTarget struct {
 	Stat bool
 }
 
-// Diff returns the changes t names as git prints them, untracked files listed
-// after an uncommitted diff, since git diff leaves them out. It is the same
-// text git_diff answers with, uncapped.
+// Diff returns the changes that t names, as git prints them. After an
+// uncommitted diff it lists untracked files, since git diff leaves them out.
+// The text matches git_diff's answer, uncapped.
 func (s *Source) Diff(ctx context.Context, t DiffTarget) (string, error) {
 	if t.Base != "" && t.Commit != "" {
 		return "", fmt.Errorf("give base or commit, not both")

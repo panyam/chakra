@@ -28,9 +28,10 @@ func TestDeleteRemovesTheFile(t *testing.T) {
 	}
 }
 
-// TestDeleteNeedsExpectHash is the same discipline write_file has, for the
-// same reason: a delete aimed at content nobody looked at is a delete of a file
-// that has since changed. There is no way to spell "remove whatever is there".
+// TestDeleteNeedsExpectHash applies write_file's discipline, for the same
+// reason. Imagine a delete aimed at content that nobody looked at. It may
+// delete a file that has since changed. There is no way to spell "remove
+// whatever is there".
 func TestDeleteNeedsExpectHash(t *testing.T) {
 	s, root := newTestSource(t)
 	p := write(t, root, "notes.md", "original\n")
@@ -80,9 +81,9 @@ func TestDeleteAMissingFileSaysSo(t *testing.T) {
 	}
 }
 
-// TestDeleteRefusesToEscapeTheRoot is the same boundary as every other tool
-// here. A delete is the worst one to get wrong: reading a file outside the root
-// leaks it, writing one corrupts it, and deleting one destroys it.
+// TestDeleteRefusesToEscapeTheRoot checks the same boundary as every other
+// tool here. A delete is the worst one to get wrong. Reading a file outside the
+// root leaks it, writing one corrupts it, and deleting one destroys it.
 func TestDeleteRefusesToEscapeTheRoot(t *testing.T) {
 	s, _ := newTestSource(t)
 	for _, path := range []string{"../escaped.txt", "/etc/passwd"} {
@@ -97,8 +98,8 @@ func TestDeleteRefusesToEscapeTheRoot(t *testing.T) {
 }
 
 // TestDeleteRefusesASymlink mirrors the write side. Removing the link is
-// unremarkable, but the tool locates the file by reading it to check the hash,
-// and a read through a link is a read of a file outside the root.
+// unremarkable. But the tool reads the file to check the hash, and a read
+// through a link reads a file outside the root.
 func TestDeleteRefusesASymlink(t *testing.T) {
 	s, root := newTestSource(t)
 	outside, err := filepath.EvalSymlinks(t.TempDir())
@@ -160,11 +161,11 @@ func TestDeleteNeedsAPath(t *testing.T) {
 	}
 }
 
-// TestDeletePathsFeedsACheckpointWriteSpec is the property /undo depends on.
-// The checkpoint captures BEFORE dispatch, so it can only see the file if this
-// path resolver points at it beforehand. A delete absent from this list is one
-// the checkpoint never asks about, and /undo then reports a file that cannot
-// come back.
+// TestDeletePathsFeedsACheckpointWriteSpec pins a property that /undo depends
+// on. The checkpoint captures BEFORE dispatch, so it can only see the file if
+// this path resolver points at it beforehand. If a delete is absent from this
+// list, the checkpoint never asks about it. /undo then reports a file that
+// cannot come back.
 func TestDeletePathsFeedsACheckpointWriteSpec(t *testing.T) {
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {

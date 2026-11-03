@@ -105,9 +105,9 @@ func TestCallReportsRPCError(t *testing.T) {
 	}
 }
 
-// TestCallFailsWhenServerDies is the reason the read loop closes every pending
-// channel: without it a crashed server leaves the caller blocked until its
-// context expires, which reads as a slow turn rather than a dead subprocess.
+// TestCallFailsWhenServerDies covers why the read loop closes every pending
+// channel. Without that, a crashed server leaves the caller blocked until its
+// context expires. That reads as a slow turn rather than a dead subprocess.
 func TestCallFailsWhenServerDies(t *testing.T) {
 	c, serverIn, serverOut := pipePair(t)
 	go c.run()
@@ -117,7 +117,7 @@ func TestCallFailsWhenServerDies(t *testing.T) {
 		serverOut.Close()
 	}()
 
-	// A context far longer than the test's patience: if the call waits for it,
+	// This context outlasts the test's patience. If the call waits for it,
 	// the mechanism under test did nothing.
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -153,9 +153,10 @@ func TestNotificationsReachHandler(t *testing.T) {
 	}
 }
 
-// TestServerRequestsAreAnswered pins that we reply to requests the server makes
-// of us. gopls blocks on workspace/configuration during initialization, so a
-// missing reply stops diagnostics with no error to explain it.
+// TestServerRequestsAreAnswered pins that we reply when the server makes a
+// request of us. gopls blocks on workspace/configuration during
+// initialization, so a missing reply stops diagnostics with no error to
+// explain it.
 func TestServerRequestsAreAnswered(t *testing.T) {
 	c, serverIn, serverOut := pipePair(t)
 	go c.run()

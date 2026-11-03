@@ -12,9 +12,9 @@ import (
 
 const findingsJSON = `{"findings":[{"title":"Second line lost its meaning","body":"two became TWO, so callers matching on two break.","file":"a.txt","line_start":2,"line_end":2,"priority":1,"confidence":0.8}],"verdict":"needs changes","summary":"One behaviour change."}`
 
-// reviewed is a Source with review on, lent a stub provider whose child
-// answers once and then finalizes into findingsJSON, recording the child's
-// events.
+// reviewed returns a Source with review on and lends it a stub provider. The
+// child answers once and then finalizes into findingsJSON. The child's events
+// are recorded.
 func reviewed(t *testing.T, dir string) (*Source, *agent.StubProvider, *[]agent.SubAgentEvent) {
 	t.Helper()
 	s := source(t, Config{Root: dir, Review: &ReviewConfig{}})
@@ -24,9 +24,9 @@ func reviewed(t *testing.T, dir string) (*Source, *agent.StubProvider, *[]agent.
 	return s, stub, &events
 }
 
-// The review tool hands the target's diff to a fresh reviewer as its task,
-// with the rubric as its instructions and read-only tools other than review
-// itself, and returns the reviewer's structured findings intact.
+// The review tool hands the target's diff to a fresh reviewer as its task. The
+// reviewer gets the rubric as its instructions, and read-only tools other than
+// review itself. The tool returns the reviewer's structured findings intact.
 func TestReviewHandsTheDiffToAFreshReviewer(t *testing.T) {
 	dir := repo(t)
 	write(t, dir, "a.txt", "one\nTWO\n")
@@ -92,8 +92,9 @@ func TestReviewOfABaseAndOfACommit(t *testing.T) {
 	}
 }
 
-// Nothing to review asks no model; no provider is an error the model reads;
-// a reviewer that answers outside the schema is too.
+// With nothing to review, no model is asked. With no provider, the model reads
+// an error result. A reviewer that answers outside the schema also gives the
+// model an error result.
 func TestReviewWithNothingToReviewOrNoProvider(t *testing.T) {
 	dir := repo(t)
 	s, stub, _ := reviewed(t, dir)

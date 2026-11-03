@@ -2,13 +2,14 @@
 
 // Package lsp's live test drives a real language server.
 //
-// Everything else in this package drives a stub, which proves the framing, the
-// bookkeeping, and the wiring, and proves nothing about whether a real server
-// behaves the way the stub was written to. This file closes that gap and is
-// tagged out of the default build because it needs a server installed and is
-// slower than the rest of the suite by two orders of magnitude.
+// Everything else in this package drives a stub. The stub proves the framing,
+// the bookkeeping, and the wiring. It proves nothing about whether a real
+// server behaves the way the stub does. This file closes that gap. It is
+// tagged out of the default build because it needs a server installed, and it
+// is two orders of magnitude slower than the rest of the suite. Run it from
+// ext/lsp:
 //
-//	go test -tags lsp_live ./experimental/agent/ext/lsp/ -run TestLive -v
+//	go test -tags lsp_live -run TestLive -v .
 //
 // LSP_LIVE_SERVER overrides the command; it defaults to gopls.
 package lsp
@@ -50,9 +51,9 @@ func liveWorkspace(t *testing.T) (string, ServerSpec) {
 	return resolved, ServerSpec{Command: []string{server}, Extensions: []string{".go"}, LanguageID: "go"}
 }
 
-// TestLiveDiagnosticsReportARealCompileError is the claim the stub cannot make:
-// a real server, given genuinely broken code, publishes a diagnostic that
-// reaches the middleware's report.
+// TestLiveDiagnosticsReportARealCompileError checks what the stub cannot. A
+// real server, given genuinely broken code, publishes a diagnostic, and the
+// diagnostic reaches the middleware's report.
 func TestLiveDiagnosticsReportARealCompileError(t *testing.T) {
 	root, spec := liveWorkspace(t)
 	ext, err := New(Config{
@@ -99,8 +100,8 @@ func TestLiveNavigationResolvesBySymbolName(t *testing.T) {
 	}
 
 	// gopls indexes the module before it can answer, so the first request can
-	// arrive too early. Retrying is the honest shape of the dependency rather
-	// than a flake being papered over.
+	// arrive too early. Retrying matches how the dependency really behaves.
+	// It does not paper over a flake.
 	var text string
 	deadline := time.Now().Add(60 * time.Second)
 	for time.Now().Before(deadline) {
@@ -129,8 +130,8 @@ func TestLiveNavigationResolvesBySymbolName(t *testing.T) {
 	}
 }
 
-// TestLiveServerExits pins the seam this PR adds to host.Extension against a
-// real subprocess rather than the stub.
+// TestLiveServerExits pins host.Extension.Close against a real subprocess
+// rather than the stub.
 func TestLiveServerExits(t *testing.T) {
 	root, spec := liveWorkspace(t)
 	ext, err := New(Config{Roots: []string{root}, Servers: []ServerSpec{spec}})

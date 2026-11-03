@@ -16,14 +16,15 @@ import (
 // ShellTool is the general command tool's name.
 const ShellTool = "shell"
 
-// ShellConfig turns on the general command tool: the model passes an argv,
-// it runs inside the sandbox, and Rules decide per command prefix whether the
-// approval gate lets it run, asks, or refuses. It is the alternative to
-// listing every command up front in Config.Commands, and the two can be used
-// together.
+// ShellConfig turns on the general command tool. The model passes an argv,
+// and the command runs inside the sandbox. Rules decide per command prefix
+// whether the approval gate lets it run, asks, or refuses. It is the
+// alternative to listing every command up front in Config.Commands, and the
+// two can be used together.
 type ShellConfig struct {
-	// Rules decide per prefix. A command no rule matches is asked about,
-	// keyed by its first two words when the user approves it for the session.
+	// Rules decide per prefix. If no rule matches a command, the gate asks
+	// about it. When the user approves it for the session, the approval is
+	// keyed by the command's first two words.
 	Rules []PrefixRule
 
 	// Timeout bounds one run. Zero uses Config.Timeout; the model can ask for
@@ -56,17 +57,17 @@ type shellArgs struct {
 	Justification string   `json:"justification"`
 }
 
-// sandboxed reports whether commands run confined. Without a sandbox
-// (exec.Unconfined(), as inside a container that is itself the sandbox)
-// there is nothing to escalate out of, so the shell tool neither offers
-// escalation nor treats a call that asks for it differently (#203).
+// sandboxed reports whether commands run confined. With no sandbox there is
+// nothing to escalate out of. That is the case with exec.Unconfined(), as
+// inside a container that is itself the sandbox. The shell tool then neither
+// offers escalation nor treats a call that asks for it differently (#203).
 func (s *Source) sandboxed() bool {
 	_, none := s.sandbox.(unconfined)
 	return !none
 }
 
 // parseShellArgs reads a shell call's arguments. Without a sandbox, escalate
-// and its justification are dropped: the call runs like any other.
+// and its justification are dropped, and the call runs like any other.
 func parseShellArgs(raw []byte, sandboxed bool) (shellArgs, error) {
 	var a shellArgs
 	if err := json.Unmarshal(raw, &a); err != nil {
@@ -122,8 +123,8 @@ func (s *Source) shellDef() core.ToolDef {
 				"justification": map[string]any{"type": "string", "description": "Required with escalate: one sentence the user reads before deciding."},
 			},
 		},
-		// Absent destructiveHint reads as destructive: a command no rule
-		// covers is asked about.
+		// An absent destructiveHint reads as destructive, so the gate asks
+		// before running a command that no rule covers.
 	}
 }
 
@@ -169,9 +170,10 @@ func (s *Source) callShell(ctx context.Context, args map[string]any) *core.ToolR
 	return out.result
 }
 
-// denialSigns are output fragments that, after a sandboxed command failed,
-// suggest the sandbox stopped it rather than the command failing on its own.
-// A false positive costs a suggestion to escalate, which still asks the user.
+// denialSigns are output fragments. When a sandboxed command fails with one of
+// them, the sandbox probably stopped it, and the command didn't fail on its
+// own. A false positive only suggests escalating, and escalation still asks
+// the user.
 var denialSigns = []string{
 	"operation not permitted",
 	"read-only file system",
@@ -216,7 +218,7 @@ func (s *Source) classifyShell(_ context.Context, info agent.ToolCallInfo) (agen
 	}
 	a, err := parseShellArgs(info.Call.Args.Raw(), s.sandboxed())
 	if err != nil {
-		// The tool rejects it without running anything; no opinion.
+		// The tool rejects it without running anything, so no opinion.
 		return agent.CallClass{}, true
 	}
 	class := s.shell.classify(a.Command)
@@ -226,10 +228,10 @@ func (s *Source) classifyShell(_ context.Context, info agent.ToolCallInfo) (agen
 	return agent.CallClass{Disposition: agent.DispositionAlwaysAsk, Reason: "outside the sandbox: " + a.Justification}, true
 }
 
-// classify judges one argv by the rules. Every command in a script must
-// pass: any forbidden part forbids the whole, any part the rules don't cover
-// leaves it to the tool's destructive default, any prompt asks, and only a
-// script whose every part is allowed is allowed.
+// classify judges one argv by the rules. Every command in a script must pass.
+// A forbidden part forbids the whole script. A part the rules don't cover
+// leaves the script to the tool's destructive default. A prompt part makes
+// the gate ask. Only a script whose parts are all allowed is allowed.
 func (sh *shell) classify(argv []string) agent.CallClass {
 	cmds, ok := commandsOf(argv)
 	if !ok {
@@ -286,9 +288,9 @@ func firstWords(argv []string, n int) string {
 	return strings.Join(words, " ")
 }
 
-// renderShellApproval words the ask for a shell call: the command, where it
-// runs, and whether the sandbox confines it. An escalation says plainly that
-// it doesn't, with the model's justification.
+// renderShellApproval words the ask for a shell call. It shows the command,
+// where it runs, and whether the sandbox confines it. An escalation says
+// plainly that it doesn't, with the model's justification.
 func (s *Source) renderShellApproval(info agent.ToolCallInfo) (string, bool) {
 	if s.shell == nil || info.Call.Name != ShellTool {
 		return "", false

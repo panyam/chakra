@@ -6,9 +6,9 @@ import (
 	"testing"
 )
 
-// twoRoots builds a source over two independent workspaces, which is the
-// ordinary case rather than the exotic one: a coding session that stays inside
-// a single repository is the exception (issue 1314).
+// twoRoots builds a source over two independent workspaces. That is the
+// ordinary case, not the exotic one. A coding session that works in only one
+// repository is the exception (issue 1314).
 func twoRoots(t *testing.T) (*Source, string, string) {
 	t.Helper()
 	a, err := filepath.EvalSymlinks(t.TempDir())
@@ -87,9 +87,9 @@ func TestSearchSpansEveryRoot(t *testing.T) {
 	}
 }
 
-// TestSameRelativePathInTwoRootsStaysDistinct is why results are absolute. Two
-// repositories both holding src/main.go is normal, and a bare relative path
-// would name either.
+// TestSameRelativePathInTwoRootsStaysDistinct shows why results are absolute.
+// Two repositories can both hold src/main.go, and that is normal. A bare
+// relative path would name either.
 func TestSameRelativePathInTwoRootsStaysDistinct(t *testing.T) {
 	s, a, b := twoRoots(t)
 	write(t, a, "src/main.go", "package a")
@@ -110,8 +110,8 @@ func TestSameRelativePathInTwoRootsStaysDistinct(t *testing.T) {
 	}
 }
 
-// TestRelativePathResolvesAgainstThePrimaryRoot pins the rule that keeps a
-// single-root workspace behaving exactly as it did before there were several.
+// TestRelativePathResolvesAgainstThePrimaryRoot pins a rule. Under it, a
+// single-root workspace behaves exactly as it did before there were several.
 func TestRelativePathResolvesAgainstThePrimaryRoot(t *testing.T) {
 	s, a, b := twoRoots(t)
 	write(t, a, "only-in-a.txt", "primary")
@@ -146,8 +146,9 @@ func TestPathOutsideEveryRootIsRefused(t *testing.T) {
 }
 
 // TestParentOfTheRootsIsNotImplicitlyIncluded pins that naming two siblings
-// does not quietly admit their shared parent, which is the shortcut the design
-// rejects: it would widen confinement to everything else under that parent.
+// does not quietly admit their shared parent. The design rejects that
+// shortcut, because it would widen confinement to everything else under that
+// parent.
 func TestParentOfTheRootsIsNotImplicitlyIncluded(t *testing.T) {
 	s, a, b := twoRoots(t)
 	parent := filepath.Dir(a)
@@ -163,8 +164,8 @@ func TestParentOfTheRootsIsNotImplicitlyIncluded(t *testing.T) {
 }
 
 // TestListLimitAppliesAcrossRootsNotPerRoot pins that the cap does not scale
-// with the number of roots, which would make a listing quietly larger every
-// time a repository was added.
+// with the number of roots. If it did, a listing would grow quietly every time
+// a repository was added.
 func TestListLimitAppliesAcrossRootsNotPerRoot(t *testing.T) {
 	s, a, b := twoRoots(t)
 	for i := range 5 {

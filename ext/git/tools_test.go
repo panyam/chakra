@@ -17,8 +17,8 @@ func TestNewSourceNeedsAWorkTree(t *testing.T) {
 	}
 }
 
-// Reads are always offered and read-only; commit and branch only with
-// Mutations, the worktree tools only with a WorktreeDir, and all four are
+// Reads are always offered and read-only. Commit and branch are offered only
+// with Mutations, and the worktree tools only with a WorktreeDir. All four are
 // destructive, so the gate asks before they run.
 func TestToolsOfferedAndTheirHints(t *testing.T) {
 	dir := repo(t)
@@ -56,9 +56,9 @@ func TestStatusShowsChangesAndSaysWhenClean(t *testing.T) {
 	}
 }
 
-// With no target, git_diff is everything uncommitted against HEAD, staged
-// and unstaged together, with untracked files listed after; path narrows it
-// and stat summarises.
+// With no target, git_diff shows everything uncommitted against HEAD, staged
+// and unstaged together. Untracked files are listed after. path narrows the
+// diff, and stat summarises it.
 func TestDiffOfUncommittedChanges(t *testing.T) {
 	dir := repo(t)
 	s := source(t, Config{Root: dir})
@@ -83,8 +83,8 @@ func TestDiffOfUncommittedChanges(t *testing.T) {
 	}
 }
 
-// base diffs from where HEAD forked from it, so commits base gained since
-// don't show; commit shows one commit.
+// base diffs from where HEAD forked from it. So if base gained commits since,
+// they don't show. commit shows one commit.
 func TestDiffAgainstABaseAndOfOneCommit(t *testing.T) {
 	dir := repo(t)
 	sh(t, dir, "switch", "-q", "-c", "feature")
@@ -107,9 +107,10 @@ func TestDiffAgainstABaseAndOfOneCommit(t *testing.T) {
 	}
 }
 
-// A ref git would read as an option, a path outside the root, and both
-// targets at once are refused as results the model can act on, and the
-// option never reaches git. control: a plain ref goes through.
+// Three inputs are refused. One is a ref that git would read as an option, one
+// is a path outside the root, and one sets both targets at once. Each refusal
+// is a result the model can act on, and the option never reaches git. As a
+// control, a plain ref goes through.
 func TestDiffRefusesWhatGitWouldMisread(t *testing.T) {
 	dir := repo(t)
 	s := source(t, Config{Root: dir})

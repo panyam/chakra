@@ -8,14 +8,14 @@ import (
 // buildSBPL renders a Policy as a Seatbelt profile for sandbox-exec.
 //
 // It lives outside the darwin build tag so the profile can be tested
-// anywhere. The golden test pins what we generate; it cannot pin that Apple
-// keeps honoring it, and sandbox-exec has been deprecated for years with an
-// undocumented profile language, so the live test is the only thing that
-// checks the other half.
+// anywhere. The golden test pins what we generate. It cannot check that Apple
+// keeps honoring the profile. sandbox-exec has been deprecated for years, and
+// its profile language is undocumented. So only the live test checks that
+// half.
 //
-// Rule order matters and is not the order a reader expects: Seatbelt takes the
-// LAST matching rule, so the read denials come after the blanket read allow
-// and override it.
+// Rule order matters, and a reader may expect the opposite order. Seatbelt
+// takes the LAST matching rule. So the read denials come after the blanket
+// read allow and override it.
 func buildSBPL(p Policy) string {
 	var b strings.Builder
 	w := func(s string) { b.WriteString(s); b.WriteByte('\n') }

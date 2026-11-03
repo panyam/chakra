@@ -11,13 +11,13 @@ import (
 	"time"
 )
 
-// TestATimeoutKillsTheWholeProcessTree pins the reason the command runs in its
-// own process group.
+// TestATimeoutKillsTheWholeProcessTree checks why the command runs in its own
+// process group.
 //
-// A command is normally a launcher, and killing the launcher leaves the
-// children that were doing the work holding the workspace and the pipes. The
+// A command is normally a launcher, and its children do the work. Killing only
+// the launcher leaves those children holding the workspace and the pipes. The
 // helper starts a grandchild that sleeps far past the timeout and prints its
-// pid, so the test can ask afterwards whether it is still there.
+// pid. Afterwards the test checks whether that pid is still there.
 func TestATimeoutKillsTheWholeProcessTree(t *testing.T) {
 	spec := CommandSpec{
 		Name:        "launcher",

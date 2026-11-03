@@ -5,8 +5,8 @@ import (
 	"strings"
 )
 
-// The patch envelope apply_patch takes, the format several models are
-// trained to write:
+// apply_patch takes this patch envelope. Several models are trained to write
+// the format.
 //
 //	*** Begin Patch
 //	*** Update File: path/to/file.go
@@ -54,11 +54,12 @@ type FilePatch struct {
 	Chunks []PatchChunk
 }
 
-// PatchChunk is one hunk of an update: the lines it replaces and the lines
-// it puts there, each including the hunk's context lines.
+// PatchChunk is one hunk of an update. It holds the lines that the hunk
+// replaces and the lines that it puts there. Both include the hunk's context
+// lines.
 type PatchChunk struct {
-	// Context, from an "@@ text" header, is a line to find before looking for
-	// the hunk, which narrows where it can match.
+	// Context comes from an "@@ text" header. It names a line to find before
+	// looking for the hunk, and that narrows where the hunk can match.
 	Context string
 	Old     []string
 	New     []string
@@ -67,8 +68,8 @@ type PatchChunk struct {
 }
 
 // ParsePatch reads a patch envelope. A malformed patch is an error naming the
-// line, because a section that was silently skipped is a change the model
-// believes it made.
+// line. If a section were silently skipped, the model would believe it had
+// made that change.
 func ParsePatch(text string) ([]FilePatch, error) {
 	lines := strings.Split(strings.TrimSpace(strings.ReplaceAll(text, "\r\n", "\n")), "\n")
 	if len(lines) < 2 || strings.TrimSpace(lines[0]) != patchBegin {

@@ -27,10 +27,10 @@ func TestWriteCreatesANewFile(t *testing.T) {
 	}
 }
 
-// TestWriteRefusesAnExistingPathWithoutAHash is the whole discipline. Without
-// it, write_file is a way to clobber content nobody looked at, which is the
-// hole edit_file exists to close, reachable by a model that found anchoring
-// awkward.
+// TestWriteRefusesAnExistingPathWithoutAHash pins the whole discipline.
+// Without it, write_file could clobber content that nobody looked at.
+// edit_file exists to close that hole, and a model that found anchoring
+// awkward would use write_file to reach it.
 func TestWriteRefusesAnExistingPathWithoutAHash(t *testing.T) {
 	s, root := newTestSource(t)
 	p := write(t, root, "notes.md", "original\n")
@@ -89,7 +89,7 @@ func TestWriteRefusesAStaleHash(t *testing.T) {
 
 // TestWriteRefusesAHashForAFileThatDoesNotExist catches the caller who thinks
 // they are replacing something. Creating it instead would succeed while their
-// belief about the world was wrong, which is the failure mode in miniature.
+// belief about the world was wrong. That is the failure mode in miniature.
 func TestWriteRefusesAHashForAFileThatDoesNotExist(t *testing.T) {
 	s, root := newTestSource(t)
 
@@ -162,9 +162,9 @@ func TestWriteRefusesToWriteThroughASymlink(t *testing.T) {
 
 // TestWriteToADirectorySaysItIsNotAFile pins a message, not a safety property.
 // Without the check the write still fails, because os.Root refuses to rename
-// over a directory, but the caller is told the path "already exists" and is
-// invited to pass expect_hash, which can never work. A refusal that suggests
-// an impossible fix costs the model a turn to discover that.
+// over a directory. But the caller is told the path "already exists" and is
+// invited to pass expect_hash, and that can never work. If a refusal suggests
+// an impossible fix, the model spends a turn finding out.
 func TestWriteToADirectorySaysItIsNotAFile(t *testing.T) {
 	s, root := newTestSource(t)
 	if err := os.MkdirAll(filepath.Join(root, "somedir"), 0o755); err != nil {
@@ -184,9 +184,9 @@ func TestWriteToADirectorySaysItIsNotAFile(t *testing.T) {
 
 // TestSymlinkOutOfRootReadsAsAnEscapeNotACreate is the same kind of pin. The
 // path resolves lexically, so the escape is only discovered at Stat. Without
-// that branch the call falls through to the create path and the eventual
-// refusal comes from the write, phrased as though the file merely could not be
-// written rather than as a workspace-boundary refusal.
+// that branch the call falls through to the create path. The eventual refusal
+// then comes from the write. It reads as though the file merely could not be
+// written, and does not say the path crossed the workspace boundary.
 func TestSymlinkOutOfRootReadsAsAnEscapeNotACreate(t *testing.T) {
 	s, root := newTestSource(t)
 	outside, err := filepath.EvalSymlinks(t.TempDir())
@@ -257,7 +257,7 @@ func TestWritePreservesModeOnReplace(t *testing.T) {
 	}
 }
 
-// TestPathArgServesEveryWritingTool is why the rename happened: one function
+// TestPathArgServesEveryWritingTool shows why the rename happened. One function
 // feeds a checkpoint WriteSpec for both write tools, so neither package has to
 // import the other.
 func TestPathArgServesEveryWritingTool(t *testing.T) {

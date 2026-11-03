@@ -19,13 +19,12 @@ type Gap struct {
 	Args string `json:"args"`
 }
 
-// Proposal is a suggested inverse for a Gap: a call that would partially undo
-// it.
+// Proposal is a suggested inverse for a Gap. It names a call that would
+// partially undo the Gap.
 //
-// A proposal is a suggestion and never an instruction. Nothing here runs
-// without a human approving it, because a proposal is a guess about an
-// operation nobody could reverse automatically, aimed at a tool that changes
-// things.
+// A proposal is a suggestion and never an instruction. Nothing here runs until
+// a human approves it. A proposal is a guess about an operation that nobody
+// could reverse automatically, and it calls a tool that changes things.
 type Proposal struct {
 	// Gap is the call this proposal claims to offset.
 	Gap Gap `json:"gap"`
@@ -35,15 +34,15 @@ type Proposal struct {
 	Args map[string]any `json:"args"`
 
 	// Rationale is why this offsets the gap, shown to the human deciding.
-	// A proposal that cannot explain itself is one to decline.
+	// Decline a proposal that cannot explain itself.
 	Rationale string `json:"rationale"`
 }
 
 // Proposer turns gaps into suggested inverse calls.
 //
 // It is an interface so the model is not the only possible source and so the
-// approval path can be tested without one. Whatever implements it, the
-// contract is the same: it proposes, it does not act.
+// approval path can be tested without one. Every implementation follows the
+// same contract. It proposes and does not act.
 type Proposer interface {
 	Propose(ctx context.Context, gaps []Gap) ([]Proposal, error)
 }
@@ -70,28 +69,28 @@ var proposalSchema = core.NewRawJSON(json.RawMessage(`{
   "required": ["proposals"]
 }`))
 
-// ProposalSchema is the response schema a Runner used as a ModelProposer
-// should be built with. Without it the child's answer is prose and there is
+// ProposalSchema returns a response schema. Build the Runner for a
+// ModelProposer with it. Without it the child's answer is prose and there is
 // nothing reliable to parse.
 func ProposalSchema() core.RawJSON { return proposalSchema }
 
 // ModelProposer asks a model to suggest inverse calls for the gaps.
 //
-// The Runner it wraps must be a SEPARATE agent from the one that made the
-// mess, and this type enforces the part it can: Propose runs over a fresh
-// message slice built only from the gap list. The turn's own history never
+// The wrapped Runner must be a SEPARATE agent from the one that made the
+// mess. This type enforces part of that. Propose runs over a fresh message
+// slice built only from the gap list, and the turn's own history never
 // reaches it.
 //
-// That isolation is a security property, not tidiness. If the turn went wrong
-// because of prompt injection — content in a fetched page telling the model
-// what to do — then running the cleanup inside that same context is asking
-// the attacker to write the cleanup. Provenance labelling (#1262) exists
-// because that content is indistinguishable from instructions once it is in
-// the transcript, and the fix here is to not carry the transcript over.
+// That isolation is a security property, not tidiness. Imagine the turn went
+// wrong because of prompt injection. Content in a fetched page told the model
+// what to do. Running the cleanup inside that same context would ask the
+// attacker to write the cleanup. Once that content is in the transcript, it
+// is indistinguishable from instructions. Provenance labelling (#1262) exists
+// for that reason, and the fix here is to not carry the transcript over.
 //
-// The gap list is itself untrusted for the same reason: it contains tool
-// arguments the model chose, possibly under influence. So a proposal is a
-// suggestion to a human, never an instruction to the harness.
+// The gap list is untrusted too. It contains tool arguments that the model
+// chose, possibly under influence. So a proposal is a suggestion to a human,
+// never an instruction to the harness.
 type ModelProposer struct {
 	runner *agent.Runner
 }

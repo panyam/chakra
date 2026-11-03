@@ -68,8 +68,8 @@ func streamingSource(t *testing.T, pc ProcessConfig) (*Source, *outputSink) {
 func TestProcessOutputStreamsBetweenCollections(t *testing.T) {
 	src, sink := streamingSource(t, ProcessConfig{})
 	out, sc := callProc(t, src, ExecCommandTool, map[string]any{"cmd": helperCmd(t, "staged", "first", "2s", "second", "30s"), "yield_ms": 1000})
-	// A slow runner may not have printed first within the yield; what matters
-	// is that second comes later, with nobody collecting it.
+	// A slow runner may not have printed first within the yield. The test only
+	// needs second to come later, with nobody collecting it.
 	if sc["running"] != true || strings.Contains(out, "\nsecond\n") {
 		t.Fatalf("start: %q %v", out, sc)
 	}

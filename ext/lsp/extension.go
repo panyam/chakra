@@ -18,19 +18,19 @@ import (
 //
 // # Diagnostics arrive by two paths, because they answer two questions
 //
-// A tool result joins the conversation's history and a context stage does not,
-// and that difference decides which path carries which claim.
+// A tool result joins the conversation's history and a context stage does not.
+// That difference decides which path gets which claim.
 //
-// The middleware appends the problems an edit caused to that edit's own
-// result. It is the only path that can reach the model within a turn: stages
+// When an edit causes problems, the middleware appends them to that edit's own
+// result. It is the only path that can reach the model within a turn. Stages
 // run once per turn, at RunTurn, while an edit-check-fix loop runs across the
 // tool-call steps inside one. A model that edits at step 3 and keeps working
-// to step 12 would otherwise learn nothing until the turn ended. What that
-// block claims is "this edit introduced these errors", which stays true as a
-// statement about the past, so history is the right place for it.
+// to step 12 would otherwise learn nothing until the turn ended. That block
+// claims "this edit introduced these errors". The claim is still true later as
+// a statement about the past, so history is the right place for it.
 //
-// The stage carries the current picture instead, and it is transient because
-// "the file has these errors" stops being true the moment the model fixes one.
+// The stage shows the current picture instead. It is transient because "the
+// file has these errors" stops being true the moment the model fixes one.
 // Written into history it would go stale, accumulate one wrong block per edit,
 // and eventually be summarized alongside real conversation. See
 // host.contextPipeline, which names that failure for memory injection.
@@ -38,10 +38,12 @@ import (
 // # Why this is middleware rather than an event subscriber
 //
 // agent.ToolMiddleware says a middleware that merely observes should be an
-// event subscriber. This one does not merely observe: it changes the result
-// the model receives. A version of it that only recorded which files were
-// touched would be an observer and would belong on the event stream, which an
-// Extension currently has no route to; see this package's NOTES for that gap.
+// event subscriber. This one does more than observe. It changes the result
+// that reaches the model. Imagine a version that only recorded which files
+// were touched. It would be an observer, and it would belong on the event
+// stream. An Extension currently has no route to that stream. The root
+// NOTES.md records the gap under "ContextStage is per-turn; the loop it serves
+// is per-step".
 type Extension struct {
 	host.BaseExtension
 
@@ -59,9 +61,9 @@ type Extension struct {
 // New starts the configured language servers and returns the extension.
 //
 // Servers are started here rather than lazily on first use, so a missing
-// binary fails App construction with the command in the message. Started on
-// demand it would surface as diagnostics that are permanently empty, which
-// looks like clean code.
+// binary fails App construction with the command in the message. If servers
+// started on demand, a missing binary would show up as diagnostics that are
+// always empty. That looks like clean code.
 //
 // With no servers configured nothing is started and every seam contributes
 // nothing, so a surface can wire this unconditionally.
@@ -84,11 +86,11 @@ func New(cfg Config) (*Extension, error) {
 	if maxDiag <= 0 {
 		maxDiag = DefaultMaxDiagnostics
 	}
-	// Bounded, because initialize is a request to a process we just spawned
-	// and a server that never answers would otherwise hang App construction
-	// with no deadline anywhere to break it. A binary that exists but is not a
-	// language server is the realistic case, and it fails here rather than at
-	// the first tool call.
+	// The start is bounded. initialize is a request to a process we just
+	// spawned. Without a bound, a server that never answers would hang App
+	// construction, and no other deadline would break it. The realistic case
+	// is a binary that exists but is not a language server. It fails here
+	// rather than at the first tool call.
 	ctx, cancel := context.WithTimeout(context.Background(), startTimeout)
 	defer cancel()
 	p, err := startPool(ctx, cfg)
@@ -138,8 +140,9 @@ func (e *Extension) ContextStages() []host.ContextStage {
 	return []host.ContextStage{{Name: "lsp.diagnostics", Run: e.injectDiagnostics}}
 }
 
-// PromptSections tells the model what the tools are for, since the failure
-// mode is not using them: an agent that already knows how to grep will grep.
+// PromptSections tells the model what the tools are for. The usual failure is
+// that the model doesn't use them, because an agent that already knows how to
+// grep will grep.
 func (e *Extension) PromptSections() []host.PromptSection {
 	if len(e.pool.clients) == 0 {
 		return nil
@@ -162,8 +165,8 @@ to ask for them.`
 	})}
 
 	// The map is empty until the background index finishes, and empty sections
-	// are dropped by the prompt builder. So an early turn is missing the map
-	// rather than blocked on it, which is the right trade for orientation.
+	// are dropped by the prompt builder. So an early turn goes without the map
+	// instead of blocking on it. For orientation, that is the right trade.
 	if e.repoMap != nil {
 		sections = append(sections, host.PromptSectionFunc(func(context.Context) string {
 			return e.repoMap.get()
@@ -174,11 +177,11 @@ to ask for them.`
 
 // Close shuts every language server down.
 //
-// It exists because a language server is a subprocess, and this is the first
-// extension to own one. Directories and file handles could be left to the
-// garbage collector and the process exit; a child process cannot, and one that
-// outlives the App that spawned it holds a workspace lock and a share of memory
-// nobody can account for.
+// A language server is a subprocess, and this is the first extension to own
+// one. Directories and file handles could be left to the garbage collector
+// and the process exit. A child process can't. If one outlives the App that
+// spawned it, it holds a workspace lock and some memory, and nobody can
+// account for either.
 func (e *Extension) Close() error {
 	if e.repoMap != nil {
 		e.repoMap.stop()
@@ -188,8 +191,8 @@ func (e *Extension) Close() error {
 
 // checkAfterWrite runs the call, then asks the server what the write did.
 //
-// The diagnostics are gathered after next returns, so a denied or failed call
-// costs nothing: there is no point re-checking a file that was not written.
+// The diagnostics are gathered after next returns. A denied or failed call
+// wrote no file, so it skips the re-check and costs nothing.
 func (e *Extension) checkAfterWrite(ctx context.Context, info agent.ToolCallInfo, next agent.ToolCallFunc) (*core.ToolResult, error) {
 	spec, watched := e.writes[info.Call.Name]
 	if !watched {
@@ -232,9 +235,9 @@ func (e *Extension) recheck(ctx context.Context, paths []string) string {
 		e.mu.Unlock()
 
 		if !c.refresh(ctx, abs, e.timeout) {
-			// Nothing arrived in time. Saying so beats both silence, which
-			// reads as "no problems", and stale diagnostics, which read as
-			// problems this edit caused.
+			// Nothing arrived in time. Saying so beats silence, which reads
+			// as "no problems". It also beats stale diagnostics, which read
+			// as problems this edit caused.
 			fmt.Fprintf(&b, "\n%s: the language server did not report back within %s", abs, e.timeout)
 			continue
 		}
@@ -255,9 +258,9 @@ func (e *Extension) recheck(ctx context.Context, paths []string) string {
 // message. The transient phase puts its most salient block there.
 //
 // It reports nothing when there is nothing wrong, rather than an explicit "no
-// problems". A clean tree is the normal state, and a block asserting it every
-// turn would spend context to say nothing while training the model to skip the
-// section entirely.
+// problems". A clean tree is the normal state. A block that asserted it every
+// turn would spend context to say nothing, and it would train the model to
+// skip the section entirely.
 func (e *Extension) injectDiagnostics(_ context.Context, msgs []agent.Message) []agent.Message {
 	var b strings.Builder
 	total := 0
@@ -321,10 +324,10 @@ func renderDiagnostics(c *client, rel string, diags []diagnostic, max int) strin
 // weaveBeforeUser inserts a block as a system message immediately before the
 // final message, which by construction is the user's.
 //
-// host has an identical unexported helper. Reimplemented rather than exported
-// from there because exporting it would widen the surface #1240 is about to
-// freeze for one caller's benefit, and the rule it encodes ("closest to the
-// user message is most salient") is one line of slice arithmetic.
+// host has an equivalent unexported helper. We reimplement it here instead of
+// exporting it from host. Exporting it would widen the surface that #1240 is
+// about to freeze, for one caller's benefit. The rule is "closest to the user
+// message is most salient", and it is one line of slice arithmetic.
 func weaveBeforeUser(msgs []agent.Message, block string) []agent.Message {
 	if block == "" || len(msgs) == 0 {
 		return msgs

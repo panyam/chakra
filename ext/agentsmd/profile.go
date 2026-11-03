@@ -9,10 +9,10 @@ import (
 type Walk string
 
 const (
-	// WalkMarker climbs to the nearest directory holding one of
-	// Profile.Markers (the project root) and loads from there down to the
-	// workspace root. With no marker above the workspace root, only the
-	// workspace root itself is read.
+	// WalkMarker climbs to the nearest directory that holds one of
+	// Profile.Markers. That directory is the project root, and the chain
+	// loads from there down to the workspace root. With no marker above the
+	// workspace root, only the workspace root itself is read.
 	WalkMarker Walk = "marker"
 
 	// WalkFSRoot loads from every directory above the workspace root, up to
@@ -48,8 +48,8 @@ const (
 )
 
 // Profile is one tool's rules for finding and loading instruction files.
-// Presets holds named ones; a zero field in a profile given to New is taken
-// as written, so start from a preset and change what differs.
+// Presets holds the named ones. New takes each zero field in a profile as
+// written, so start from a preset and change what differs.
 type Profile struct {
 	// Names are tried in order in each directory, and the first one present
 	// and non-empty is read. A name may include a directory
@@ -86,10 +86,11 @@ type Profile struct {
 	Subdirs Subdirs `json:"subdirs,omitempty"`
 	Changes Changes `json:"changes,omitempty"`
 
-	// Imports expands "@path" references, Claude Code style: relative to the
-	// file holding them, outside code spans and fenced blocks, at most four
-	// hops deep. A project file may import only from inside the workspace
-	// roots; the global file may import from anywhere.
+	// Imports expands "@path" references the way Claude Code does. A path is
+	// relative to the file that holds it. References inside code spans and
+	// fenced blocks are ignored, and imports go at most four hops deep. A
+	// project file may import only from inside the workspace roots, and the
+	// global file may import from anywhere.
 	Imports bool `json:"imports,omitempty"`
 
 	// StripComments drops block-level HTML comments outside code blocks, so
@@ -116,8 +117,8 @@ const DefaultPreset = "chakra"
 //     CLAUDE.local.md in every directory above the working directory,
 //     AGENTS.md only when there is no CLAUDE.md, subdirectory files once the
 //     agent touches a file there, @path imports and stripped HTML comments,
-//     no size cap. Claude Code re-reads its files after a compaction; this
-//     preset reads them once, which is the same until a session compacts.
+//     no size cap. Claude Code re-reads its files after a compaction. This
+//     preset reads them once, so the two match until a session compacts.
 //   - chakra is Codex's file rules with lazy subdirectories and change
 //     notices, over every workspace root.
 var Presets = map[string]Profile{

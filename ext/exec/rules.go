@@ -30,13 +30,14 @@ type PrefixRule struct {
 
 	Decision Decision
 
-	// Justification says why, shown in the approval prompt and as the reason
-	// a forbidden command was refused.
+	// Justification says why. The approval prompt shows it, and a refused
+	// forbidden command gives it as the reason.
 	Justification string
 
-	// Match and NotMatch are example argvs the rule must and must not match.
-	// They are checked when the rules load, so a rule that doesn't do what
-	// its author meant fails at startup instead of in a session.
+	// Match and NotMatch are example argvs. The rule must match every Match
+	// entry and no NotMatch entry. They are checked when the rules load, so a
+	// rule that doesn't do what its author meant fails at startup instead of
+	// in a session.
 	Match    [][]string
 	NotMatch [][]string
 }
@@ -109,8 +110,9 @@ func (r PrefixRule) matches(argv []string) bool {
 	return true
 }
 
-// match returns the rule deciding argv: the longest matching prefix, with the
-// most restrictive decision winning a tie. ok is false when no rule matches.
+// match returns the rule that decides argv. The longest matching prefix wins,
+// and on a tie the most restrictive decision wins. ok is false when no rule
+// matches.
 func (rs *Rules) match(argv []string) (PrefixRule, bool) {
 	var best PrefixRule
 	found := false
@@ -140,12 +142,12 @@ func strictness(d Decision) int {
 // matched piece by piece, rather than matched as "bash -c ...".
 var shells = map[string]bool{"sh": true, "bash": true, "zsh": true, "dash": true}
 
-// commandsOf returns the simple commands argv will run. A plain argv is one
-// command. A shell given a script with -c (or -lc) yields the script's
-// commands, split on &&, ||, ; and |. ok is false when the script uses
-// anything the splitter does not understand (redirection, substitution,
-// subshells, globs, variables, environment assignments, backslashes), and the
-// caller must then treat argv as matching no rule.
+// commandsOf returns the simple commands in argv. A plain argv is one command.
+// A shell given a script with -c (or -lc) yields the script's commands, split
+// on &&, ||, ; and |. The splitter doesn't understand redirection,
+// substitution, subshells, globs, variables, environment assignments or
+// backslashes. If the script uses any of them, ok is false, and the caller
+// must treat argv as matching no rule.
 func commandsOf(argv []string) (cmds [][]string, ok bool) {
 	if len(argv) == 3 && shells[filepath.Base(argv[0])] && (argv[1] == "-c" || argv[1] == "-lc") {
 		return splitScript(argv[2])
@@ -158,8 +160,9 @@ func commandsOf(argv []string) (cmds [][]string, ok bool) {
 
 // splitScript tokenizes a shell script conservatively. It accepts plain words,
 // single-quoted strings, and double-quoted strings without $, ` or \ in them,
-// separated into commands by the four list operators. Everything else makes
-// it give up, because a construct it misread is a command a rule never saw.
+// separated into commands by the four list operators. Anything else makes it
+// give up, because a construct it misread could hide a command from the
+// rules.
 func splitScript(script string) ([][]string, bool) {
 	var cmds [][]string
 	var cur []string
@@ -213,7 +216,8 @@ func splitScript(script string) ([][]string, bool) {
 				return nil, false
 			}
 		case c == '&' || c == '|':
-			// && and || and |; a lone & backgrounds a job, which is out.
+			// && and || and | separate commands. A lone & backgrounds a job,
+			// and the splitter gives up on it.
 			if c == '&' && (i+1 >= len(script) || script[i+1] != '&') {
 				return nil, false
 			}

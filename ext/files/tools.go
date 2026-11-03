@@ -18,21 +18,20 @@ type Config struct {
 	// Roots confine every path these tools will touch. At least one is
 	// required, and the first is primary: a relative path resolves against it.
 	//
-	// A set rather than a single directory because a session that stays inside
-	// one repository is the exception. The ordinary task spans repositories,
-	// and an agent confined to one of them edits an API and reports success
-	// while the caller it broke sits in another (issue 1314).
+	// Roots is a set, not a single directory, because a session rarely works
+	// in only one repository. The ordinary task spans repositories. An agent
+	// confined to one of them edits an API and reports success, while the
+	// caller it broke is in another (issue 1314).
 	//
-	// There is no "unset means anywhere" mode on purpose. These tools are
-	// driven by a model, and a model's instructions can come from content it
-	// read rather than from the user (see agent.Spotlight for why that is not
-	// distinguishable after the fact). An unconfined editor turns any such
-	// instruction into a write to an arbitrary path.
+	// There is no "unset means anywhere" mode on purpose. A model drives these
+	// tools, and its instructions can come from content it read instead of
+	// from the user. After the fact, nobody can tell the two apart (see
+	// agent.Spotlight). An unconfined editor turns any such instruction into a
+	// write to an arbitrary path.
 	//
-	// Naming a common parent instead of listing the roots is not the same
-	// thing and is not a shortcut: it silently widens confinement to
-	// everything else under that parent, which is the property this exists to
-	// deny.
+	// Naming a common parent instead of listing the roots is not a shortcut.
+	// It silently widens confinement to everything else under that parent,
+	// and Roots exists to prevent exactly that.
 	Roots []string
 
 	// Exclude names directories that list_files and search_files skip, by
@@ -47,17 +46,18 @@ type Config struct {
 	// replacements checked against the hash read_file returned), "apply_patch"
 	// (a multi-file patch in the *** Begin Patch envelope), or both. Nil means
 	// both. Models trained on one format do measurably worse when made to use
-	// the other, so a profile offers the one its model writes.
+	// the other, so a profile offers the format that its model writes.
 	EditTools []string
 }
 
-// Source serves the workspace tools over agent.ToolSource: read_file,
-// edit_file, write_file, list_files, and search_files.
+// Source serves the workspace tools over agent.ToolSource. They are
+// read_file, write_file, delete_file, list_files and search_files, plus
+// edit_file, apply_patch or both, as Config.EditTools chooses.
 //
-// The pairing is deliberate. edit_file's staleness check needs a hash the
-// caller can only have obtained by reading, so a read tool that did not
-// return one would make the precondition unusable and leave the whole
-// mechanism as decoration.
+// The pairing is deliberate. edit_file's staleness check needs a hash, and the
+// caller can only get that hash by reading. A read tool that did not return
+// one would make the precondition unusable, and the whole mechanism would be
+// decoration.
 type Source struct {
 	roots   []*workspaceRoot
 	exclude []string
@@ -71,12 +71,13 @@ type workspaceRoot struct {
 	h    *os.Root
 }
 
-// NewSource builds the source, opening Root as a confined directory handle.
+// NewSource builds the source, opening each of Config.Roots as a confined
+// directory handle.
 //
 // The handle is the confinement. Checking a path and then opening it by name
-// are two operations, and every escape this package cares about lives in the
-// gap between them: a symlink is followed at open time, not at check time, and
-// the filesystem can change in between. os.Root resolves each component at
+// are two operations. Every escape that this package cares about happens in
+// the gap between them. A symlink is followed at open time, not at check time,
+// and the filesystem can change in between. os.Root resolves each component at
 // open time against the directory it holds, so the check and the use are the
 // same act.
 func NewSource(cfg Config) (*Source, error) {
@@ -127,10 +128,11 @@ func (s *Source) Close() error {
 }
 
 // readOnly marks a tool that changes nothing, so read-only-auto and the modes
-// above it run it without asking. The writes stay unannotated, which reads as
-// destructive: whether one can be undone depends on a checkpoint this package
-// does not wire, so only the wiring can say so. A fresh map per tool, since a
-// caller may write into a ToolDef's annotations.
+// above it run it without asking. The writes have no annotation, and a missing
+// annotation reads as destructive. Whether a write can be undone depends on a
+// checkpoint, and this package does not wire one, so only the wiring can say
+// so. Each tool gets a fresh map, since a caller may write into a ToolDef's
+// annotations.
 func readOnly() map[string]any { return map[string]any{"readOnlyHint": true} }
 
 // editToolDefs is the tool list with the editing tools the config asks for.
@@ -333,12 +335,11 @@ func (s *Source) Tools(context.Context) ([]core.ToolDef, error) {
 
 // Call dispatches every tool Tools declares.
 //
-// A tool that ran and refused reports through ToolResult.IsError rather than
-// a returned error, so the Runner feeds the refusal back to the model instead
-// of aborting the turn. That distinction is the whole point here: "your
-// anchor matched twice, add context" is a message the model can act on, and
-// the ToolSource contract reserves a returned error for a dispatch that never
-// happened.
+// A tool that ran and refused reports through ToolResult.IsError, not through
+// a returned error. The Runner then feeds the refusal back to the model
+// instead of aborting the turn. The model can act on a message like "your
+// anchor matched twice, add context". The ToolSource contract reserves a
+// returned error for a dispatch that never happened.
 func (s *Source) Call(ctx context.Context, name string, args map[string]any) (*core.ToolResult, error) {
 	switch name {
 	case "read_file":
@@ -487,16 +488,16 @@ func (s *Source) edit(args map[string]any) *core.ToolResult {
 
 // write replaces a file's entire contents, or creates it.
 //
-// The two cases are told apart by expect_hash rather than by a separate flag,
-// and the rule is that there is no way to spell "overwrite whatever is there".
+// expect_hash tells the two cases apart, and there is no separate flag. No
+// call can spell "overwrite whatever is there".
 //
 //	no expect_hash  -> create; refused if the path exists
 //	expect_hash set -> replace, only if the content still hashes to it
 //
-// A create-or-overwrite mode would undo the whole module. edit_file exists to
-// stop a change landing on content nobody looked at, and a write_file that
-// clobbered on request would be the same hole with a different name, reachable
-// by a model that found the anchor matching awkward.
+// edit_file exists to stop a change from being applied to content that nobody
+// looked at. A create-or-overwrite mode would defeat the whole module. A
+// write_file that clobbered on request would be the same hole with a
+// different name, and a model that found anchor matching awkward would use it.
 func (s *Source) write(args map[string]any) *core.ToolResult {
 	path, ok := args["path"].(string)
 	if !ok || path == "" {
@@ -533,7 +534,7 @@ func (s *Source) write(args map[string]any) *core.ToolResult {
 		}
 
 	case !errors.Is(statErr, os.ErrNotExist):
-		// A path that escapes the root lands here rather than in the create
+		// A path that escapes the root ends up here, not in the create
 		// branch, so a refusal is never mistaken for "does not exist yet".
 		return toolError(escapeMessage(path, statErr))
 
@@ -597,8 +598,9 @@ func (s *Source) delete(args map[string]any) *core.ToolResult {
 	}
 
 	// Stat before ReadFile, so a directory or a symlink is named as what it
-	// is. Reading one first fails too, but with a message about the read,
-	// which invites the caller to fix a hash that was never the problem.
+	// is. Reading one first fails too, but with a message about the read.
+	// That message would invite the caller to fix a hash that was never the
+	// problem.
 	info, err := wr.h.Stat(rel)
 	if errors.Is(err, os.ErrNotExist) {
 		return toolError(fmt.Sprintf("cannot delete %s: it does not exist", path))
@@ -636,8 +638,8 @@ func (s *Source) delete(args map[string]any) *core.ToolResult {
 }
 
 // parseHunks converts the edits argument, which arrives as decoded JSON, into
-// hunks. A malformed edits list is reported rather than silently skipped: an
-// edit the model believes it made and that never applied is the same class of
+// hunks. A malformed edits list is reported, not silently skipped. Imagine the
+// model believes it made an edit that never applied. That is the same class of
 // failure as a stale write.
 func parseHunks(raw any) ([]Hunk, error) {
 	list, ok := raw.([]any)
@@ -667,14 +669,6 @@ func parseHunks(raw any) ([]Hunk, error) {
 	return hunks, nil
 }
 
-// rel turns a tool-supplied path into one relative to the root, for handing
-// to an os.Root method.
-//
-// It does not enforce containment and must not be relied on to: os.Root does
-// that, at open time, per component. This adds a readable refusal, before any
-// syscall, for the two shapes a model actually produces by mistake.
-// Anything subtler, notably a symlink pointing out of the root, is caught by
-// the open itself.
 // resolve maps a caller-supplied path to the root that contains it and the
 // path relative to that root, refusing anything that falls outside every root.
 //
@@ -682,7 +676,7 @@ func parseHunks(raw any) ([]Hunk, error) {
 // resolves against the primary root, so a single-root workspace behaves
 // exactly as it did before there were several.
 //
-// Matching is on the cleaned path text, which decides only WHICH root handle
+// Matching uses the cleaned path text, and it decides only WHICH root handle
 // to use. The handle then does the real containment work at open time, so a
 // symlink pointing out of a root is still refused even though its path text
 // looked fine here. See NewSource for why that split matters.
@@ -710,12 +704,12 @@ func (s *Source) resolve(path string) (*workspaceRoot, string, error) {
 
 // abs renders a resolved path back to the model. Results are absolute because
 // a bare relative path is ambiguous once there is more than one root: two
-// repositories can both hold src/main.go, and a path the model cannot resolve
-// unambiguously is one it will read from the wrong tree.
+// repositories can both hold src/main.go. If the model cannot resolve a path
+// unambiguously, it will read the file from the wrong tree.
 func (r *workspaceRoot) abs(rel string) string { return filepath.Join(r.path, rel) }
 
 // escapeMessage renders a filesystem error for the model, translating
-// os.Root's containment refusal into the same sentence rel produces.
+// os.Root's containment refusal into the same sentence resolve produces.
 //
 // The standard library exports no sentinel for it, so this matches on the
 // message os.Root produces. A missed match degrades to the raw error, which is
@@ -776,11 +770,12 @@ func toolError(msg string) *core.ToolResult {
 	}
 }
 
-// PathArg returns a call's `path` argument exactly as the model sent it,
-// which for these tools is usually relative to the workspace root. It does
-// not resolve it, so it is the wrong Paths function for a checkpoint
-// WriteSpec: the checkpoint would resolve the path against the process's
-// working directory and snapshot a different file (issue 69). Use
+// PathArg returns a call's `path` argument exactly as the model sent it.
+// For these tools the path is usually relative to the workspace root, and
+// PathArg does not resolve it. So it is the wrong Paths function for a
+// checkpoint WriteSpec. The checkpoint refuses a relative path with an
+// error. Before issue 69 it resolved the path against
+// the process's working directory and snapshotted a different file. Use
 // Extension.WritePaths, which resolves the way the tools do.
 //
 // Both are plain functions rather than WriteSpecs so that this package does

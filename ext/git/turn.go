@@ -8,10 +8,10 @@ import (
 	"strings"
 )
 
-// TurnDiff is what a turn changed in the workspace: the difference between
-// a snapshot taken when the turn started and one taken when it ended. It
-// counts every file git would see, untracked ones included and ignored ones
-// left out, whichever tool or command wrote them.
+// TurnDiff records what a turn changed in the workspace. It is the difference
+// between a snapshot taken when the turn started and one taken when it ended.
+// It counts every file git would see, whichever tool or command wrote it.
+// Untracked files are included and ignored ones are left out.
 type TurnDiff struct {
 	// Before and After are the snapshots' git tree ids, so a caller can ask
 	// git for more (git diff Before After -- path).
@@ -41,9 +41,9 @@ func (d TurnDiff) Summary() string {
 
 // snapshot records the workspace as a git tree without touching the user's
 // index or files. It copies the real index to a scratch file, so git only
-// rehashes files whose stat changed, stages everything into the copy and
-// writes it as a tree. The blobs land in the repository's object store,
-// unreferenced, where git's own gc removes them in time.
+// rehashes files whose stat changed. It stages everything into the copy and
+// writes the copy as a tree. The blobs go into the repository's object store
+// unreferenced, and git's own gc removes them in time.
 func (s *Source) snapshot(ctx context.Context) (string, error) {
 	tmp, err := os.CreateTemp("", "chakra-git-index-*")
 	if err != nil {
@@ -83,7 +83,7 @@ func (s *Source) snapshot(ctx context.Context) (string, error) {
 	return strings.TrimSpace(tree), nil
 }
 
-// diffTrees is what changed from one snapshot to the next, under Root.
+// diffTrees reports what changed from one snapshot to the next, under Root.
 func (s *Source) diffTrees(ctx context.Context, before, after string) (TurnDiff, error) {
 	d := TurnDiff{Before: before, After: after}
 	if d.Empty() {

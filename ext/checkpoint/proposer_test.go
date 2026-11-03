@@ -51,8 +51,8 @@ func extWithProposals(t *testing.T, cfg Config) (*Extension, string) {
 	return e, work
 }
 
-// runTurnWithGap produces one restored file and one unreversible call, which
-// is the state /undo has to report on.
+// runTurnWithGap produces one restored file and one unreversible call. /undo
+// has to report on that state.
 func runTurnWithGap(t *testing.T, e *Extension, work string) {
 	t.Helper()
 	f := filepath.Join(work, "a.txt")
@@ -69,10 +69,10 @@ func runTurnWithGap(t *testing.T, e *Extension, work string) {
 	}
 }
 
-// TestProposalNeverRunsWithoutApproval is the invariant the whole tier rests
-// on. A proposal is a guess at an operation nobody could reverse
-// automatically, aimed at a tool that changes things. No approval prompt means
-// nothing runs, rather than everything.
+// TestProposalNeverRunsWithoutApproval pins an invariant, and the whole tier
+// depends on it. A proposal is a guess at an operation that nobody could
+// reverse automatically, and it calls a tool that changes things. With no
+// approval prompt, nothing runs, instead of everything.
 func TestProposalNeverRunsWithoutApproval(t *testing.T) {
 	src := &recordingSource{}
 	prop := &stubProposer{out: []Proposal{{Tool: "delete_issue", Args: map[string]any{"id": 41}}}}
@@ -142,8 +142,8 @@ func TestApprovedProposalRuns(t *testing.T) {
 	}
 }
 
-// TestApprovalErrorDoesNotRun pins the fail-closed direction: an approval
-// prompt that breaks is a reason not to act.
+// TestApprovalErrorDoesNotRun pins the fail-closed direction. If the approval
+// prompt breaks, nothing runs.
 func TestApprovalErrorDoesNotRun(t *testing.T) {
 	src := &recordingSource{}
 	prop := &stubProposer{out: []Proposal{{Tool: "delete_issue"}}}
@@ -163,7 +163,7 @@ func TestApprovalErrorDoesNotRun(t *testing.T) {
 }
 
 // TestProposerOnlySeesGaps pins that the proposer is handed the gap list and
-// nothing else — not the restored files, not the turn.
+// nothing else. It never sees the restored files or the turn.
 func TestProposerOnlySeesGaps(t *testing.T) {
 	prop := &stubProposer{}
 	e, work := extWithProposals(t, Config{Proposer: prop})

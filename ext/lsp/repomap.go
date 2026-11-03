@@ -18,18 +18,18 @@ import (
 type RepoMapConfig struct {
 	// TokenBudget caps the rendered map. Zero means DefaultRepoMapBudget.
 	//
-	// Counted as bytes/4, which is a rough proxy and deliberately not a
-	// tokenizer: the map is prose for orientation, and being 20% out costs a
-	// little context rather than correctness.
+	// It is counted as bytes/4. That is a rough proxy, and deliberately not a
+	// tokenizer. The map is prose for orientation, so being 20% out wastes a
+	// little context and never affects correctness.
 	TokenBudget int
 
 	// MaxFiles caps how many files are asked about. Zero means
 	// DefaultRepoMapMaxFiles.
 	//
-	// Every file costs a documentSymbol round trip (plus an open and close
-	// for a server that only answers for open documents), so this is the
-	// difference between indexing a repository and hanging on one. What
-	// the cap drops is reported in the map.
+	// Every file needs a documentSymbol round trip. A server that only
+	// answers for open documents also needs an open and a close per file.
+	// Without this cap, a large repository would hang the index instead of
+	// finishing. The map reports what the cap drops.
 	MaxFiles int
 
 	// Exclude names directories to skip, by base name. Nil means
@@ -43,9 +43,10 @@ const (
 	DefaultRepoMapMaxFiles = 400
 )
 
-// DefaultRepoMapExclude is the usual noise: dependency trees, build output, and
-// version control. Not read from .gitignore, which answers a different question
-// (see files.DefaultExclude for the same reasoning).
+// DefaultRepoMapExclude lists the usual noise of dependency trees, build
+// output, and version control. It is not read from .gitignore, because
+// .gitignore answers a different question. files.DefaultExclude gives the same
+// reasoning.
 var DefaultRepoMapExclude = []string{
 	".git", "node_modules", "vendor", "target", "dist", "build",
 	".venv", "venv", "__pycache__", ".next", ".cache",
@@ -53,10 +54,10 @@ var DefaultRepoMapExclude = []string{
 
 // repoMap holds the rendered map and whether it is ready yet.
 //
-// Built once in the background rather than per turn. Indexing a tree costs a
-// round trip per file, which is far too slow to sit in front of a turn, and a
-// map is orientation rather than live state: a slightly stale one is worth much
-// more than a fresh one that arrives after the model needed it.
+// It is built once in the background rather than per turn. Indexing a tree
+// takes a round trip per file, and that is far too slow to run before every
+// turn. A map is for orientation, not live state. A slightly stale map is
+// worth much more than a fresh one that arrives after the model needed it.
 type repoMap struct {
 	// stop ends indexing early. Close calls it, so the background pass stops
 	// asking a server that is shutting down.
@@ -91,11 +92,11 @@ type fileEntry struct {
 // buildRepoMap indexes every root and renders the map.
 //
 // Definitions come from the language server, so they are accurate across
-// languages without a parser per language. Edges are lexical: a file
-// references another if it mentions a name that other file declares. That is an
-// approximation and it is the right one here, because the alternative is a
-// references request per symbol, which is thousands of round trips to rank a
-// list nobody reads past the top of.
+// languages without a parser per language. Edges are lexical. File A
+// references file B if A mentions a name that B declares. That is an
+// approximation, and it is the right one here. The alternative is a
+// references request per symbol. That would take thousands of round trips to
+// rank a list nobody reads past the top.
 func buildRepoMap(ctx context.Context, p *pool, cfg RepoMapConfig) string {
 	budget := cfg.TokenBudget
 	if budget <= 0 {
@@ -168,12 +169,12 @@ func collectSourceFiles(p *pool, exclude []string, maxFiles int) (paths []string
 
 // declaredSymbols asks the server what a file declares, flattened to names.
 //
-// It asks without opening the file first, which gopls answers from disk. An
-// open document is one the server keeps type-checked and diagnosed, so
-// opening every file the map indexes left gopls busy for as long as a
-// session ran: the map took 20s instead of 2s, and Close waited behind that
-// work and ended up killing the server (#117). A server that answers nothing
-// for a closed file gets it opened for the one request and closed again.
+// It asks without opening the file first, and gopls answers from disk. The
+// server keeps every open document type-checked and diagnosed. When the map
+// opened every file it indexed, gopls was busy for the whole session. The map
+// took 20s instead of 2s, and Close waited behind that work and ended up
+// killing the server (#117). If a server answers nothing for a closed file,
+// the file is opened for the one request and closed again.
 func declaredSymbols(ctx context.Context, p *pool, path string) []string {
 	c := p.forPath(path)
 	if c == nil {
@@ -208,8 +209,8 @@ func (c *client) documentSymbols(ctx context.Context, path string) ([]documentSy
 }
 
 // openedSymbols is documentSymbols for a server that needs the document open.
-// A file the agent already had open stays open; one opened here is closed
-// again, so the map leaves the server with no extra documents to maintain.
+// A file the agent already had open is left open. A file opened here is
+// closed again, so the map leaves the server no extra documents to maintain.
 func (c *client) openedSymbols(ctx context.Context, path string) []documentSymbol {
 	c.mu.Lock()
 	_, wasOpen := c.open[path]
@@ -238,12 +239,12 @@ func lastSegment(name string) string {
 //
 // Without a ranking this would be a listing, not a map. A tree of every file
 // under a budget is list_files truncated at an arbitrary point. A new
-// contributor first needs the files the rest of the code leans on. Finding
-// those is a question about the graph rather than about file size or recency,
-// which are the cheaper signals and worse proxies.
+// contributor first needs the files that the rest of the code depends on.
+// Finding those is a question about the graph. File size and recency are
+// cheaper signals, but they are worse proxies.
 func rank(entries []*fileEntry) {
 	// Which file declares a name. A name declared in several files is ambiguous
-	// and carries no signal about direction, so it is dropped rather than
+	// and gives no signal about direction, so it is dropped rather than
 	// pointed at a guess.
 	owner := map[string]int{}
 	ambiguous := map[string]bool{}
@@ -347,9 +348,9 @@ func identByte(b byte) bool {
 
 // render writes the ranked map within the budget and says what it left out.
 //
-// A capped listing that stays quiet about being capped reads as the complete
-// contents of the repository, which is the same failure list_files and
-// search_files already refuse to make.
+// Imagine a capped listing that doesn't say it was capped. It reads as the
+// complete contents of the repository. list_files and search_files already
+// refuse to make that mistake.
 func render(entries []*fileEntry, budget, skipped int) string {
 	var b strings.Builder
 	b.WriteString("## Repository map\n\n")
@@ -387,8 +388,8 @@ func capSymbols(syms []string, max int) []string {
 
 // startRepoMap indexes in the background and reports the map when it is ready.
 //
-// The context is detached from construction on purpose: indexing outlives
-// New, and tying it to the caller's context would cancel the map the moment a
+// The context is detached from construction on purpose. Indexing outlives
+// New. Tying it to the caller's context would cancel the map the moment a
 // startup context was released.
 func startRepoMap(p *pool, cfg RepoMapConfig) *repoMap {
 	ctx, cancel := context.WithTimeout(context.Background(), repoMapTimeout)
@@ -405,5 +406,6 @@ func startRepoMap(p *pool, cfg RepoMapConfig) *repoMap {
 const repoMapTimeout = 5 * time.Minute
 
 // writeFile is a thin helper so tests can build a tree without importing the
-// file tools, which constraint C4 forbids.
+// file tools. Constraint C4 forbids that import, and
+// scripts/check-ext-isolation.sh enforces it.
 func writeFile(path, body string) error { return os.WriteFile(path, []byte(body), 0o644) }

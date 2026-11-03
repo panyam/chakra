@@ -16,21 +16,21 @@ type symbolMatch struct {
 
 // findSymbol resolves a name to the position an editor would put a cursor at.
 //
-// This is the whole reason the tools take a name instead of a line and column.
-// LSP addresses every request by position, and a model has no cursor: asking
-// it for one means asking it to count lines and columns out of read_file
-// output, in an encoding it cannot see. Resolving here moves that counting to
-// the one place that can do it correctly.
+// LSP addresses every request by position, and a model has no cursor. Asking
+// it for a position means asking it to count lines and columns out of
+// read_file output, in an encoding it cannot see. So the tools take a name
+// instead of a line and column. Resolving here moves the counting to the one
+// place that can do it correctly.
 //
-// A name matches on its own (Get), on its qualified form (CacheWrapper.Get),
-// or on whatever decorated spelling a server uses for a method, since gopls
-// reports (*CacheWrapper).Get and others report it differently. Matching all
-// three costs nothing and means the model's natural spelling works.
+// A name matches on its own (Get) or on its qualified form (CacheWrapper.Get).
+// It also matches the decorated spelling a server uses for a method. gopls
+// reports (*CacheWrapper).Get, and others report it differently. Matching all
+// three costs nothing, and the model's natural spelling then works.
 //
-// Ambiguity is refused rather than resolved to the first hit. That is the
-// discipline edit_file already applies to a non-unique anchor, so it is a rule
-// the model has met before, and the alternative is silently navigating to the
-// wrong one of two same-named methods.
+// Ambiguity is refused rather than resolved to the first hit. edit_file
+// already applies that rule to a non-unique anchor, so the model has met it
+// before. The alternative would silently navigate to the wrong one of two
+// same-named methods.
 func findSymbol(syms []documentSymbol, query string) (documentSymbol, error) {
 	if query == "" {
 		return documentSymbol{}, fmt.Errorf("symbol is required")
@@ -106,14 +106,14 @@ func joinCapped(names []string, limit int) string {
 // byteColumn converts a Position.Character to a byte offset within one line.
 //
 // The character is counted in utf-16 code units unless the server negotiated
-// otherwise at initialize, which gopls v0.23.0 declines to do: probed directly,
-// it omits positionEncoding from its capabilities whether offered utf-8 alone
-// or alongside utf-16, and per spec that means utf-16.
+// otherwise at initialize. gopls v0.23.0 declines to negotiate. Probed
+// directly, it omits positionEncoding from its capabilities whether offered
+// utf-8 alone or alongside utf-16. Per spec, that means utf-16.
 //
 // So any line containing a character outside the BMP counts columns that do
-// not match the bytes, and an emoji ahead of the symbol shifts everything after
-// it by one. This is the only place that difference exists, because no position
-// ever reaches the model.
+// not match the bytes. An emoji ahead of the symbol takes 4 bytes but 2 UTF-16
+// units, so every column after it is off by 2. This is the only place that
+// difference exists, because no position ever reaches the model.
 func byteColumn(line string, character int, encoding string) int {
 	if character <= 0 {
 		return 0
@@ -135,8 +135,8 @@ func byteColumn(line string, character int, encoding string) int {
 }
 
 // severityLabel names a diagnostic's level for the model. An unknown or absent
-// severity is reported as an error, because a server that did not say is not a
-// server saying the problem is minor.
+// severity is reported as an error. A server that gave no severity has not
+// said the problem is minor.
 func severityLabel(sev int) string {
 	switch sev {
 	case severityWarning:

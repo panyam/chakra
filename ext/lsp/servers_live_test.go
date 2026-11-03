@@ -3,13 +3,13 @@
 // Multi-language conformance probe. Every server here is optional and skipped
 // when its binary is absent, so this costs nothing on a machine with none.
 //
-// It exists because #1301 shipped with gopls as the only server ever tried,
-// and running this found that rust-analyzer's first publication after a change
-// is an empty placeholder. That bug (#1303) was reported to the model as "no
+// #1301 shipped with gopls as the only server ever tried. Running this probe
+// then found that rust-analyzer's first publication after a change is an
+// empty placeholder. That bug (#1303) was reported to the model as "no
 // problems reported" on an edit that broke the build. Adding a server here is
-// the cheapest way to find the next such assumption.
+// the cheapest way to find the next such assumption. Run it from ext/lsp:
 //
-//	go test -tags lsp_live ./experimental/agent/ext/lsp/ -run TestServers -v
+//	go test -tags lsp_live -run TestServers -v .
 package lsp
 
 import (
@@ -32,13 +32,14 @@ type probeCase struct {
 	file    string
 }
 
-// TestServers checks each installed server end to end: that it starts, that
-// its documentSymbol shape decodes, that a symbol resolves by name, and that
-// diagnostics for a genuinely broken file reach us.
+// TestServers checks each installed server end to end. It checks that the
+// server starts, that its documentSymbol shape decodes, that a symbol resolves
+// by name, and that diagnostics for a genuinely broken file reach us.
 //
-// Assertions rather than logs where the answer is knowable. The encoding and
-// the raw symbol shape stay logs, since those legitimately differ per server
-// and the point of recording them is that the next reader can see the spread.
+// Where the answer is knowable, the test asserts instead of logging. The
+// encoding and the raw symbol shape are only logged, because they
+// legitimately differ per server. We record them so the next reader can see
+// the spread.
 func TestServers(t *testing.T) {
 	cases := []probeCase{
 		{
@@ -137,9 +138,9 @@ func TestServers(t *testing.T) {
 			walk("", syms)
 			t.Logf("qualified names seen: %v", names)
 
-			// The silent-failure check: a flat SymbolInformation array decodes
-			// into documentSymbol with a zero SelectionRange, which resolves
-			// every symbol to line 0 column 0.
+			// This checks for a silent failure. A flat SymbolInformation array
+			// decodes into documentSymbol with a zero SelectionRange, and that
+			// resolves every symbol to line 0 column 0.
 			zero := 0
 			for _, s := range syms {
 				if s.SelectionRange == (textRange{}) {
@@ -159,8 +160,8 @@ func TestServers(t *testing.T) {
 				t.Fatalf("%s resolved %q to a zero range, so every symbol would point at line 0", tc.name, tc.symbol)
 			}
 
-			// Every fixture calls something undefined, so a server that
-			// reports nothing here is the #1303 failure: a broken file
+			// Every fixture calls something undefined. If a server reports
+			// nothing here, that is the #1303 failure, where a broken file is
 			// reported as clean.
 			start := time.Now()
 			got := c.refresh(context.Background(), target, 30*time.Second)
@@ -173,13 +174,14 @@ func TestServers(t *testing.T) {
 	}
 }
 
-// TestServersSpanTwoWorkspaceFolders is the measurement #1314's design rests
-// on: one server instance, two roots, and a correct answer for a file in the
-// folder that is not the rootUri.
+// TestServersSpanTwoWorkspaceFolders measures what #1314's design depends on.
+// It starts one server instance with two roots and expects a correct answer
+// for a file in the folder that is not the rootUri.
 //
-// It decides the shape rather than confirming it. The issue originally assumed
-// an instance per root per language, which would have meant N servers, N
-// indexes, and N cold starts for a session spanning N repositories.
+// The measurement decides the shape rather than confirming it. The issue
+// originally assumed an instance per root per language. That would have meant
+// N servers, N indexes, and N cold starts for a session spanning N
+// repositories.
 func TestServersSpanTwoWorkspaceFolders(t *testing.T) {
 	cases := []struct {
 		name    string

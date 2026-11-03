@@ -82,8 +82,8 @@ func TestArgumentsBeyondTheMaximumAreRefused(t *testing.T) {
 
 func TestAnArgumentMustMatchThePatternEndToEnd(t *testing.T) {
 	src := mustSource(t, baseConfig(t, argSpec(t, &ArgPolicy{Max: 2, Match: `\./\w+`})))
-	// Anchoring is the point: ./pkg;rm contains a match for ./\w+ and must
-	// still be refused, or every policy is a substring policy.
+	// This checks anchoring. ./pkg;rm contains a match for ./\w+ and must
+	// still be refused. Otherwise every policy is a substring policy.
 	for _, bad := range []string{"./pkg;rm", "x./pkg", "--flag"} {
 		got := call(t, src, "run_echo", map[string]any{"args": []any{bad}})
 		if !strings.Contains(got, "not permitted") {
@@ -244,8 +244,8 @@ func TestTheDescriptionNamesWhatWillActuallyRun(t *testing.T) {
 	}
 }
 
-// spam prints one 14-byte line per count, so 20000 lines is about 280 KB: past
-// the 32 KiB view, inside the 1 MiB capture.
+// spam prints one 14-byte line per count, so 20000 lines is about 280 KB. That
+// is past the 32 KiB view and inside the 1 MiB capture.
 const bigRun = "20000"
 
 func TestTheDefaultViewDropsTheMiddleOfALongRun(t *testing.T) {

@@ -17,10 +17,10 @@ import (
 //
 // A stub wired to an in-process pipe would have been less code, but it would
 // have skipped exec, argv, working directory, and every part of teardown that
-// only exists because there is a process. Close is the seam this PR adds to
-// host.Extension, and a test that never spawns anything cannot show a process
-// dying. Re-execing the test binary buys the real path with no fixture binary
-// to build and no dependency to add.
+// only exists because there is a process. host.Extension.Close is under test,
+// and a test that never spawns anything cannot show a process dying.
+// Re-execing the test binary gives us the real path with no fixture binary to
+// build and no dependency to add.
 const stubEnv = "LSP_STUB_SCRIPT"
 
 // stubDocLogFile is where the stub appends one "method uri" line for every
@@ -28,8 +28,8 @@ const stubEnv = "LSP_STUB_SCRIPT"
 // the client opened and whether it closed it again.
 const stubDocLogFile = ".stub-doc-methods.log"
 
-// stubFoldersFile is where the stub records the workspaceFolders it was sent,
-// inside its working directory, which is the first root.
+// stubFoldersFile names the file where the stub records the workspaceFolders
+// it was sent. The file is in the stub's working directory, the first root.
 const stubFoldersFile = ".stub-workspace-folders.json"
 
 func TestMain(m *testing.M) {
@@ -81,7 +81,7 @@ type stubScript struct {
 	BusyAroundPublish bool `json:"busyAroundPublish,omitempty"`
 
 	// IgnoreMethods names requests the server reads and never answers, while
-	// keeping the connection open. This is the wedge case: the read loop has
+	// keeping the connection open. This is the wedge case. The read loop has
 	// nothing to fail on, so without a bound on the call the caller waits for
 	// ever.
 	IgnoreMethods []string `json:"ignoreMethods,omitempty"`
@@ -174,7 +174,7 @@ func runStubServer(script string) {
 		if err != nil {
 			// A well-behaved server stops when stdin closes, so a stub that
 			// exits here would never reach the kill path. A wedged
-			// server is one that ignores the pipe closing too.
+			// server ignores the pipe closing too.
 			if s.IgnoreShutdown {
 				time.Sleep(time.Hour)
 			}
@@ -312,8 +312,8 @@ func stubSpec(t *testing.T, s stubScript) ServerSpec {
 	if err != nil {
 		t.Fatalf("marshal script: %v", err)
 	}
-	// The child inherits this process's environment, so setting it here is
-	// what flips the re-executed binary into server mode.
+	// The child inherits this process's environment, so setting it here
+	// flips the re-executed binary into server mode.
 	t.Setenv(stubEnv, string(raw))
 	return ServerSpec{
 		Command:    []string{os.Args[0]},

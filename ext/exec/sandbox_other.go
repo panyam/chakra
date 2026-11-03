@@ -4,9 +4,9 @@ package exec
 
 // defaultSandbox reports that this platform has no backend yet.
 //
-// Linux is the gap that matters and it is deliberate. Delegating to
-// bubblewrap is the obvious shape, and it could not be verified here: CI runs
-// on ubuntu-latest, where the AppArmor restriction on unprivileged user
+// Linux is the gap that matters, and the gap is deliberate. Delegating to
+// bubblewrap is the obvious shape, but we could not verify it here. CI runs on
+// ubuntu-latest. There the AppArmor restriction on unprivileged user
 // namespaces can block bwrap outright, so the backend would have shipped less
 // proven than the darwin one. A deployed agent on Linux is also the case most
 // likely to be inside a container already. Unconfined exists for that case.

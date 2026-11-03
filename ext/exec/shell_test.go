@@ -31,8 +31,8 @@ func (r recordingSandbox) Confine(*osexec.Cmd, Policy) error {
 func shellSource(t *testing.T, sb Sandbox) *Source {
 	t.Helper()
 	if sb == nil {
-		// A stand-in that counts as a sandbox: escalation only means
-		// something when there is one to leave (#203).
+		// A stand-in that counts as a sandbox. Escalation only means
+		// something when there is a sandbox to leave (#203).
 		sb = recordingSandbox{new(int)}
 	}
 	return mustSource(t, Config{Roots: []string{workspace(t)}, Shell: &ShellConfig{Rules: testRules}, Sandbox: sb})
@@ -180,9 +180,9 @@ func TestShellNeedsNoAllowlistAndChecksItsRules(t *testing.T) {
 	}
 }
 
-// TestShellWithoutASandboxIgnoresEscalation is #203: inside a container that is
-// itself the sandbox, exec runs unconfined, and a model asking to escalate
-// must not be sent to an ask nobody can answer.
+// TestShellWithoutASandboxIgnoresEscalation covers #203. Inside a container
+// that is itself the sandbox, exec runs unconfined. A model asking to escalate
+// must not be sent to an ask with nobody to answer it.
 func TestShellWithoutASandboxIgnoresEscalation(t *testing.T) {
 	src := shellSource(t, Unconfined())
 	call := shellCall(words("apt-get install -y nginx"), map[string]any{"escalate": true})

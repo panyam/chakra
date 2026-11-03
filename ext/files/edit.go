@@ -1,18 +1,19 @@
 // Package files edits text by anchoring to the content being replaced, so an
 // edit built against a stale view of a file fails instead of applying.
 //
-// The failure it exists to prevent: an agent reads a file, decides on a
-// change, and writes it back. In between, the file changed underneath. A
-// formatter ran, a sibling tool wrote it, the user saved in their editor. An
-// edit addressed by line number applies anyway and silently discards that
-// change, and nothing reports it, because nothing noticed.
+// Imagine an agent reads a file, decides on a change, and writes it back. In
+// between, the file changed underneath. A formatter ran, a sibling tool wrote
+// it, or the user saved in their editor. An edit addressed by line number
+// applies anyway and silently discards that change. Nothing reports it,
+// because nothing noticed. This package exists to prevent that failure.
 //
-// Two mechanisms answer two different questions. An anchor (the exact text
-// being replaced) says WHERE a change goes, and survives the line numbers
-// moving. A content hash says WHETHER the file is still the one the caller
-// looked at. Neither substitutes for the other: an anchor can still match
-// uniquely in a file that was reformatted underneath, which is precisely the
-// case where applying it is wrong, and a hash cannot locate anything.
+// Two mechanisms answer two different questions. An anchor is the exact text
+// being replaced. It says WHERE a change goes, and it survives the line
+// numbers moving. A content hash says WHETHER the file is still the one the
+// caller looked at. Neither substitutes for the other. An anchor can still
+// match uniquely in a file that was reformatted underneath, and that is
+// precisely the case where applying it is wrong. A hash cannot locate
+// anything.
 //
 // Nothing here is specific to code. It needs a filesystem and text, not a
 // language, so a data file, a prose draft, and a source file are the same
@@ -44,8 +45,8 @@ var (
 	ErrAnchorNotFound = errors.New("anchor not found")
 
 	// ErrAnchorAmbiguous means a hunk's Old text appears more than once, so
-	// there is no single place the edit belongs. Resolved by extending the
-	// anchor with surrounding lines until it is unique, never by picking one.
+	// there is no single place the edit belongs. The fix is to extend the
+	// anchor with surrounding lines until it is unique, never to pick one.
 	ErrAnchorAmbiguous = errors.New("anchor is not unique")
 
 	// ErrOverlap means two hunks matched regions that share characters, so
@@ -57,9 +58,9 @@ var (
 	// of being reported as ambiguous.
 	ErrEmptyAnchor = errors.New("hunk has an empty anchor")
 
-	// ErrNoHunks means an Edit carried no hunks. Applying it would be a no-op,
-	// which is more likely a caller that built the edit wrong than a caller
-	// that meant to change nothing.
+	// ErrNoHunks means an Edit carried no hunks. Applying it would be a
+	// no-op. More likely the caller built the edit wrong than meant to change
+	// nothing.
 	ErrNoHunks = errors.New("edit has no hunks")
 )
 
@@ -67,10 +68,9 @@ var (
 type Hunk struct {
 	// Old is the exact text to replace. It must appear exactly once in the
 	// content. Matching is byte-exact: no whitespace normalization, no fuzzy
-	// or nearest match. Approximate matching is the mechanism that produces
-	// silently wrong edits, which is the failure this package exists to
-	// prevent, so a caller whose anchor does not match gets an error and a
-	// chance to look again.
+	// or nearest match. Approximate matching produces silently wrong edits,
+	// and this package exists to prevent those. So if a caller's anchor does
+	// not match, the caller gets an error and a chance to look again.
 	Old string
 
 	// New is what replaces Old. Empty deletes the anchored text.
@@ -79,26 +79,27 @@ type Hunk struct {
 
 // Edit is a set of hunks applied to one file's content as a single unit.
 type Edit struct {
-	// ExpectHash is the Hash of the content this edit was written against.
-	// Empty skips the check, which is the right choice only when the caller
-	// has some other guarantee that nothing changed in between; without it an
-	// edit can still apply cleanly to a file it was never meant for.
+	// ExpectHash is the Hash of the content that the caller wrote this edit
+	// against. Empty skips the check. That is right only when the caller has
+	// some other guarantee that nothing changed in between. Without such a
+	// guarantee, an edit can still apply cleanly to a file it was never meant
+	// for.
 	ExpectHash string
 
 	// Hunks are applied together or not at all. Each anchor is matched
 	// against the original content rather than against the result of earlier
-	// hunks, so the order they are listed in does not change the outcome.
+	// hunks, so listing them in another order does not change the outcome.
 	Hunks []Hunk
 }
 
 // Apply returns src with every hunk applied, or an error and no partial result.
 //
 // All or nothing, and order-independent. Every anchor is resolved against the
-// original src before anything is spliced, so a hunk cannot match text an
+// original src before anything is spliced. So a hunk cannot match text that an
 // earlier hunk introduced, and a failure on the last hunk leaves the caller
-// exactly where it started. Both properties follow from the same reason: the
-// caller wrote all these hunks while looking at one version of the content, so
-// that version is what they should be interpreted against.
+// exactly where it started. Both properties have one reason. The caller wrote
+// all these hunks while looking at one version of the content, so the hunks
+// should be interpreted against that version.
 func (e Edit) Apply(src string) (string, error) {
 	if e.ExpectHash != "" {
 		if got := Hash(src); got != e.ExpectHash {
