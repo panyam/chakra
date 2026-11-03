@@ -10,9 +10,9 @@ import (
 // setProcessGroup puts the command in its own process group.
 //
 // Without it a timeout kills only the process we started. A command is
-// normally a launcher (make, go, npm) whose children do the work, and those
-// children survive the parent's death, keep the workspace busy, and keep
-// writing to pipes nobody reads. Killing the group reaches them too.
+// normally a launcher such as make, go or npm, and its children do the work.
+// Those children survive the parent's death. They keep the workspace busy and
+// keep writing to unread pipes. Killing the group reaches them too.
 func setProcessGroup(cmd *osexec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 }

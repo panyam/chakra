@@ -90,8 +90,8 @@ func TestSBPLConfinesWritesAndDeniesEgress(t *testing.T) {
 	}
 
 	// The read denial has to come after the blanket read allow, because
-	// Seatbelt takes the last matching rule. Ordered the other way the denial
-	// is present and does nothing, which is the failure that looks fine.
+	// Seatbelt takes the last matching rule. In the other order the denial is
+	// present and does nothing, and the profile still looks fine.
 	if strings.Index(got, "(allow file-read*)") > strings.Index(got, `(deny file-read* (subpath "/home/u/.ssh"))`) {
 		t.Error("the read denial must follow the read allow, or Seatbelt's last-match rule discards it")
 	}

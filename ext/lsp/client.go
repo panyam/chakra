@@ -33,9 +33,9 @@ type location struct {
 
 // diagnostic is one problem the server reports about a file.
 //
-// Unexported because nothing outside this package consumes it: the extension
-// renders diagnostics to text for the model, and a caller wanting structured
-// problems wants the language server, not this wrapper around it.
+// It is unexported because nothing outside this package uses it. The extension
+// renders diagnostics to text for the model. A caller that wants structured
+// problems should ask the language server, not this wrapper around it.
 type diagnostic struct {
 	Range    textRange `json:"range"`
 	Severity int       `json:"severity"`
@@ -46,12 +46,11 @@ type diagnostic struct {
 // busyGrace is how much longer refresh waits for a correction while the server
 // reports itself busy.
 //
-// It is added to the settle rather than replacing the deadline. Waiting for a
-// busy server to fall quiet does not work: rust-analyzer reports progress
-// almost continuously, so "wait while busy" ran to the full timeout on every
-// write, measured at eight seconds each. A bounded extension keeps the
-// benefit, which is patience with a server that is visibly working, without
-// the cost.
+// Waiting for a busy server to fall quiet does not work. rust-analyzer reports
+// progress almost continuously, so "wait while busy" ran to the full timeout
+// on every write, measured at eight seconds each. So busyGrace is added to the
+// settle, and the deadline does not move. The server still gets extra patience
+// while it is visibly working, and the extra wait is bounded.
 const busyGrace = 1500 * time.Millisecond
 
 // severity levels, as the protocol numbers them.
@@ -96,18 +95,18 @@ type client struct {
 	diags map[string][]diagnostic
 	open  map[string]int
 
-	// sent is the content hash last given to the server; answered is the hash
-	// the diagnostics we hold correspond to. When the two match, the server
-	// already agrees with us. When they differ, a change is in flight and the
-	// server has not replied yet.
+	// sent is the content hash last given to the server. answered is the value
+	// sent had when the server last published diagnostics for the file. When
+	// the two match, the server already agrees with us. When they differ, a
+	// change is in flight and the server has not replied yet.
 	sent     map[string][32]byte
 	answered map[string][32]byte
 
 	// busyTokens are the work-done progress operations the server says are
-	// running, and finished counts the ones that have ended. Together they
-	// replace guessing: a server that reports progress tells us when it is
-	// working and when it has stopped, which is a better answer than any
-	// quiet period we could pick for it.
+	// running, and begun counts the ones that have started. Together they
+	// replace guessing. A server that reports progress tells us when it starts
+	// working and when it stops. That beats any quiet period we could pick
+	// for it.
 	busyTokens map[string]bool
 	begun      int
 
@@ -139,9 +138,9 @@ func startClient(ctx context.Context, spec ServerSpec, roots []string) (*client,
 	if err != nil {
 		return nil, fmt.Errorf("lsp: %s stdout: %w", spec.Command[0], err)
 	}
-	// The server's stderr is its own diagnostics channel, not ours. Discarding
-	// it keeps a chatty server from filling a pipe nobody drains, which would
-	// block it mid-response and look like a hang.
+	// The server's stderr is its own diagnostics channel, not ours. If we piped
+	// it and nobody read the pipe, a chatty server would fill it and block
+	// mid-response, and that would look like a hang. Discarding it avoids that.
 	cmd.Stderr = nil
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("lsp: start %s: %w", spec.Command[0], err)
@@ -176,10 +175,10 @@ func (c *client) initialize(ctx context.Context) error {
 	}
 	params := map[string]any{
 		"processId": os.Getpid(),
-		// rootUri is the first root and workspaceFolders carries them all. The
-		// field is singular and deprecated; servers that predate folders still
-		// read it, and every server measured answers correctly for a file in a
-		// folder that is not this one.
+		// rootUri is the first root, and workspaceFolders lists them all.
+		// rootUri is singular and deprecated, but servers that predate folders
+		// still read it. Every server we measured answers correctly for a file
+		// in a folder other than the first.
 		"rootUri":          pathToURI(c.roots[0]),
 		"workspaceFolders": folders,
 		"capabilities": map[string]any{
@@ -251,10 +250,10 @@ func (c *client) onNotify(method string, params json.RawMessage) {
 
 // trackProgress follows the server's work-done progress notifications.
 //
-// Only begin and end matter. A server that reports progress is telling us when
-// a recompute starts and stops, which is strictly better information than a
-// timer: rust-analyzer brackets its cargo check this way, so waiting for the
-// end costs exactly the time the check took and nothing more.
+// Only begin and end matter. A server that reports progress tells us when a
+// recompute starts and stops, and a timer can only guess at that.
+// rust-analyzer brackets its cargo check this way, so waiting for the end
+// takes exactly as long as the check and no longer.
 func (c *client) trackProgress(params json.RawMessage) {
 	var p struct {
 		Token any `json:"token"`
@@ -286,11 +285,11 @@ func (c *client) busy() bool {
 
 // awaitPublish registers interest in the next diagnostics for abs.
 //
-// Registered before the didChange that will cause them, because the server can
-// publish before the notify call returns and a waiter installed afterwards
-// would miss the very publication it is waiting for. Every channel it hands
-// out is either closed by a publication or dropped by dropWait; one that is
-// neither stays in the map until the next publication for that file.
+// Call it before sending the didChange that causes them. The server can
+// publish before the notify call returns, and a waiter installed after that
+// would miss the publication it is waiting for. A publication closes each
+// channel it hands out, or dropWait removes it. A channel that gets neither
+// remains in the map until the next publication for that file.
 func (c *client) awaitPublish(abs string) chan struct{} {
 	ch := make(chan struct{})
 	c.mu.Lock()
@@ -317,10 +316,10 @@ func (c *client) dropWait(abs string, ch chan struct{}) {
 // document the first time and revising it afterwards. It reports whether
 // anything was actually sent.
 //
-// Content that the server already has is not resent. Beyond saving a needless
-// recompute on every navigation call, this is load-bearing for refresh: clangd
-// does not re-publish for a didChange whose content is identical, so resending
-// would leave a caller waiting for a publication that is never coming.
+// sync does not resend content the server already has. That saves a needless
+// recompute on every navigation call, and refresh depends on it. clangd does
+// not re-publish for a didChange with identical content, so a resend would
+// leave a caller waiting for a publication that never comes.
 func (c *client) sync(abs string) (bool, error) {
 	body, err := os.ReadFile(abs)
 	if err != nil {
@@ -353,10 +352,10 @@ func (c *client) sync(abs string) (bool, error) {
 		}
 		return true, c.save(uri, string(body))
 	}
-	// A single change with no range means "this is the whole document". It is
-	// the one form every server accepts regardless of the sync kind it
-	// declared, which matters because we drive several servers and cannot
-	// carry an incremental-diff implementation per server.
+	// A single change with no range means "this is the whole document". Every
+	// server accepts that form, whatever sync kind it declared. We drive
+	// several servers and can't keep an incremental-diff implementation for
+	// each one.
 	if err := c.conn.notify("textDocument/didChange", map[string]any{
 		"textDocument":   map[string]any{"uri": uri, "version": version},
 		"contentChanges": []map[string]any{{"text": string(body)}},
@@ -366,13 +365,13 @@ func (c *client) sync(abs string) (bool, error) {
 	return true, c.save(uri, string(body))
 }
 
-// save tells the server the file is on disk, which for some servers is the
-// only thing that triggers a real re-check.
+// save tells the server the file is on disk. For some servers, only a save
+// triggers a real re-check.
 //
-// Measured: rust-analyzer publishes NOTHING for a didChange. Its cargo check
-// runs on save, and on save it answers in about 0.2s. Without this, the second
-// and every later edit to a Rust file was never re-checked, and the first one
-// only worked because opening the document happened to trigger a check.
+// We measured that rust-analyzer publishes NOTHING for a didChange. Its cargo
+// check runs on save, and on save it answers in about 0.2s. Without this, the
+// second and every later edit to a Rust file was never re-checked. The first
+// edit only worked because opening the document happened to trigger a check.
 //
 // It is also honest rather than a trick. Everything here reads the file from
 // disk, so by the time we describe it to the server it genuinely has been
@@ -389,24 +388,24 @@ func (c *client) save(uri, text string) error {
 // # Why it waits for quiet rather than for one publication
 //
 // The obvious implementation takes the first publication after the change as
-// the answer. That is correct for gopls, typescript-language-server and
-// pyright, all of which publish once with what they found, and it is wrong for
-// a server that computes in two phases.
+// the answer. That works for gopls, typescript-language-server and pyright.
+// Each of them publishes once with what it found. It fails for a server that
+// computes in two phases.
 //
 // rust-analyzer publishes an EMPTY set as soon as the file changes and the
 // real diagnostics about two seconds later, once cargo has run. Taking the
 // first publication there reports a file that does not compile as "no problems
-// reported", which is the worst direction for this to be wrong in: the whole
-// point of the post-write report is to tell the model it broke something.
+// reported". That is the worst way for this to be wrong. The post-write report
+// exists to tell the model it broke something.
 //
 // So each publication restarts a settle timer and the last set wins. The
 // timeout still bounds the whole wait, so a server that publishes
 // continuously cannot hold a turn open.
 //
 // A timeout with nothing published returns false rather than the diagnostics
-// we happen to be holding. Stale problems presented as the result of the edit
-// that just ran are worse than saying nothing: the model would go fix an error
-// it already fixed.
+// we happen to be holding. Imagine we presented stale problems as the result
+// of the edit that just ran. The model would go fix an error it had already
+// fixed. Saying nothing is better.
 func (c *client) refresh(ctx context.Context, abs string, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 	first := c.awaitPublish(abs)
@@ -422,9 +421,9 @@ func (c *client) refresh(ctx context.Context, abs string, timeout time.Duration)
 		// would report a timeout for a file we can already answer about.
 		// That happens with clangd when it is handed content it already has.
 		//
-		// Both halves are load-bearing. Unchanged content alone is not
-		// enough: right after a didOpen the server has the content and has
-		// not replied yet, and returning here would report a file as clean
+		// Both halves of the check are needed. Unchanged content alone is not
+		// enough. Right after a didOpen the server has the content but has
+		// not replied yet. Returning here would report the file as clean
 		// before anything had looked at it.
 		c.dropWait(abs, first)
 		return true
@@ -433,9 +432,9 @@ func (c *client) refresh(ctx context.Context, abs string, timeout time.Duration)
 	if !c.waitPublish(ctx, abs, first, time.Until(deadline)) {
 		return false
 	}
-	// Quiet is the moment we stop waiting for a correction. It moves whenever
-	// something is published, and further out while the server reports itself
-	// busy, so a slow recheck is not cut off and reported as clean.
+	// quiet is the time we stop waiting for a correction. Each publication
+	// moves it later. While the server reports itself busy it moves later
+	// still, so a slow recheck is not cut off and reported as clean.
 	quiet := time.Now().Add(c.settle)
 	for {
 		now := time.Now()
@@ -445,8 +444,8 @@ func (c *client) refresh(ctx context.Context, abs string, timeout time.Duration)
 		case len(c.diagnostics(abs)) > 0:
 			// Something real to report beats waiting for more of it. A later
 			// publication can only add problems, and the next turn's context
-			// stage carries the full current set anyway, so holding the model
-			// up for completeness buys nothing it does not already get.
+			// stage shows the full current set anyway. Holding the model up
+			// for completeness would give it nothing new.
 			return true
 		}
 		if c.busy() {
@@ -455,10 +454,10 @@ func (c *client) refresh(ctx context.Context, abs string, timeout time.Duration)
 		if now.After(quiet) {
 			return true
 		}
-		// Bounded by the quiet deadline rather than slept through in one go,
+		// Each wait ends at the quiet deadline instead of sleeping in one go,
 		// so busy() is re-read on every pass. A server publishes its
-		// provisional empty set and only then announces the work, so a single
-		// sample taken right after the first publication misses it.
+		// provisional empty set first and only then announces the work. A
+		// single sample taken right after the first publication would miss it.
 		wait := min(quiet.Sub(now), deadline.Sub(now))
 		next := c.awaitPublish(abs)
 		if c.waitPublish(ctx, abs, next, wait) {
@@ -509,8 +508,8 @@ func (c *client) diagnostics(abs string) []diagnostic {
 	return out
 }
 
-// tracked reports the files this client has been told about, which is the set
-// worth reporting diagnostics for.
+// tracked reports the files this client has been told about. Those are the
+// files worth reporting diagnostics for.
 func (c *client) tracked() []string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -536,10 +535,10 @@ func (c *client) closeDocument(abs string) {
 
 // close shuts the server down, politely first and then not.
 //
-// The graceful path matters more than it looks: gopls writes its module cache
+// The graceful path matters more than it looks. gopls writes its module cache
 // and telemetry on exit, and a killed server can leave a stale lock that makes
 // the next session slower. The kill is the backstop for a server that ignores
-// shutdown, because a host that blocks on Close is worse than an orphan.
+// shutdown. A host that blocks on Close is worse than an orphan.
 func (c *client) close() error {
 	var err error
 	c.closeOnce.Do(func() {
@@ -565,9 +564,9 @@ func (c *client) close() error {
 
 // pathToURI renders a filesystem path as a file:// URI.
 //
-// url.URL rather than string concatenation because a path can contain spaces
-// and characters that need escaping, and a malformed URI comes back from a
-// server as an empty result rather than as an error.
+// It uses url.URL, not string concatenation. A path can contain spaces and
+// other characters that need escaping, and a server answers a malformed URI
+// with an empty result, not an error.
 func pathToURI(path string) string {
 	u := url.URL{Scheme: "file", Path: filepath.ToSlash(path)}
 	return u.String()
@@ -576,9 +575,9 @@ func pathToURI(path string) string {
 // pathFromURI converts a server-supplied URI to an absolute path, reporting
 // false for anything outside every workspace root.
 //
-// Out-of-root results are normal rather than exceptional: a definition in the
-// standard library or a module cache is a real answer to a real question, and
-// it is simply not a file this workspace can talk about.
+// Out-of-root results are normal. A definition in the standard library or a
+// module cache is a real answer to a real question. It just isn't a file this
+// workspace can talk about.
 func (c *client) pathFromURI(uri string) (string, bool) {
 	u, err := url.Parse(uri)
 	if err != nil || u.Scheme != "file" {

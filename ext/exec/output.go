@@ -9,13 +9,12 @@ import (
 // capBuffer collects a stream and keeps at most max bytes of it, dropping from
 // the middle.
 //
-// The middle is what to drop. A failing build states the problem in the first
-// lines (a config error, a missing tool) or the last ones (the failure
-// summary, the assertion), and a tail-only buffer loses the first kind while a
-// head-only one loses the second.
+// A failing build states the problem in its first lines (a config error, a
+// missing tool) or its last ones (the failure summary, the assertion). A
+// tail-only buffer loses the first kind, and a head-only one loses the second.
 //
-// It is written to from the goroutines os/exec runs for stdout and stderr, so
-// it locks.
+// os/exec runs a goroutine for stdout and one for stderr, and both write to
+// it, so it locks.
 type capBuffer struct {
 	mu      sync.Mutex
 	max     int
@@ -62,10 +61,10 @@ func (c *capBuffer) String() string {
 // middle, and reports whether anything is missing. Zero or less means all of
 // it.
 //
-// The count is stated because a model that cannot tell truncated output from
-// complete output will read a passing tail as a passing run. It covers both
-// drops, the capture's and the view's, so the number counts every byte the
-// run printed that the reader did not get.
+// View states the count for a reason. Imagine a model that cannot tell
+// truncated output from complete output. It will read a passing tail as a
+// passing run. The count covers both drops, the capture's and the view's, so
+// it counts every printed byte that never reached the reader.
 func (c *capBuffer) View(max int) (string, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

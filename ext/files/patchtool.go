@@ -171,8 +171,8 @@ func (s *Source) planPatch(patches []FilePatch) ([]patchOp, error) {
 }
 
 // commitPatch writes the planned changes in order. On a failure it undoes the
-// ones already made, newest first, and reports both errors if the undo fails
-// too, since the workspace is then in a state the caller has to know about.
+// ones already made, newest first. If the undo fails too, it reports both
+// errors, since the caller then has to know what state the workspace is in.
 func (s *Source) commitPatch(ops []patchOp) error {
 	var undo []func() error
 	fail := func(err error) error {

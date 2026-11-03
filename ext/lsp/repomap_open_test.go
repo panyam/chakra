@@ -40,10 +40,10 @@ func docLines(log []string) []string {
 	return out
 }
 
-// #117: opening every file the map indexes made gopls type-check and diagnose
-// all of them for the rest of the session, so the map took 20s and Close
-// waited behind that work. A server that answers for a closed file is asked
-// without opening it.
+// In #117, opening every file the map indexed made gopls type-check and
+// diagnose all of them for the rest of the session. The map took 20s, and
+// Close waited behind that work. A server that answers for a closed file is
+// now asked without opening it.
 func TestRepoMapDoesNotOpenFilesTheServerCanAnswerFor(t *testing.T) {
 	m, log := mapOver(t, stubScript{Symbols: map[string][]documentSymbol{
 		"a.go": {{Name: "Alpha"}}, "b.go": {{Name: "Beta"}},

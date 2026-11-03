@@ -166,7 +166,7 @@ func startStubSettle(t *testing.T, root string, s stubScript, settle time.Durati
 // TestRefreshWaitsPastAProvisionalEmptyPublication is the #1303 regression.
 // rust-analyzer publishes an empty set the moment a file changes and its real
 // answer about two seconds later. Taking the first publication reported a file
-// that does not compile as clean, which is the worst direction to be wrong in.
+// that does not compile as clean. That is the worst way to be wrong.
 func TestRefreshWaitsPastAProvisionalEmptyPublication(t *testing.T) {
 	root := workspace(t, map[string]string{"a.go": "package a\n"})
 	c := startStubSettle(t, root, stubScript{
@@ -239,7 +239,7 @@ func TestServerSpecSettleDelayOverridesTheDefault(t *testing.T) {
 }
 
 // TestDiagnosticsTimeoutOutlastsTheSettle pins that the two bounds agree. A
-// timeout shorter than the settle would cut off the very publication the
+// timeout shorter than the settle would cut off the publication that the
 // settle exists to wait for.
 func TestDiagnosticsTimeoutOutlastsTheSettle(t *testing.T) {
 	if DefaultDiagnosticsTimeout <= DefaultSettleDelay {
@@ -250,11 +250,11 @@ func TestDiagnosticsTimeoutOutlastsTheSettle(t *testing.T) {
 // TestRefreshWaitsWhenTheServerHasNotAnsweredYet guards the narrow case that
 // makes the unchanged-content shortcut safe.
 //
-// A navigation call syncs the file, so by the time a write is re-checked the
-// content can already be with the server while the server has said nothing
-// about it. Skipping the wait on unchanged content alone reported the file as
-// clean before anything had looked at it, which is the same false all-clear
-// this change exists to remove.
+// Imagine a navigation call syncs the file. When a write is re-checked later,
+// the server already has the content but has said nothing about it yet. A
+// version that skipped the wait on unchanged content alone reported the file
+// as clean before anything had looked at it. This change exists to remove
+// that same false all-clear.
 func TestRefreshWaitsWhenTheServerHasNotAnsweredYet(t *testing.T) {
 	root := workspace(t, map[string]string{"a.go": "package a\n"})
 	c := startStub(t, root, stubScript{
@@ -278,9 +278,9 @@ func TestRefreshWaitsWhenTheServerHasNotAnsweredYet(t *testing.T) {
 }
 
 // TestRefreshReturnsAtOnceOnRealProblems pins the latency short-circuit. A
-// publication with problems in it is actionable, so waiting out a quiet period
-// for more of them delays the model for nothing: a later publication can only
-// add problems, and the next turn's context stage carries the full set anyway.
+// publication with problems in it is actionable. A later publication can only
+// add problems, and the next turn's context stage shows the full set anyway.
+// So waiting out a quiet period for more of them delays the model for nothing.
 func TestRefreshReturnsAtOnceOnRealProblems(t *testing.T) {
 	root := workspace(t, map[string]string{"a.go": "package a\n"})
 	c := startStubSettle(t, root, stubScript{
@@ -297,8 +297,8 @@ func TestRefreshReturnsAtOnceOnRealProblems(t *testing.T) {
 }
 
 // TestRefreshWaitsOutTheSettleOnAnEmptyResult is the other half. An empty set
-// means "clean" or "not computed yet" and nothing distinguishes them, so this
-// is the case the quiet period exists for.
+// means "clean" or "not computed yet" and nothing distinguishes them. The
+// quiet period exists for this case.
 func TestRefreshWaitsOutTheSettleOnAnEmptyResult(t *testing.T) {
 	root := workspace(t, map[string]string{"a.go": "package a\n"})
 	c := startStubSettle(t, root, stubScript{}, 600*time.Millisecond)
@@ -313,9 +313,9 @@ func TestRefreshWaitsOutTheSettleOnAnEmptyResult(t *testing.T) {
 }
 
 // TestBusyGraceIsBounded pins that a busy server extends the wait rather than
-// removing the bound. An earlier version waited for the server to fall quiet,
-// which measured at the full eight-second timeout on every rust-analyzer write
-// because it reports progress almost continuously.
+// removing the bound. An earlier version waited for the server to fall quiet.
+// rust-analyzer reports progress almost continuously, so every rust-analyzer
+// write took the full eight-second timeout.
 func TestBusyGraceIsBounded(t *testing.T) {
 	if busyGrace >= DefaultDiagnosticsTimeout {
 		t.Fatalf("busyGrace %v must stay well inside the %v timeout", busyGrace, DefaultDiagnosticsTimeout)
@@ -360,7 +360,7 @@ func TestSyncSavesSoSaveDrivenServersRecheck(t *testing.T) {
 	}
 }
 
-// TestBusyServerExtendsTheWait pins that a server reporting itself busy buys
+// TestBusyServerExtendsTheWait pins that a server reporting itself busy gets
 // more patience than the plain settle, so a slow recheck is not cut off and
 // reported as clean.
 func TestBusyServerExtendsTheWait(t *testing.T) {

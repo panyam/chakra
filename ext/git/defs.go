@@ -17,11 +17,11 @@ func lookGit() (string, error) {
 	return p, nil
 }
 
-// readOnly marks a tool the approval gate may run without asking, and
-// destructive one it asks about. Each is a fresh map, since a caller may
-// write into a ToolDef's annotations. One tool per operation, because hints
-// are per ToolDef (CLAUDE.md, Traps): a single "git" tool would give a
-// commit a read's disposition or a status a commit's.
+// readOnly lets the approval gate run a tool without asking, and destructive
+// makes the gate ask first. Each returns a fresh map, since a caller may write
+// into a ToolDef's annotations. Hints are per ToolDef (CLAUDE.md, Traps), so
+// there is one tool per operation. A single "git" tool would give a commit a
+// read's disposition, or a status a commit's.
 func readOnly() map[string]any    { return map[string]any{"readOnlyHint": true} }
 func destructive() map[string]any { return map[string]any{"destructiveHint": true} }
 

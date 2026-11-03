@@ -18,8 +18,8 @@ type ServerSpec struct {
 	//
 	// It comes from configuration and is deliberately unreachable from a tool
 	// argument. A model's instructions can come from content it read rather
-	// than from the user, so an agent that could name the subprocess it starts
-	// would be one injected instruction away from running anything.
+	// than from the user. If an agent could name the subprocess it starts, one
+	// injected instruction could make it run anything.
 	Command []string
 
 	// Extensions are the file suffixes this server handles, including the dot
@@ -35,22 +35,22 @@ type ServerSpec struct {
 	// publication arrives, before treating the last set as the answer. Zero
 	// means DefaultSettleDelay.
 	//
-	// The wait is already held open for as long as the server reports itself
-	// busy, which covers the servers that publish a provisional empty set and
-	// their real answer afterwards. Raise this only for a server that does
-	// that WITHOUT reporting progress. The tell is a broken file reported as
-	// clean.
+	// The wait already extends while the server reports itself busy. That
+	// covers servers that publish a provisional empty set and then their real
+	// answer. Raise this only for a server that does that WITHOUT reporting
+	// progress. The tell is a broken file reported as clean.
 	SettleDelay time.Duration
 }
 
 // WriteSpec declares that a tool writes files and says which of its arguments
 // name them.
 //
-// Declared rather than detected, and shaped like checkpoint.WriteSpec on
-// purpose: both packages need the same fact about the same tools, and neither
-// should import the other to get it. files.Extension.WritePaths satisfies
-// Paths for every writing tool in that package, so the wiring layer joins the
-// three with no import edge between them (constraint C4).
+// It is declared rather than detected, and it has the same shape as
+// checkpoint.WriteSpec on purpose. Both packages need the same fact about the
+// same tools, and neither should import the other to get it.
+// files.Extension.WritePaths satisfies Paths for every writing tool in that
+// package. So the wiring layer joins the three with no import edge between
+// them (constraint C4).
 type WriteSpec struct {
 	// Tool is the tool name to watch, as the model calls it.
 	Tool string
@@ -62,13 +62,14 @@ type WriteSpec struct {
 // Config configures the extension.
 type Config struct {
 	// Roots are the workspaces the servers cover. At least one is required,
-	// and they should match files.Config.Roots: a server rooted somewhere else
-	// resolves imports against a tree the agent cannot edit.
+	// and they should match files.Config.Roots. A server rooted somewhere else
+	// resolves imports against a tree that the agent cannot edit.
 	//
-	// One server instance covers all of them, via the workspaceFolders array
-	// the protocol has had since 3.6. Measured against gopls, rust-analyzer
-	// and typescript-language-server: each answers correctly for a file in a
-	// folder that is not the rootUri, so this needs no instance per root.
+	// One server instance covers all of them through the workspaceFolders
+	// array, which the protocol has had since 3.6. We measured gopls,
+	// rust-analyzer and typescript-language-server. Each answers correctly for
+	// a file in a folder that is not the rootUri, so this needs no instance per
+	// root.
 	Roots []string
 
 	// Servers are the language servers to run. Empty means the extension
@@ -83,35 +84,35 @@ type Config struct {
 	// DiagnosticsTimeout bounds the wait for the server to re-check a file
 	// after a write. Zero means DefaultDiagnosticsTimeout.
 	//
-	// Expiring reports nothing rather than what we last knew. Presenting
-	// stale problems as the result of the edit that just ran would send the
-	// model to fix something it has already fixed.
+	// An expired wait reports a timeout, not what we last knew. Imagine we
+	// presented stale problems as the result of the edit that just ran. The
+	// model would go fix something it has already fixed.
 	DiagnosticsTimeout time.Duration
 
-	// MaxDiagnostics caps how many problems one injected block carries. Zero
-	// means DefaultMaxDiagnostics. What the cap drops is always reported.
+	// MaxDiagnostics caps how many problems go in one injected block. Zero
+	// means DefaultMaxDiagnostics. The block always reports what the cap drops.
 	MaxDiagnostics int
 
 	// RepoMap adds a ranked repository map to the system prompt. Nil leaves it
 	// off.
 	//
-	// It lives here rather than in its own extension because it needs the same
-	// language servers this one already runs. A separate module could not
-	// import this one (constraint C4), so it would start a second gopls over
-	// the same tree to ask the same questions.
+	// It lives here rather than in its own extension because it needs the
+	// language servers that this one already runs. A separate module could
+	// not import this one (constraint C4). It would have to start a second
+	// gopls over the same tree to ask the same questions.
 	RepoMap *RepoMapConfig
 }
 
 // Defaults for the bounds in Config and ServerSpec.
 const (
 	// DefaultDiagnosticsTimeout bounds the whole wait after a write, including
-	// the time a server spends reporting itself busy. It is generous because
-	// that is the cost of a cold server on a large project, and because
-	// exceeding it is reported honestly rather than as an all-clear.
+	// the time a server spends reporting itself busy. It is generous for two
+	// reasons. A cold server on a large project needs that long. And when the
+	// wait runs out, the report says so instead of giving an all-clear.
 	DefaultDiagnosticsTimeout = 8 * time.Second
 
 	// DefaultSettleDelay is the quiet period for a server that publishes once
-	// and means it, which is most of them. Short enough that a clean edit is
+	// and means it. Most servers do. It is short enough that a clean edit is
 	// not noticeably slower.
 	DefaultSettleDelay = 250 * time.Millisecond
 
@@ -120,11 +121,10 @@ const (
 
 // startTimeout bounds the initialize handshake for one server.
 //
-// Not a Config field, because nothing has needed to tune it and a knob that
-// exists before its first caller is a knob whose right value nobody knows. It
-// is generous enough for a cold gopls on a large module and short enough that
-// a binary which is not a language server fails construction instead of
-// hanging it.
+// It is not a Config field, because nothing has needed to tune it. If a knob
+// exists before its first caller, nobody knows its right value. It is long
+// enough for a cold gopls on a large module. It is short enough that a binary
+// that is not a language server fails construction instead of hanging it.
 const startTimeout = 20 * time.Second
 
 // pool holds the running servers and routes a file to the one that handles it.
@@ -139,9 +139,9 @@ func startPool(ctx context.Context, cfg Config) (*pool, error) {
 	for _, spec := range cfg.Servers {
 		c, err := startClient(ctx, spec, cfg.Roots)
 		if err != nil {
-			// Everything started so far is shut down: a half-started pool
-			// would leave orphaned subprocesses behind a constructor that
-			// reported failure.
+			// Shut down everything started so far. A half-started pool would
+			// leave orphaned subprocesses behind a constructor that reported
+			// failure.
 			_ = p.close()
 			return nil, err
 		}
@@ -191,7 +191,7 @@ func (s *source) Call(ctx context.Context, name string, args map[string]any) (*c
 }
 
 // navigate resolves the named symbol and asks the server where it is used or
-// declared, which is one code path because the two requests differ only in
+// declared. The two requests share one code path, because they differ only in
 // their method name and one parameter.
 func (s *source) navigate(ctx context.Context, args map[string]any, method string, references bool) *core.ToolResult {
 	path, _ := args["path"].(string)
@@ -245,13 +245,13 @@ func (s *source) navigate(ctx context.Context, args map[string]any, method strin
 	return &core.ToolResult{Content: []core.Content{{Type: "text", Text: s.render(c, locs)}}}
 }
 
-// render turns locations into the path:line: text shape search_files already
-// uses, so a model reading both is reading one format.
+// render turns locations into path:line: text, the shape search_files already
+// uses. A model reading both then reads one format.
 //
 // A location outside the workspace is reported by absolute path with no source
-// line. Those are real answers, since a definition often lives in a dependency,
-// and reading the file to quote it would reach outside the root that confines
-// everything else this agent touches.
+// line. Those are real answers, since a definition often lives in a
+// dependency. Quoting the line would mean reading a file outside the roots,
+// and the roots confine everything else this agent touches.
 func (s *source) render(c *client, locs []location) string {
 	var b strings.Builder
 	shown := 0
@@ -288,10 +288,10 @@ func (s *source) lineText(path string, line int) string {
 // resolve maps a caller-supplied path to an absolute one inside a workspace
 // root, refusing anything that falls outside every root.
 //
-// Absolute paths are the normal case, because agent/ext/files emits them for
-// exactly the reason they are needed here: two repositories can both hold
-// src/main.go, so a bare relative path names either. A relative path is still
-// accepted and resolves against the first root.
+// Absolute paths are the normal case. Two repositories can both hold
+// src/main.go, so a bare relative path could name either. ext/files emits
+// absolute paths for that reason, and this package needs them for the same
+// one. A relative path is still accepted and resolves against the first root.
 func (p *pool) resolve(path string) (string, error) {
 	if path == "" {
 		return "", fmt.Errorf("empty path")

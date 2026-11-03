@@ -37,10 +37,10 @@ func TestExtensionRegistersItsCommandsAsTools(t *testing.T) {
 	}
 }
 
-// TestApprovalShowsTheCommandRatherThanItsArguments is the reason this
-// extension supplies a renderer. The default renders the call's JSON, which
-// for these tools is an argument array with no sign of the command it attaches
-// to, so the user approves a fragment.
+// TestApprovalShowsTheCommandRatherThanItsArguments checks why this extension
+// supplies a renderer. The default renders the call's JSON. For these tools
+// that JSON is an argument array with no sign of its command, so the user would
+// approve a fragment.
 func TestApprovalShowsTheCommandRatherThanItsArguments(t *testing.T) {
 	spec := CommandSpec{
 		Name:        "test",

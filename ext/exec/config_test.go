@@ -156,10 +156,10 @@ func TestExpandPathsDropsEntriesWhoseVariableIsUnset(t *testing.T) {
 	}
 }
 
-// TestProfilePathsAreSymlinkResolved is what the live suite caught. A rule
-// naming /tmp covers nothing on darwin, where the kernel matches the resolved
-// path and /tmp is a link to /private/tmp, so a read denial reads as in force
-// while permitting the read.
+// TestProfilePathsAreSymlinkResolved covers a bug the live suite caught. On
+// darwin the kernel matches the resolved path, and /tmp is a link to
+// /private/tmp. So a rule naming /tmp covers nothing, and a read denial on it
+// looks in force while it permits the read.
 func TestProfilePathsAreSymlinkResolved(t *testing.T) {
 	real, err := filepath.EvalSymlinks("/tmp")
 	if err != nil || real == "/tmp" {

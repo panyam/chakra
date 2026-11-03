@@ -369,8 +369,9 @@ func TestPresetReturnsACopy(t *testing.T) {
 	}
 }
 
-// TestAnnouncesWhatTheModelIsFollowing checks the lines a user sees: what
-// loaded at startup, a subdirectory file once found, and each change once.
+// TestAnnouncesWhatTheModelIsFollowing checks the lines shown to the user.
+// They report what loaded at startup, each subdirectory file once it is
+// found, and each change once.
 func TestAnnouncesWhatTheModelIsFollowing(t *testing.T) {
 	dir := tree(t, map[string]string{".git/": "", "AGENTS.md": "v1", "a/AGENTS.md": "a1"})
 	e := newExt(t, preset(t, "chakra"), "", dir)

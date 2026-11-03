@@ -27,10 +27,11 @@ import (
 //	<root>/blobs/ab/cdef...      file contents, named by sha256, 2-char shard
 //	<root>/manifests/<id>.json   {path -> hash} plus creation time
 //
-// A shadow git repo would give diffing and history for free and was rejected:
-// it assumes the git binary, inherits .gitignore semantics that have nothing
-// to do with what an agent touched, and has undefined behaviour against a
-// working tree that is itself mid-rebase.
+// A shadow git repo would give diffing and history for free, but it was
+// rejected for three reasons. It assumes the git binary. It inherits
+// .gitignore semantics that have nothing to do with what an agent touched.
+// And its behaviour is undefined against a working tree that is itself
+// mid-rebase.
 type Store struct {
 	root string
 }
@@ -46,8 +47,8 @@ func NewStore(dir string) (*Store, error) {
 }
 
 // Checkpoint is one restore point, accumulating captured paths as a turn runs.
-// Safe for concurrent Add: the Runner dispatches parallel tool calls, so two
-// of them may capture at once.
+// Concurrent Add calls are safe. The Runner dispatches parallel tool calls, so
+// two of them may capture at once.
 type Checkpoint struct {
 	store   *Store
 	id      string
@@ -65,8 +66,8 @@ type Info struct {
 	Files   int       `json:"files"`
 }
 
-// kind is what Add found at a path, which decides what restoring it means and
-// whether restoring it is safe at all.
+// kind is what Add found at a path. It decides what restoring the path means,
+// and whether restoring it is safe at all.
 type kind string
 
 const (
@@ -80,15 +81,17 @@ const (
 	// kindUnsupported is anything else at capture time: a symlink, a
 	// directory, a device. No content is captured and restoring is refused.
 	//
-	// Recorded rather than skipped, because a path the caller asked to protect
-	// and that was silently never protected is the failure A11's corollary is
-	// about. Naming it at /undo time lets someone notice.
+	// Add records such a path instead of skipping it. Imagine the caller
+	// asked to protect a path, and it was silently never protected. A11's
+	// corollary is about that failure. Naming the path at /undo time lets
+	// someone notice.
 	kindUnsupported kind = "unsupported"
 )
 
-// entry is what one captured path holds. It is a struct rather than a bare
-// hash because the hash alone cannot express "this was not a regular file",
-// and C2 rules out carrying that in a second map keyed by the same paths.
+// entry is what one captured path holds. A bare hash cannot express "this was
+// not a regular file", so entry is a struct. A second map keyed by the same
+// paths could carry that fact, but mcpkit's constraint C2 prefers one
+// consolidated entry struct over parallel maps.
 type entry struct {
 	// Hash names the blob, and is empty for every kind but kindRegular.
 	Hash string `json:"hash,omitempty"`
@@ -97,20 +100,19 @@ type entry struct {
 	// there now, and refuses when they disagree.
 	Kind kind `json:"kind"`
 
-	// Mode is a regular file's permission bits at capture, which restore puts
+	// Mode is a regular file's permission bits at capture. Restore puts them
 	// back along with the content (#129). Zero means the manifest predates
-	// recording it; restore then keeps the mode of the file it replaces, or
-	// uses 0644 for one that was deleted.
+	// recording the mode. Restore then keeps the mode of the file it
+	// replaces, or uses 0644 for a file that was deleted.
 	Mode fs.FileMode `json:"mode,omitempty"`
 }
 
 // manifestVersion is the on-disk format. Version 1 replaced a bare
-// path-to-hash map, which could not distinguish a file that was absent from
-// one that was a symlink, so a restore wrote through the link.
+// path-to-hash map. That map could not tell an absent file from a symlink, so
+// a restore wrote through the link.
 //
-// Checkpoints are per-session artifacts under a working directory rather than
-// durable state, so an older manifest is reported and ignored rather than
-// migrated.
+// Checkpoints are per-session artifacts under a working directory, not durable
+// state. So an older manifest is reported and ignored instead of migrated.
 const manifestVersion = 1
 
 type manifest struct {
@@ -133,11 +135,11 @@ type Refusal struct {
 // RestoreResult reports what a Restore did and, more importantly, what it did
 // not.
 //
-// Restore returns this rather than a bare error because a partial restore is
-// a normal outcome here, not a failure: one tampered path should not block
-// recovering the rest of the turn. But a caller that only learned "no error"
-// would believe the turn was fully reversed, and constraint A11's corollary
-// is precisely that a reversal path must report what it could not reverse.
+// A partial restore is a normal outcome here, not a failure. One tampered path
+// should not block recovering the rest of the turn, so Restore returns this
+// instead of a bare error. But imagine a caller that only learned "no error".
+// It would believe the turn was fully reversed. Constraint A11's corollary
+// says a reversal path must report what it could not reverse.
 type RestoreResult struct {
 	// Restored lists the paths returned to their captured state, sorted.
 	Restored []string
@@ -151,8 +153,8 @@ type RestoreResult struct {
 func (r RestoreResult) Complete() bool { return len(r.Refused) == 0 }
 
 // Open returns the checkpoint with this id, loading it if it already exists.
-// Reopening is how a turn that spans several tool calls keeps adding to one
-// restore point.
+// A turn can span several tool calls. Each one reopens the checkpoint and adds
+// to the same restore point.
 func (s *Store) Open(id string) (*Checkpoint, error) {
 	if id == "" {
 		return nil, fmt.Errorf("checkpoint: id is required")
@@ -174,10 +176,10 @@ func (s *Store) Load(id string) (*Checkpoint, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Version is read first so a manifest from the previous format reports
-	// what it is. Unmarshalling it as the current one fails on a type error
-	// and would be reported as corruption, sending someone to look for a
-	// truncated write that never happened.
+	// Load reads Version first, so a manifest in the previous format reports
+	// what it is. Unmarshalling it as the current format fails on a type
+	// error. That would be reported as corruption, and someone would go
+	// looking for a truncated write that never happened.
 	var probe struct {
 		Version int `json:"version"`
 	}
@@ -237,22 +239,22 @@ func (c *Checkpoint) Paths() []string {
 
 // Add captures each path's current content and persists the manifest.
 //
-// First capture wins: a path already in this checkpoint is left alone, so the
-// checkpoint holds the state at the START of the turn rather than before the
-// most recent write. Re-capturing on every write would make a restore point
-// that undoes one edit instead of the turn.
+// The first capture wins. Add leaves alone a path already in this checkpoint,
+// so the checkpoint holds the state at the START of the turn, not the state
+// before the most recent write. Re-capturing on every write would make a
+// restore point that undoes one edit instead of the turn.
 //
 // A path that does not exist is recorded as absent, so restoring deletes
 // whatever the call went on to create. Without that, undoing a file creation
 // would silently leave the new file in place.
 //
-// Paths must be absolute, and a relative one is an error rather than being
-// resolved against the process's working directory. The tool that writes the
-// file resolves it against its own root, which is rarely the cwd, so guessing
-// here snapshots a different file and a restore later deletes or rewrites
-// that one while reporting success (issue 69). A WriteSpec's Paths function
-// is where the tool's resolution belongs. A checkpoint is valid on the
-// machine that took it and is not portable off it.
+// Paths must be absolute. Add returns an error for a relative one and does not
+// resolve it against the process's working directory. The tool that writes the
+// file resolves it against its own root, and that root is rarely the cwd. So
+// a guess here would snapshot a different file. A later restore would delete
+// or rewrite that file and report success (issue 69). The tool's resolution
+// belongs in a WriteSpec's Paths function. A checkpoint is valid only on the
+// machine that took it.
 func (c *Checkpoint) Add(paths ...string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -286,12 +288,12 @@ func (c *Checkpoint) Add(paths ...string) error {
 // destination first, so a missing blob or an unwritable directory fails before
 // any destination has been touched. Only then does it rename each into place.
 //
-// That is NOT atomic across several files — POSIX has no multi-file rename —
-// and claiming otherwise would be the kind of guarantee that reads as safety
-// while providing none. What it is instead is idempotent and retryable:
-// restoring the same checkpoint twice reaches the same state, so a restore
-// that fails halfway is fixed by running it again rather than by manual
-// repair. The manifest is never consumed, so retrying is always possible.
+// POSIX has no multi-file rename, so this is NOT atomic across several files.
+// Claiming otherwise would read as safety and provide none. Restore is
+// idempotent and retryable instead. Restoring the same checkpoint twice
+// reaches the same state. So if a restore fails halfway, running it again
+// fixes it, with no manual repair. The manifest is never consumed, so
+// retrying is always possible.
 func (c *Checkpoint) Restore() (RestoreResult, error) {
 	c.mu.Lock()
 	files := make(map[string]entry, len(c.files))
@@ -317,18 +319,18 @@ func (c *Checkpoint) Restore() (RestoreResult, error) {
 	for _, dst := range sortedKeys(files) {
 		e := files[dst]
 
-		// What is there NOW, without following a link. The gap between
-		// capture and /undo is a user deciding to type it, so this is not a
-		// tight race: minutes or hours in which a path can become something
-		// else entirely.
+		// Check what is there NOW, without following a link. Between capture
+		// and /undo, a user has to decide to type /undo. So this is not a
+		// tight race. Minutes or hours can pass, and a path can become
+		// something else entirely.
 		now, err := os.Lstat(dst)
 		switch {
 		case err != nil && !os.IsNotExist(err):
 			cleanup()
 			return RestoreResult{}, fmt.Errorf("checkpoint: inspect %s: %w", dst, err)
 		case err == nil && !now.Mode().IsRegular():
-			// Covers both directions that matter: writing back through a
-			// symlink that appeared, and deleting through one.
+			// This covers both directions that matter. A symlink appeared,
+			// and a restore would write back through it or delete through it.
 			refuse(dst, fmt.Sprintf("is now a %s, was %s at capture", describe(now.Mode()), e.Kind))
 			continue
 		}
@@ -406,9 +408,8 @@ func sortedKeys(m map[string]entry) []string {
 }
 
 // Reversal presents this checkpoint through the seam, so a file-touching tool
-// reverses the same way any other does. Restore-only: nothing here reaches
-// outside the machine, which is exactly the property that makes it safe for
-// the harness to run unattended.
+// reverses the same way any other does. It offers only a Restore. Nothing here
+// reaches outside the machine, so the harness can safely run it unattended.
 func (c *Checkpoint) Reversal() Reversal {
 	return Reversal{Restore: func(context.Context) error {
 		res, err := c.Restore()
@@ -416,12 +417,11 @@ func (c *Checkpoint) Reversal() Reversal {
 			return err
 		}
 		// A refusal is an error at this seam even though Restore treats it as
-		// a normal partial outcome. The seam's caller is the harness running
-		// unattended (A11), and it has no channel to report detail on: the
-		// only thing it can tell a human is that the reversal did not fully
-		// happen. Swallowing it here is exactly the unreported hole A11's
-		// corollary names. /undo goes through Restore directly and reports
-		// each refusal in full.
+		// a normal partial outcome. The harness calls this seam unattended
+		// (A11), and it has no channel for detail. It can only tell a human
+		// that the reversal did not fully happen. Swallowing the refusal here
+		// would leave the unreported hole that A11's corollary names. /undo
+		// goes through Restore directly and reports each refusal in full.
 		if !res.Complete() {
 			return fmt.Errorf("checkpoint: %d of %d path(s) could not be restored: %s",
 				len(res.Refused), len(res.Refused)+len(res.Restored), res.Refused[0].Reason)
@@ -460,14 +460,15 @@ func (s *Store) blobPath(hash string) string {
 // file, that it was missing, or that it was something restoring cannot
 // faithfully undo.
 //
-// The kind is recorded rather than inferred later because "what was here"
-// stops being knowable the moment the tool runs, and it is the only thing
-// Restore can compare against to notice a path changed shape underneath it.
+// The kind is recorded now and not inferred later. Once the tool runs, nobody
+// can know "what was here" any more. Restore compares against the recorded
+// kind to notice that a path changed shape underneath it, and has nothing
+// else to compare against.
 func (s *Store) capture(path string) (entry, error) {
-	// Lstat, not Stat: a symlink here must be recorded as one rather than
-	// followed. Following it captures the target's content and, worse, makes
-	// the restore write back through the link to a file the caller never
-	// named.
+	// Use Lstat, not Stat. A symlink here must be recorded as a symlink and
+	// not followed. Following it would capture the target's content. Worse,
+	// the restore would then write back through the link, to a file that the
+	// caller never named.
 	info, err := os.Lstat(path)
 	if os.IsNotExist(err) {
 		return entry{Kind: kindAbsent}, nil
@@ -514,9 +515,10 @@ func (s *Store) putFile(path string) (string, error) {
 }
 
 // stage copies a blob to a temp file beside dst, ready to be renamed into
-// place. Beside rather than in the system temp dir so the rename stays within
-// one filesystem and cannot degrade into a copy. The staged file gets mode,
-// since the rename keeps the staged file's permissions rather than the old file's.
+// place. The temp file goes beside dst and not in the system temp dir, so the
+// rename happens within one filesystem and cannot degrade into a copy. The
+// rename keeps the staged file's permissions, not the old file's, so stage
+// sets mode on the staged file.
 func (s *Store) stage(hash, dst string, mode fs.FileMode) (string, error) {
 	src, err := os.Open(s.blobPath(hash))
 	if err != nil {

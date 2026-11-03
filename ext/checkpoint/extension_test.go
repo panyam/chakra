@@ -78,8 +78,8 @@ func TestCaptureAndUndoRestoresFile(t *testing.T) {
 }
 
 // TestSubAgentWritesDoNotCheckpoint is the reason RunScope (#1259) exists. A
-// checkpoint per nested frame is both wasteful and wrong: the useful restore
-// point is the turn.
+// checkpoint per nested frame is both wasteful and wrong, because the useful
+// restore point is the turn.
 func TestSubAgentWritesDoNotCheckpoint(t *testing.T) {
 	e, work := newExt(t)
 	f := filepath.Join(work, "a.txt")
@@ -105,7 +105,7 @@ func TestSubAgentWritesDoNotCheckpoint(t *testing.T) {
 	}
 }
 
-// TestReadOnlyTurnCreatesNoCheckpoint pins laziness: a turn that touches no
+// TestReadOnlyTurnCreatesNoCheckpoint pins laziness. A turn that touches no
 // files costs nothing on disk.
 func TestReadOnlyTurnCreatesNoCheckpoint(t *testing.T) {
 	e, _ := newExt(t)
@@ -126,8 +126,8 @@ func TestReadOnlyTurnCreatesNoCheckpoint(t *testing.T) {
 }
 
 // TestUndoReportsUnreversedCalls is the gap-reporting requirement. Without it
-// /undo says "1 file restored" while a created issue goes unmentioned, which
-// is a safety net with an unreported hole.
+// /undo says "1 file restored" while a created issue goes unmentioned. That is
+// a safety net with an unreported hole.
 func TestUndoReportsUnreversedCalls(t *testing.T) {
 	e, work := newExt(t)
 	f := filepath.Join(work, "a.txt")
@@ -159,8 +159,8 @@ func TestUndoReportsUnreversedCalls(t *testing.T) {
 	}
 }
 
-// TestReadOnlyAndDeniedCallsAreNotReported pins the other side: a list that
-// includes calls with nothing to undo trains the user to ignore it.
+// TestReadOnlyAndDeniedCallsAreNotReported pins the other side. If the list
+// includes calls with nothing to undo, the user learns to ignore it.
 func TestReadOnlyAndDeniedCallsAreNotReported(t *testing.T) {
 	e, _ := newExt(t)
 	if err := e.TurnStart(context.Background()); err != nil {
@@ -311,10 +311,10 @@ func TestNewRejectsBadConfig(t *testing.T) {
 
 // TestARestartDoesNotReopenAnEarlierSessionsCheckpoint is the restart half of
 // issue 69. The turn counter restarts with the process while the store
-// persists, so turn 1 of a second host used to reopen the first host's turn-1
-// manifest and merge into it: /undo then also restored the earlier session's
-// files, and the merged checkpoint kept the older timestamp, so /undo picked a
-// different checkpoint as the newest.
+// persists. So turn 1 of a second host used to reopen the first host's turn-1
+// manifest and merge into it. /undo then also restored the earlier session's
+// files. The merged checkpoint also kept the older timestamp, so /undo picked
+// a different checkpoint as the newest.
 func TestARestartDoesNotReopenAnEarlierSessionsCheckpoint(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "cp")
 	work := t.TempDir()
@@ -355,11 +355,11 @@ func TestARestartDoesNotReopenAnEarlierSessionsCheckpoint(t *testing.T) {
 }
 
 // TestRepeatedUndoStepsBackTurnByTurn is issue 75. Repeating a bare /undo
-// should walk the turn log backwards: the first restores the start of the
-// newest turn, the second the start of the one before it. A selection that
-// only ever asks the store for its newest checkpoint restores turn-3 twice and
-// never reaches turn-2, and because Restore is idempotent the second call
-// reports success for a turn it did not change.
+// should walk the turn log backwards. The first restores the start of the
+// newest turn, and the second restores the start of the one before it.
+// Imagine a selection that only ever asks the store for its newest
+// checkpoint. It restores turn-3 twice and never reaches turn-2. Restore is
+// idempotent, so the second call reports success for a turn it did not change.
 func TestRepeatedUndoStepsBackTurnByTurn(t *testing.T) {
 	e, work := newExt(t)
 	f := filepath.Join(work, "a.txt")
@@ -427,9 +427,9 @@ func TestUndoPastTheOldestSaysSo(t *testing.T) {
 	}
 }
 
-// TestANewTurnAfterUndoIsUndoneFirst: after stepping back, a turn that writes
-// again is the newest thing to undo. Turn 4 touches only b.txt, so continuing
-// the walk from before it would restore turn 3's a.txt and leave b.txt edited.
+// TestANewTurnAfterUndoIsUndoneFirst steps back, then runs a turn that writes
+// again. That turn is the newest thing to undo. Turn 4 touches only b.txt, so
+// continuing the old walk would restore turn 3's a.txt and leave b.txt edited.
 func TestANewTurnAfterUndoIsUndoneFirst(t *testing.T) {
 	e, work := newExt(t)
 	a, b := filepath.Join(work, "a.txt"), filepath.Join(work, "b.txt")

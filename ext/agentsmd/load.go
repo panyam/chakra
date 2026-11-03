@@ -15,7 +15,8 @@ type doc struct {
 	label string // shown after the path in the heading, may be empty
 }
 
-// fileStat is what a cached read is checked against.
+// fileStat records a file's size and mtime. A cached read is reused only
+// while both still match.
 type fileStat struct {
 	size  int64
 	mtime time.Time
@@ -26,9 +27,9 @@ type cachedFile struct {
 	text string
 }
 
-// reader reads files through a stat-checked cache, so checking a directory
-// for changes before every model call costs a stat per file unless something
-// actually changed.
+// reader reads files through a stat-checked cache. Checking a directory for
+// changes before every model call then needs one stat per file, plus a read
+// only for a file that actually changed.
 type reader struct {
 	cache map[string]cachedFile
 }
@@ -214,7 +215,7 @@ func (l *loader) pick(dir string, names []string) string {
 	return ""
 }
 
-// maxImportDepth is Claude Code's limit: an imported file may import
+// maxImportDepth copies Claude Code's limit. An imported file may import
 // others, four hops at most.
 const maxImportDepth = 4
 
@@ -246,8 +247,8 @@ func (l *loader) expand(path string, global bool) []doc {
 		for _, ref := range importRefs(text) {
 			target := l.resolveImport(ref, filepath.Dir(p))
 			if target == "" || (!global && !l.inRoots(target)) {
-				// A repository file can't pull in the user's own files: a
-				// pull request could otherwise send ~/.ssh to the model.
+				// A repository file can't pull in the user's own files.
+				// Otherwise a pull request could send ~/.ssh to the model.
 				continue
 			}
 			walk(target, p, depth+1)
@@ -275,7 +276,7 @@ func (l *loader) inRoots(path string) bool {
 	return l.rootOf(path) != ""
 }
 
-// rootOf returns the workspace root path is in, or "".
+// rootOf returns the workspace root that contains path, or "".
 func (l *loader) rootOf(path string) string {
 	for _, r := range l.roots {
 		if path == r || strings.HasPrefix(path, r+string(filepath.Separator)) {

@@ -7,11 +7,11 @@ import (
 	"github.com/panyam/chakra"
 )
 
-// TestCompensateAloneIsNotReversible is the load-bearing distinction. A tool
-// that can only offer a compensating action has NOT earned automatic
-// approval: deleting an issue is a new call with its own consequences, not an
-// inverse of creating one. Flipping this would let a tool auto-approve on the
-// strength of an offset nobody verified.
+// TestCompensateAloneIsNotReversible pins the distinction that the rest of
+// the design depends on. A tool that can only offer a compensating action does
+// NOT qualify for automatic approval. Deleting an issue is a new call with its
+// own consequences, and it is not an inverse of creating one. Flipping this
+// would let a tool auto-approve because of an offset that nobody verified.
 func TestCompensateAloneIsNotReversible(t *testing.T) {
 	r := Reversal{Compensate: &agent.ToolCall{Name: "delete_issue"}}
 	if r.Reversible() {

@@ -60,8 +60,8 @@ func TestRestoreReturnsModifiedContent(t *testing.T) {
 }
 
 // TestRestoreDeletesCreatedFile pins the absent sentinel. Undoing a creation
-// means the file is gone, and a store that only wrote back what it had seen
-// would leave it in place while reporting success.
+// means the file is gone. A store that only wrote back the files it had seen
+// would leave the new file in place and report success.
 func TestRestoreDeletesCreatedFile(t *testing.T) {
 	s, work := newStore(t)
 	f := filepath.Join(work, "new.txt")
@@ -137,8 +137,8 @@ func TestAddFirstCaptureWins(t *testing.T) {
 	}
 }
 
-// TestRestoreIsIdempotent is the property the docs offer in place of
-// atomicity: a half-applied restore is fixed by running it again.
+// TestRestoreIsIdempotent pins the property that the docs offer in place of
+// atomicity. Running a half-applied restore again fixes it.
 func TestRestoreIsIdempotent(t *testing.T) {
 	s, work := newStore(t)
 	kept := filepath.Join(work, "kept.txt")
@@ -168,9 +168,8 @@ func TestRestoreIsIdempotent(t *testing.T) {
 	}
 }
 
-// TestBlobsDedupeAcrossCheckpoints pins the reason content addressing was
-// chosen: a file captured every turn and edited once costs two blobs, not one
-// per turn.
+// TestBlobsDedupeAcrossCheckpoints pins why content addressing was chosen. A
+// file captured every turn and edited once costs two blobs, not one per turn.
 func TestBlobsDedupeAcrossCheckpoints(t *testing.T) {
 	s, work := newStore(t)
 	f := filepath.Join(work, "a.txt")
@@ -337,9 +336,9 @@ func TestConcurrentAdd(t *testing.T) {
 	}
 }
 
-// TestReversalIsRestoreOnly pins the seam boundary: a file checkpoint offers
-// nothing the harness must ask a human about, because nothing it does reaches
-// off the machine.
+// TestReversalIsRestoreOnly pins the seam boundary. Nothing a file checkpoint
+// does reaches off the machine, so it offers nothing that the harness must ask
+// a human about.
 func TestReversalIsRestoreOnly(t *testing.T) {
 	s, work := newStore(t)
 	f := filepath.Join(work, "a.txt")
@@ -365,9 +364,9 @@ func TestReversalIsRestoreOnly(t *testing.T) {
 }
 
 // TestAddRefusesARelativePath is the guard behind issue 69. Resolving a
-// relative path here would use the process's working directory, which is
-// rarely the directory the tool wrote into, and the checkpoint would then
-// snapshot (and on restore, delete) the wrong file while reporting success.
+// relative path here would use the process's working directory. That is
+// rarely the directory the tool wrote into. The checkpoint would then snapshot
+// the wrong file, delete it on restore, and report success.
 func TestAddRefusesARelativePath(t *testing.T) {
 	s, _ := newStore(t)
 	cp, err := s.Open("turn-1")

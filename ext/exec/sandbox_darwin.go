@@ -6,10 +6,10 @@ import (
 	osexec "os/exec"
 )
 
-// sandboxExecPath is the confinement helper macOS ships. It is deprecated and
-// has been for a decade, with no supported replacement for confining a child
-// process from userland, so this is the backend that exists rather than the
-// one to recommend.
+// sandboxExecPath is the confinement helper macOS ships. It has been
+// deprecated for a decade. Apple offers no supported replacement for confining
+// a child process from userland. So we use this backend because it is the only
+// one, and we don't recommend it.
 const sandboxExecPath = "/usr/bin/sandbox-exec"
 
 // defaultSandbox picks the darwin backend.
@@ -28,10 +28,10 @@ func (sandboxExec) Available() error {
 
 // Confine re-points cmd at sandbox-exec, passing the profile inline.
 //
-// Inline rather than through a file because a file is state with a lifetime:
-// it has to be created, made unreadable to anyone else, and removed on every
-// exit path including a kill. The profile is a few kilobytes and argv has room
-// for it.
+// The profile goes inline rather than in a file, because a file is state with
+// a lifetime. It has to be created, made unreadable to anyone else, and
+// removed on every exit path including a kill. The profile is a few kilobytes
+// and argv has room for it.
 func (sandboxExec) Confine(cmd *osexec.Cmd, p Policy) error {
 	profile := buildSBPL(p)
 	cmd.Args = append([]string{sandboxExecPath, "-p", profile, "--"}, cmd.Args...)

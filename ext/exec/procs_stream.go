@@ -21,7 +21,7 @@ const (
 	streamMax = 16 << 10
 )
 
-// setProcessOutput installs where process output is reported as it arrives.
+// setProcessOutput sets the function that reports process output as it arrives.
 // Processes started before it is set don't stream.
 func (s *Source) setProcessOutput(fn func(host.ProcessOutput)) {
 	if s.procs == nil {
@@ -33,8 +33,8 @@ func (s *Source) setProcessOutput(fn func(host.ProcessOutput)) {
 }
 
 // outputStream batches one process's output for the surfaces. It reads a copy
-// of what the process writes, so the model's reads through collect are
-// untouched by it.
+// of the process's writes, so it doesn't affect the model's reads through
+// collect.
 type outputStream struct {
 	mu      sync.Mutex
 	pending []byte

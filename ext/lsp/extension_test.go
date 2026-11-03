@@ -12,9 +12,9 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// pathArg is the WriteSpec reader for a tool that names its target in "path",
-// which is the shape files.PathArg has. Spelled locally so these tests do not
-// depend on that module.
+// pathArg is the WriteSpec reader for a tool that names its target in "path".
+// files.PathArg reads the same shape. It is spelled locally so these tests do
+// not depend on that module.
 func pathArg(args map[string]any) []string {
 	if p, ok := args["path"].(string); ok && p != "" {
 		return []string{p}
@@ -63,8 +63,8 @@ func resultText(res *core.ToolResult) string {
 
 // TestMiddlewareAppendsDiagnosticsAfterWrite is the within-turn half of the
 // design. A context stage runs once per turn, so a model that edits at step 3
-// and keeps working would learn nothing until the turn ended; the tool result
-// is the only path that reaches it inside one.
+// and keeps working would learn nothing until the turn ended. The tool result
+// is the only path that reaches it inside a turn.
 func TestMiddlewareAppendsDiagnosticsAfterWrite(t *testing.T) {
 	root := workspace(t, map[string]string{"a.go": "package a\n"})
 	ext := newStubExtension(t, root, stubScript{Diagnostics: map[string][]diagnostic{
@@ -90,7 +90,7 @@ func TestMiddlewareAppendsDiagnosticsAfterWrite(t *testing.T) {
 
 // TestMiddlewareReportsACleanFile pins that success is stated rather than
 // implied. "No problems" is the signal that closes the edit-check-fix loop, and
-// it stays true as a statement about what this edit did.
+// it is still true later as a statement about what this edit did.
 func TestMiddlewareReportsACleanFile(t *testing.T) {
 	root := workspace(t, map[string]string{"a.go": "package a\n"})
 	ext := newStubExtension(t, root, stubScript{}, WriteSpec{Tool: "edit_file", Paths: pathArg})
@@ -231,7 +231,7 @@ func TestStageSaysNothingWhenNothingIsWrong(t *testing.T) {
 }
 
 // TestNoServersMeansNoContributions pins that this can be wired
-// unconditionally: a surface with no language server configured gets an
+// unconditionally. A surface with no language server configured gets an
 // extension that adds no tools, no prompt, no middleware, and no stage.
 func TestNoServersMeansNoContributions(t *testing.T) {
 	ext, err := New(Config{Roots: []string{workspace(t, nil)}})

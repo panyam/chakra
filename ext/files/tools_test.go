@@ -11,9 +11,9 @@ import (
 func newTestSource(t *testing.T) (*Source, string) {
 	t.Helper()
 	root := t.TempDir()
-	// t.TempDir on darwin hands back a /var path that is itself a symlink to
-	// /private/var, and the source resolves symlinks, so compare against the
-	// resolved form or every containment assertion is testing the wrong path.
+	// On darwin, t.TempDir hands back a /var path, and /var is a symlink to
+	// /private/var. The source resolves symlinks. So compare against the
+	// resolved form, or every containment assertion tests the wrong path.
 	root, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		t.Fatal(err)
@@ -98,9 +98,9 @@ func TestEditAppliesAndReportsTheNewHash(t *testing.T) {
 	}
 }
 
-// TestStaleEditLeavesTheFileAlone is the end-to-end form of the property the
-// engine provides. The anchor is present and unique in the file on disk, so
-// only the hash stands between the edit and a silent overwrite.
+// TestStaleEditLeavesTheFileAlone checks the engine's staleness property end
+// to end. The anchor is present and unique in the file on disk, so only the
+// hash stops the edit from silently overwriting it.
 func TestStaleEditLeavesTheFileAlone(t *testing.T) {
 	s, root := newTestSource(t)
 	p := write(t, root, "notes.md", "hello world\n")
@@ -123,7 +123,7 @@ func TestStaleEditLeavesTheFileAlone(t *testing.T) {
 }
 
 // TestRefusalIsNotADispatchError pins the ToolSource contract. A refusal has
-// to reach the model as an IsError result so it can correct and retry; a
+// to reach the model as an IsError result so it can correct and retry. A
 // returned error would abort the turn instead.
 func TestRefusalIsNotADispatchError(t *testing.T) {
 	s, root := newTestSource(t)
@@ -178,10 +178,10 @@ func TestEscapingTheRootIsRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 	secret := filepath.Join(outside, "secret")
-	// A sentinel that cannot occur in a filesystem path, because the refusal
-	// message quotes the path back and darwin's temp dirs live under
-	// /private/var. A plainer word here matches the path and passes for the
-	// wrong reason.
+	// The refusal message quotes the path back, and darwin's temp dirs are
+	// under /private/var. So the sentinel must not occur in a filesystem
+	// path. A plainer word here matches the path and passes for the wrong
+	// reason.
 	const sentinel = "SECRET-FILE-CONTENT-SENTINEL"
 	if err := os.WriteFile(secret, []byte(sentinel+"\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -216,8 +216,8 @@ func TestEscapingTheRootIsRefused(t *testing.T) {
 }
 
 // TestEditCannotWriteThroughASymlink is the write-side half of the escape.
-// Reading through a link leaks; writing through one corrupts a file outside
-// the workspace, which is the worse of the two.
+// Reading through a link leaks a file. Writing through one corrupts a file
+// outside the workspace, and that is the worse of the two.
 func TestEditCannotWriteThroughASymlink(t *testing.T) {
 	s, root := newTestSource(t)
 	outside, err := filepath.EvalSymlinks(t.TempDir())
@@ -318,10 +318,10 @@ func TestMalformedEditsAreReported(t *testing.T) {
 	}
 }
 
-// TestOneMalformedEditRejectsTheWholeCall is the case an all-malformed list
-// does not reach. Dropping the bad element leaves the good one to apply, so
-// the call reports success for an edit the model believes it made twice. That
-// is the same failure as a stale write, arriving by a different route.
+// TestOneMalformedEditRejectsTheWholeCall covers a case that an all-malformed
+// list does not reach. Dropping the bad element leaves the good one to apply.
+// The call then reports success, and the model believes it made both edits.
+// That is the same failure as a stale write, arriving by a different route.
 func TestOneMalformedEditRejectsTheWholeCall(t *testing.T) {
 	s, root := newTestSource(t)
 	p := write(t, root, "notes.md", "alpha beta\n")
@@ -349,7 +349,7 @@ func TestToolsAreDeclared(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Asserted by name rather than by count: a count says a tool went missing
+	// Asserted by name, not by count. A count says a tool went missing
 	// without saying which, and it has to be edited every time one is added.
 	// A number that changes that often stops being read.
 	want := map[string]bool{"read_file": true, "edit_file": true, "list_files": true, "search_files": true, "write_file": true, "delete_file": true, "apply_patch": true}

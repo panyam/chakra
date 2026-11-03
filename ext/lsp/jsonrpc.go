@@ -13,11 +13,11 @@ import (
 	"time"
 )
 
-// errServerGone is what an in-flight request gets when the read loop ends
-// before the reply does.
+// errServerGone fails an in-flight request when the read loop ends before the
+// reply arrives.
 //
-// A language server that crashes leaves every waiter with nothing to wait for,
-// and the failure mode that matters is not the crash but the hang: a turn that
+// A language server that crashes leaves every waiter with nothing to wait for.
+// The crash itself does little harm, and the hang does the damage. A turn that
 // blocks forever on a dead subprocess looks like a slow model. Ending the read
 // loop fails every pending call at once, so the caller finds out on the next
 // request instead of on the context deadline.
@@ -25,11 +25,11 @@ var errServerGone = errors.New("lsp: server exited")
 
 // message is one JSON-RPC frame in either direction.
 //
-// One struct rather than separate request and response types because the
-// discrimination is positional: a frame with an ID and a Method is a request
-// from the server, a frame with an ID and no Method is a reply to ours, and a
-// frame with no ID is a notification. Splitting the types would mean deciding
-// which one to decode into before having read the fields that decide it.
+// It is one struct, not separate request and response types, because the
+// fields present decide what a frame is. A frame with an ID and a Method is a
+// request from the server. A frame with an ID and no Method is a reply to
+// ours, and a frame with no ID is a notification. With split types we would
+// have to pick one to decode into before reading the fields that decide it.
 type message struct {
 	JSONRPC string          `json:"jsonrpc"`
 	ID      *int64          `json:"id,omitempty"`
@@ -52,10 +52,10 @@ func (e *rpcError) Error() string { return fmt.Sprintf("lsp: rpc error %d: %s", 
 // answers it, and keeps its stdout open gives the read loop nothing to fail
 // on, so the loop never exits, c.done never closes, and a caller waits on its
 // own context. The navigation tools pass the Runner's context straight down,
-// and that context often carries no deadline, so a single wedged server could
+// and that context often has no deadline, so a single wedged server could
 // hang a turn with no error anywhere to explain it.
 //
-// Generous, because every request under it is a local IPC round trip that a
+// It is generous. Every request under it is a local IPC round trip, and a
 // healthy server answers in milliseconds. It is a backstop against a hang, not
 // a latency budget.
 const defaultCallTimeout = 30 * time.Second
@@ -63,10 +63,10 @@ const defaultCallTimeout = 30 * time.Second
 // conn is a JSON-RPC 2.0 connection over the LSP base protocol: a
 // Content-Length header, a blank line, then the JSON body.
 //
-// The server talks back on the same pipe for three different reasons, so the
-// read loop demultiplexes rather than assuming replies arrive in order:
-// replies to our requests, notifications we asked to receive
-// (publishDiagnostics), and requests of its own that we must answer.
+// The server talks back on the same pipe for three reasons. It replies to our
+// requests, sends notifications we asked for (publishDiagnostics), and makes
+// requests of its own that we must answer. So the read loop demultiplexes
+// instead of assuming replies arrive in order.
 type conn struct {
 	w io.WriteCloser
 	r *bufio.Reader
@@ -83,13 +83,14 @@ type conn struct {
 	// starts, never afterwards, so it needs no lock.
 	onNotify func(method string, params json.RawMessage)
 
-	// done closes when the read loop ends, which is the only way a pending
-	// call learns the server is gone.
+	// done closes when the read loop ends. A pending call has no other way
+	// to learn the server is gone.
 	done     chan struct{}
 	doneOnce sync.Once
 
-	// callTimeout bounds every request. Per-conn rather than a package var so
-	// a test can shorten it without reaching into global state (constraint C3).
+	// callTimeout bounds every request. It is per-conn rather than a package
+	// var, so a test can shorten it without reaching into global state
+	// (constraint C3 in mcpkit's CONSTRAINTS.md).
 	callTimeout time.Duration
 }
 
@@ -113,8 +114,8 @@ func (c *conn) run() {
 		}
 		var msg message
 		if err := json.Unmarshal(frame, &msg); err != nil {
-			// A frame we cannot parse is the server's problem, not a reason
-			// to tear down a working connection: skip it and keep reading.
+			// A frame we cannot parse is the server's problem. It is no reason
+			// to tear down a working connection, so skip it and keep reading.
 			continue
 		}
 		switch {
@@ -131,17 +132,18 @@ func (c *conn) run() {
 // answer replies to a request the server made of us.
 //
 // Every server request gets a reply, including the ones we have no
-// implementation for, because a server that is waiting on us is a server that
-// has stopped producing diagnostics. gopls issues workspace/configuration
-// during initialization and blocks on the answer, so silence here reads as a
-// hang with no error anywhere to explain it.
+// implementation for. A server that is waiting on us has stopped producing
+// diagnostics. gopls issues workspace/configuration during initialization and
+// blocks on the answer. If we stayed silent, that would look like a hang with
+// no error anywhere to explain it.
 func (c *conn) answer(req *message) {
 	reply := &message{JSONRPC: "2.0", ID: req.ID}
 	switch req.Method {
 	case "workspace/configuration":
-		// One settings object per requested item, each empty: we override
+		// One settings object per requested item, each empty. We override
 		// nothing and let the server keep its defaults. A single object, or
-		// null, is a length mismatch the server treats as a protocol error.
+		// null, is a length mismatch, and the server treats it as a protocol
+		// error.
 		var params struct {
 			Items []json.RawMessage `json:"items"`
 		}
@@ -184,8 +186,9 @@ func (c *conn) shutdown() {
 // if the caller gives up. A cancelled call drops its pending entry, so a late
 // reply is discarded rather than delivered to a receiver nobody is reading.
 func (c *conn) call(ctx context.Context, method string, params, result any) error {
-	// Always bounded, and never extended: a caller with a shorter deadline
-	// keeps it, a caller with none gets this one.
+	// The call is always bounded, and the bound never extends a caller's
+	// deadline. A caller with a shorter deadline keeps it, and a caller with
+	// none gets this one.
 	ctx, cancel := context.WithTimeout(ctx, c.callTimeout)
 	defer cancel()
 
@@ -262,8 +265,8 @@ func mustRaw(v any) json.RawMessage {
 //
 // Headers other than Content-Length are skipped rather than rejected. The base
 // protocol also defines Content-Type, and a server is free to send headers we
-// have never heard of; refusing them would break on a spec revision that costs
-// us nothing to ignore.
+// have never heard of. Refusing them would break on a spec revision, and
+// ignoring them costs us nothing.
 func readFrame(r *bufio.Reader) ([]byte, error) {
 	length := -1
 	for {

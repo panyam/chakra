@@ -14,18 +14,18 @@ import (
 	"time"
 )
 
-// helperSentinel marks a re-execution of this test binary as the child process
-// a test wants to run.
+// helperSentinel marks a re-execution of this test binary as a test's child
+// process.
 //
-// The mode travels in argv rather than in the environment because the child
-// inherits the parent's environment, so an env switch would also turn the test
-// process running the assertions into a helper.
+// The mode travels in argv rather than in the environment. The child inherits
+// the parent's environment, so an env switch would also turn the test process
+// running the assertions into a helper.
 const helperSentinel = "__mcpkit_exec_helper__"
 
 // helperArgv builds an allowlist entry that runs this test binary in helper
-// mode. Re-executing the test binary is the same trick ext/lsp uses for its
-// stub server: it needs nothing installed, and it behaves identically on every
-// platform CI runs.
+// mode. ext/lsp re-executes its test binary the same way for its stub server.
+// The trick needs nothing installed, and it behaves identically on every CI
+// platform.
 func helperArgv(t *testing.T, mode ...string) []string {
 	t.Helper()
 	self, err := filepath.Abs(os.Args[0])
@@ -100,8 +100,8 @@ func TestHelperProcess(t *testing.T) {
 		fmt.Println("connected")
 
 	case "listen":
-		// What a test suite does with httptest: serve on loopback from inside
-		// the command, then dial itself.
+		// This mirrors a test suite using httptest. It serves on loopback from
+		// inside the command, then dials itself.
 		ln, err := net.Listen("tcp", args[1])
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "listen failed:", err)
@@ -131,21 +131,21 @@ func TestHelperProcess(t *testing.T) {
 		}
 
 	case "prompt":
-		// Asks, waits for a line, answers, exits: an interactive program.
+		// An interactive program. It asks, waits for a line, answers and exits.
 		fmt.Println("name?")
 		line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
 		fmt.Printf("hello %s\n", strings.TrimSpace(line))
 
 	case "tick":
-		// Prints until killed: a dev server or a watcher.
+		// A dev server or a watcher. It prints until killed.
 		for i := 0; ; i++ {
 			fmt.Printf("tick %d\n", i)
 			time.Sleep(50 * time.Millisecond)
 		}
 
 	case "staged":
-		// Prints each word, then sleeps the duration after it: output that
-		// arrives between a model's collections.
+		// Output that arrives between a model's collections. It prints each
+		// word, then sleeps for the duration after it.
 		for i := 1; i < len(args); i += 2 {
 			fmt.Println(args[i])
 			if i+1 < len(args) {

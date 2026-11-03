@@ -18,8 +18,8 @@ func farewell() string {
 `
 
 // TestStaleContentIsRejected is the property the package exists for. The
-// anchor still matches, so every mechanism that only locates text would apply
-// this edit happily; only the hash knows the caller was looking at something
+// anchor still matches, so any mechanism that only locates text would apply
+// this edit happily. Only the hash knows the caller was looking at something
 // else.
 func TestStaleContentIsRejected(t *testing.T) {
 	e := Edit{
@@ -92,8 +92,8 @@ func TestMissingAnchorIsRejected(t *testing.T) {
 }
 
 // TestOneBadHunkAbandonsTheWholeEdit is the all-or-nothing property. The first
-// hunk is perfectly valid; applying it and reporting the second as failed would
-// leave the file in a state no caller asked for.
+// hunk is perfectly valid. Applying it and reporting the second as failed would
+// leave the file in a state that no caller asked for.
 func TestOneBadHunkAbandonsTheWholeEdit(t *testing.T) {
 	e := Edit{Hunks: []Hunk{
 		{Old: `"hello"`, New: `"hi"`},
@@ -152,7 +152,7 @@ func TestOverlappingHunksAreRejected(t *testing.T) {
 }
 
 // TestIdenticalHunksOverlap covers the degenerate case of the same edit listed
-// twice: both resolve to the one occurrence, so they collide with each other.
+// twice. Both resolve to the one occurrence, so they collide with each other.
 func TestIdenticalHunksOverlap(t *testing.T) {
 	h := Hunk{Old: `"hello"`, New: `"hi"`}
 	if _, err := (Edit{Hunks: []Hunk{h, h}}).Apply(src); !errors.Is(err, ErrOverlap) {
@@ -171,8 +171,8 @@ func TestEmptyNewDeletesTheAnchor(t *testing.T) {
 	}
 }
 
-// TestEmptyAnchorIsMalformedNotAmbiguous separates the two: an empty string is
-// found at every offset, so reporting it as ambiguous would send the caller off
+// TestEmptyAnchorIsMalformedNotAmbiguous separates the two. An empty string is
+// found at every offset. Reporting it as ambiguous would send the caller off
 // to add context to an anchor that does not exist.
 func TestEmptyAnchorIsMalformedNotAmbiguous(t *testing.T) {
 	e := Edit{Hunks: []Hunk{{Old: "", New: "x"}}}
@@ -188,8 +188,9 @@ func TestNoHunksIsRejected(t *testing.T) {
 }
 
 // TestStaleIsCheckedBeforeAnchors keeps the reported cause the actionable one.
-// Both faults are present; if anchors were resolved first the caller would be
-// told to fix an anchor that is fine in the file they have not read yet.
+// Both faults are present. If anchors were resolved first, the caller would be
+// told to fix an anchor. That anchor is fine in the file they have not read
+// yet.
 func TestStaleIsCheckedBeforeAnchors(t *testing.T) {
 	e := Edit{
 		ExpectHash: Hash("something else"),

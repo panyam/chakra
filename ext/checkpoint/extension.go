@@ -18,48 +18,49 @@ import (
 // WriteSpec declares that a tool writes files and says which of its arguments
 // name them.
 //
-// Declared rather than detected, because capture happens BEFORE the call, when
-// the pre-state still exists. There is no filesystem watcher and no
-// after-the-fact diff. So a checkpoint grows with the files a turn touched,
-// not with the size of the tree. The same choice means a shell command cannot
-// be covered. Nobody can know which files `make install` will touch until it
-// has touched them.
+// Capture happens BEFORE the call, while the pre-state still exists, so the
+// tool has to declare its paths. Nothing detects them. There is no filesystem
+// watcher and no after-the-fact diff. So a checkpoint grows with the number of
+// files a turn touched, not with the size of the tree. The same choice means a
+// shell command cannot be covered, because nobody can know which files
+// `make install` will touch until it has touched them.
 type WriteSpec struct {
 	// Tool is the tool name to intercept, as the model calls it.
 	Tool string
 
-	// Paths returns the files the call is about to write, given its
-	// arguments, as absolute paths resolved the way the tool resolves them.
-	// A relative path is refused rather than resolved against the process's
-	// working directory, which would snapshot a different file (issue 69).
-	// A path that does not exist yet is fine and is the normal case for a
-	// create: it is recorded as absent so undoing deletes it.
+	// Paths is given the call's arguments. It returns an absolute path for
+	// each file that the call is about to write, resolved the way the tool
+	// resolves it. The checkpoint refuses a relative path. Resolving it
+	// against the process's working directory would snapshot a different
+	// file (issue 69). A path that does not exist yet is fine, and that is
+	// the normal case for a create. The checkpoint records the path as
+	// absent, so undoing the call deletes the file.
 	Paths func(args map[string]any) []string
 }
 
 // Config configures the extension.
 type Config struct {
-	// Root is the directory the snapshot store lives in. Required.
+	// Root is the directory that holds the snapshot store. Required.
 	Root string
 
-	// Writes declares the file-writing tools. A tool absent from this list is
-	// never captured, and if it also declares no other reverser it is
-	// reported by /undo as something that could not be undone rather than
-	// passed over in silence.
+	// Writes declares the file-writing tools. The extension never captures a
+	// tool absent from this list. If such a call ran, was not read-only and
+	// was not denied, /undo reports it as something it could not undo,
+	// instead of passing over it in silence.
 	Writes []WriteSpec
 
-	// Proposer suggests inverse calls for the gaps /undo could not close.
-	// Nil means /undo reports the gaps and stops, which is the default and
-	// is never wrong, only less helpful.
+	// Proposer suggests inverse calls for the gaps that /undo could not
+	// close. Nil is the default, and /undo then reports the gaps and stops.
+	// That is never wrong, only less helpful.
 	Proposer Proposer
 
 	// Approve gates every proposal. It is called once per proposal and the
 	// call is made only if it returns true.
 	//
-	// Nil means no proposal is ever run: a proposal is a guess at an
-	// operation nobody could reverse automatically, aimed at a tool that
-	// changes things, so having no way to ask is a reason to do nothing
-	// rather than a reason to proceed. Wire it to the host's
+	// Nil means no proposal ever runs. A proposal is a guess at an operation
+	// that nobody could reverse automatically, and it calls a tool that
+	// changes things. So with no way to ask, the extension does nothing
+	// instead of proceeding. Wire it to the host's
 	// ElicitationCoordinator.Confirm to reuse the existing prompt.
 	Approve func(ctx context.Context, p Proposal) (bool, error)
 
@@ -71,9 +72,9 @@ type Config struct {
 // Extension wires the reversal seam into a turn: capture before a write,
 // restore on /undo, and report what could not be undone.
 //
-// Registered through host.WithExtension, so the middleware and the commands
-// arrive as one unit sharing one store. That sharing is the reason
-// host.Extension exists rather than five separate registrations.
+// Register it through host.WithExtension. The middleware and the commands then
+// arrive as one unit and share one store. host.Extension exists so they can
+// share it, instead of needing five separate registrations.
 type Extension struct {
 	host.BaseExtension
 
@@ -93,11 +94,12 @@ type Extension struct {
 	current    *Checkpoint
 	unreversed []Gap
 
-	// undoPos counts the checkpoints a bare /undo has already restored,
-	// newest first, so repeating it steps back a turn at a time (issue 75).
-	// It is a position, not a mark on the store, so a restore that failed
-	// halfway can still be retried by naming its id. A new checkpoint resets
-	// it, because the next /undo is then about the turn that just ran.
+	// undoPos counts how many checkpoints bare /undo calls have already
+	// restored, newest first. So repeating /undo steps back a turn at a time
+	// (issue 75). It is a position and leaves no mark on the store. If a
+	// restore fails halfway, the user can still retry it by naming its id.
+	// A new checkpoint resets undoPos, because the next /undo is then about
+	// the turn that just ran.
 	undoPos int
 }
 
@@ -134,9 +136,9 @@ func New(cfg Config) (*Extension, error) {
 // Name identifies the extension.
 func (e *Extension) Name() string { return "checkpoint" }
 
-// TurnStart begins a new restore point. The checkpoint itself is not created
-// here — it is created lazily on the first captured write — so a turn that
-// touches no files costs nothing on disk.
+// TurnStart begins a new restore point. It does not create the checkpoint.
+// The first captured write creates it, so a turn that touches no files costs
+// nothing on disk.
 func (e *Extension) TurnStart(context.Context) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -162,10 +164,10 @@ func (e *Extension) wrap(ctx context.Context, info agent.ToolCallInfo, next agen
 
 	spec, writes := e.writes[info.Call.Name]
 	if writes {
-		// Captured before dispatch, which is the only moment the pre-state
-		// exists. This runs outside the host's permission gate, so a call the
-		// gate goes on to deny still gets captured; restoring it is a no-op
-		// because nothing changed, which is the harmless direction.
+		// Capture runs before dispatch, the only moment the pre-state
+		// exists. This middleware runs outside the host's permission gate, so
+		// it captures a call even if the gate then denies it. Restoring that
+		// call is a no-op because nothing changed, and a no-op is harmless.
 		args := map[string]any{}
 		if info.Call.Args.Len() > 0 {
 			if err := info.Call.Args.Bind(&args); err != nil {
@@ -273,9 +275,9 @@ func (e *Extension) runUndo(ctx context.Context, args string) (host.CmdResult, e
 	return host.CmdResult{Kind: host.CmdMessage, Message: report}, nil
 }
 
-// nextUndoTarget picks the checkpoint a bare /undo restores: one turn further
-// back than the last bare /undo. ok is false when there is nothing left to
-// undo, and res then carries the message saying so.
+// nextUndoTarget picks which checkpoint a bare /undo restores. It goes one turn
+// further back than the last bare /undo. ok is false when nothing is left to
+// undo, and res then holds the message saying so.
 func (e *Extension) nextUndoTarget() (string, host.CmdResult, bool, error) {
 	list, err := e.store.List()
 	if err != nil {
@@ -295,13 +297,13 @@ func (e *Extension) nextUndoTarget() (string, host.CmdResult, bool, error) {
 	return list[pos].ID, host.CmdResult{}, true, nil
 }
 
-// offerProposals asks the proposer for inverse calls and runs only the ones a
-// human approves. Returns the transcript to append to the undo report, or ""
-// when there was nothing to offer.
+// offerProposals asks the proposer for inverse calls, and runs only those that
+// a human approves. It returns a transcript to append to the undo report, or
+// "" when there was nothing to offer.
 //
-// Every exit that skips a proposal SAYS so. A silent skip here would leave the
-// user believing an offset ran, which is the same false-confidence failure the
-// gap report exists to prevent, one level down.
+// Every exit that skips a proposal SAYS so. Imagine a skip that said nothing.
+// The user would believe an offset ran. The gap report exists to prevent that
+// false confidence, and a silent skip here would bring it back one level down.
 func (e *Extension) offerProposals(ctx context.Context, gaps []Gap) string {
 	if e.proposer == nil || len(gaps) == 0 {
 		return ""
@@ -351,16 +353,16 @@ func (e *Extension) gaps() []Gap {
 
 // undoReport says what was restored AND what was not.
 //
-// The second half is the point. A turn that edits three files and creates a
-// GitHub issue reports "3 files restored" under any design that only knows
-// about what it captured, and the issue goes unmentioned. A safety net with an
-// unreported hole is worse than none, because it stops being checked.
+// Imagine a turn edits three files and creates a GitHub issue. A design that
+// only knows what it captured reports "3 files restored", and the issue goes
+// unmentioned. A safety net with an unreported hole is worse than none,
+// because people stop checking it.
 //
-// There are two kinds of hole and they are listed separately, because the
-// reader can act on them differently. A call with no reverser was never
-// undoable and the answer is a proposed offset. A refused path WAS captured
-// and would have been restored, except that it is not the thing that was
-// captured any more, and the answer is to go and look at it.
+// There are two kinds of hole. The report lists them separately because the
+// reader acts on each one differently. A call with no reverser was never
+// undoable, and the answer is a proposed offset. A refused path WAS captured
+// and would have been restored. But something changed it after capture, and
+// the answer is to go and look at it.
 func (e *Extension) undoReport(cp *Checkpoint, res RestoreResult) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s: %d file(s) restored", cp.ID(), len(res.Restored))

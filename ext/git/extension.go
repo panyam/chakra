@@ -11,12 +11,12 @@ import (
 )
 
 // Extension contributes the git tools, and reports what each turn changed in
-// the workspace (#151): it snapshots the work tree when a turn starts and
-// again when it ends, announces a one-line summary to every surface, and keeps
-// the diff for /diff and for LastTurn.
+// the workspace (#151). It snapshots the work tree when a turn starts and
+// again when it ends. It announces a one-line summary to every surface, and
+// keeps the diff for /diff and for LastTurn.
 //
-// It reports on version control and restores nothing. ext/checkpoint is
-// what puts files back, and the two don't share snapshots.
+// It reports on version control and restores nothing. ext/checkpoint puts
+// files back, and the two don't share snapshots.
 type Extension struct {
 	host.BaseExtension
 	src *Source
@@ -37,7 +37,7 @@ func New(cfg Config) (*Extension, error) {
 	return &Extension{src: src}, nil
 }
 
-// Name is "git", the source id the tools register under.
+// Name returns "git". The tools register under this source id.
 func (e *Extension) Name() string { return "git" }
 
 // Tools returns the git tools Config enabled.
@@ -47,9 +47,9 @@ func (e *Extension) Tools() (agent.ToolSource, error) { return e.src, nil }
 // a tool call, such as a review (#152).
 func (e *Extension) Source() *Source { return e.src }
 
-// UseSubAgents implements host.SubAgentUser: the review sub-agent runs on
-// the session's provider, with its read-only tools, and renders like the
-// host's own sub-agents.
+// UseSubAgents implements host.SubAgentUser. The review sub-agent runs on the
+// session's provider with its read-only tools, and renders like the host's
+// own sub-agents.
 func (e *Extension) UseSubAgents(h host.SubAgentHost) {
 	if e.src.rev != nil {
 		e.src.rev.host = h
@@ -73,7 +73,7 @@ func (e *Extension) TurnStart(ctx context.Context) error {
 	return nil
 }
 
-// TurnEnd implements host.TurnEnder: it snapshots again, keeps the diff from
+// TurnEnd implements host.TurnEnder. It snapshots again, keeps the diff from
 // TurnStart's snapshot, and announces its summary when anything changed. A
 // failed or partial turn is reported too, since its writes happened all the
 // same.
@@ -101,8 +101,8 @@ func (e *Extension) TurnEnd(ctx context.Context, _ *agent.TurnResult, _ error) {
 	}
 }
 
-// LastTurn is what the most recent turn changed, the zero TurnDiff before
-// any turn has ended.
+// LastTurn returns the most recent turn's changes. Before any turn has ended
+// it returns the zero TurnDiff.
 func (e *Extension) LastTurn() TurnDiff {
 	e.mu.Lock()
 	defer e.mu.Unlock()

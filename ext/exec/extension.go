@@ -33,9 +33,9 @@ func New(cfg Config) (*Extension, error) {
 // network proxy, when Config.Network started one.
 func (e *Extension) Close() error { return e.src.Close() }
 
-// SetAnnounce implements host.Announcer: a connection the network allowlist
-// refuses is reported in the conversation, so the user can see why a
-// command failed.
+// SetAnnounce implements host.Announcer. When the network allowlist refuses a
+// connection, the refusal is reported in the conversation, so the user can
+// see why a command failed.
 func (e *Extension) SetAnnounce(fn func(string)) {
 	if eg := e.src.egress; eg != nil {
 		eg.mu.Lock()
@@ -44,15 +44,15 @@ func (e *Extension) SetAnnounce(fn func(string)) {
 	}
 }
 
-// SetProcessOutput implements host.ProcessReporter: output from processes
-// started with exec_command streams to the surfaces as it is printed, up to
-// ProcessConfig.StreamBudget per process, while the model keeps reading it
+// SetProcessOutput implements host.ProcessReporter. A process started with
+// exec_command streams its output to the surfaces as it prints, up to
+// ProcessConfig.StreamBudget per process. The model still reads that output
 // through write_stdin.
 func (e *Extension) SetProcessOutput(fn func(host.ProcessOutput)) { e.src.setProcessOutput(fn) }
 
-// SetAsk implements host.Asker: with NetworkConfig.Ask, a connection to an
-// unlisted host becomes a question for the user, through the same queue as
-// approvals, and the answer holds for the session.
+// SetAsk implements host.Asker. With NetworkConfig.Ask set, a connection to an
+// unlisted host becomes a question for the user. The question goes through
+// the same queue as approvals, and the answer holds for the session.
 func (e *Extension) SetAsk(fn func(ctx context.Context, question string) (bool, error)) {
 	if eg := e.src.egress; eg != nil {
 		eg.mu.Lock()
@@ -61,8 +61,7 @@ func (e *Extension) SetAsk(fn func(ctx context.Context, question string) (bool, 
 	}
 }
 
-// Name identifies the extension, and is the source id its tools register
-// under.
+// Name identifies the extension. Its tools register under this source id.
 func (e *Extension) Name() string { return "exec" }
 
 // Tools returns one tool per allowlisted command, plus "shell" when
@@ -71,7 +70,7 @@ func (e *Extension) Tools() (agent.ToolSource, error) { return e.src, nil }
 
 // PromptSections states how to read a command's result.
 //
-// Two things a model gets wrong without being told. It treats a non-zero exit
+// Without being told, a model gets two things wrong. It treats a non-zero exit
 // as a broken tool and retries the call instead of reading the failure, and it
 // reads a truncated tail as the whole run.
 func (e *Extension) PromptSections() []host.PromptSection {
@@ -138,10 +137,10 @@ func (e *Extension) ApprovalClassifiers() []host.ApprovalClassifier {
 
 // ApprovalRenderers show the command line a user is being asked to approve.
 //
-// The default renders the call's JSON trimmed to 200 characters, which for
-// these tools shows an argument list without the command it attaches to. The
-// question "do you want to run this" is not answerable without the argv, the
-// directory, and whether anything is confining it.
+// The default renders the call's JSON trimmed to 200 characters. For these
+// tools that shows an argument list without its command. A user can't answer
+// "do you want to run this" without the argv, the directory, and whether
+// anything confines the command.
 func (e *Extension) ApprovalRenderers() []host.ApprovalRenderer {
 	return []host.ApprovalRenderer{e.renderApproval}
 }
@@ -163,9 +162,9 @@ func (e *Extension) renderApproval(_ context.Context, info agent.ToolCallInfo) (
 			Args []string `json:"args"`
 		}
 		if err := json.Unmarshal(raw, &parsed); err != nil {
-			// Unparseable arguments are exactly when the generic rendering is
-			// the honest one: it shows the raw text instead of a command line
-			// assembled from a guess.
+			// With unparseable arguments the generic rendering is the honest
+			// one. It shows the raw text instead of a command line assembled
+			// from a guess.
 			return "", false
 		}
 		argv = append(argv, parsed.Args...)

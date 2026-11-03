@@ -12,8 +12,9 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// ReviewConfig turns on review (#152): a `review` tool and a /review command
-// that run a reviewer sub-agent over a diff and return structured findings.
+// ReviewConfig turns on review (#152). It adds a `review` tool and a /review
+// command. Both run a reviewer sub-agent over a diff and return structured
+// findings.
 type ReviewConfig struct {
 	// Rubric is the reviewer's instructions, DefaultRubric when empty.
 	Rubric string
@@ -149,8 +150,8 @@ func (r *reviewer) review(ctx context.Context, t DiffTarget, instructions string
 	return text, &rv, nil
 }
 
-// reviewTask is the reviewer's user turn: what is being reviewed, the
-// caller's own instructions, then the diff.
+// reviewTask builds the reviewer's user turn. It states what is being
+// reviewed, then the caller's own instructions, then the diff.
 func reviewTask(t DiffTarget, instructions, diff string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Review %s.\n", describeTarget(t))
@@ -219,8 +220,8 @@ func parseReviewArgs(args string) (DiffTarget, string, error) {
 	return t, strings.TrimSpace(instr), nil
 }
 
-// render is a Review for a person: the verdict and summary, then each finding
-// by priority as written.
+// render formats a Review for a person. It shows the verdict and summary, then
+// each finding by priority as written.
 func (rv *Review) render() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "review: %s. %s\n", rv.Verdict, rv.Summary)

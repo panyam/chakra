@@ -2,13 +2,14 @@
 // CLAUDE.md and the like) into the agent's context, following a Profile that
 // can copy Codex's or Claude Code's rules.
 //
-// Three hooks carry it. The startup chain goes into the system prompt as a
-// PromptSection, read when the first turn starts. A tool middleware notes the
-// directories tool calls name, and reads a subdirectory's file the first time
-// one does. A request-scoped step stage shows those subdirectory files, and
-// any startup file that changed, before every model call. That block is never
-// written to history, so it costs tokens on each call and survives
-// compaction, and the system prompt stays the same all session.
+// It uses three hooks. The startup chain goes into the system prompt as a
+// PromptSection, read when the first turn starts. A tool middleware watches
+// the paths in each tool call. The first time a call names a subdirectory,
+// the middleware reads that subdirectory's file. A request-scoped step stage
+// shows those subdirectory files, and any startup file that changed, before
+// every model call. That block is never written to history. It costs tokens
+// on each call, and compaction can't remove it. The system prompt does not
+// change all session.
 package agentsmd
 
 import (
@@ -30,7 +31,7 @@ import (
 
 // Config configures the extension.
 type Config struct {
-	// Roots are the workspace roots. The first is primary: a relative path in
+	// Roots are the workspace roots. The first is primary. A relative path in
 	// a tool call resolves against it, and a PrimaryOnly profile reads the
 	// startup chain for it alone. Required.
 	Roots []string
@@ -48,8 +49,8 @@ type Config struct {
 	Paths func(info agent.ToolCallInfo) []string
 }
 
-// Extension is the instruction-file loader. One instance serves one session:
-// it remembers what it has shown the model.
+// Extension is the instruction-file loader. One instance serves one session,
+// because it remembers what it has shown the model.
 type Extension struct {
 	host.BaseExtension
 	cfg Config
@@ -103,9 +104,9 @@ func New(cfg Config) (*Extension, error) {
 }
 
 // SetAnnounce implements host.Announcer. The extension posts a line when it
-// loads the startup files, finds one in a subdirectory, and (under
-// ChangesNotice) sees one change, appear or go, so the user can tell what the
-// model is following without reading its context.
+// loads the startup files and when it finds one in a subdirectory. Under
+// ChangesNotice it also posts one when a file changes, appears or goes. The
+// user can then tell what the model is following without reading its context.
 func (e *Extension) SetAnnounce(fn func(string)) {
 	e.mu.Lock()
 	e.announce = fn
@@ -149,8 +150,8 @@ func (e *Extension) rels(docs []doc) string {
 // Name identifies the extension.
 func (e *Extension) Name() string { return "agentsmd" }
 
-// PromptSections returns the startup chain, read on the first turn and the
-// same on every turn after, so the prompt cache holds.
+// PromptSections returns the startup chain. It is read on the first turn and
+// is the same on every turn after, so the prompt cache keeps matching.
 func (e *Extension) PromptSections() []host.PromptSection {
 	return []host.PromptSection{host.PromptSectionFunc(func(context.Context) string {
 		e.mu.Lock()
@@ -183,8 +184,8 @@ func (e *Extension) Middleware() []agent.ToolMiddleware {
 }
 
 // StepStages shows subdirectory files and changed startup files before each
-// model call. Request scope: the block is rebuilt for every call and never
-// joins the record.
+// model call. The stage has request scope. The block is rebuilt for every call
+// and never joins the record.
 func (e *Extension) StepStages() []agent.StepStage {
 	if e.cfg.Profile.Subdirs != SubdirsLazy && e.cfg.Profile.Changes != ChangesNotice {
 		return nil
@@ -368,9 +369,9 @@ func (e *Extension) block() string {
 	return blockHeader + "\n\n" + body
 }
 
-// announceChanges tells the user about each file whose text differs from
-// what they were last told, including files that appeared or went. Called
-// with mu held, under ChangesNotice.
+// announceChanges compares each file's text with what the user was last told
+// and announces every difference, including files that appeared or went.
+// Called with mu held, under ChangesNotice.
 func (e *Extension) announceChanges(dirs []string) {
 	now := map[string]string{}
 	for _, d := range append(e.l.global(), e.l.chain(e.chainDirs)...) {
@@ -416,9 +417,9 @@ func joinLabel(a, b string) string {
 	return a + "; " + b
 }
 
-// render writes docs under the byte cap: max == 0 means no cap and max < 0
-// means nothing fits. It returns the text, how many bytes of file text it
-// used, and the paths left out.
+// render writes docs under the byte cap max. A max of 0 means no cap, and a
+// negative max means nothing fits. It returns the text, how many bytes of
+// file text it used, and the paths left out.
 func render(docs []doc, max int, gone []string) (string, int, []string) {
 	var b strings.Builder
 	var skipped []string

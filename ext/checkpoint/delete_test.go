@@ -31,8 +31,9 @@ func deleteExt(t *testing.T) (*Extension, string) {
 
 // TestUndoBringsBackADeletedFile is the whole point of issue 108. Capture
 // happens before dispatch, so the checkpoint holds the content while it still
-// exists; /undo writes it back. A delete the checkpoint never captured is one
-// /undo reports as an unreversed gap, which is honest but is not a restore.
+// exists, and /undo writes it back. If the checkpoint never captured a delete,
+// /undo reports it as an unreversed gap. That is honest, but it is not a
+// restore.
 func TestUndoBringsBackADeletedFile(t *testing.T) {
 	e, work := deleteExt(t)
 	f := filepath.Join(work, "gone.txt")
@@ -132,9 +133,10 @@ func TestUndoOfADeleteInATurnThatAlsoWrites(t *testing.T) {
 	}
 }
 
-// TestDeleteOfAnUntrackedToolIsStillAVisibleGap is the other half. A delete
-// whose tool has no WriteSpec is not silently ignored: /undo names it, which
-// is the only signal the user gets that the file will not come back.
+// TestDeleteOfAnUntrackedToolIsStillAVisibleGap is the other half. If a
+// delete's tool has no WriteSpec, the delete is still not silently ignored.
+// /undo names it. That name is the only signal the user gets that the file
+// will not come back.
 func TestDeleteOfAnUntrackedToolIsStillAVisibleGap(t *testing.T) {
 	e, work := deleteExt(t)
 	f := filepath.Join(work, "gone.txt")

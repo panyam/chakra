@@ -35,10 +35,10 @@ func TestFindSymbolByQualifiedName(t *testing.T) {
 	}
 }
 
-// TestFindSymbolRefusesAmbiguity is the assertion that makes name addressing
-// safe. Two same-named methods are the case where picking the first would
-// navigate somewhere plausible and wrong, which is the failure mode anchored
-// edits already refuse rather than guess at.
+// TestFindSymbolRefusesAmbiguity pins the check that makes name addressing
+// safe. Imagine two methods with the same name. Picking the first would
+// navigate somewhere plausible and wrong. Anchored edits already refuse that
+// failure rather than guess.
 func TestFindSymbolRefusesAmbiguity(t *testing.T) {
 	syms := []documentSymbol{
 		sym("Reader", 1, 5, sym("Close", 8, 5)),
@@ -97,7 +97,7 @@ func TestFindSymbolUnknownNameListsWhatIsThere(t *testing.T) {
 // symbol makes the column disagree with the bytes by one per surrogate pair.
 func TestByteColumnConvertsUTF16(t *testing.T) {
 	// "🙂" is one utf-16 surrogate pair and four bytes, so "x" sits at utf-16
-	// column 2 and byte column 4. Reading the column as bytes would land two
+	// column 2 and byte column 4. Reading the column as bytes would stop two
 	// characters short of the symbol.
 	line := "🙂x = 1"
 	if got := byteColumn(line, 2, ""); got != 4 {

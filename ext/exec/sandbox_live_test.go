@@ -15,8 +15,8 @@ import (
 
 // These run the real sandbox-exec, and are behind a tag because CI runs on
 // Linux where this backend does not exist. Nothing in CI exercises a real
-// sandbox, so this file is the only thing that checks the profile means what
-// the golden test says it says.
+// sandbox. So only this file checks that the profile does what the golden test
+// says it does.
 //
 //	go test -tags exec_live ./...
 
@@ -49,11 +49,11 @@ func TestLiveWriteInsideARootSucceeds(t *testing.T) {
 // TestLiveWriteOutsideEveryRootIsDenied pins the confinement with the cache
 // allowances turned off.
 //
-// WritePaths is explicitly empty here, and that is not a convenience. The
-// default list makes the temp directory writable, because a toolchain cannot
-// build without it, so "outside every root" and "denied" are not the same
-// statement under the shipped defaults. This test asserts the roots-only
-// property; the one below asserts what the defaults actually widen it to.
+// WritePaths is explicitly empty here on purpose. A toolchain cannot build
+// without a writable temp directory, so the default list includes it. Under
+// the shipped defaults, "outside every root" therefore doesn't mean "denied".
+// This test asserts the roots-only property. The one below asserts how far the
+// defaults widen it.
 func TestLiveWriteOutsideEveryRootIsDenied(t *testing.T) {
 	root := workspace(t)
 	outside := filepath.Join(workspace(t), "escaped.txt")
@@ -141,10 +141,11 @@ func TestLiveLoopbackStaysOpen(t *testing.T) {
 	}
 }
 
-// TestLiveCommandCanServeOnLoopback is the httptest case, where the server
-// runs inside the command. Seatbelt checks listen() as network-inbound, so a
-// profile that allows bind and outbound but not inbound passes the test above
-// and still fails every test suite that starts its own server (#74).
+// TestLiveCommandCanServeOnLoopback covers the httptest case, where the server
+// runs inside the command. Seatbelt checks listen() as network-inbound.
+// Imagine a profile that allows bind and outbound but not inbound. It passes
+// the test above and still fails every test suite that starts its own server
+// (#74).
 func TestLiveCommandCanServeOnLoopback(t *testing.T) {
 	src := liveSource(t, workspace(t), CommandSpec{
 		Name: "serve", Argv: helperArgv(t, "listen", "127.0.0.1:0"), Description: "Serve on loopback.",
@@ -154,10 +155,10 @@ func TestLiveCommandCanServeOnLoopback(t *testing.T) {
 	}
 }
 
-// TestLiveEgressIsDenied is the one assertion here that an offline machine
-// cannot distinguish from a pass, since a denied dial and an unreachable
-// network both fail. The AllowNetwork half is what separates them, and it is
-// skipped rather than failed when the machine has no route out.
+// TestLiveEgressIsDenied asserts a denial, and on an offline machine that
+// looks the same as a pass. A denied dial and an unreachable network both
+// fail. The AllowNetwork half separates them. It is skipped rather than failed
+// when the machine has no route out.
 func TestLiveEgressIsDenied(t *testing.T) {
 	root := workspace(t)
 	const target = "1.1.1.1:80"
@@ -177,9 +178,9 @@ func TestLiveEgressIsDenied(t *testing.T) {
 	}
 }
 
-// TestLiveARealToolchainRunsUnderTheProfile is the test that would have caught
-// a write path missing from DefaultWritePaths. A sandboxed `go build` fails on
-// its build cache long before it compiles anything.
+// TestLiveARealToolchainRunsUnderTheProfile catches a write path missing from
+// DefaultWritePaths. A sandboxed `go build` fails on its build cache long
+// before it compiles anything.
 func TestLiveARealToolchainRunsUnderTheProfile(t *testing.T) {
 	root := workspace(t)
 	write := func(name, body string) {
@@ -204,9 +205,9 @@ func TestLiveARealToolchainRunsUnderTheProfile(t *testing.T) {
 
 var _ = context.Background
 
-// TestLiveShellDenialIsFlaggedAndEscalationEscapesIt is #154's end to end: a
-// shell write outside the workspace is blocked by the real profile, the result
-// says so and points at escalation, and the escalated retry writes the file.
+// TestLiveShellDenialIsFlaggedAndEscalationEscapesIt runs #154 end to end. The
+// real profile blocks a shell write outside the workspace. The result says so
+// and points at escalation, and the escalated retry writes the file.
 func TestLiveShellDenialIsFlaggedAndEscalationEscapesIt(t *testing.T) {
 	root := workspace(t)
 	outside := filepath.Join(workspace(t), "escaped.txt")
@@ -235,13 +236,13 @@ func TestLiveShellDenialIsFlaggedAndEscalationEscapesIt(t *testing.T) {
 	}
 }
 
-// TestLiveProcessesRunUnderTheSandbox is #155 under the real backend: a
-// long-running command and a tty command both start under sandbox-exec, and
-// a write outside the roots from a running process is still denied.
+// TestLiveProcessesRunUnderTheSandbox runs #155 under the real backend. A
+// long-running command and a tty command both start under sandbox-exec. A
+// running process still can't write outside the roots.
 func TestLiveProcessesRunUnderTheSandbox(t *testing.T) {
 	root := t.TempDir()
-	// No default write paths, so the temp dir the outside file lives in is
-	// outside what the sandbox lets a command write, as in the test above.
+	// No default write paths, as in the test above. The outside file lives in
+	// the temp dir, and the sandbox doesn't let a command write there.
 	src, err := NewSource(Config{Roots: []string{root}, WritePaths: []string{}, Shell: &ShellConfig{Processes: &ProcessConfig{DefaultYield: 2 * time.Second}}})
 	if err != nil {
 		t.Fatal(err)
@@ -267,9 +268,9 @@ func TestLiveProcessesRunUnderTheSandbox(t *testing.T) {
 	}
 }
 
-// TestLiveSandboxedCurlGoesThroughTheAllowlist is #158 under the real backend:
-// a sandboxed curl, which can only reach loopback, gets to an allowed host
-// through the proxy and is refused another.
+// TestLiveSandboxedCurlGoesThroughTheAllowlist runs #158 under the real
+// backend. A sandboxed curl can only reach loopback. Through the proxy it
+// reaches an allowed host, and the proxy refuses another host.
 func TestLiveSandboxedCurlGoesThroughTheAllowlist(t *testing.T) {
 	curl, err := osexec.LookPath("curl")
 	if err != nil {

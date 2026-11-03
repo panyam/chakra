@@ -106,8 +106,8 @@ func TestEmptyExcludeMeansExcludeNothing(t *testing.T) {
 	}
 }
 
-// TestWalkDoesNotDescendIntoASymlinkedDirectory is the confinement property on
-// the walk, which is a different code path from the open. A traversal that
+// TestWalkDoesNotDescendIntoASymlinkedDirectory checks confinement on the
+// walk. The walk is a different code path from the open. A traversal that
 // followed links would both escape the root and be able to loop forever.
 func TestWalkDoesNotDescendIntoASymlinkedDirectory(t *testing.T) {
 	s, root := newTestSource(t)
@@ -188,9 +188,9 @@ func TestSearchLiteralEscapesMetacharacters(t *testing.T) {
 	}
 }
 
-// TestMalformedRegexIsRefusedNotEmpty is the failure the regex default makes
-// likely. Reporting a broken pattern as "no matches" sends the caller looking
-// for code that is sitting right there.
+// TestMalformedRegexIsRefusedNotEmpty covers a failure that the regex default
+// makes likely. Reporting a broken pattern as "no matches" sends the caller
+// looking for code that is sitting right there.
 func TestMalformedRegexIsRefusedNotEmpty(t *testing.T) {
 	s, root := newTestSource(t)
 	write(t, root, "a.go", "func Target() {}\n")

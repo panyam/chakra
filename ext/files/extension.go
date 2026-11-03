@@ -15,18 +15,18 @@ import (
 // Extension contributes the file tools and the prompt that tells a model how
 // to drive them.
 //
-// The two travel together because neither works alone. The tools refuse an
-// edit whose anchor is not unique, and a model that has not been told that
-// will keep sending single-word anchors and keep being refused. Registering
-// the tools without the prompt would ship a mechanism whose contract is
-// discoverable only by failing.
+// The two come together because neither works alone. The tools refuse an edit
+// whose anchor is not unique. A model that has not been told so will keep
+// sending single-word anchors and keep being refused. Registering the tools
+// without the prompt would ship a mechanism, and the model could learn its
+// contract only by failing.
 type Extension struct {
 	host.BaseExtension
 	src *Source
 }
 
-// New builds the extension. Root confines every path the tools will touch and
-// is required; see Config.
+// New builds the extension. Config.Roots confines every path the tools will
+// touch and is required.
 func New(cfg Config) (*Extension, error) {
 	src, err := NewSource(cfg)
 	if err != nil {
@@ -39,21 +39,23 @@ func New(cfg Config) (*Extension, error) {
 // under.
 func (e *Extension) Name() string { return "files" }
 
-// Tools returns the workspace tool set: read_file, edit_file, write_file,
-// delete_file, list_files, and search_files.
+// Tools returns the workspace tool set. It holds read_file, write_file,
+// delete_file, list_files and search_files, plus edit_file, apply_patch or
+// both, as Config.EditTools chooses.
 func (e *Extension) Tools() (agent.ToolSource, error) { return e.src, nil }
 
-// WritePaths reports the file a writing call is about to touch, as the
-// absolute path the tool itself will write. It is the Paths function a
-// checkpoint or language-server WriteSpec should use for these tools:
+// WritePaths reports which files a writing call is about to touch. It returns
+// the absolute paths that the tool itself will write. A checkpoint or
+// language-server WriteSpec should use it as the Paths function for these
+// tools.
 //
 //	checkpoint.WriteSpec{Tool: "edit_file", Paths: fx.WritePaths}
 //
 // A relative path resolves against the workspace roots exactly as the tools
-// resolve it, never against the process's working directory, so a snapshot
-// covers the file the write lands on wherever the process was started. A
-// path the tools would refuse (empty, or outside every root) yields nothing,
-// since that call writes nothing.
+// resolve it, and never against the process's working directory. So wherever
+// the process was started, the snapshot covers the file that the write
+// changes. The tools refuse a path that is empty or outside every root.
+// WritePaths returns nothing for such a path, since that call writes nothing.
 func (e *Extension) WritePaths(args map[string]any) []string {
 	if _, ok := args["input"].(string); ok {
 		// apply_patch: every file the patch touches, both ends of a move.
@@ -113,12 +115,12 @@ the whole thing; read_file reports how many lines a file has.`)
 // ApprovalRenderers shows an edit as the change it makes, rather than as its
 // arguments.
 //
-// The default host prompt renders a call's JSON trimmed to 200 characters. For
-// most tools that is right: the arguments are an opaque payload and the
+// The default host prompt renders a call's JSON trimmed to 200 characters.
+// That suits most tools. Their arguments are an opaque payload, and the
 // question is really "do you trust this tool with roughly this". For an edit
-// the arguments ARE the change, and 200 characters of JSON truncates the one
-// thing the user is being asked to judge, so they end up approving a diff they
-// could not read.
+// the arguments ARE the change. 200 characters of JSON cuts off the one thing
+// the user is asked to judge, and the user ends up approving a diff they could
+// not read.
 func (e *Extension) ApprovalRenderers() []host.ApprovalRenderer {
 	return []host.ApprovalRenderer{e.renderEditApproval}
 }
@@ -129,15 +131,16 @@ func (e *Extension) ApprovalChoosers() []host.ApprovalChooser {
 }
 
 // chooseHunks claims an edit_file call with two or more hunks and asks about
-// each one in a single form, with every hunk ticked to start with. The call
-// that runs carries only the hunks left ticked. Leaving out hunks is all
-// partial application needs, because Edit.Apply resolves every anchor against
-// the original content, so the kept hunks land exactly where they would have
-// with the others present, and expect_hash still describes the file.
+// each one in a single form, with every hunk ticked at first. The call that
+// runs then holds only the hunks still ticked. Partial application needs
+// nothing more than leaving hunks out. Edit.Apply resolves every anchor
+// against the original content. So the kept hunks go exactly where they would
+// have gone with the others present, and expect_hash still describes the
+// file.
 //
-// A one-hunk edit is left to the plain ask, where yes or no is the whole
-// question. So are calls whose arguments do not parse, for the same reason
-// renderEditApproval declines them.
+// chooseHunks leaves a one-hunk edit to the plain ask, because yes or no is
+// the whole question there. It also leaves calls whose arguments do not
+// parse, for the same reason that renderEditApproval declines them.
 func chooseHunks(ctx context.Context, info agent.ToolCallInfo, present agent.ElicitationUI) (agent.Choice, error) {
 	if info.Call.Name != "edit_file" {
 		return agent.Choice{}, nil
@@ -181,7 +184,7 @@ func chooseHunks(ctx context.Context, info agent.ToolCallInfo, present agent.Eli
 	var kept []any
 	var declined []string
 	for i, k := range keys {
-		// Absent means approved: a surface that shows only accept and decline
+		// Absent means approved. A surface that shows only accept and decline
 		// sends no fields, and its user accepted the whole edit.
 		if v, ok := res.Content[k].(bool); ok && !v {
 			declined = append(declined, strconv.Itoa(i+1))
@@ -216,9 +219,9 @@ func (e *Extension) renderEditApproval(_ context.Context, info agent.ToolCallInf
 	args := map[string]any{}
 	if raw := info.Call.Args.Raw(); len(raw) > 0 {
 		if err := json.Unmarshal(raw, &args); err != nil {
-			// Unparseable arguments are exactly when the generic rendering is
-			// the honest one: it shows the raw text rather than a summary
-			// built from a guess.
+			// When the arguments do not parse, the generic rendering is the
+			// honest one. It shows the raw text instead of a summary built
+			// from a guess.
 			return "", false
 		}
 	}
@@ -255,8 +258,8 @@ func (e *Extension) renderEditApproval(_ context.Context, info agent.ToolCallInf
 		}
 		// Without expect_hash the write is a create, and creates are refused
 		// on an existing path. Approving that prompt cannot make the call
-		// run, so the prompt says what will happen rather than offering a
-		// verdict on a write that is going to be refused regardless.
+		// run. So the prompt says what will happen, and does not ask for a
+		// verdict on a write that will be refused anyway.
 		if e.writeTargetExists(path) {
 			return fmt.Sprintf("Write %s (%s)?\n\nThe file already exists, so this write will be refused: replacing it needs expect_hash from read_file. edit_file changes part of it without one.\n\n%s",
 				path, shown, indent(preview(content))), true
@@ -302,14 +305,14 @@ func renderPatchApproval(args map[string]any) (string, bool) {
 	return strings.TrimRight(b.String(), "\n"), true
 }
 
-// writeTargetExists reports whether path names something write_file already
-// has on disk. The answer decides between a create and a replacement.
+// writeTargetExists reports whether something already exists on disk at the
+// path that write_file names. The answer decides between a create and a
+// replacement.
 //
-// The tools refuse a write to a directory with their own message, so a
-// directory is not what this answers: only a non-directory counts. A path that
-// cannot be resolved, or cannot be stat'd, is reported as not existing, since
-// the prompt is a summary and must not claim more than the write itself can
-// know.
+// The tools refuse a write to a directory with their own message, so this
+// counts only a non-directory. If the path cannot be resolved or stat'd, it is
+// reported as not existing. The prompt is a summary, and it must not claim
+// more than the write itself can know.
 func (e *Extension) writeTargetExists(path string) bool {
 	wr, rel, err := e.src.resolve(path)
 	if err != nil {
@@ -332,9 +335,9 @@ func writeDiff(b *strings.Builder, old, nw string) {
 	}
 }
 
-// preview caps a whole-file write at a readable length. This is the renderer
-// deciding its own truncation, which is the point of the seam: the cap that
-// suits an opaque payload is not the cap that suits a diff.
+// preview caps a whole-file write at a readable length. The renderer decides
+// its own truncation here, and the seam exists to allow that. An opaque
+// payload and a diff need different caps.
 func preview(s string) string {
 	const maxLines = 40
 	lines := strings.Split(s, "\n")

@@ -17,21 +17,22 @@ import (
 )
 
 // NetworkConfig lets sandboxed commands reach named hosts through a local
-// proxy (#158), finer than AllowNetwork's all or nothing: `go mod download`
-// or `npm install` against a known registry doesn't justify unrestricted
-// egress. The sandbox already confines a command's network to loopback, so
-// the proxy on loopback is its only way out, and the proxy decides per host.
+// proxy (#158). It is finer than AllowNetwork's all or nothing, because
+// `go mod download` or `npm install` against a known registry doesn't justify
+// unrestricted egress. The sandbox already confines a command's network to
+// loopback. So the proxy on loopback is its only way out, and the proxy
+// decides per host.
 //
-// Without a sandbox (exec.Unconfined(), or Linux today) commands can ignore
-// the proxy variables, so there the allowlist is advice rather than
-// enforcement.
+// Commands can ignore the proxy variables when there is no sandbox, as with
+// exec.Unconfined() or on Linux today. There the allowlist is advice rather
+// than enforcement.
 type NetworkConfig struct {
-	// Allow lists the hosts commands may reach: "proxy.golang.org", or
-	// "*.npmjs.org" for every subdomain (not the apex itself).
+	// Allow lists reachable hosts, such as "proxy.golang.org". "*.npmjs.org"
+	// matches every subdomain but not the apex itself.
 	Allow []string `json:"allow,omitempty"`
 	// Ask turns a request to an unlisted host into a question for the user,
-	// remembered for the session. Off, or with nobody to ask (a headless
-	// run), unlisted hosts are refused.
+	// and the answer is remembered for the session. Unlisted hosts are refused
+	// when Ask is off, or when nobody can answer, as in a headless run.
 	Ask bool `json:"ask,omitempty"`
 }
 
@@ -250,8 +251,8 @@ func (e *egress) socks5(c net.Conn, br *bufio.Reader) {
 	pipe(c, br, up)
 }
 
-// pipe copies both ways until either side closes. br holds anything the
-// client sent after its request that was already buffered.
+// pipe copies both ways until either side closes. Anything the client sent
+// after its request may already be buffered in br.
 func pipe(c net.Conn, br *bufio.Reader, up net.Conn) {
 	defer up.Close()
 	done := make(chan struct{}, 2)

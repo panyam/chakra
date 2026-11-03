@@ -12,19 +12,19 @@ import (
 )
 
 // TestLiveRustWriteCycle exercises the production path rather than the opening
-// one: a warm server, then real edits that change content, re-checked through
-// the middleware exactly as a write would be.
+// one. It warms the server, then makes real edits that change content, and
+// re-checks them through the middleware exactly as a write would be.
 //
-// It exists because TestServers re-checks a file it had only just opened, which
-// hides two things this catches. rust-analyzer publishes nothing at all for a
-// didChange, so without the didSave that goes with it every edit after the
-// first would go unchecked. And the wait for a busy server has to be bounded:
-// an earlier version waited for rust-analyzer to fall quiet, which it never
-// does, so every write cost the full timeout.
+// TestServers re-checks a file it had only just opened. That hides two
+// problems, and this test catches both. rust-analyzer publishes nothing at all
+// for a didChange, so without the didSave that goes with it every edit after
+// the first would go unchecked. And the wait for a busy server has to be
+// bounded. An earlier version waited for rust-analyzer to fall quiet. It never
+// does, so every write took the full timeout.
 //
-// Measured on a small crate: a broken edit reports in about 130ms and a clean
-// one in about 1.9s, the difference being that an empty result is ambiguous and
-// has to wait for a possible correction.
+// On a small crate we measured about 130ms for a broken edit to report and
+// about 1.9s for a clean one. The clean one is slower because an empty result
+// is ambiguous and has to wait for a possible correction.
 func TestLiveRustWriteCycle(t *testing.T) {
 	root := t.TempDir()
 	resolved, _ := filepath.EvalSymlinks(root)
@@ -42,7 +42,7 @@ func TestLiveRustWriteCycle(t *testing.T) {
 	}
 	defer ext.Close()
 
-	// Warm: open the file and let startup settle, as a session would.
+	// Warm up. Open the file and let startup settle, as a session would.
 	c := ext.pool.clients[0]
 	main := filepath.Join(resolved, "src/main.rs")
 	if _, err := c.sync(main); err != nil {

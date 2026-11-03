@@ -11,8 +11,8 @@ import (
 )
 
 // TestLiveRepoMapRanksTheCentralFile builds the map from a real gopls over a
-// real module, which is the half a stub cannot check: that documentSymbol
-// returns what the ranking assumes across a whole tree.
+// real module. It checks that documentSymbol returns what the ranking assumes
+// across a whole tree, and a stub cannot check that.
 func TestLiveRepoMapRanksTheCentralFile(t *testing.T) {
 	root, spec := liveWorkspace(t)
 
@@ -63,11 +63,11 @@ func TestLiveRepoMapRanksTheCentralFile(t *testing.T) {
 	}
 }
 
-// TestLiveCloseIsPromptWhileTheMapBuilds is #117 on a tree big enough to show
-// it: this repository. Opening every indexed file kept gopls type-checking
-// them, so shutdown waited behind that work and Close took 1.5 to 4 seconds,
-// killing the server at the end. Measured on main: 1.6s two seconds in, 4.0s
-// eight seconds in, and 4.1s even after the map had finished.
+// TestLiveCloseIsPromptWhileTheMapBuilds reproduces #117 on this repository,
+// a tree big enough to show it. Opening every indexed file kept gopls
+// type-checking them, so shutdown waited behind that work. Close took 1.5 to 4
+// seconds and killed the server at the end. On main we measured 1.6s two
+// seconds in, 4.0s eight seconds in, and 4.1s even after the map had finished.
 func TestLiveCloseIsPromptWhileTheMapBuilds(t *testing.T) {
 	_, spec := liveWorkspace(t)
 	repo, err := filepath.Abs(filepath.Join("..", ".."))

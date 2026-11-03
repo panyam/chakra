@@ -217,8 +217,8 @@ func TestApplyPatchStaysInsideTheRoots(t *testing.T) {
 		"move to": "*** Begin Patch\n*** Update File: a.go\n*** Move to: ../escaped.go\n-one\n+two\n*** End Patch",
 		"abs":     "*** Begin Patch\n*** Add File: " + outside + "\n+x\n*** End Patch",
 	} {
-		// Refused while planning, before any file is touched, rather than
-		// caught by the root handle part-way through the writes.
+		// The plan refuses this before any file is touched. The root handle
+		// does not have to catch it part-way through the writes.
 		if out, isErr := applyPatchCall(t, s, patch); !isErr || !strings.Contains(out, "No file was changed") {
 			t.Errorf("%s: %s", name, out)
 		}
