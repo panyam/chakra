@@ -14,7 +14,7 @@ import (
 // scriptedProvider plays what a competent agent with today's tools does:
 // read the code, fix the loop, run the tests, answer. A last turn answers the
 // steer, which today runs as a second turn. As tickets land the script moves
-// to their tools (apply_patch, shell, update_plan), so the scripted run keeps
+// to their tools (apply_patch, update_plan), so the scripted run keeps
 // exercising the wiring each check names.
 func scriptedProvider(fixture string) (agent.Provider, error) {
 	src, err := os.ReadFile(filepath.Join(fixture, "stats.go"))
@@ -37,7 +37,16 @@ func scriptedProvider(fixture string) (agent.Provider, error) {
 			}),
 		}},
 		agent.StubTurn{ToolCalls: []agent.ToolCall{
-			call("c3", "run_test", map[string]any{}),
+			call("c3", "shell", map[string]any{"command": []string{"go", "test", "./..."}}),
+		}},
+		// Asks to leave the sandbox, which always goes to a human; the
+		// headless driver declines, as codex exec does without a TTY.
+		agent.StubTurn{ToolCalls: []agent.ToolCall{
+			call("c4", "shell", map[string]any{
+				"command":       []string{"go", "mod", "download"},
+				"escalate":      true,
+				"justification": "Fetch module dependencies; the sandbox has no network.",
+			}),
 		}},
 		agent.StubTurn{Text: "Fixed Sum's loop, which skipped the first element. go test ./... passes."},
 		agent.StubTurn{Text: fmt.Sprintf("I changed %s.", "Sum in stats.go")},

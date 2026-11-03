@@ -202,3 +202,34 @@ func TestLiveARealToolchainRunsUnderTheProfile(t *testing.T) {
 }
 
 var _ = context.Background
+
+// TestLiveShellDenialIsFlaggedAndEscalationEscapesIt is #154's end to end: a
+// shell write outside the workspace is blocked by the real profile, the result
+// says so and points at escalation, and the escalated retry writes the file.
+func TestLiveShellDenialIsFlaggedAndEscalationEscapesIt(t *testing.T) {
+	root := workspace(t)
+	outside := filepath.Join(workspace(t), "escaped.txt")
+	src, err := NewSource(Config{Roots: []string{root}, WritePaths: []string{}, Shell: &ShellConfig{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	argv := []string{"sh", "-c", "touch " + outside}
+	res, err := src.Call(context.Background(), ShellTool, map[string]any{"command": argv})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sc, _ := res.StructuredContent.(map[string]any); sc["sandbox_denied"] != true {
+		t.Fatalf("a blocked write was not flagged as a sandbox denial: %+v", res.Content)
+	}
+	if _, err := os.Stat(outside); err == nil {
+		t.Fatal("the sandboxed shell wrote outside the workspace")
+	}
+
+	res, err = src.Call(context.Background(), ShellTool, map[string]any{"command": argv, "escalate": true, "justification": "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(outside); err != nil {
+		t.Fatalf("the escalated run did not write the file: %+v", res.Content)
+	}
+}

@@ -9,8 +9,6 @@ package main
 // Live runs are not held to this list; they print the same table to compare.
 var expectedFailures = map[string]string{
 	"agents_md_loaded":  "#146",
-	"shell_command":     "#154",
-	"escalation_asked":  "#154",
 	"patch_edit":        "#156",
 	"skill_loaded":      "#147",
 	"plan_published":    "#148",

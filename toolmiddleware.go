@@ -113,7 +113,7 @@ func (info ToolCallInfo) classified(c CallClass) ToolCallInfo {
 		info.ReadOnly, info.Destructive, info.Idempotent = true, false, true
 	case DispositionReversible:
 		info.ReadOnly, info.Destructive = false, false
-	case DispositionDestructive:
+	case DispositionDestructive, DispositionAlwaysAsk:
 		info.ReadOnly, info.Destructive = false, true
 	}
 	return info

@@ -31,6 +31,7 @@ type Source struct {
 	inline    int
 	write     []string
 	denyRead  []string
+	shell     *shell
 }
 
 // command is one resolved allowlist entry.
@@ -53,8 +54,8 @@ func NewSource(cfg Config) (*Source, error) {
 	if len(cfg.Roots) == 0 {
 		return nil, errors.New("exec: Config.Roots needs at least one directory")
 	}
-	if len(cfg.Commands) == 0 {
-		return nil, errors.New("exec: Config.Commands is empty; there is nothing to run")
+	if len(cfg.Commands) == 0 && cfg.Shell == nil {
+		return nil, errors.New("exec: Config.Commands is empty and Config.Shell is unset; there is nothing to run")
 	}
 
 	var roots []string
@@ -124,6 +125,18 @@ func NewSource(cfg Config) (*Source, error) {
 		}
 		s.cmds[c.tool] = c
 		s.defs = append(s.defs, toolDef(c))
+	}
+	if cfg.Shell != nil {
+		rules, err := NewRules(cfg.Shell.Rules)
+		if err != nil {
+			return nil, err
+		}
+		st := cfg.Shell.Timeout
+		if st <= 0 {
+			st = timeout
+		}
+		s.shell = &shell{rules: rules, timeout: st, allowNetwork: cfg.Shell.AllowNetwork}
+		s.defs = append(s.defs, s.shellDef())
 	}
 	return s, nil
 }
@@ -265,6 +278,9 @@ func (s *Source) Tools(context.Context) ([]core.ToolDef, error) {
 // error, per the ToolSource contract. Everything the command itself does,
 // including exiting non-zero, comes back as a result the model reads.
 func (s *Source) Call(ctx context.Context, name string, args map[string]any) (*core.ToolResult, error) {
+	if name == ShellTool && s.shell != nil {
+		return s.callShell(ctx, args), nil
+	}
 	c, ok := s.cmds[name]
 	if !ok {
 		return nil, fmt.Errorf("exec: unknown tool %q", name)
@@ -314,19 +330,52 @@ func (s *Source) checkArgs(c *command, args map[string]any) ([]string, error) {
 	return out, nil
 }
 
-// run spawns the command under the sandbox and collects its output.
+// run spawns an allowlisted command under the sandbox.
 func (s *Source) run(ctx context.Context, c *command, extra []string) *core.ToolResult {
 	argv := append(append([]string{}, c.spec.Argv...), extra...)
+	return s.spawn(ctx, spawnSpec{
+		path:         c.path,
+		argv:         argv,
+		dir:          c.dir,
+		timeout:      c.timeout,
+		allowNetwork: c.spec.AllowNetwork,
+		tool:         c.tool,
+	}).result
+}
 
-	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+// spawnSpec is one process to start.
+type spawnSpec struct {
+	path         string
+	argv         []string
+	dir          string
+	timeout      time.Duration
+	allowNetwork bool
+	// unconfined skips the sandbox: an escalated shell call the user approved.
+	unconfined bool
+	tool       string
+}
+
+// spawned is a finished process: the result the model reads and the parts a
+// caller inspects to add to it.
+type spawned struct {
+	result         *core.ToolResult
+	exit           int
+	timedOut       bool
+	stdout, stderr streamView
+}
+
+// spawn starts the process, under the sandbox unless sp.unconfined, and
+// collects its output.
+func (s *Source) spawn(ctx context.Context, sp spawnSpec) spawned {
+	ctx, cancel := context.WithTimeout(ctx, sp.timeout)
 	defer cancel()
 
-	cmd := osexec.Command(c.path, argv[1:]...)
+	cmd := osexec.Command(sp.path, sp.argv[1:]...)
 	// Args[0] is what the process sees as its own name. Keeping the
 	// configured spelling rather than the resolved path matters to tools that
 	// switch behaviour on argv[0].
-	cmd.Args = argv
-	cmd.Dir = c.dir
+	cmd.Args = sp.argv
+	cmd.Dir = sp.dir
 	setProcessGroup(cmd)
 
 	stdout := newCapBuffer(s.maxOutput)
@@ -334,14 +383,16 @@ func (s *Source) run(ctx context.Context, c *command, extra []string) *core.Tool
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 
-	policy := Policy{Write: s.write, DenyRead: s.denyRead, Dir: c.dir, AllowNetwork: c.spec.AllowNetwork}
-	if err := s.sandbox.Confine(cmd, policy); err != nil {
-		return toolError(fmt.Sprintf("%s: sandbox: %v", c.tool, err))
+	if !sp.unconfined {
+		policy := Policy{Write: s.write, DenyRead: s.denyRead, Dir: sp.dir, AllowNetwork: sp.allowNetwork}
+		if err := s.sandbox.Confine(cmd, policy); err != nil {
+			return spawned{result: toolError(fmt.Sprintf("%s: sandbox: %v", sp.tool, err)), exit: -1}
+		}
 	}
 
 	started := time.Now()
 	if err := cmd.Start(); err != nil {
-		return toolError(fmt.Sprintf("%s: %v", c.tool, err))
+		return spawned{result: toolError(fmt.Sprintf("%s: %v", sp.tool, err)), exit: -1}
 	}
 
 	// Kill on timeout ourselves rather than through CommandContext, which
@@ -365,7 +416,14 @@ func (s *Source) run(ctx context.Context, c *command, extra []string) *core.Tool
 	if timedOut && inline < 0 {
 		inline = DefaultInlineOutput
 	}
-	return renderRun(c, argv, exit, elapsed, timedOut, view(stdout, inline), view(stderr, inline), waitErr)
+	out, errOut := view(stdout, inline), view(stderr, inline)
+	return spawned{
+		result:   renderRun(sp.timeout, sp.argv, exit, elapsed, timedOut, out, errOut, waitErr),
+		exit:     exit,
+		timedOut: timedOut,
+		stdout:   out,
+		stderr:   errOut,
+	}
 }
 
 // renderRun turns a finished command into the result the model reads.
@@ -375,12 +433,12 @@ func (s *Source) run(ctx context.Context, c *command, extra []string) *core.Tool
 // the model the tool malfunctioned rather than that the code did. A timeout is
 // the other way round: the command did not finish, so nothing it printed is a
 // verdict.
-func renderRun(c *command, argv []string, exit int, elapsed time.Duration, timedOut bool, stdout, stderr streamView, waitErr error) *core.ToolResult {
+func renderRun(timeout time.Duration, argv []string, exit int, elapsed time.Duration, timedOut bool, stdout, stderr streamView, waitErr error) *core.ToolResult {
 	var b strings.Builder
 	line := strings.Join(argv, " ")
 	switch {
 	case timedOut:
-		fmt.Fprintf(&b, "%s timed out after %s and was killed. Output so far:\n", line, c.timeout)
+		fmt.Fprintf(&b, "%s timed out after %s and was killed. Output so far:\n", line, timeout)
 	default:
 		fmt.Fprintf(&b, "%s exited %d after %s.\n", line, exit, elapsed.Round(time.Millisecond))
 	}

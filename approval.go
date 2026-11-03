@@ -108,6 +108,12 @@ const (
 	// remembered approval, a RuleAllow and ModeAlwaysAllow, so no setting can
 	// turn it into a yes.
 	DispositionForbidden
+	// DispositionAlwaysAsk asks a human under every mode, ModeAlwaysAllow
+	// included, and is never remembered: each call gets its own answer. It is
+	// for a call that steps outside what the operator set up, such as running
+	// a command outside the sandbox. RuleDeny and a forbidden verdict still
+	// refuse it, and with no AskFunc it is refused like any other ask.
+	DispositionAlwaysAsk
 )
 
 // CallClass is a classifier's verdict on one call.
@@ -211,7 +217,7 @@ func WithClassifier(fn ClassifyFunc) TieredOption {
 // those; RememberKeyFunc is for calls no classifier claimed.
 func (t *TieredApproval) rememberKey(info ToolCallInfo) (string, bool) {
 	if info.Class != nil {
-		if info.Class.Key == "" {
+		if info.Class.Key == "" || info.Class.Disposition == DispositionAlwaysAsk {
 			return "", false
 		}
 		return info.Call.Name + "\x00" + info.Class.Key, true
@@ -282,6 +288,12 @@ func (t *TieredApproval) WrapToolCall(ctx context.Context, info ToolCallInfo, ne
 				return nil, DenyTool(reason)
 			}
 			info = info.classified(c)
+			if c.Disposition == DispositionAlwaysAsk {
+				if r, ok := t.rules[info.Call.Name]; ok && r == RuleDeny {
+					return nil, DenyTool("denied by approval policy")
+				}
+				return t.doAsk(ctx, info, next)
+			}
 		}
 	}
 
