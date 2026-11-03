@@ -1,11 +1,12 @@
 package main
 
-// SetupMeter is the metrics sibling of SetupTelemetry and SetupLogs —
-// wires an OTel MeterProvider so the agent Runner's issue-1023
-// instruments (agent.turns / agent.turn.duration / agent.steps /
-// agent.tokens / agent.tool.calls / agent.tool.duration) export to the
-// configured collector (then to Mimir/Prometheus and the mcpkit-agent
-// Grafana dashboard). See telemetry_setup.go for the shared decision
+// SetupMeter is the metrics sibling of SetupTelemetry and SetupLogs.
+// It wires an OTel MeterProvider for the agent Runner's issue-1023
+// instruments. They are agent.turns, agent.turn.duration,
+// agent.steps, agent.tokens, agent.tool.calls and
+// agent.tool.duration. They export to the configured collector, and
+// from there to Mimir/Prometheus and the mcpkit-agent Grafana
+// dashboard in mcpkit. See telemetry_setup.go for the shared decision
 // matrix (exporter selector, env fallbacks, endpoint probe, Resource).
 
 import (
@@ -24,12 +25,12 @@ import (
 
 // SetupMeter constructs a core.MeterProvider per the same decision
 // matrix as SetupTelemetry (see telemetry_setup.go). The OTLP-bearing
-// modes install a PeriodicReader so measurements flush on interval and
-// on shutdown; the "" mode returns core.NoopMeterProvider so the
-// unconfigured path allocates nothing and the deferred ShutdownFunc
+// modes install a PeriodicReader, so measurements flush on interval and
+// on shutdown. The "" mode returns core.NoopMeterProvider. So the
+// unconfigured path allocates nothing, and the deferred ShutdownFunc
 // costs nothing.
 //
-// Exporter selector × runtime behavior mirrors the trace side:
+// Exporter selector × runtime behavior mirrors the trace side.
 //
 //	Exporter==""       → core.NoopMeterProvider{} + no-op shutdown.
 //	Exporter=="stdout" → stdoutmetric exporter → sdkmetric.MeterProvider.
@@ -40,7 +41,7 @@ import (
 //	                     breaks the run.
 //	Exporter=="auto"   → same as "otlp" but silent on dial-failure.
 //
-// Shutdown drains the reader (final flush) before process exit; calling
+// Shutdown drains the reader (final flush) before process exit. Calling
 // it twice is safe.
 func SetupMeter(ctx context.Context, opts ...SetupOption) (core.MeterProvider, ShutdownFunc, error) {
 	cfg := setupConfig{stdoutWriter: os.Stdout}
@@ -98,10 +99,11 @@ func SetupMeter(ctx context.Context, opts ...SetupOption) (core.MeterProvider, S
 }
 
 // buildMeterProvider wraps the supplied reader in an SDK MeterProvider
-// with the resolved Resource (service.name + extras) and returns the
-// mcpotel-wrapped core.MeterProvider + a ShutdownFunc that flushes and
-// tears down the SDK side. The instrumentation library name follows the
-// trace/logs precedence: explicit WithInstrumentationName wins.
+// with the resolved Resource (service.name + extras). It returns the
+// mcpotel-wrapped core.MeterProvider and a ShutdownFunc. The
+// ShutdownFunc flushes and tears down the SDK side. The instrumentation
+// library name follows the trace/logs precedence, so an explicit
+// WithInstrumentationName wins.
 func buildMeterProvider(reader sdkmetric.Reader, cfg *setupConfig) (core.MeterProvider, ShutdownFunc) {
 	res := buildResource(cfg)
 	sdkMP := sdkmetric.NewMeterProvider(

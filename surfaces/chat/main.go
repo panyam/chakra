@@ -1,12 +1,12 @@
-// Command agentchat is a terminal chat harness over any set of MCP servers:
-// point it at a config (or a server URL) and an OpenAI-compatible model, and
+// Command agentchat is a terminal chat harness over any set of MCP servers.
+// Point it at a config (or a server URL) and an OpenAI-compatible model, and
 // converse with live tool calls, elicitation prompts, and streaming output.
 // It is the reference in-process surface for the agent module.
 package main
 
 import (
 	// Root certificates for a machine that has none, such as a minimal
-	// container: without them every HTTPS call to a model fails before the
+	// container. Without them every HTTPS call to a model fails before the
 	// agent does anything (#203). Used only when the system offers no roots.
 	_ "golang.org/x/crypto/x509roots/fallback"
 
@@ -48,12 +48,12 @@ func openGormDB(dial gorm.Dialector) (*gorm.DB, error) {
 }
 
 // buildToolResultStore chooses the offload blob backend. A non-empty dir
-// wins: offloaded results become files under it, the no-server local path
-// (see agent.FileToolResultStore). Otherwise it maps --session-store so
-// blobs share the run store's backend: "" / "memory" give the in-memory
-// store (blobs die with the process), sqlite / redis / postgres give
-// restart-surviving blobs. A nil return means "use the host's in-memory
-// default".
+// wins, and offloaded results become files under it. That is the no-server
+// local path (see agent.FileToolResultStore). Otherwise it maps
+// --session-store, so blobs share the run store's backend. "" and "memory"
+// give the in-memory store, and its blobs die with the process. sqlite, redis
+// and postgres give blobs that survive a restart. A nil return means "use the
+// host's in-memory default".
 func buildToolResultStore(spec, dir string) (agent.ToolResultStore, error) {
 	if dir != "" {
 		return agent.NewFileToolResultStore(dir)
@@ -89,10 +89,11 @@ func buildToolResultStore(spec, dir string) (agent.ToolResultStore, error) {
 }
 
 // resolveEmbedder picks the embedder for semantic memory and its vector
-// width. Precedence: the --memory-embed-model flag (explicit override, with
-// its own url/key/dim flags), then the config's `embedder` connection role
-// (host.BuildEmbedder + the connection's dim). Returns (nil, 0, nil) when
-// neither is set, which keeps memory on the in-memory substring store.
+// width. The --memory-embed-model flag comes first. It is an explicit
+// override and has its own url/key/dim flags. The config's `embedder`
+// connection role comes next, through host.BuildEmbedder and the connection's
+// dim. With neither set it returns (nil, 0, nil), and memory uses the
+// in-memory substring store.
 func resolveEmbedder(v *viper.Viper, cfg *host.Config, tp core.TracerProvider) (agent.Embedder, int, error) {
 	if em := v.GetString("memory-embed-model"); em != "" {
 		embedder, err := agent.NewOpenAIEmbedder(agent.OpenAIEmbedderConfig{
@@ -114,11 +115,11 @@ func resolveEmbedder(v *viper.Viper, cfg *host.Config, tp core.TracerProvider) (
 
 // buildSemanticMemoryStore picks the semantic MemoryStore backend for
 // --memory-embed-model. A postgres --session-store routes to the durable
-// pgvector store (ANN top-k in SQL, survives restart) over its own handle,
-// with dim as the pgvector column width; every other spec (including empty,
-// sqlite, and redis, which have no vector index) uses the in-process
-// brute-force store. Both embed client-side through embedder, so recall is
-// identical apart from durability and scale.
+// pgvector store over its own handle, and dim sets the pgvector column width.
+// That store runs ANN top-k in SQL and survives a restart. Every other spec
+// uses the in-process brute-force store. That includes empty, sqlite and
+// redis, which have no vector index. Both stores embed client-side through
+// embedder, so recall is identical apart from durability and scale.
 func buildSemanticMemoryStore(sessionStore string, embedder agent.Embedder, dim int, tp core.TracerProvider) (agent.MemoryStore, error) {
 	if strings.HasPrefix(sessionStore, "postgres://") || strings.HasPrefix(sessionStore, "postgresql://") {
 		db, err := openGormDB(postgres.Open(sessionStore))
@@ -212,11 +213,11 @@ type appSetup struct {
 	close func()
 }
 
-// buildApp builds the App every agentchat mode shares from the flags:
-// config, telemetry, session and tool-result stores, memory, compaction and
-// the workspace. surfaceOpts are the caller's observers and other options,
-// and configure, when set, adjusts the config last (exec sets the approval
-// mode there).
+// buildApp builds the App from the flags, and every agentchat mode shares it.
+// The flags cover config, telemetry, session and tool-result stores, memory,
+// compaction and the workspace. surfaceOpts are the caller's observers and
+// other options. When configure is set, it adjusts the config last, and exec
+// sets the approval mode there.
 func buildApp(ctx context.Context, v *viper.Viper, surfaceOpts []host.AppOption, configure func(*host.Config) error, out io.Writer, in io.Reader) (*appSetup, error) {
 	var closers []func()
 	closeAll := func() {
@@ -340,8 +341,8 @@ func buildApp(ctx context.Context, v *viper.Viper, surfaceOpts []host.AppOption,
 		}
 		// A semantic store makes recall similarity-ranked instead of
 		// substring. The embedder is resolved from the --memory-embed-model
-		// flag (override) or the config's `embedder` connection role; with
-		// neither, memory stays the in-memory substring default.
+		// flag (override) or the config's `embedder` connection role. With
+		// neither, memory keeps the in-memory substring default.
 		embedder, dim, err := resolveEmbedder(v, cfg, tp)
 		if err != nil {
 			closeAll()
@@ -362,8 +363,8 @@ func buildApp(ctx context.Context, v *viper.Viper, surfaceOpts []host.AppOption,
 	}
 
 	// --workspace turns on the file tools and the checkpoint that guards their
-	// writes, and --workspace-config adds exec and LSP. Nil extensions when
-	// --workspace is unset, so the no-workspace path is what it was before.
+	// writes, and --workspace-config adds exec and LSP. With --workspace unset
+	// the extensions are nil, so the no-workspace path behaves as before.
 	wsCfg, err := workspaceConfig(v)
 	if err != nil {
 		closeAll()
@@ -403,9 +404,10 @@ func buildApp(ctx context.Context, v *viper.Viper, surfaceOpts []host.AppOption,
 func runChat(v *viper.Viper) error {
 	ctx := context.Background()
 	mode := uiMode(v.GetString("ui"))
-	// One color decision (flag → NO_COLOR → TERM=dumb) drives every surface: the
-	// lipgloss profile for the overlay/status/notebook chrome, and the host's
-	// ANSI renderer + glamour via the observers below (issue 1063 E1/E2).
+	// One color decision (flag → NO_COLOR → TERM=dumb) drives every surface. It
+	// sets the lipgloss profile for the overlay/status/notebook chrome, and it
+	// reaches the host's ANSI renderer and glamour through the observers below
+	// (issue 1063 E1/E2).
 	colorEnabled := resolveColorEnabled(v.GetBool("no-color"), os.LookupEnv)
 	applyLipglossProfile(colorEnabled)
 	var surfaceOpts []host.AppOption
@@ -459,9 +461,10 @@ func runChat(v *viper.Viper) error {
 	// because the common case is one wedged tool call, and throwing away the
 	// whole turn to escape it loses the reasoning that got there.
 	//
-	// A press with nothing to interrupt (no call in flight, or team mode,
-	// where Team owns its own loop) reports false and falls straight through
-	// to the hard abort, so Ctrl-C is never a no-op.
+	// Sometimes a press has nothing to interrupt. No call is in flight, or the
+	// app is in team mode, where Team owns its own loop. Then the interrupt
+	// reports false and the press falls straight through to the hard abort, so
+	// Ctrl-C is never a no-op.
 	turnCtx := func() (context.Context, context.CancelFunc) {
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
@@ -486,9 +489,9 @@ func runChat(v *viper.Viper) error {
 }
 
 // startupBanner is the line printed once the App is built. It names the model
-// through app.ModelLabel(), the same label the status line uses: the active
-// connection when connections are configured, where cfg.Model is empty
-// (#61), and cfg.Model for the single-connection quick-start.
+// through app.ModelLabel(), and the status line uses the same label. With
+// connections configured, cfg.Model is empty (#61), so the label is the active
+// connection. In the single-connection quick-start, the label is cfg.Model.
 func startupBanner(app *host.App, servers *[]host.ServerConfig) string {
 	return fmt.Sprintf("agentchat: %d server(s), model %s. /tools /history /quit; Ctrl-C interrupts a tool call, twice aborts the turn.\n", len(*servers), app.ModelLabel())
 }
@@ -505,15 +508,13 @@ func main() {
 	}
 }
 
-// buildConfig merges the config file with quick-start settings: a config
-// file wins for everything it specifies; url/model cover the no-file case.
 // workspaceConfig assembles the workspace from its flags and the optional
 // --workspace-config file.
 //
-// An unset --workspace-exclude arrives from viper as an empty slice, which
-// files.Config would read as "exclude nothing" rather than "use the defaults".
-// Passing nil for the empty case keeps the built-in list; the cost is that
-// excluding nothing is not expressible from the CLI, which is the better of
+// An unset --workspace-exclude arrives from viper as an empty slice.
+// files.Config would read that slice as "exclude nothing" rather than "use the
+// defaults". Passing nil for the empty case keeps the built-in list. As a
+// result the CLI can't express "exclude nothing", and that is the better of
 // the two things to lose.
 func workspaceConfig(v *viper.Viper) (surfaces.WorkspaceConfig, error) {
 	var exclude []string
@@ -530,11 +531,14 @@ func workspaceConfig(v *viper.Viper) (surfaces.WorkspaceConfig, error) {
 	return cfg, err
 }
 
+// buildConfig merges the config file with quick-start settings. A config
+// file wins for everything it specifies, and url/model cover the no-file case.
 func buildConfig(path string, persist bool, urls []string, baseURL, model, apiKeyEnv, instructions string, maxSteps int) (*host.Config, error) {
 	if path != "" {
 		if persist {
-			// Merge the sibling <config>.local.json overlay (the runtime picks
-			// persisted by /provider and /approve) over the base config.
+			// /provider and /approve persist runtime picks to the sibling
+			// <config>.local.json overlay. Merge that overlay over the base
+			// config.
 			return host.LoadConfigWithOverlay(path)
 		}
 		return host.LoadConfig(path)

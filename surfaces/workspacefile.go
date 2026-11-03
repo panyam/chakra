@@ -13,14 +13,15 @@ import (
 	"github.com/panyam/chakra/ext/lsp"
 )
 
-// WorkspaceFile is the JSON form of the workspace settings a flag cannot
-// carry: the exec allowlist, the language servers, and the repo map.
+// WorkspaceFile holds workspace settings as JSON. It covers the settings too
+// big for a flag, such as the exec allowlist, the language servers and the
+// repo map.
 //
-// Roots are deliberately absent. They come from --workspace, which keeps the
-// rule WorkspaceConfig.Roots documents: nothing picks the confinement on the
-// user's behalf, and a checked-in file naming directories would be exactly
-// that. The exec commands run in, and write to, the same roots as the file
-// tools.
+// Roots are deliberately absent, and only --workspace sets them.
+// WorkspaceConfig.Roots documents the rule. Nothing picks the confinement on
+// the user's behalf, and a checked-in file that named directories would do
+// exactly that. The exec commands run and write in the same roots as the
+// file tools.
 type WorkspaceFile struct {
 	// Exec enables the allowlisted command tools. Absent means none.
 	Exec *ExecFile `json:"exec,omitempty"`
@@ -81,10 +82,10 @@ type instructionsFile struct {
 	agentsmd.Profile
 }
 
-// InstructionsProfile decodes an "instructions" object: the named preset
-// (agentsmd.DefaultPreset when none is named) with the object's other
-// fields laid over it. off reports "off": true. Unknown fields are an error,
-// like everywhere else in the file.
+// InstructionsProfile decodes an "instructions" object. It starts from the
+// named preset, or agentsmd.DefaultPreset when none is named, and lays the
+// object's other fields over it. off reports "off": true. Unknown fields are
+// an error, like everywhere else in the file.
 func InstructionsProfile(raw json.RawMessage) (p *agentsmd.Profile, off bool, err error) {
 	var head struct {
 		Preset string `json:"preset"`
@@ -111,25 +112,26 @@ func InstructionsProfile(raw json.RawMessage) (p *agentsmd.Profile, off bool, er
 
 // ExecFile is the JSON form of exec.Config, minus Roots.
 type ExecFile struct {
-	// Sandbox is "platform" (or empty) for the platform's backend, which fails
-	// construction where none exists, or "unconfined" to run with no sandbox.
-	// The opt-out is a word the operator has to write, matching exec.Unconfined.
+	// Sandbox is "platform" or empty for the platform's backend, and
+	// construction fails where no backend exists. "unconfined" runs with no
+	// sandbox. The opt-out is a word the operator has to write, matching
+	// exec.Unconfined.
 	Sandbox string `json:"sandbox,omitempty"`
 
 	// Timeout is a Go duration string ("2m"). Empty means exec.DefaultTimeout.
 	Timeout string `json:"timeout,omitempty"`
 
-	// MaxOutput caps the bytes held for each stream a command prints. Zero
-	// means exec.DefaultMaxOutput.
+	// MaxOutput caps how many bytes of each output stream exec holds for a
+	// command. Zero means exec.DefaultMaxOutput.
 	MaxOutput int `json:"maxOutput,omitempty"`
 
-	// InlineOutput caps the bytes of each stream a result carries; negative
-	// means all of it. Zero means exec.DefaultInlineOutput, or all of it when
+	// InlineOutput caps how many bytes of each stream go into a result, and
+	// negative means all of it. Zero means exec.DefaultInlineOutput, or all of it when
 	// the host offloads (see WorkspaceConfig.Offloading).
 	InlineOutput int `json:"inlineOutput,omitempty"`
 
-	// WritePaths and DenyRead keep exec.Config's nil-versus-empty meaning:
-	// absent selects the package default, [] selects none.
+	// WritePaths and DenyRead treat nil and empty as exec.Config does. Absent
+	// selects the package default, and [] selects none.
 	WritePaths []string `json:"writePaths"`
 	DenyRead   []string `json:"denyRead"`
 
@@ -276,8 +278,8 @@ func (c *WorkspaceConfig) LoadFile(path string) error {
 	return f.Apply(c)
 }
 
-// Apply copies the file's settings onto cfg, leaving the fields the flags own
-// (Roots, Exclude, the checkpoint settings) untouched.
+// Apply copies the file's settings onto cfg. It leaves Roots, Exclude and the
+// checkpoint settings untouched, since flags set those.
 func (f *WorkspaceFile) Apply(cfg *WorkspaceConfig) error {
 	if f == nil {
 		return nil

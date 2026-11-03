@@ -188,7 +188,7 @@ func execPrompt(v *viper.Viper, args []string, stdin io.Reader) (string, error) 
 	return p, nil
 }
 
-// execOutput is exec's surface: it writes events as JSON lines when asked,
+// execOutput is exec's surface. It writes events as JSON lines when asked,
 // remembers the turn's result, and denies every approval ask.
 type execOutput struct {
 	mu    sync.Mutex
@@ -197,8 +197,8 @@ type execOutput struct {
 	last  *agent.TurnResult
 }
 
-// execFrame is one JSON line, the same shape agentweb's Watch frames take
-// once decoded, so tools that read one read the other.
+// execFrame is one JSON line. A decoded agentweb Watch frame has the same
+// shape, so a tool that reads one can read the other.
 type execFrame struct {
 	Kind    string `json:"kind"`
 	Payload any    `json:"payload"`

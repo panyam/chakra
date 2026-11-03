@@ -13,7 +13,8 @@ import (
 )
 
 // transcript prints about 450 KB shaped like go test -v, with one failure
-// halfway down: the case #59 is about, where the 32 KiB view drops it.
+// halfway down. #59 is about this case, because the 32 KiB view drops the
+// failure.
 const transcript = `i=0
 while [ $i -lt 10000 ]; do
 	echo "=== RUN   TestFiller$i"

@@ -44,21 +44,21 @@ type usageMsg struct{ in, out int }
 type openOverlayMsg struct{ ov *overlayModel }
 
 // closeOverlaysMsg closes the whole dialog stack and returns focus to the
-// prompt. Sent from the dispatch goroutine when an overlay action produced a
-// non-overlay result (e.g. resuming a session): the dialog's job is done, so it
+// prompt. The dispatch goroutine sends it when an overlay action produced a
+// non-overlay result (e.g. resuming a session). The dialog's job is done, so it
 // dismisses rather than leaving a stale stack. A no-op when nothing is open.
 type closeOverlaysMsg struct{}
 
-// statusLine renders the persistent status: model · session · last-turn tokens,
-// plus a "N% context left" gauge when a context window is configured (issue
-// 1063 D1/D2). Kept out of the transcript — it lives only in the managed live
-// region so it is never committed to scrollback.
+// statusLine renders the persistent status. It shows model · session ·
+// last-turn tokens, plus a "N% context left" gauge when a context window is
+// configured (issue 1063 D1/D2). The status is not part of the transcript. It
+// is only in the managed live region, so it is never committed to scrollback.
 //
-// session is passed in (cached by the surface model), NOT read live from
-// app.RunID(): RunID takes App.turnMu, which RunTurn holds for the whole turn,
-// so calling it from View() would block every render until the turn finished
-// and freeze the UI. ModelLabel only touches the connections mutex (never held
-// during a turn) so it stays a live read.
+// The surface model caches session and passes it in. It is NOT read live from
+// app.RunID(). RunID takes App.turnMu, and RunTurn holds that lock for the
+// whole turn. So calling it from View() would block every render until the
+// turn finished and freeze the UI. ModelLabel only touches the connections
+// mutex, which is never held during a turn, so it is still a live read.
 func statusLine(app *host.App, session string, u usageMsg, window int) string {
 	if app == nil {
 		return ""
@@ -86,20 +86,21 @@ func formatStatus(model, session string, u usageMsg, window int) string {
 	return strings.Join(parts, " · ")
 }
 
-// tuiObserver is the host.Observer the App renders through in inline TUI
-// mode. It forwards each HostEvent to the built-in terminal renderer
-// (writing to a buffer, so all formatting is reused), then either streams
-// the growing turn into the model's live region or commits a finished
-// segment to the terminal scrollback. Inline (no alt-screen) keeps the
-// transcript in the real terminal buffer: native scroll, copy/paste, and
-// it survives exit. HostRunnerEvent accumulates live; every other event
-// closes a segment and commits.
+// tuiObserver is the host.Observer for inline TUI mode, and the App renders
+// through it. It forwards each HostEvent to the built-in terminal renderer.
+// The renderer writes to a buffer, so all formatting is reused. Then the
+// observer either streams the growing turn into the model's live region or
+// commits a finished segment to the terminal scrollback. Inline mode has no
+// alt-screen and keeps the transcript in the real terminal buffer. So native
+// scroll and copy/paste work, and the transcript survives exit.
+// HostRunnerEvent accumulates live. Every other event closes a segment and
+// commits.
 //
-// The committed segment is split into blocks so assistant prose renders
-// through glamour once at commit (issue 1063 B2) while tool/thinking lines
-// pass through verbatim: glamour-ing the whole turn would mangle the dim
-// ⚙/✓ tool lines. Streaming stays raw in the live region — glamour only
-// touches a finished block.
+// The committed segment is split into blocks. Assistant prose renders through
+// glamour once at commit (issue 1063 B2), and tool/thinking lines pass through
+// verbatim. Glamour-ing the whole turn would mangle the dim ⚙/✓ tool lines.
+// Streaming output in the live region is raw, and glamour only touches a
+// finished block.
 type tuiObserver struct {
 	mu   sync.Mutex
 	buf  *bytes.Buffer
@@ -139,9 +140,9 @@ func (s *tuiObserver) flushProse() {
 	}
 }
 
-// rawProse joins the raw markdown of the prose blocks (assistant text), skipping
-// meta blocks (tool lines, the turn footer) — the source a ctrl+o dump reprints
-// so it copies as real markdown, not glamour's rendered text.
+// rawProse joins the raw markdown of the prose blocks (assistant text), and it
+// skips meta blocks (tool lines, the turn footer). A ctrl+o dump reprints this
+// source, so it copies as real markdown, not glamour's rendered text.
 func rawProse(blocks []segBlock) string {
 	var out []string
 	for _, b := range blocks {
@@ -179,8 +180,8 @@ func (s *tuiObserver) renderBlocks() string {
 }
 
 // isBoundary reports whether an event closes a scrollback segment. Every
-// discrete event commits immediately; the streaming turn (HostRunnerEvent) and
-// nested sub-agent activity (HostSubAgentEvent) accumulate live so the
+// discrete event commits immediately. The streaming turn (HostRunnerEvent) and
+// nested sub-agent activity (HostSubAgentEvent) accumulate live. So the
 // sub-agent's tree-gutter lines nest under the main turn instead of committing
 // as fragmented separate blocks (issue 1063 B4).
 func isBoundary(k host.HostEventKind) bool {
@@ -200,9 +201,9 @@ func (s *tuiObserver) On(ev host.HostEvent) {
 	}
 }
 
-// fold turns one HostEvent into the tea messages the model should receive (a
-// live update mid-turn, or a usage + commit pair at a boundary). Separated from
-// On so tests can assert the prose/meta split without a running program.
+// fold turns one HostEvent into tea messages for the model. Mid-turn it sends a
+// live update, and at a boundary it sends a usage + commit pair. It is separate
+// from On, so tests can assert the prose/meta split without a running program.
 func (s *tuiObserver) fold(ev host.HostEvent) []tea.Msg {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -213,15 +214,17 @@ func (s *tuiObserver) fold(ev host.HostEvent) []tea.Msg {
 
 	switch {
 	case isBoundary(ev.Kind):
-		// The boundary event's own output (turn footer, command result, info
-		// line) is meta; close any open prose, fold it in, then render the turn.
+		// The boundary event's own output is meta, such as a turn footer, a
+		// command result or an info line. Close any open prose, fold it in, then
+		// render the turn.
 		s.flushProse()
 		if tail := live[before:]; tail != "" {
 			s.blocks = append(s.blocks, segBlock{text: tail})
 		}
-		// Capture this turn's raw assistant markdown (prose blocks only, tool /
-		// footer meta excluded) for the ctrl+o raw dump (issue 1083); a turn with
-		// no prose (a bare command result) leaves the previous dump in place.
+		// Capture this turn's raw assistant markdown for the ctrl+o raw dump
+		// (issue 1083). Only prose blocks count, and tool / footer meta is
+		// excluded. A turn with no prose (a bare command result) leaves the
+		// previous dump in place.
 		if raw := rawProse(s.blocks); raw != "" {
 			s.lastRaw = raw
 		}
@@ -245,12 +248,12 @@ func (s *tuiObserver) fold(ev host.HostEvent) []tea.Msg {
 	return msgs
 }
 
-// tuiModel is the inline bubbletea Model: an editable input at the bottom
-// (bubbles textarea) with up/down history and slash-command tab
-// completion, plus a live region showing the in-flight turn. Finished
+// tuiModel is the inline bubbletea Model. It has an editable input at the
+// bottom (bubbles textarea) with up/down history and slash-command tab
+// completion, and a live region that shows the in-flight turn. Finished
 // segments commit to the terminal's own scrollback, not a managed
 // viewport, so the terminal's native scroll and selection work. All
-// behavior routes through the App (Dispatch / RunTurn); the model is pure
+// behavior routes through the App (Dispatch / RunTurn). The model is pure
 // presentation.
 type tuiModel struct {
 	app       *host.App
@@ -272,25 +275,27 @@ type tuiModel struct {
 	session   string   // cached RunID for the status line (refreshed off the render path)
 }
 
-// newPromptArea builds the shared input textarea used by both TUI surfaces
-// (inline and notebook): the readline keybindings (issue #1065 — Ctrl word-nav
-// so it works without Option-as-Meta) live here so both get them.
+// newPromptArea builds the input textarea for both TUI surfaces (inline and
+// notebook). The readline keybindings are defined here, so both surfaces get
+// them. Issue #1065 added Ctrl word-nav, so word motion works without
+// Option-as-Meta.
 func newPromptArea() textarea.Model {
 	ta := textarea.New()
 	ta.Placeholder = "message, or /command (Tab completes, ↑↓ history, /keys for editing keys)"
 	ta.Prompt = "› "
 	ta.ShowLineNumbers = false
 	ta.SetHeight(2)
-	// The default KeyMap binds word navigation to Meta only (alt+←/→, alt+b/f),
-	// which does nothing on terminals that don't send Option as Meta (the macOS
-	// default). Add the Ctrl variants so word motion works out of the box; the
-	// alt bindings stay for those who have Meta enabled.
+	// The default KeyMap binds word navigation to Meta only (alt+←/→, alt+b/f).
+	// That does nothing on terminals that don't send Option as Meta, which is
+	// the macOS default. Add the Ctrl variants so word motion works out of the
+	// box. The alt bindings remain for those who have Meta enabled.
 	ta.KeyMap.WordForward.SetKeys(append(ta.KeyMap.WordForward.Keys(), "ctrl+right")...)
 	ta.KeyMap.WordBackward.SetKeys(append(ta.KeyMap.WordBackward.Keys(), "ctrl+left")...)
-	// Enter submits (both surfaces intercept it), so rebind "insert newline" off
-	// Enter and onto keys that reach the textarea. ctrl+j (keyLF) is the
-	// reliable one everywhere; shift+enter works only in terminals that
-	// disambiguate it (kitty keyboard protocol), alt+enter in most others.
+	// Enter submits, because both surfaces intercept it. So rebind "insert
+	// newline" off Enter and onto keys that reach the textarea. ctrl+j (keyLF)
+	// works reliably everywhere. shift+enter works only in terminals that
+	// disambiguate it (kitty keyboard protocol), and alt+enter works in most
+	// others.
 	ta.KeyMap.InsertNewline.SetKeys("ctrl+j", "shift+enter", "alt+enter")
 	ta.Focus()
 	return ta
@@ -346,8 +351,8 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case turnDoneMsg:
 		m.running = false
-		// The turn (or dispatched command) has fully returned, so turnMu is
-		// free and a session-changing command like /sessions has landed.
+		// The turn (or dispatched command) has fully returned. So turnMu is
+		// free, and a session-changing command like /sessions has finished.
 		if m.app != nil {
 			m.session = m.app.RunID()
 		}
@@ -362,10 +367,11 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if key.Matches(msg, m.keys.Quit) {
 			return m, tea.Quit
 		}
-		// While a dialog is open it owns the keyboard (focus routing): navigate,
-		// dismiss (Esc pops one level, back to the parent overlay or the prompt),
-		// or act (dispatch a command line; the result nests a new overlay or
-		// closes the stack — handled in submit / the dispatch goroutine).
+		// While a dialog is open it owns the keyboard (focus routing). A key can
+		// navigate, dismiss, or act. Esc dismisses by popping one level, back to
+		// the parent overlay or the prompt. An action dispatches a command line,
+		// and its result nests a new overlay or closes the stack. submit and the
+		// dispatch goroutine handle that result.
 		if m.active() {
 			out := m.top().handleKey(msg)
 			switch {
@@ -381,14 +387,14 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		switch {
 		case key.Matches(msg, m.keys.Help) && m.ta.Value() == "":
-			// `?` toggles full help only on an empty prompt, so it stays typeable
+			// `?` toggles full help only on an empty prompt, so it is still typeable
 			// mid-message.
 			m.showAll = !m.showAll
 			return m, nil
 		case key.Matches(msg, m.keys.Raw):
-			// ctrl+o dumps the last assistant turn as raw markdown to scrollback:
-			// inline commits are immutable, so we reprint the source rather than
-			// re-render in place (the in-place toggle is notebook mode). Issue 1083.
+			// ctrl+o dumps the last assistant turn as raw markdown to scrollback.
+			// Inline commits are immutable, so we reprint the source rather than
+			// re-render in place. Notebook mode has the in-place toggle. Issue 1083.
 			return m, m.dumpRaw()
 		case key.Matches(msg, m.keys.Send):
 			if m.running {
@@ -423,8 +429,8 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m tuiModel) View() string {
-	// Only the live region + input are managed; the committed transcript
-	// lives in the terminal's own scrollback above this frame.
+	// Only the live region + input are managed. The committed transcript is
+	// in the terminal's own scrollback above this frame.
 	var b strings.Builder
 	if m.pending != "" {
 		b.WriteString(strings.TrimRight(m.pending, "\n"))
@@ -451,7 +457,7 @@ func (m tuiModel) View() string {
 	return b.String()
 }
 
-// steerTurn sends the typed line into the running turn: the host queues it
+// steerTurn sends the typed line into the running turn. The host queues it
 // for the turn's next model call (App.Submit). A slash command still waits
 // for the turn to end, since commands act on the session between turns.
 func (m tuiModel) steerTurn() (tea.Model, tea.Cmd) {
@@ -471,12 +477,12 @@ func (m tuiModel) steerTurn() (tea.Model, tea.Cmd) {
 	return m, tea.Println(lipgloss.NewStyle().Faint(true).Render("↳ added to the running turn: ") + line)
 }
 
-// submit routes a line to a command dispatch or a conversational turn,
-// both on a goroutine so the UI stays responsive; the surface streams
-// segments back and the goroutine ends with turnDoneMsg.
+// submit routes a line to a command dispatch or a conversational turn.
+// Both run on a goroutine, so the UI is still responsive. The surface
+// streams segments back, and the goroutine ends with turnDoneMsg.
 func (m tuiModel) submit(line string) (tea.Model, tea.Cmd) {
-	// /keys is a terminal-only cheatsheet (prompt editing is a TUI concern, so
-	// it is not a surface-agnostic host command); print it without a turn.
+	// /keys is a terminal-only cheatsheet. Prompt editing is a TUI concern, so
+	// it is not a surface-agnostic host command. Print it without a turn.
 	if line == "/keys" {
 		return m, tea.Println(renderKeyHelp())
 	}
@@ -493,12 +499,12 @@ func (m tuiModel) submit(line string) (tea.Model, tea.Cmd) {
 				surface.On(host.HostEvent{Kind: host.HostTurnFailed, Err: err.Error()})
 			case overlayFor(res) != nil:
 				// An interactive-picker result (/mcp, /sessions, per-server tools)
-				// opens a dialog — pushed onto the stack, so a result triggered from
-				// within an overlay nests above it (issue 1063 C4).
+				// opens a dialog. The dialog is pushed onto the stack, so a result
+				// triggered from within an overlay nests above it (issue 1063 C4).
 				surface.prog.Send(openOverlayMsg{ov: overlayFor(res)})
 			default:
-				// A non-overlay result: if the command came from an open overlay
-				// (its action fired), the dialog's job is done — close the stack.
+				// The result is not an overlay. If the command came from an open
+				// overlay's action, the dialog's job is done, so close the stack.
 				// A no-op when nothing is open.
 				surface.prog.Send(closeOverlaysMsg{})
 				surface.On(host.HostEvent{Kind: host.HostCommandResult, Command: res})
@@ -518,11 +524,11 @@ func (m tuiModel) submit(line string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// dumpRaw prints the last assistant turn's raw markdown to scrollback so it can
-// be copied as source (glamour-rendered scrollback copies as bullets/no-fences).
-// Returns nil (no-op) when there is nothing committed yet. A hint points at the
-// notebook surface for the in-place whole-session toggle, which inline's
-// immutable scrollback cannot offer. Issue 1083.
+// dumpRaw prints the last assistant turn's raw markdown to scrollback, so it can
+// be copied as source. Glamour-rendered scrollback copies as bullets with no
+// fences. It returns nil (no-op) when there is nothing committed yet. A hint
+// points at the notebook surface for the in-place whole-session toggle. Inline
+// scrollback is immutable and cannot offer that toggle. Issue 1083.
 func (m tuiModel) dumpRaw() tea.Cmd {
 	if m.surface == nil {
 		return nil
@@ -538,10 +544,10 @@ func (m tuiModel) dumpRaw() tea.Cmd {
 
 func (m *tuiModel) completeTab() { tabComplete(&m.ta, m.app) }
 
-// tabComplete completes a leading slash command against the registry: a
-// unique command-name match is inlined; an argument prefix is completed via
-// the command's Complete hook (providers, sessions, ...). Shared by both TUI
-// surfaces.
+// tabComplete completes a leading slash command against the registry. It
+// inlines a unique command-name match. It completes an argument prefix via
+// the command's Complete hook (providers, sessions, ...). Both TUI surfaces
+// share it.
 func tabComplete(ta *textarea.Model, app *host.App) {
 	val := ta.Value()
 	if !strings.HasPrefix(val, "/") {
@@ -601,10 +607,11 @@ func (m *tuiModel) recallHistory(dir int) bool {
 	return true
 }
 
-// uiMode resolves the --ui flag to a concrete surface: "plain" (the scriptable
-// scanner REPL), "tui" (the default inline bubbletea surface), or "notebook"
-// (the opt-in alt-screen surface). "auto" (the default flag value) picks "tui"
-// when stdout is an interactive terminal and "plain" otherwise (pipes / CI).
+// uiMode resolves the --ui flag to a concrete surface. The surfaces are "plain"
+// (the scriptable scanner REPL), "tui" (the default inline bubbletea surface),
+// and "notebook" (the opt-in alt-screen surface). The default flag value is
+// "auto". It picks "tui" when stdout is an interactive terminal and "plain"
+// otherwise (pipes / CI).
 func uiMode(flag string) string {
 	switch flag {
 	case "plain", "tui", "notebook":
@@ -622,9 +629,9 @@ func uiMode(flag string) string {
 // (inline tui or notebook) rather than the plain REPL.
 func wantTUI(mode string) bool { return uiMode(mode) != "plain" }
 
-// runTUI starts the inline bubbletea program (no alt-screen): the input
-// and the live turn render at the bottom while finished segments commit to
-// the terminal's own scrollback. The surface is wired to the program so
+// runTUI starts the inline bubbletea program (no alt-screen). The input
+// and the live turn render at the bottom, and finished segments commit to
+// the terminal's own scrollback. The surface is wired to the program, so
 // host events stream in as the model renders.
 func runTUI(app *host.App, surface *tuiObserver, window int) error {
 	prog := tea.NewProgram(newTUIModel(app, surface, window))

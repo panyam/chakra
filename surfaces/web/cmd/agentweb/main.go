@@ -1,12 +1,13 @@
-// Command agentweb serves the agent host over the Connect web bridge — the
-// browser analogue of the terminal agentchat, and a thin surface over
-// agent/host.App exactly as agentchat is (issue 1196). It loads a host config,
-// builds one App, and serves the HostService plus the DockView + Solid frontend
-// (issue 1197) on one servicekit listener.
+// Command agentweb serves the agent host over the Connect web bridge. It is
+// the browser analogue of the terminal agentchat, and like agentchat it is a
+// thin surface over host.App (issue 1196). It loads a host config, builds one
+// App, and serves the HostService and the DockView + Solid frontend (issue
+// 1197) on one servicekit listener.
 //
 // `--demo` skips the config and builds an App over an offline, inexhaustible
-// demo provider, so `go run ./cmd/agentweb --demo` serves a working, streaming
-// surface with no model or MCP server to configure — the run/screenshot target.
+// demo provider. So `go run ./cmd/agentweb --demo` serves a working, streaming
+// surface with no model or MCP server to configure. Use it to run the surface
+// or take screenshots.
 package main
 
 import (
@@ -55,9 +56,10 @@ func main() {
 	active := flag.String("active", "", "override the active chat connection at startup (a name in the config's connections; default = the config's active)")
 	flag.Parse()
 
-	// A configured --session-store makes web sessions durable: session_id is a
-	// run id, and a session dropped by a restart rehydrates from the store on
-	// the next request. Empty leaves the manager as a pure in-memory cache.
+	// A configured --session-store makes web sessions durable. Each session_id
+	// is a run id. When a restart drops a session, the next request rehydrates
+	// it from the store. An empty spec leaves the manager as a pure in-memory
+	// cache.
 	store, err := agentsurfaces.RunStoreFromSpec(*sessionStore)
 	if err != nil {
 		log.Fatalf("agentweb: %v", err)
@@ -66,8 +68,9 @@ func main() {
 	// One factory builds a fresh App per web session from the same config, so a
 	// CreateSession over the wire mints an independent conversation. Every App
 	// attaches the same store (buildApp), so a session it hosts persists. The
-	// SessionManager holds them all; its default session (created at startup)
-	// backs an empty session_id, keeping the single-surface flow unchanged.
+	// SessionManager holds them all. It creates a default session at startup,
+	// and a request with an empty session_id uses it, so the single-surface
+	// flow works as before.
 	opts := appOptions{
 		configPath:      *configPath,
 		demo:            *demo,
@@ -94,9 +97,10 @@ func main() {
 	}
 	svcOpts := []web.Option{web.WithWatchWindow(*watchWindow)}
 	if *byok {
-		// Every session is built from the provider its CreateSession names, and
-		// none exists until one does: a default session would need a key of its
-		// own, and would be reachable by anyone.
+		// Each CreateSession names a provider, and its session is built from
+		// that provider. No session exists until the first CreateSession. A
+		// default session would need a key of its own, and anyone could reach
+		// it.
 		svcOpts = append(svcOpts,
 			web.WithSessionBuilder(func(ctx context.Context, spec *webv1.ProviderSpec) (*host.App, error) {
 				return buildSessionApp(opts, spec)
@@ -170,8 +174,8 @@ func isLoopback(addr string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
-// appOptions carries the flags buildApp needs, so every session the factory
-// mints is built from the same settings.
+// appOptions holds the flags buildApp needs. The factory builds every session
+// from these same settings.
 type appOptions struct {
 	configPath      string
 	demo            bool
@@ -185,8 +189,8 @@ type appOptions struct {
 	instructions    string
 }
 
-// checkInstructions refuses an --instructions value no preset has, at
-// startup rather than on the first session.
+// checkInstructions rejects an --instructions value that names no preset. It
+// runs at startup, so the error shows before the first session.
 func checkInstructions(name string) error {
 	if name == "" || name == "off" {
 		return nil
@@ -195,23 +199,26 @@ func checkInstructions(name string) error {
 	return err
 }
 
-// buildApp builds one App: the factory the SessionManager calls for the default
-// session and every CreateSession. In demo mode it wires the offline demo
-// provider; otherwise it loads the host config. The web surface renders in the
-// browser off the event stream, so the App's own terminal renderer is discarded
-// (output to io.Discard) — events reach clients through Subscribe / Watch. A
-// non-nil store is attached to every App (host.WithRunStore) so each session,
-// including the default, persists its turns — the invariant the store-backed
-// SessionManager relies on when it rehydrates a dropped session.
+// buildApp builds one App. The SessionManager calls it for the default session
+// and for every CreateSession. In demo mode it wires the offline demo provider,
+// and otherwise it loads the host config. The web surface renders in the
+// browser from the event stream, so buildApp sends the App's own terminal
+// renderer to io.Discard. Events reach clients through Subscribe / Watch.
+// buildApp attaches a non-nil store to every App (host.WithRunStore), so every
+// session persists its turns, the default one included. The store-backed
+// SessionManager relies on that when it rehydrates a dropped session.
 func buildApp(o appOptions) (*host.App, error) {
 	var storeOpt []host.AppOption
 	if o.store != nil {
 		storeOpt = append(storeOpt, host.WithRunStore(o.store))
 	}
-	// Appended to whichever App this call constructs, so the demo and config
-	// paths cannot drift into offering different tools. Nil when --workspace
-	// is unset, leaving both paths as they were. It is built after the host
-	// config because exec's output view follows whether that config offloads.
+	// withWorkspace builds the workspace options. The demo path and the config
+	// path both append them to their App, so the two paths can't offer
+	// different tools. The options always include skill dirs and roots, plus
+	// the run store when one is set. With --workspace unset,
+	// WorkspaceExtensions returns none, so no workspace extension is added.
+	// withWorkspace takes the host config because exec's output view depends
+	// on whether that config offloads.
 	withWorkspace := func(cfg *host.Config) ([]host.AppOption, error) {
 		wsCfg := agentsurfaces.WorkspaceConfig{Roots: o.workspace, NoCheckpoint: o.noCheckpoint, CheckpointStore: o.checkpointStore}
 		if err := wsCfg.LoadFile(o.workspaceConfig); err != nil {
@@ -244,11 +251,11 @@ func buildApp(o appOptions) (*host.App, error) {
 		return opts, nil
 	}
 	if o.demo {
-		// Wire two delegate personas + a low offload threshold so a demo turn
-		// exercises the whole observability surface: the scripted provider fans
-		// out to researcher/analyst (sub-agent tree + tool calls), the
-		// researcher's long reply comes back offloaded (tool inspector stub),
-		// and reported usage moves the budget gauges.
+		// Wire two delegate personas and a low offload threshold, so a demo
+		// turn exercises the whole observability surface. The scripted provider
+		// fans out to researcher and analyst (sub-agent tree and tool calls).
+		// The researcher's long reply comes back offloaded (tool inspector
+		// stub). Reported usage moves the budget gauges.
 		cfg := &host.Config{
 			Model: host.ModelConfig{BaseURL: "http://demo", Model: "agentweb-demo"},
 			SubAgents: []host.SubAgentConfig{
@@ -256,11 +263,11 @@ func buildApp(o appOptions) (*host.App, error) {
 				{Name: "analyst", Description: "assesses risks and trade-offs", Instructions: "You are a risk-analysis sub-agent."},
 			},
 			Offload: &host.OffloadConfig{ThresholdBytes: 300, PreviewLen: 120},
-			// Gate the researcher delegate behind an approval "ask" (everything
-			// else auto-runs) so a demo turn raises exactly one elicitation. The
-			// prompt broadcasts to every surface, and answering it on any surface
-			// retracts it on the others. This build (issue 1199) exists to
-			// demonstrate that retraction.
+			// Gate the researcher delegate behind an approval "ask" and let
+			// everything else auto-run, so a demo turn raises exactly one
+			// elicitation. The prompt broadcasts to every surface, and answering
+			// it on any surface retracts it on the others. This build (issue
+			// 1199) exists to demonstrate that retraction.
 			Approval: &host.ApprovalConfig{Mode: "allow", Rules: map[string]string{"researcher": "ask"}},
 		}
 		opts, err := withWorkspace(cfg)
@@ -306,11 +313,12 @@ func buildApp(o appOptions) (*host.App, error) {
 	return host.NewApp(cfg, io.Discard, strings.NewReader(""), append(opts, host.WithElicitationUI(awaitSurface))...)
 }
 
-// buildSessionApp builds a --byok session's App from the provider its
-// CreateSession named. "demo" gets the offline demo App; anything else is a
-// connection built with the browser's key, over --config's servers and
-// policies when one is given and a bare config otherwise. Errors name the field
-// to fix and never include the key.
+// buildSessionApp builds the App for a --byok session. The session's
+// CreateSession names the provider. "demo" gets the offline demo App. Any
+// other type gets a connection built with the browser's key. That connection
+// runs over --config's servers and policies when --config is given, and over
+// a bare config otherwise. Errors name the field to fix and never include the
+// key.
 func buildSessionApp(o appOptions, spec *webv1.ProviderSpec) (*host.App, error) {
 	if spec == nil || spec.GetType() == "" {
 		return nil, fmt.Errorf("this server needs a provider for each session: set provider.type (and model and api_key)")
@@ -334,8 +342,7 @@ func buildSessionApp(o appOptions, spec *webv1.ProviderSpec) (*host.App, error) 
 		}
 		cfg.Connections = nil
 	}
-	// The model label the surfaces show comes from here; the provider does
-	// the talking.
+	// The surfaces show this model label. The provider makes the model calls.
 	cfg.Model = host.ModelConfig{BaseURL: "byok://" + spec.GetType(), Model: spec.GetModel()}
 	var opts []host.AppOption
 	if o.store != nil {
@@ -355,8 +362,8 @@ func awaitSurface(ctx context.Context, _ core.ElicitationRequest) (core.Elicitat
 }
 
 // repeatedPath collects a flag given more than once, so --workspace can name
-// several directories. The stdlib flag package has no slice type and the
-// alternative, splitting one value on commas, breaks on a path containing one.
+// several directories. The stdlib flag package has no slice type. Splitting
+// one value on commas would break on a path that contains a comma.
 type repeatedPath []string
 
 func (r *repeatedPath) String() string { return strings.Join(*r, ",") }

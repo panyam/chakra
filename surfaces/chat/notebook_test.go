@@ -100,11 +100,11 @@ func TestNotebook_RenderedBodyDisplayedRawUsedForSnippet(t *testing.T) {
 	}
 }
 
-// TestNotebook_NavSelectionHasGlyphCursor pins E3 (issue 1063): the nav
-// selection is marked by a leading glyph cursor, not Reverse video alone, so it
-// stays visible when color/attributes are stripped (NO_COLOR / dumb terminal).
-// The cursor sits inside the reverse-styled span, so asserting the glyph is
-// present also proves it survives the style being a no-op.
+// TestNotebook_NavSelectionHasGlyphCursor pins E3 (issue 1063). A leading glyph
+// cursor marks the nav selection, not Reverse video alone. So the selection is
+// still visible when color/attributes are stripped (NO_COLOR / dumb terminal).
+// The cursor is inside the reverse-styled span. Asserting that the glyph is
+// present also proves the glyph survives when the style is a no-op.
 func TestNotebook_NavSelectionHasGlyphCursor(t *testing.T) {
 	m := newNotebookModel(nil, nil, 20, 0)
 	m = send(m, nbCellMsg{label: "assistant", body: "one"})
@@ -317,8 +317,8 @@ func runnerEv(e agent.Event) host.HostEvent {
 	return host.HostEvent{Kind: host.HostRunnerEvent, RunnerEvent: e}
 }
 
-// TestNBObserver_SubAgentNestsInDelegationCell pins the B4 gutter/flat choice:
-// a sub-agent's activity accumulates into the open ⚙ delegation tool cell
+// TestNBObserver_SubAgentNestsInDelegationCell pins the B4 gutter/flat choice.
+// The activity of a sub-agent accumulates into the open ⚙ delegation tool cell
 // rather than spawning its own info cells.
 func TestNBObserver_SubAgentNestsInDelegationCell(t *testing.T) {
 	subEv := func(e agent.Event) host.HostEvent {
@@ -384,7 +384,7 @@ func TestNBObserver_ThinkingIsSeparateVerbatimCell(t *testing.T) {
 	if assistant == nil {
 		t.Fatalf("expected an assistant cell, got %+v", cells)
 	}
-	// the bug: reasoning (dim ANSI) must not leak into the glamoured prose, where
+	// the bug was reasoning (dim ANSI) leaking into the glamoured prose. There
 	// glamour would garble the escape codes into literal "[2m" text
 	if strings.Contains(assistant.body, "pondering") || strings.Contains(assistant.rendered, "pondering") {
 		t.Fatalf("thinking leaked into the assistant cell: body=%q rendered=%q", assistant.body, assistant.rendered)

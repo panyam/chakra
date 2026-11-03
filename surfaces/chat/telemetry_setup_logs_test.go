@@ -59,8 +59,8 @@ func TestSetupLogs_Stdout_EmitsRecordToWriter(t *testing.T) {
 
 	logger.InfoContext(context.Background(), "test-log-record", "key", "value")
 
-	// Shutdown flushes the BatchProcessor synchronously so the record
-	// lands in the pipe before we read.
+	// Shutdown flushes the BatchProcessor synchronously, so the record
+	// is in the pipe before we read.
 	if err := shutdown(context.Background()); err != nil {
 		t.Fatalf("shutdown: %v", err)
 	}
@@ -171,12 +171,13 @@ func TestSetupLogs_OTLPEndpointEnv_FallbackHonored(t *testing.T) {
 	closed := findClosedPortForLogs(t)
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", closed)
 
-	// Same contract setup_test.go relies on for SetupTelemetry: with
-	// no explicit endpoint, the env var feeds the probe. Closed port
-	// drives the Noop / slog.Default fallback; if the env var were
-	// ignored, the probe would target DefaultOTLPEndpoint
-	// (localhost:4317) and the test result would depend on whether
-	// anything is listening there, making this flaky in CI.
+	// telemetry_setup_test.go relies on the same contract for
+	// SetupTelemetry. With no explicit endpoint, the env var feeds the
+	// probe. A closed port drives the Noop / slog.Default fallback. If
+	// the env var were ignored, the probe would target
+	// DefaultOTLPEndpoint (localhost:4317). Then the result would
+	// depend on whether anything is listening there, and the test
+	// would be flaky in CI.
 	logger, shutdown, err := SetupLogs(context.Background(),
 		WithExporter(ExporterOTLP),
 		WithServiceName("setup-logs-test-env-fallback"),
@@ -191,10 +192,9 @@ func TestSetupLogs_OTLPEndpointEnv_FallbackHonored(t *testing.T) {
 	}
 }
 
-// findClosedPortForLogs mirrors the setup_test.go helper. Named
-// distinctly so it does not collide if the two test files share a
-// package — Go's external test packages allow same-named helpers
-// per file, but the distinct name documents which file each call
+// findClosedPortForLogs mirrors the telemetry_setup_test.go helper.
+// Both test files are in package main, so a same-named helper would
+// not compile. The distinct name also shows which file each call
 // site reads from.
 func findClosedPortForLogs(t *testing.T) string {
 	t.Helper()
@@ -207,10 +207,11 @@ func findClosedPortForLogs(t *testing.T) string {
 	return addr
 }
 
-// readAllFromPipe drains an os.Pipe read end into a buffer. Pulled
-// out of the stdout-emission test because stdoutlog's BatchProcessor
-// flushes asynchronously — but Shutdown is synchronous, so callers
-// must call shutdown + Close(w) before invoking this helper.
+// readAllFromPipe drains an os.Pipe read end into a buffer. It is
+// separate from the stdout-emission test because stdoutlog's
+// BatchProcessor flushes asynchronously. Shutdown is synchronous,
+// so callers must call shutdown + Close(w) before invoking this
+// helper.
 func readAllFromPipe(r *os.File) ([]byte, error) {
 	var buf bytes.Buffer
 	chunk := make([]byte, 4096)
@@ -224,7 +225,7 @@ func readAllFromPipe(r *os.File) ([]byte, error) {
 				break
 			}
 			// io.EOF check via string isn't great, but this helper
-			// stays inside the test file and the alternative is
+			// is private to the test file. The alternative is
 			// dragging in io.EOF for two characters of savings.
 			break
 		}

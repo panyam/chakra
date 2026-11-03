@@ -10,8 +10,9 @@ import (
 	"testing"
 )
 
-// dockview-core 8's ESM build carries no CSS, so the desktop layout renders
-// unstyled unless the shell links the stylesheet build.mjs extracts.
+// dockview-core 8's ESM build includes no CSS. build.mjs extracts the
+// stylesheet, and the desktop layout renders unstyled unless the shell links
+// it.
 func TestShell_DockviewLayoutLinksItsStylesheet(t *testing.T) {
 	css, err := fs.ReadFile(staticAssets(), "dockview.css")
 	if err != nil {

@@ -39,7 +39,7 @@ func drainWatch(t *testing.T, client webv1connect.HostServiceClient, resumeAfter
 }
 
 // A watch window ends the stream on its own, and resume_after skips the events
-// a reconnecting client has already applied, so a host that buffers whole
+// that a reconnecting client has already applied. So a host that buffers whole
 // responses can deliver the log as a series of polls without repeating any of
 // it.
 func TestWatchWindowAndResumeAfter(t *testing.T) {

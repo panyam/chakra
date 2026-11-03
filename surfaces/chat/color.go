@@ -6,14 +6,13 @@ import (
 )
 
 // resolveColorEnabled decides whether the interactive surfaces emit color/ANSI
-// styling, honoring the precedence the TUI track calls for (issue 1063 E2):
-// the --no-color flag wins, then NO_COLOR (present at any value, per
-// no-color.org), then a dumb terminal (TERM=dumb). Absent all three, color is
-// on and termenv is left to auto-detect the profile so it degrades
-// truecolor→256→16→mono on its own.
+// styling. The TUI track sets the precedence (issue 1063 E2). The --no-color
+// flag wins, then NO_COLOR (present at any value, per no-color.org), then a
+// dumb terminal (TERM=dumb). Absent all three, color is on and termenv
+// auto-detects the profile, so it degrades truecolor→256→16→mono on its own.
 //
-// look is os.LookupEnv in production; tests pass a stub map so the precedence
-// is verifiable without mutating the process environment.
+// look is os.LookupEnv in production. Tests pass a stub map, so they can check
+// the precedence without mutating the process environment.
 func resolveColorEnabled(flagNoColor bool, look func(string) (string, bool)) bool {
 	if flagNoColor {
 		return false
@@ -31,8 +30,8 @@ func resolveColorEnabled(flagNoColor bool, look func(string) (string, bool)) boo
 // is disabled, so every Faint/Bold/Reverse/Foreground style across the overlay,
 // status line, and notebook cells renders as plain text deterministically. When
 // color is enabled it leaves the default renderer's auto-detected profile in
-// place, and that profile brings termenv's truecolor→256→16→mono degradation
-// for free. Call once at startup, before any surface renders.
+// place, and that profile already degrades truecolor→256→16→mono through
+// termenv. Call once at startup, before any surface renders.
 func applyLipglossProfile(colorEnabled bool) {
 	if !colorEnabled {
 		lipgloss.SetColorProfile(termenv.Ascii)

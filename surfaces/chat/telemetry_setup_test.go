@@ -121,12 +121,12 @@ func TestSetupTelemetry_OTLPEndpointEnv_FallbackHonored(t *testing.T) {
 	closed := findClosedPort(t)
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", closed)
 
-	// No WithOTLPEndpoint passed — should pick up the env var,
-	// probe it, and fall back to Noop because the port is closed.
-	// If the env var were ignored, the probe would target
-	// DefaultOTLPEndpoint (localhost:4317) and the test's outcome
-	// would depend on whether anything is listening there — which
-	// would make this test flaky in CI.
+	// No WithOTLPEndpoint is passed. So it should pick up the env
+	// var, probe it, and fall back to Noop because the port is
+	// closed. If the env var were ignored, the probe would target
+	// DefaultOTLPEndpoint (localhost:4317). Then the outcome would
+	// depend on whether anything is listening there, and the test
+	// would be flaky in CI.
 	tp, shutdown, err := SetupTelemetry(context.Background(),
 		WithExporter(ExporterOTLP),
 		WithServiceName("setup-test-env-fallback"),
@@ -144,8 +144,8 @@ func TestSetupTelemetry_OTLPEndpointEnv_FallbackHonored(t *testing.T) {
 func TestSetupTelemetry_Auto_UnreachableEndpoint_SilentNoop(t *testing.T) {
 	closed := findClosedPort(t)
 
-	// Capture the log output to assert "auto" mode stays silent on
-	// unreachable — distinct from "otlp" mode which prints a warning.
+	// Capture the log output to assert that "auto" mode is silent on
+	// unreachable. "otlp" mode prints a warning instead.
 	tp, shutdown, err := SetupTelemetry(context.Background(),
 		WithExporter(ExporterAuto),
 		WithOTLPEndpoint(closed),
@@ -193,13 +193,13 @@ func TestSetupTelemetry_ExplicitOptionBeatsEnv(t *testing.T) {
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", closedA)
 
 	// Explicit WithOTLPEndpoint(closedB) should win over env's
-	// closedA. Either way both ports are closed so the OUTCOME is
-	// the same Noop fallback — but if the explicit option were
-	// ignored, the probe error would mention closedA instead of
-	// closedB. We can't easily intercept the log line, so this
-	// test asserts the runtime contract via the no-error guarantee
-	// (a wholly-broken precedence would still produce Noop, but
-	// the test serves as documentation that explicit beats env).
+	// closedA. Both ports are closed, so either way the OUTCOME is
+	// the same Noop fallback. If the explicit option were ignored,
+	// the probe error would mention closedA instead of closedB. We
+	// can't easily intercept the log line, so this test asserts the
+	// runtime contract via the no-error guarantee. A wholly-broken
+	// precedence would still produce Noop, but the test documents
+	// that explicit beats env.
 	tp, _, err := SetupTelemetry(context.Background(),
 		WithExporter(ExporterOTLP),
 		WithOTLPEndpoint(closedB),
@@ -213,10 +213,10 @@ func TestSetupTelemetry_ExplicitOptionBeatsEnv(t *testing.T) {
 }
 
 // findClosedPort binds 127.0.0.1:0, captures the port, then closes
-// the listener. Returns the now-refused address. Marginally racy in
-// theory (another process could grab the port between Close and the
-// caller's dial); in practice the test runs in milliseconds and the
-// race window is too narrow to cause flakes.
+// the listener. It returns the now-refused address. In theory it is
+// marginally racy, because another process could grab the port
+// between Close and the caller's dial. In practice the test runs in
+// milliseconds, and the race window is too narrow to cause flakes.
 func findClosedPort(t *testing.T) string {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")

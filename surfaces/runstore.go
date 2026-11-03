@@ -1,8 +1,7 @@
-// Package surfaces holds wiring shared by the agent host surfaces (the
-// terminal chat in agent/surfaces/chat and the web bridge in
-// agent/surfaces/web). It is the common home for surface-agnostic
-// construction helpers so a surface picks a backend from a single spec
-// string rather than each re-deriving the mapping.
+// Package surfaces holds wiring for the agent host surfaces. The terminal
+// chat in surfaces/chat and the web bridge in surfaces/web both use it. Its
+// construction helpers don't depend on any one surface, so each surface picks
+// a backend from one spec string instead of re-deriving the mapping.
 package surfaces
 
 import (
@@ -21,7 +20,7 @@ import (
 )
 
 // RunStoreFromSpec maps a session-store spec to an agent.RunStore backend.
-// The spec vocabulary is:
+// It accepts these specs.
 //
 //   - "" (empty)            persistence off; returns (nil, nil) so the caller
 //     leaves the host on its non-persisting default.
@@ -32,8 +31,8 @@ import (
 //   - "postgres://user:pass@host:port/db"
 //     (or "postgresql://…")  restart-surviving sessions in a running Postgres.
 //
-// An unknown spec is an error. The mapping is shared by the chat and web
-// surfaces so a single --session-store flag reads the same everywhere.
+// An unknown spec is an error. The chat and web surfaces share the mapping,
+// so one --session-store flag means the same thing in both.
 func RunStoreFromSpec(spec string) (agent.RunStore, error) {
 	switch {
 	case spec == "":
@@ -60,9 +59,9 @@ func RunStoreFromSpec(spec string) (agent.RunStore, error) {
 	}
 }
 
-// openGormStore opens the dialector with SQL logging silenced (a surface's
-// transcript is its output; slow-query noise does not belong there) and
-// wraps it in the RunStore.
+// openGormStore opens the dialector with SQL logging silenced and wraps it in
+// the RunStore. A surface's transcript is its output, and slow-query noise
+// does not belong there.
 func openGormStore(dial gorm.Dialector) (agent.RunStore, error) {
 	db, err := gorm.Open(dial, &gorm.Config{Logger: gormlogger.Default.LogMode(gormlogger.Silent)})
 	if err != nil {

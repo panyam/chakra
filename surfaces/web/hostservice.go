@@ -1,15 +1,16 @@
-// Package web exposes agent/host.App over a Connect RPC bridge with a live
-// event stream, so a browser can drive the same surface-agnostic host the
-// terminal agentchat drives (issue 1196, epic 1193). The bridge is a thin
-// projection: it holds only a SessionManager of *App and translates each RPC to
-// an App method. No web or proto type leaks back into agent/host
-// (agent/CONSTRAINTS A4/A6); the host stays surface-agnostic and this module
+// Package web exposes host.App over a Connect RPC bridge with a live event
+// stream, so a browser can drive the same surface-agnostic host as the
+// terminal agentchat (issue 1196, epic 1193). The bridge is a thin projection.
+// It holds only a SessionManager of *App and translates each RPC to an App
+// method. No web or proto type leaks back into the host package
+// (CONSTRAINTS.md A4). The host is still surface-agnostic, and this module
 // owns all the web wiring.
 //
 // One server can host many concurrent conversations. Each RPC carries a
-// session_id routing field that selects its App via the SessionManager; an
-// empty session_id resolves to a default session created at startup, so a
-// single-surface client that predates multi-session keeps working unchanged.
+// session_id routing field, and the SessionManager uses it to select the
+// RPC's App. An empty session_id resolves to a default session created at
+// startup. So a single-surface client written before multi-session support
+// still works unchanged.
 package web
 
 import (
@@ -41,10 +42,10 @@ type HostService struct {
 	private bool
 }
 
-// SessionBuilder makes a session's App from the provider a CreateSession named.
-// spec may be nil when the request named none; the builder decides whether
-// that's allowed. Its error is returned to the caller as InvalidArgument, so it
-// should say what to fix and never echo the key.
+// SessionBuilder makes a session's App from the provider in a CreateSession
+// request. spec may be nil when the request named none, and the builder
+// decides whether that's allowed. The caller gets its error as
+// InvalidArgument, so the error should say what to fix and never echo the key.
 type SessionBuilder func(ctx context.Context, spec *webv1.ProviderSpec) (*host.App, error)
 
 // WithSessionBuilder makes CreateSession build each App with b from the
@@ -56,9 +57,9 @@ func WithSessionBuilder(b SessionBuilder) Option {
 
 // WithPrivateSessions makes a session reachable only by its id. An empty
 // session_id no longer routes to a default session, and ListWebSessions is
-// refused, so a stranger who reaches the server can't find or drive a session
-// someone else created (and with it, their key). Session ids are 128 random
-// bits, so holding one is the credential.
+// refused. Imagine a stranger reaches the server. They can't find another
+// person's session, so they can't drive it or use its key. Session ids are 128
+// random bits, so holding one is the credential.
 func WithPrivateSessions() Option {
 	return func(s *HostService) { s.private = true }
 }
@@ -67,16 +68,16 @@ func WithPrivateSessions() Option {
 type Option func(*HostService)
 
 // WithWatchWindow ends each Watch stream after d, and the client reconnects
-// with its resume_after count. A host that buffers whole responses (App Engine
-// standard) never delivers a stream that stays open, so this turns Watch into
-// a long poll there. Zero, the default, keeps the stream open.
+// with its resume_after count. Some hosts, such as App Engine standard, buffer
+// whole responses. They never deliver a stream that is still open, so this
+// turns Watch into a long poll there. Zero, the default, keeps the stream open.
 func WithWatchWindow(d time.Duration) Option {
 	return func(s *HostService) { s.watchWindow = d }
 }
 
-// NewHostService wraps a single App as the default session with no factory, so
-// the existing single-surface flow works unchanged (an empty session_id routes
-// to app; CreateSession is unavailable without a factory). Use
+// NewHostService wraps a single App as the default session, with no factory.
+// An empty session_id routes to app, so the single-surface flow works
+// unchanged. CreateSession is unavailable without a factory. Use
 // NewHostServiceWithSessions to host multiple concurrent conversations.
 func NewHostService(app *host.App) *HostService {
 	mgr := NewSessionManager(nil)
@@ -97,9 +98,9 @@ func NewHostServiceWithSessions(mgr *SessionManager, opts ...Option) *HostServic
 
 // appFor resolves a request's session_id to its App, or a Connect CodeNotFound
 // error when no such session exists. An empty session_id resolves to the
-// default session. ctx threads the store round-trips a store-backed manager
-// performs when it rehydrates a session that is not cached (e.g. after a
-// restart) — an unknown run is still CodeNotFound.
+// default session. A store-backed manager rehydrates a session that is not
+// cached, for example after a restart. ctx covers the store round-trips it
+// makes. An unknown run is still CodeNotFound.
 func (s *HostService) appFor(ctx context.Context, sessionID string) (*host.App, error) {
 	if s.private && sessionID == "" {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("no session_id: create a session first"))
@@ -111,10 +112,11 @@ func (s *HostService) appFor(ctx context.Context, sessionID string) (*host.App, 
 	return app, nil
 }
 
-// Watch streams the selected session's event log: the retained backlog replayed
-// from offset 0 (App.Subscribe), then live events, until the client disconnects.
-// The derived ctx is cancelled on return so the drain goroutine and its
-// Subscription exit even when Send fails before the request ctx is observed.
+// Watch streams the selected session's event log. It replays the retained
+// backlog from offset 0 (App.Subscribe), then sends live events until the
+// client disconnects. Watch cancels the derived ctx on return. So the drain
+// goroutine and its Subscription exit even when Send fails before the request
+// ctx is observed.
 func (s *HostService) Watch(ctx context.Context, req *connect.Request[webv1.WatchRequest], stream *connect.ServerStream[webv1.Frame]) error {
 	app, err := s.appFor(ctx, req.Msg.GetSessionId())
 	if err != nil {
@@ -146,10 +148,10 @@ func (s *HostService) Watch(ctx context.Context, req *connect.Request[webv1.Watc
 }
 
 // Submit runs one conversational turn on the selected session. The turn's events
-// stream on that session's Watch; this returns when the turn finishes. A failed
-// turn maps to a Connect error (the same failure is also announced as a
-// HostTurnFailed frame on Watch). While a turn is running, the input is queued
-// as a steer for it (App.Submit) and this returns at once with Steered set.
+// stream on that session's Watch, and Submit returns when the turn finishes.
+// A failed turn maps to a Connect error, and Watch also announces the failure
+// as a HostTurnFailed frame. While a turn is running, the input is queued as a
+// steer for it (App.Submit) and Submit returns at once with Steered set.
 func (s *HostService) Submit(ctx context.Context, req *connect.Request[webv1.SubmitRequest]) (*connect.Response[webv1.SubmitResponse], error) {
 	app, err := s.appFor(ctx, req.Msg.GetSessionId())
 	if err != nil {
@@ -191,10 +193,11 @@ func (s *HostService) Dispatch(ctx context.Context, req *connect.Request[webv1.D
 	}), nil
 }
 
-// RespondToAsk answers a pending elicitation on the selected session by the
-// AskID a client read off a Frame. First responder wins; an unknown or
-// already-answered ask is CodeFailedPrecondition (app state, not a transport
-// failure). An empty By defaults to "web" so the resolved frame names the surface.
+// RespondToAsk answers a pending elicitation on the selected session. A client
+// reads the AskID off a Frame and passes it here. First responder wins. An
+// unknown or already-answered ask is CodeFailedPrecondition, because it is app
+// state and not a transport failure. An empty By defaults to "web" so the
+// resolved frame names the surface.
 func (s *HostService) RespondToAsk(ctx context.Context, req *connect.Request[webv1.RespondToAskRequest]) (*connect.Response[webv1.RespondToAskResponse], error) {
 	app, err := s.appFor(ctx, req.Msg.GetSessionId())
 	if err != nil {
@@ -210,11 +213,12 @@ func (s *HostService) RespondToAsk(ctx context.Context, req *connect.Request[web
 	if by == "" {
 		by = "web"
 	}
-	// ask_id carries the event-log offset the ask was announced at (E2's
-	// offset-based RespondToAsk); cast int64→int at the boundary. Resolution
-	// rides the log barrier, so a stale or already-answered offset returns the
-	// log's ErrAlreadyResolved / ErrOffsetOutOfRange (app state, reported as a
-	// failed precondition, not a transport failure).
+	// ask_id holds the event-log offset where the ask was announced (E2's
+	// offset-based RespondToAsk). Cast it from int64 to int at the boundary.
+	// Resolution goes through the log barrier. So a stale or already-answered
+	// offset returns the log's ErrAlreadyResolved / ErrOffsetOutOfRange. That
+	// error is app state, so it is reported as a failed precondition and not as
+	// a transport failure.
 	if err := app.RespondToAsk(int(req.Msg.GetAskId()), result, by); err != nil {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
 	}
@@ -222,9 +226,10 @@ func (s *HostService) RespondToAsk(ctx context.Context, req *connect.Request[web
 }
 
 // ListSessions returns one page of the selected session's persisted RunStore
-// runs. No RunStore configured is CodeFailedPrecondition (persistence is off, an
-// app-state fact). This pages the runs inside one conversation; the roster of
-// concurrent conversations is ListWebSessions.
+// runs. Without a configured RunStore, persistence is off, and ListSessions
+// returns CodeFailedPrecondition because that is app state. ListSessions pages
+// the runs inside one conversation. ListWebSessions returns the roster of
+// concurrent conversations.
 func (s *HostService) ListSessions(ctx context.Context, req *connect.Request[webv1.ListSessionsRequest]) (*connect.Response[webv1.ListSessionsResponse], error) {
 	app, err := s.appFor(ctx, req.Msg.GetSessionId())
 	if err != nil {
@@ -242,8 +247,9 @@ func (s *HostService) ListSessions(ctx context.Context, req *connect.Request[web
 	}), nil
 }
 
-// GetStatus returns the selected session's active model label and run id, the
-// status-line read, plus the connections the header's model picker offers.
+// GetStatus returns the selected session's active model label and run id for
+// the status line. It also returns the connections for the header's model
+// picker.
 func (s *HostService) GetStatus(ctx context.Context, req *connect.Request[webv1.GetStatusRequest]) (*connect.Response[webv1.GetStatusResponse], error) {
 	app, err := s.appFor(ctx, req.Msg.GetSessionId())
 	if err != nil {
@@ -258,9 +264,9 @@ func (s *HostService) GetStatus(ctx context.Context, req *connect.Request[webv1.
 	}), nil
 }
 
-// CreateSession mints a fresh conversation (a new App built from the server's
-// config) and returns its session_id. A server built without a factory (the
-// single-App case) returns CodeFailedPrecondition; a factory error is
+// CreateSession builds a new App from the server's config as a fresh
+// conversation, and returns its session_id. In the single-App case the server
+// has no factory and returns CodeFailedPrecondition. A factory error is
 // CodeInternal.
 func (s *HostService) CreateSession(ctx context.Context, req *connect.Request[webv1.CreateSessionRequest]) (*connect.Response[webv1.CreateSessionResponse], error) {
 	if s.build != nil {
@@ -285,11 +291,11 @@ func (s *HostService) CreateSession(ctx context.Context, req *connect.Request[we
 }
 
 // ListWebSessions returns the session_ids of every conversation the server
-// hosts. With a store configured this is the durable roster (every persisted
-// run id, so a restart still lists past sessions), merged with any live-only
-// ids; otherwise it is the live in-memory roster. The default is included. This
-// is the roster of conversations, distinct from ListSessions (persisted runs
-// inside one App).
+// hosts. With a store configured, it returns the durable roster merged with
+// any live-only ids. The durable roster holds every persisted run id, so a
+// restart still lists past sessions. Without a store, it returns the live
+// in-memory roster. Both include the default. ListSessions is different,
+// since it lists the persisted runs inside one App.
 func (s *HostService) ListWebSessions(ctx context.Context, _ *connect.Request[webv1.ListWebSessionsRequest]) (*connect.Response[webv1.ListWebSessionsResponse], error) {
 	if s.private {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("sessions are private on this server; the browser keeps its own list"))

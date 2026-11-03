@@ -179,8 +179,9 @@ func TestExecExitsTwoAtTheStepLimit(t *testing.T) {
 	}
 }
 
-// TestExecDeniesWhatTheModeWouldAskAbout is the headless contract: nobody can
-// answer an ask, so the call is refused, the run says so, and nothing blocks.
+// TestExecDeniesWhatTheModeWouldAskAbout checks the headless contract. Nobody
+// can answer an ask, so the call is refused, the run says so, and nothing
+// blocks.
 func TestExecDeniesWhatTheModeWouldAskAbout(t *testing.T) {
 	ws := t.TempDir()
 	srv := fakeModel(t,

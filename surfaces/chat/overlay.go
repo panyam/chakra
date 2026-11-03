@@ -12,11 +12,12 @@ import (
 )
 
 // overlayAction is one action offered on the selected overlay row. Key is the
-// single key that triggers it in addition to Enter for the primary action (the
-// action whose Key is ""); Label names it in the footer. Line is the App
-// command the surface dispatches when the action fires — an empty Line marks
-// the action unavailable (rendered dimmed), the seam a not-yet-built capability
-// (per-server login, per-server tool view) slots into without a widget change.
+// single key that triggers it. Enter also triggers the primary action, which
+// has an empty Key. Label names the action in the footer. When the action
+// fires, the surface dispatches Line as an App command. An empty Line marks
+// the action unavailable, and the footer renders it dimmed. serversOverlay
+// uses that empty Line for tools on a server that isn't ready, and for login
+// where no interactive login is possible.
 type overlayAction struct {
 	Key   string
 	Label string
@@ -31,36 +32,37 @@ type overlayItem struct {
 	Actions []overlayAction
 }
 
-// overlayOutcome is what handleKey reports back to the host surface: dismiss the
-// overlay, dispatch a command Line (and close), or neither (key consumed, stay
-// open). The surface stays the dispatcher, so App.Dispatch stays data-only.
-// The overlay yields a command string and does not call the host.
+// overlayOutcome tells the host surface the result of handleKey. The overlay
+// either dismisses, dispatches a command Line and closes, or does neither. In
+// that last case it consumed the key and is still open. The surface is the
+// dispatcher, so App.Dispatch is still data-only. The overlay yields a command
+// string and does not call the host.
 type overlayOutcome struct {
 	Dismiss bool
 	Line    string
 }
 
 // focusLayer is a modal component that temporarily owns the keyboard above a
-// surface's base view: it consumes keys and renders itself. The overlay is the
+// surface's base view. It consumes keys and renders itself. The overlay is the
 // only implementation today. With the seam, both TUI surfaces share the
-// open/route/dismiss glue instead of each special-casing *overlayModel. The
-// fuller model — base view and overlay as peer layers routed uniformly — is the
-// focus-management design-track item (issue 1063 C4).
+// open/route/dismiss glue instead of each special-casing *overlayModel. A
+// fuller model would route the base view and overlay uniformly as peer layers.
+// That model is the focus-management design-track item (issue 1063 C4).
 type focusLayer interface {
 	handleKey(tea.KeyMsg) overlayOutcome
 	setWidth(int)
 	View() string
 }
 
-// modalHost is the shared state a surface needs to carry a stack of modal
-// layers. Both TUI models embed one, so "is a modal open, route keys to the top
-// one, push a nested one, pop back to the parent" is defined once here rather
-// than branched per surface. It is a stack rather than a single layer, so
-// nested overlays get back-navigation. Opening the tools view from the
-// servers overlay pushes, and Esc pops back to the servers overlay instead of dropping to the
-// input (issue 1063 C4). The layers are pointers, safe across the value-copies
-// bubbletea makes each Update; blurring/focusing the input stays with the
-// surface that owns it.
+// modalHost is the shared state for a surface's stack of modal layers. Both TUI
+// models embed one. So "is a modal open, route keys to the top one, push a
+// nested one, pop back to the parent" is defined once here rather than
+// branched per surface. It is a stack rather than a single layer, so nested
+// overlays get back-navigation. Opening the tools view from the servers
+// overlay pushes. Esc then pops back to the servers overlay instead of
+// dropping to the input (issue 1063 C4). bubbletea copies the model on each
+// Update, and the layers are pointers, so they are safe across those copies.
+// The surface owns the input and still handles blurring and focusing it.
 type modalHost struct {
 	stack []focusLayer
 }
@@ -68,8 +70,8 @@ type modalHost struct {
 // active reports whether any modal layer currently owns the keyboard.
 func (h *modalHost) active() bool { return len(h.stack) > 0 }
 
-// top is the focused layer — the one keys route to and that renders. Only call
-// when active.
+// top is the focused layer. Keys route to it and it renders. Only call when
+// active.
 func (h *modalHost) top() focusLayer { return h.stack[len(h.stack)-1] }
 
 // push opens l as a nested modal above the current one (or the first modal when
@@ -90,8 +92,8 @@ func (h *modalHost) pop() {
 	}
 }
 
-// clear closes the whole stack at once — the "an action completed, return to
-// the prompt" path (e.g. resuming a session).
+// clear closes the whole stack at once. That is the "an action completed,
+// return to the prompt" path (e.g. resuming a session).
 func (h *modalHost) clear() { h.stack = nil }
 
 // setWidth reflows every layer on resize, not just the top, so a parent revealed
@@ -102,20 +104,20 @@ func (h *modalHost) setWidth(w int) {
 	}
 }
 
-// view composes the top modal above the surface's base region (passed in, since
-// the base differs per surface: the input alone for the inline TUI, the
-// viewport plus input for the notebook).
+// view composes the top modal above the surface's base region. The caller
+// passes the base in, since it differs per surface. The inline TUI passes the
+// input alone, and the notebook passes the viewport plus input.
 func (h *modalHost) view(base string) string {
 	return h.top().View() + "\n" + base
 }
 
-// overlayModel is the reusable interactive dialog rendered in the bottom region
-// of a TUI surface (issue 1095): a titled, selectable list with per-row keyed
+// overlayModel is the reusable interactive dialog in the bottom region of a TUI
+// surface (issue 1095). It is a titled, selectable list with per-row keyed
 // actions, Enter for the primary action and Esc to dismiss. It is
-// surface-agnostic — both the inline TUI and the notebook embed one and route
-// keys to handleKey while it is open — and content-agnostic: /mcp, the
+// surface-agnostic. Both the inline TUI and the notebook embed one and route
+// keys to handleKey while it is open. It is also content-agnostic. /mcp, the
 // /sessions picker, and future dialogs build one from a CmdResult. Rendering
-// stays here in the surface; the host stays data-only.
+// is here in the surface, and the host is still data-only.
 type overlayModel struct {
 	title   string
 	items   []overlayItem
@@ -126,7 +128,7 @@ type overlayModel struct {
 }
 
 // newOverlay builds an overlay with a bounded visible window (long lists
-// scroll). An empty item list is valid — the overlay renders a placeholder and
+// scroll). An empty item list is valid. The overlay renders a placeholder and
 // only Esc acts.
 func newOverlay(title string, items []overlayItem) *overlayModel {
 	return &overlayModel{title: title, items: items, maxRows: 10}
@@ -169,10 +171,10 @@ func (o *overlayModel) primary() (overlayAction, bool) {
 	return overlayAction{}, false
 }
 
-// handleKey advances the overlay for one keypress and reports the outcome:
-// Esc dismisses; Up/Down (or k/j, Ctrl+P/N) move; Enter fires the primary
-// action; any other key that matches a secondary action's Key on the selected
-// row fires that action. An action with an empty Line is unavailable and does
+// handleKey advances the overlay for one keypress and reports the outcome. Esc
+// dismisses. Up/Down (or k/j, Ctrl+P/N) move. Enter fires the primary action.
+// Any other key fires a secondary action on the selected row when it matches
+// that action's Key. An action with an empty Line is unavailable and does
 // nothing.
 func (o *overlayModel) handleKey(msg tea.KeyMsg) overlayOutcome {
 	switch msg.String() {
@@ -198,9 +200,10 @@ func (o *overlayModel) handleKey(msg tea.KeyMsg) overlayOutcome {
 	return overlayOutcome{}
 }
 
-// View renders the overlay as a bordered panel: the title, the visible window
-// of rows (the selected row highlighted, its available actions in a footer),
-// and a dim key hint. Dynamic height — the box grows with the visible rows.
+// View renders the overlay as a bordered panel. The panel holds the title, the
+// visible window of rows, and a dim key hint. The selected row is highlighted,
+// and a footer lists its available actions. The height is dynamic, and the box
+// grows with the visible rows.
 func (o *overlayModel) View() string {
 	dim := lipgloss.NewStyle().Faint(true)
 	sel := lipgloss.NewStyle().Bold(true).Foreground(accentColor)
@@ -243,9 +246,10 @@ func (o *overlayModel) View() string {
 		Render(b.String())
 }
 
-// footer lists the keys: the selected row's actions plus the always-present
-// navigation and dismiss hints. Unavailable actions (empty Line) are shown so
-// the user sees the capability exists but is dimmed by the whole-footer style.
+// footer lists the keys. It shows the selected row's actions and the
+// always-present navigation and dismiss hints. Unavailable actions (empty
+// Line) are shown too, so the user sees that the capability exists. The
+// whole-footer style dims them.
 func (o *overlayModel) footer() string {
 	var acts []string
 	if len(o.items) > 0 {
@@ -266,10 +270,10 @@ func (o *overlayModel) footer() string {
 }
 
 // serversOverlay builds the interactive /mcp (alias /servers) view from a
-// CmdServers result: one row per MCP server, its connection state as the
-// detail, and a reconnect action on any failed or needs-login server. Login and
-// per-server tool view are shown as unavailable pending their capability
-// (deferred follow-ups).
+// CmdServers result. It has one row per MCP server, with its connection state
+// as the detail, and a reconnect action on any failed or needs-login server.
+// The tools action is enabled on a ready server. The login action is enabled
+// on a needs-login server when an interactive login is possible.
 func serversOverlay(res host.CmdResult) *overlayModel {
 	items := make([]overlayItem, 0, len(res.Servers))
 	for _, s := range res.Servers {
@@ -308,17 +312,18 @@ func serversOverlay(res host.CmdResult) *overlayModel {
 	return newOverlay("MCP servers", items)
 }
 
-// canReconnect reports whether a reconnect action is meaningful for a state: a
-// failed (backoff) or needs-login (parked) server, not a ready or in-flight one.
+// canReconnect reports whether a reconnect action is meaningful for a state. It
+// is for a failed (backoff) or needs-login (parked) server, not a ready or
+// in-flight one.
 func canReconnect(s client.ConnState) bool {
 	return s == client.StateFailed || s == client.StateNeedsLogin
 }
 
 // sessionsOverlay builds the interactive /sessions picker from a CmdSessions
-// result: one row per persisted run, message count and lineage as the detail,
-// the active run marked, and Enter to resume it. This is the reusability proof
-// for the widget (issue 1095) — resume works today, so the picker is fully
-// functional.
+// result. It has one row per persisted run, with message count and lineage as
+// the detail. The active run is marked, and Enter resumes a run. This picker
+// proves the widget is reusable (issue 1095). Resume works today, so the
+// picker is fully functional.
 func sessionsOverlay(res host.CmdResult) *overlayModel {
 	items := make([]overlayItem, 0, len(res.Sessions))
 	active := -1
@@ -345,10 +350,11 @@ func sessionsOverlay(res host.CmdResult) *overlayModel {
 	return o
 }
 
-// toolsOverlay builds the read-only per-server tool list opened from the /mcp
-// overlay's tools action (issue 1117): one row per tool (name + description),
-// no actions — Esc closes back to the input. Opening it replaces the servers
-// overlay; a back-to-parent stack is the focus-model follow-up (issue 1063 C4).
+// toolsOverlay builds the read-only per-server tool list. The tools action of
+// the /mcp overlay opens it (issue 1117). It has one row per tool (name +
+// description) and no actions. Opening it from the servers overlay pushes it
+// onto the modal stack, and Esc pops back to the servers overlay (issue 1063
+// C4).
 func toolsOverlay(res host.CmdResult) *overlayModel {
 	items := make([]overlayItem, 0, len(res.Tools))
 	for _, t := range res.Tools {
@@ -357,10 +363,10 @@ func toolsOverlay(res host.CmdResult) *overlayModel {
 	return newOverlay("tools · "+res.ServerID, items)
 }
 
-// overlayFor converts a command result into the overlay that presents it, or
-// nil when the result is not an interactive-picker shape. Centralizes the
-// surface's "which CmdKinds open an overlay" decision so both TUI surfaces
-// share it.
+// overlayFor converts a command result into an overlay that presents it. It
+// returns nil when the result is not an interactive-picker shape. It
+// centralizes the surface's "which CmdKinds open an overlay" decision, so both
+// TUI surfaces share it.
 func overlayFor(res host.CmdResult) *overlayModel {
 	switch res.Kind {
 	case host.CmdServers:

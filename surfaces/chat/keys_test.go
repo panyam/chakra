@@ -8,8 +8,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// TestKeys_MatchHandledKeys pins the bindings to the literal keys the models
-// act on, so a rewire that changes behavior also changes the help.
+// TestKeys_MatchHandledKeys checks each binding against a literal key that the
+// models act on, so a rewire that changes behavior also changes the help.
 func TestKeys_MatchHandledKeys(t *testing.T) {
 	k := newAppKeys()
 	cases := []struct {
@@ -45,9 +45,10 @@ func TestKeys_HelpBarsHaveText(t *testing.T) {
 	}
 }
 
-// TestRenderKeyHelp_NoDriftFromBindings is the C2 contract: the /keys cheatsheet
-// is generated from the same bindings, so every surface binding's key literal
-// appears in it. A binding added or renamed without updating help fails here.
+// TestRenderKeyHelp_NoDriftFromBindings checks the C2 contract. The /keys
+// cheatsheet is generated from the same bindings, so the key literal of every
+// surface binding appears in it. Adding or renaming a binding without updating
+// help fails here.
 func TestRenderKeyHelp_NoDriftFromBindings(t *testing.T) {
 	out := renderKeyHelp()
 	for _, group := range newAppKeys().fullHelp() {
@@ -75,7 +76,7 @@ func TestTUI_QuestionMarkTogglesHelpOnlyWhenEmpty(t *testing.T) {
 		t.Fatal("`?` again should toggle full help off")
 	}
 
-	// non-empty prompt: `?` is a literal character, help stays off
+	// non-empty prompt: `?` is a literal character, and help is still off
 	m2 := newTUIModel(nil, nil, 0)
 	m2.ta.SetValue("hi")
 	nm2, _ := m2.Update(qmark)

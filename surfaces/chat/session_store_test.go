@@ -9,9 +9,9 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// The RunStore-spec mapping moved to agent/surfaces.RunStoreFromSpec; its
-// table + reopen tests live in agent/surfaces/runstore_test.go. Only the
-// tool-result store mapping stays here, because it is agentchat-local.
+// The RunStore-spec mapping moved to surfaces.RunStoreFromSpec, and its table
+// and reopen tests are in surfaces/runstore_test.go. Only the tool-result store
+// mapping is still here, because it is local to agentchat.
 
 func TestBuildToolResultStoreSpecs(t *testing.T) {
 	// memory / empty -> nil (host uses its in-memory default)
@@ -27,8 +27,8 @@ func TestBuildToolResultStoreSpecs(t *testing.T) {
 	}
 }
 
-// TestBuildToolResultStoreSQLite pins that a sqlite spec yields a usable
-// durable blob store on a local file — the no-server offload path.
+// TestBuildToolResultStoreSQLite pins the no-server offload path. A sqlite spec
+// yields a usable durable blob store on a local file.
 func TestBuildToolResultStoreSQLite(t *testing.T) {
 	spec := "sqlite://" + filepath.Join(t.TempDir(), "blobs.db")
 	s, err := buildToolResultStore(spec, "")

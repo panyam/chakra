@@ -7,17 +7,18 @@ import (
 	webv1 "github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1"
 )
 
-// eventToFrame projects a HostEvent onto its wire Frame: kind is the
-// discriminator, payload is the event's own JSON — json.Marshal(HostEvent). It
-// is a 1:1 projection of the A2 wire-serializable event, never a per-kind proto
-// schema (agent/CONSTRAINTS A2 forbids a translation layer, and the web wire
-// projection MUST be a mapping).
+// eventToFrame projects a HostEvent onto its wire Frame. The frame's kind is
+// the discriminator, and its payload is the event's own JSON from
+// json.Marshal(HostEvent). The frame is a 1:1 projection of the A2
+// wire-serializable event, never a per-kind proto schema. CONSTRAINTS.md A2
+// forbids a translation layer, and the web wire projection must be a 1:1
+// mapping.
 //
-// A few HostEvent kinds still carry live pointers that json.Marshal can reject
-// (the Failover inside a command result contains funcs; TaskStatus/Task are the
-// task events) — that is the already-filed issue 994. On a marshal failure the
-// frame carries a minimal {kind} payload so one un-serializable event never
-// stalls the stream; the client still learns the event happened by its kind.
+// A few HostEvent kinds still hold live pointers, and json.Marshal can reject
+// them (issue 994). The Failover inside a command result contains funcs, and
+// TaskStatus and Task are the task events. On a marshal failure the frame gets
+// a minimal {kind} payload, so one un-serializable event never stalls the
+// stream. The client still learns from the kind that the event happened.
 func eventToFrame(ev host.HostEvent) *webv1.Frame {
 	payload := marshalOrMinimal(ev, ev.Kind)
 	return &webv1.Frame{Kind: string(ev.Kind), Payload: payload}

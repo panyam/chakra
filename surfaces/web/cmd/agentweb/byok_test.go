@@ -84,7 +84,7 @@ func TestTokenGuard(t *testing.T) {
 }
 
 // In --byok mode a session needs a provider, there is no default session, and
-// the roster can't be listed: only the id reaches a session.
+// the roster can't be listed. A client reaches a session only by its id.
 func TestBYOK_SessionsArePrivateAndNeedAProvider(t *testing.T) {
 	ctx := context.Background()
 	c := byokServer(t, "", "")
@@ -112,8 +112,9 @@ func TestBYOK_SessionsArePrivateAndNeedAProvider(t *testing.T) {
 	}
 }
 
-// A session's key reaches its provider: a turn on it calls the endpoint with
-// that key, and two sessions with different keys stay apart.
+// A session's key reaches its provider. A turn on the session calls the
+// endpoint with that key, and two sessions with different keys each send
+// their own.
 func TestBYOK_SessionUsesItsOwnKey(t *testing.T) {
 	ctx := context.Background()
 	var mu sync.Mutex
@@ -134,7 +135,8 @@ func TestBYOK_SessionUsesItsOwnKey(t *testing.T) {
 		if err != nil {
 			t.Fatalf("CreateSession: %v", err)
 		}
-		// The endpoint refuses, so the turn fails; only the key it carried matters.
+		// The endpoint refuses, so the turn fails. The test checks only which
+		// key the turn sent.
 		_, _ = c.Submit(ctx, connect.NewRequest(&webv1.SubmitRequest{SessionId: resp.Msg.GetSessionId(), Input: "hi"}))
 	}
 	mu.Lock()

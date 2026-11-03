@@ -21,8 +21,9 @@ import (
 )
 
 // stubApp builds an App over a fresh StubProvider with the given scripted turns,
-// discarding terminal output. Each call is an independent session (its own event
-// log and provider), the same shape the SessionManager hands out per session.
+// discarding terminal output. Each call makes an independent session with its
+// own event log and provider. The SessionManager hands out the same shape per
+// session.
 func stubApp(t *testing.T, turns ...agent.StubTurn) *host.App {
 	t.Helper()
 	stub := agent.NewStubProvider(turns...)

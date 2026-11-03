@@ -17,27 +17,28 @@ import (
 
 // WorkspaceConfig describes the workspace tool set a surface exposes.
 //
-// It lives here rather than in host because agent/ext/files imports host for
-// its approval renderer, so host cannot import the extensions back. Both
-// agentchat and agentweb need the identical wiring, and getting it wrong is
-// silent in one specific way (see WorkspaceExtensions), so it is written once.
+// WorkspaceConfig lives here, not in host. ext/files imports host for its
+// approval renderer, so host cannot import the extensions back. agentchat and
+// agentweb need identical wiring. One mistake in that wiring fails silently
+// (see WorkspaceExtensions), so the wiring is written once, here.
 type WorkspaceConfig struct {
-	// Roots confine every path the file tools will touch. Empty disables the
-	// whole set: no file tools, no checkpoint. The first is primary, and a
-	// relative path resolves against it.
+	// Roots confine the file tools, and every path they touch is inside one
+	// of them. Empty disables the whole set, with no file tools and no
+	// checkpoint. The first is primary, and a relative path resolves against
+	// it.
 	//
-	// A set rather than one directory because a session that stays inside a
-	// single repository is the exception (issue 1314). An agent given one root
-	// edits an API and reports success while the caller it broke sits in
-	// another repository it cannot see.
+	// Roots is a set, not one directory, because most sessions span more than
+	// one repository (issue 1314). Imagine an agent with one root. It edits
+	// an API and reports success. The caller it broke is in another
+	// repository, and the agent cannot see that repository.
 	//
-	// There is deliberately no "unset means the current directory" default.
-	// files.Config.Roots documents why the tools themselves refuse to run
-	// unconfined, and the same reasoning applies to choosing the confinement
-	// for a user: a model's instructions can come from content it read, so an
-	// editor rooted somewhere nobody named is an injected instruction away
-	// from writing anywhere under it. Enabling these is a choice with
-	// directories attached.
+	// Unset Roots deliberately does not default to the current directory.
+	// files.Config.Roots explains why the tools refuse to run unconfined, and
+	// the same reasoning rules out picking the confinement for a user. A model
+	// can take instructions from content it read. An editor rooted somewhere
+	// nobody named is then one injected instruction away from writing
+	// anywhere under that directory. So enabling these tools means naming
+	// directories.
 	Roots []string
 
 	// Exclude overrides the directories list_files and search_files skip.
@@ -52,77 +53,81 @@ type WorkspaceConfig struct {
 	// CheckpointStore is where snapshots live. Empty puts them under the
 	// primary root.
 	//
-	// It is separate from Roots because a snapshot store inside a workspace is
-	// a directory the agent can read, search, and edit, and one that grows
-	// with every write. With several roots there is also no obvious one to
-	// pick. Naming a location outside them all is cleaner, and a caller
-	// should usually do it.
+	// It is separate from Roots. Inside a workspace, the agent could read,
+	// search and edit the snapshot store, and the store grows with every
+	// write. With several roots there is also no obvious one to pick. A
+	// location outside all of them is cleaner, and a caller should usually
+	// name one.
 	CheckpointStore string
 
 	// NoCheckpoint drops the snapshot-and-restore safety net, leaving the file
-	// tools with no /undo. Opt-out rather than opt-in because a write tool
-	// whose effects cannot be reversed is the case checkpoint was built for.
+	// tools with no /undo. It is opt-out, not opt-in, because checkpoint was
+	// built for write tools. Without it their effects cannot be reversed.
 	NoCheckpoint bool
 
-	// RepoMap adds a ranked repository map to the system prompt, which needs
-	// LanguageServers to be set: the map's symbols come from them.
+	// RepoMap adds a ranked repository map to the system prompt. The map's
+	// symbols come from LanguageServers, so RepoMap needs them set.
 	//
-	// Opt-in because indexing costs a round trip per file, and because a map
-	// is prompt weight every turn. It is worth it for orientation on an
-	// unfamiliar tree and wasted on a task the operator already knows the
-	// shape of.
+	// It is opt-in. Indexing takes a round trip per file, and the map adds to
+	// the prompt on every turn. The map helps a model find its way around an
+	// unfamiliar tree. It is wasted when the operator already knows the shape
+	// of the task.
 	RepoMap bool
 
-	// LanguageServers adds LSP-in-loop: navigation tools, and diagnostics
-	// after every write and in each turn's context. Empty adds nothing.
+	// LanguageServers adds LSP-in-loop. That means navigation tools, plus
+	// diagnostics after every write and in each turn's context. Empty adds
+	// nothing.
 	//
-	// Opt-in, unlike checkpoint, because this one spawns processes. A
-	// checkpoint costs a directory and is wanted wherever writes are, while a
-	// language server the caller did not ask for is a subprocess, an index of
-	// the whole tree, and a few hundred megabytes. Naming the servers is also
-	// unavoidable: nothing here can guess which languages the workspace holds
-	// or which server the caller wants driving them.
+	// It is opt-in, unlike checkpoint, because it spawns processes. A
+	// checkpoint costs a directory, and any session that writes wants one. A
+	// language server costs a subprocess, an index of the whole tree, and a
+	// few hundred megabytes, so a caller who did not ask for one should not
+	// get one. The caller also has to name the servers. Nothing here can
+	// guess which languages the workspace holds, or which server the caller
+	// wants for each.
 	LanguageServers []lsp.ServerSpec
 
-	// Exec adds the allowlisted command tools. Nil adds nothing. Its Roots
-	// are overwritten with this config's Roots, so commands run in, and write
-	// to, the same directories the file tools are confined to.
+	// Exec adds the allowlisted command tools. Nil adds nothing.
+	// WorkspaceExtensions overwrites its Roots with this config's Roots, so
+	// commands run and write in the same directories as the file tools.
 	//
-	// Checkpoint does not cover exec. It snapshots the paths a tool names in
-	// its arguments, and a command's writes are whatever the process does,
-	// so an /undo after a command restores only the file-tool edits around
-	// it. Mark commands ReadOnly only when that is true of them.
+	// Checkpoint does not cover exec. It snapshots the paths named in a
+	// tool's arguments, but a command can write anywhere the process can. An
+	// /undo after a command restores only the file-tool edits around it. Mark
+	// a command ReadOnly only when it really writes nothing.
 	Exec *exec.Config
 
 	// Plan adds update_plan, the model's published checklist (#148).
 	Plan bool
 
-	// Git adds ext/git: read-only git tools, a per-turn diff, and, as its
-	// fields say, commit and branch tools, worktrees and review. Nil adds
-	// nothing. Its Root is overwritten with the first of this config's Roots.
+	// Git adds ext/git. That always means read-only git tools and a per-turn
+	// diff, and its fields can add commit and branch tools, worktrees and
+	// review. Nil adds nothing. WorkspaceExtensions overwrites its Root with
+	// this config's first root.
 	Git *git.Config
 
-	// Offloading says the host stores large tool results (host.Config.Offload
-	// is set). Exec results then carry the whole capture instead of a 32 KiB
-	// view, unless Exec.InlineOutput is set, because the store is where a
-	// failing assertion in the middle of a long run can be found. Set it from
-	// the same config that turns offloading on, so the two cannot disagree: a
-	// whole capture with no store behind it is up to 2 MiB in context. A
-	// PerTool entry that pins a run_ tool inline has the same effect.
+	// Offloading says host.Config.Offload is set, so the host stores large
+	// tool results. Exec results then hold the whole capture instead of a
+	// 32 KiB view, unless Exec.InlineOutput is set. A model can then find a
+	// failing assertion in the middle of a long run by searching the store.
+	// Set Offloading from the same config that turns offloading on, so the
+	// two cannot disagree. A whole capture with no store behind it puts up to
+	// 2 MiB in context. A PerTool entry that pins a run_ tool inline has the
+	// same effect.
 	Offloading bool
 
-	// Instructions is how the repository's instruction files (AGENTS.md and
-	// the like) are found and loaded. Nil uses agentsmd.DefaultPreset; set it
-	// from agentsmd.Preset to copy another tool's rules. They load whenever
-	// there are roots, because a repository that wrote "never edit the tests"
-	// meant it for every agent working there.
+	// Instructions says how to find and load the repository's instruction
+	// files, such as AGENTS.md. Nil uses agentsmd.DefaultPreset. Set it from
+	// agentsmd.Preset to copy another tool's rules. The files load whenever
+	// there are roots. Imagine a repository whose AGENTS.md says "never edit
+	// the tests". Its authors meant that for every agent working there.
 	Instructions *agentsmd.Profile
 
 	// NoInstructions skips the instruction files altogether.
 	NoInstructions bool
 
-	// SkillDirs are the folders local skills come from (see
-	// WorkspaceSkillDirs). Nil uses SkillsPreset's list; an empty, non-nil
+	// SkillDirs lists the folders to load local skills from (see
+	// WorkspaceSkillDirs). Nil uses SkillsPreset's list, and an empty non-nil
 	// list reads none.
 	SkillDirs []string
 
@@ -137,10 +142,10 @@ type WorkspaceConfig struct {
 // Returns nil when cfg.Roots is empty, so a caller can pass the result to
 // host.WithExtension unconditionally and get today's behaviour when no
 // workspace was requested. Exec or language servers without Roots is an
-// error rather than nil: they were asked for, and dropping them silently
-// would leave a session missing tools nobody is told about.
+// error, not nil. The caller asked for them. Dropping them silently would
+// leave a session without those tools, and nobody would be told.
 //
-// # Order is load-bearing
+// # Order matters
 //
 // Checkpoint comes first in the returned slice. Extensions are applied in
 // registration order and their middleware keeps it, so the snapshot must be
@@ -149,20 +154,20 @@ type WorkspaceConfig struct {
 //
 // Nothing catches that. Both orders construct, both run, and the difference
 // only shows up as an /undo that appears to work and does not. So the two
-// extensions are built together here instead of being left to each surface
-// to register in whatever order reads well.
+// extensions are built together here. Otherwise each surface would register
+// them in whatever order reads well.
 //
 // # Why the two are coupled
 //
-// Checkpoint's WriteSpec list is per-tool, so with no file tools it guards
-// nothing; and file tools without it drop the reversal path that agent/ext/
-// checkpoint exists to provide. Wiring them separately would let a surface
-// enable half of a safety property.
+// Checkpoint's WriteSpec list is per tool, so with no file tools it guards
+// nothing. File tools without checkpoint lose /undo, and ext/checkpoint
+// exists to provide it. Wiring them separately would let a surface enable
+// half of a safety property.
 //
-// fx.WritePaths joins them: checkpoint and lsp need the file a call will
-// write, and files exports the resolver its own tools use, so all three agree
-// on which file that is whatever the process's working directory (issue 69).
-// Neither module imports the other.
+// fx.WritePaths connects them. Checkpoint and lsp need to know which file a
+// call will write. The files tools resolve paths through fx.WritePaths too,
+// so all three agree on that file whatever the process's working directory
+// is (issue 69). Neither module imports the other.
 func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 	if len(cfg.Roots) == 0 {
 		if cfg.Exec != nil || len(cfg.LanguageServers) > 0 {
@@ -178,11 +183,11 @@ func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 		store = cfg.Roots[0]
 	}
 
-	// files.New rather than files.NewSource: the extension carries the prompt
-	// section describing the read-then-edit contract along with the tools.
-	// Registering the tools alone leaves that contract discoverable only by
-	// failing an edit. Built first because checkpoint and lsp resolve paths
-	// through it; registration order below is unchanged.
+	// Use files.New, not files.NewSource. The extension adds a prompt section
+	// that describes the read-then-edit contract. With the tools alone, a
+	// model discovers that contract only by failing an edit. fx is built
+	// first because checkpoint and lsp resolve paths through it. The
+	// registration order below does not change.
 	fx, err := files.New(files.Config{Roots: cfg.Roots, Exclude: cfg.Exclude, EditTools: cfg.EditTools})
 	if err != nil {
 		return nil, fmt.Errorf("workspace files: %w", err)
@@ -220,10 +225,12 @@ func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 	}
 
 	if len(cfg.LanguageServers) > 0 {
-		// Last, and for the mirror image of checkpoint's reason. Checkpoint
-		// must see a file before it is written; this must see it after. Its
-		// middleware therefore has to sit innermost, which registration order
-		// gives it.
+		// After checkpoint, for the mirror image of checkpoint's reason.
+		// Checkpoint must see a file before it is written, and this must see
+		// it after. So its middleware has to sit inside checkpoint's, and
+		// registration order puts it there. agentsmd registers later and adds
+		// middleware inside this one, but it only reads files, so the write
+		// has happened by the time this middleware's next call returns.
 		var mapCfg *lsp.RepoMapConfig
 		if cfg.RepoMap {
 			mapCfg = &lsp.RepoMapConfig{}
@@ -239,9 +246,9 @@ func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 			},
 		})
 		if lspErr != nil {
-			// Everything built so far owns nothing that outlives this
-			// function except the language servers we failed to finish
-			// starting, which lsp.New has already cleaned up.
+			// Nothing built so far outlives this function except the
+			// half-started language servers, and lsp.New has already
+			// cleaned those up.
 			return nil, fmt.Errorf("workspace lsp: %w", lspErr)
 		}
 		exts = append(exts, lx)
@@ -280,22 +287,21 @@ func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 	return exts, nil
 }
 
-// fileWrites are the files tools that write, which the checkpoint snapshots
-// and which restorable therefore marks reversible. One list, so a tool cannot
-// be marked reversible without also being snapshotted.
-// delete_file is on it too, since the snapshot is the only copy /undo can
-// restore it from (issue 108).
+// fileWrites lists the files tools that write. The checkpoint snapshots their
+// writes, so restorable marks them reversible. Keeping one list means no tool
+// is marked reversible without being snapshotted.
+// delete_file is on it because /undo can restore a deleted file only from
+// the snapshot (issue 108).
 // apply_patch is on it because a patch can add, change, move and delete
-// files, and the snapshot covers every one of them.
+// files, and the snapshot covers all of them.
 var fileWrites = []string{"write_file", "edit_file", "delete_file", files.PatchTool}
 
-// restorable wraps the files extension when a checkpoint covers its writes,
-// and declares those writes reversible (destructiveHint false) so
-// reversible-auto runs them unasked. files cannot say this itself: whether
-// /undo can take a write back depends on the checkpoint this wiring adds, and
-// --no-checkpoint leaves the writes unwrapped, so they stay destructive.
-// A11 asks for a true inverse before anything runs unattended, and a
-// checkpoint restore is one.
+// restorable wraps the files extension when a checkpoint covers its writes.
+// It sets destructiveHint false on those writes, so reversible-auto runs them
+// unasked. files cannot set this itself. /undo can take a write back only if
+// this wiring adds a checkpoint. With --no-checkpoint the writes are not
+// wrapped, and they are still destructive. A11 lets only a true inverse run
+// unattended, and a checkpoint restore is one.
 type restorable struct{ host.Extension }
 
 func (r restorable) Tools() (agent.ToolSource, error) {

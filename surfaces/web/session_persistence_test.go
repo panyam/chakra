@@ -10,11 +10,11 @@ import (
 	"github.com/panyam/chakra/host"
 )
 
-// persistedFactory returns a SessionManager factory that builds Apps with store
-// attached (host.WithRunStore) — the invariant a store-backed manager relies on
-// — over a fresh StubProvider scripted with one generic turn. Each Create/Get
-// build is an independent App (its own provider), exactly as agentweb's factory
-// produces per session.
+// persistedFactory returns a SessionManager factory. The factory builds Apps
+// with store attached (host.WithRunStore), and a store-backed manager relies
+// on that. Each App runs over a fresh StubProvider scripted with one generic
+// turn. Each Create/Get build is an independent App with its own provider,
+// exactly as agentweb's factory produces per session.
 func persistedFactory(t *testing.T, store agent.RunStore) func(context.Context) (*host.App, error) {
 	t.Helper()
 	return func(context.Context) (*host.App, error) {
@@ -25,11 +25,11 @@ func persistedFactory(t *testing.T, store agent.RunStore) func(context.Context) 
 	}
 }
 
-// TestSessionManager_SurvivesRestart is the persistence acceptance: a session
-// created and driven through one manager rehydrates, history intact, from a
-// FRESH manager over the same store — the process-restart shape. session_id is
-// the run id, and Get on the fresh manager (whose live map never held the id)
-// resumes the persisted run.
+// TestSessionManager_SurvivesRestart is the persistence acceptance, in the
+// shape of a process restart. One manager creates and drives a session. A
+// FRESH manager over the same store then rehydrates it with history intact.
+// session_id is the run id. The fresh manager's live map never held the id,
+// so Get on it resumes the persisted run.
 func TestSessionManager_SurvivesRestart(t *testing.T) {
 	ctx := context.Background()
 	store := agent.NewInMemoryRunStore()
@@ -85,8 +85,9 @@ func TestSessionManager_SurvivesRestart(t *testing.T) {
 	}
 }
 
-// TestSessionManager_ListReturnsPersistedRoster asserts List surfaces the
-// durable roster: a run a fresh manager's live map never held still appears.
+// TestSessionManager_ListReturnsPersistedRoster asserts List returns the
+// durable roster. A fresh manager's live map never held the run, and List
+// still returns it.
 func TestSessionManager_ListReturnsPersistedRoster(t *testing.T) {
 	ctx := context.Background()
 	store := agent.NewInMemoryRunStore()
@@ -123,7 +124,8 @@ func TestSessionManager_CloseKeepsRun(t *testing.T) {
 		t.Fatal("Close returned false for a live session")
 	}
 
-	// Evicted from the live cache, but the run persists — Get rehydrates it.
+	// The App is gone from the live cache, but the run persists, so Get
+	// rehydrates it.
 	app2, ok := mgr.Get(ctx, id)
 	if !ok {
 		t.Fatal("Get after Close: run should rehydrate, got not-found")
@@ -138,8 +140,8 @@ func TestSessionManager_CloseKeepsRun(t *testing.T) {
 }
 
 // TestSessionManager_UnknownRunWithStoreNotFound asserts an unknown session id
-// is not-found (not a crash) even when a store is configured — the store has no
-// such run to resume, so Get reports app state, not an error.
+// is not found, and doesn't crash, even when a store is configured. The store
+// has no such run to resume, so Get reports app state and not an error.
 func TestSessionManager_UnknownRunWithStoreNotFound(t *testing.T) {
 	ctx := context.Background()
 	store := agent.NewInMemoryRunStore()

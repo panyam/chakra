@@ -16,10 +16,10 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// TestWatchStreamsProcessOutputWithoutPolling is #214's acceptance: a process
-// started with exec_command shows its output on Watch as it prints, after the
-// turn that started it has ended and with nobody calling write_stdin, and the
-// model's tool result holds only what it collected.
+// TestWatchStreamsProcessOutputWithoutPolling is #214's acceptance. A process
+// started with exec_command shows its output on Watch as it prints. That
+// happens after the starting turn has ended, with nobody calling write_stdin.
+// The model's tool result holds only what it collected.
 func TestWatchStreamsProcessOutputWithoutPolling(t *testing.T) {
 	ext, err := exec.New(exec.Config{
 		Roots:   []string{t.TempDir()},
