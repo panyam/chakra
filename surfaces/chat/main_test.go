@@ -37,8 +37,8 @@ func TestStartupBannerNamesActiveConnection(t *testing.T) {
 
 	// The host already resolves this correctly for the status line.
 	want := app.ModelLabel()
-	if want != "cloud" {
-		t.Fatalf("ModelLabel() = %q, want the active connection name %q", want, "cloud")
+	if want != "cloud (gpt-5)" {
+		t.Fatalf("ModelLabel() = %q, want the active connection and its model %q", want, "cloud (gpt-5)")
 	}
 
 	// What runChat prints: it must name the active connection, not the empty

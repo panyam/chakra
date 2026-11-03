@@ -188,9 +188,26 @@ describe("ConversationStore slash commands", () => {
         return {};
       },
       respondToAsk: async () => ({}),
+      getStatus: async () => ({ modelLabel: "deepseek (deepseek-chat)", runId: "" }),
     } as unknown as Parameters<typeof createConversationStore>[0];
     return { client, calls };
   }
+
+  it("reads the status again after a command, since /provider changes the model", async () => {
+    const { client } = recordingClient(async () => ({
+      kind: "providers",
+      payload: cmdPayload({ Kind: "providers", Providers: ["claude", "deepseek"], ActiveProvider: "deepseek" }),
+    }));
+    await createRoot(async (dispose) => {
+      const store = createConversationStore(client);
+      store.setStatus({ model: "claude (claude-sonnet-5-5)", session: "" });
+      await store.submit("/provider deepseek");
+      await new Promise((r) => setTimeout(r, 0));
+      expect(store.status().model).toBe("deepseek (deepseek-chat)");
+      expect(store.error()).toBe("");
+      dispose();
+    });
+  });
 
   it("runs a slash command through Dispatch and shows its message", async () => {
     const { client, calls } = recordingClient(async () => ({

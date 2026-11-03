@@ -51,6 +51,7 @@ func main() {
 	watchWindow := flag.Duration("watch-window", envDuration("AGENTWEB_WATCH_WINDOW"), "end each event stream after this long so the client reconnects (e.g. 3s). For hosts that buffer whole responses, such as App Engine standard; 0 keeps streams open")
 	byok := flag.Bool("byok", os.Getenv("AGENTWEB_BYOK") != "", "bring your own key: each CreateSession names its provider and key, there is no default session, and sessions are reachable only by id. --config, when given, supplies everything but the model (default on when AGENTWEB_BYOK is set)")
 	accessToken := flag.String("access-token", os.Getenv("AGENTWEB_ACCESS_TOKEN"), "require this token in the X-Agentweb-Token header on every API call (default $AGENTWEB_ACCESS_TOKEN). Set it whenever the server is reachable by anyone but you")
+	model := flag.String("model", "", "override the model of the active connection (or of the config's single model) at startup")
 	active := flag.String("active", "", "override the active chat connection at startup (a name in the config's connections; default = the config's active)")
 	flag.Parse()
 
@@ -71,6 +72,7 @@ func main() {
 		configPath:      *configPath,
 		demo:            *demo,
 		active:          *active,
+		model:           *model,
 		store:           store,
 		workspace:       workspace,
 		workspaceConfig: *workspaceConfig,
@@ -174,6 +176,7 @@ type appOptions struct {
 	configPath      string
 	demo            bool
 	active          string
+	model           string
 	store           agent.RunStore
 	workspace       []string
 	workspaceConfig string
@@ -281,6 +284,15 @@ func buildApp(o appOptions) (*host.App, error) {
 			return nil, fmt.Errorf("--active %q: no such connection in the config", o.active)
 		}
 		cfg.Connections.Active = o.active
+	}
+	if o.model != "" {
+		if cfg.Connections != nil {
+			conn := cfg.Connections.Connections[cfg.Connections.Active]
+			conn.Model = o.model
+			cfg.Connections.Connections[cfg.Connections.Active] = conn
+		} else {
+			cfg.Model.Model = o.model
+		}
 	}
 	opts, err := withWorkspace(cfg)
 	if err != nil {

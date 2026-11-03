@@ -1,3 +1,4 @@
+import { HostEventKind } from "./hostevent.js";
 import { IslandPage, lazy, type EventBus, type LCMComponent, type Registry } from "@panyam/tsappkit";
 import { hostClient, scoped } from "./api.js";
 import { createSessionsStore } from "./sessions.js";
@@ -52,14 +53,28 @@ export class AgentWebPage extends IslandPage<PageContext> {
     const client = scoped(base, settings.active);
     const sessions = createSessionsStore(base, storage);
     const stores = createPanelStores(client, sessions);
-    const watch = new WatchStream(client, (ev) => stores.ingest(ev));
-    window.addEventListener("beforeunload", () => watch.stop());
-    void client
-      .getStatus({})
-      .then((st) => {
+    // The status line names the model and the session, and a turn can change
+    // either (a command the model ran, a session it started); read it again
+    // after each. Slash commands refresh it themselves (conversation.ts).
+    const refreshStatus = () =>
+      client.getStatus({}).then((st) => {
         stores.conversation.setStatus({ model: st.modelLabel, session: st.runId });
-        watch.start();
-      })
+      });
+    // Debounced, since the Watch replays a session's whole log on load.
+    let pending: ReturnType<typeof setTimeout> | null = null;
+    const watch = new WatchStream(client, (ev) => {
+      stores.ingest(ev);
+      if (ev.Kind === HostEventKind.TurnDone) {
+        if (pending) clearTimeout(pending);
+        pending = setTimeout(() => {
+          pending = null;
+          void refreshStatus().catch(() => {});
+        }, 200);
+      }
+    });
+    window.addEventListener("beforeunload", () => watch.stop());
+    void refreshStatus()
+      .then(() => watch.start())
       .catch((e) => sessions.diagnose(e));
     return { stores };
   }

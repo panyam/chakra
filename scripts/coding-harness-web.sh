@@ -19,6 +19,6 @@ CKPT="$(mktemp -d)"
 echo "coding agent on http://$ADDR/ working in $WS"
 cd "$ROOT/surfaces/web"
 exec go run ./cmd/agentweb --addr "$ADDR" \
-	--config "$EX/config.json" --active "${CH_ACTIVE:-openai}" \
+	--config "$EX/config.json" --active "${CH_ACTIVE:-openai}" ${CH_MODEL:+--model "$CH_MODEL"} \
 	--workspace "$WS" --workspace-config "$EX/workspace.json" --checkpoint-store "$CKPT" \
 	${CH_INSTRUCTIONS:+--instructions "$CH_INSTRUCTIONS"}

@@ -958,10 +958,14 @@ func (a *App) Providers() (names []string, active string) {
 }
 
 // ModelLabel is the human-facing name of the active model for a status line:
-// the active connection name when a ConnectionRegistry is configured, else the
-// single-model identifier.
+// with a ConnectionRegistry, the active connection's name and its model id
+// ("openai (gpt-5.5)"), or the name alone when the two match or the
+// connection names no model; else the single-model identifier.
 func (a *App) ModelLabel() string {
 	if _, active := a.Providers(); active != "" {
+		if m := a.connections.ActiveModel(); m != "" && m != active {
+			return active + " (" + m + ")"
+		}
 		return active
 	}
 	return a.cfg.Model.Model

@@ -32,16 +32,33 @@ func TestActiveOverridesTheConfigsConnection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := app.ModelLabel(); got != "first" {
-		t.Errorf("without --active, label = %q, want the config's active (first)", got)
+	if got := app.ModelLabel(); got != "first (model-one)" {
+		t.Errorf("without --active, label = %q, want the config's active and its model", got)
 	}
 
 	app, err = buildApp(appOptions{configPath: cfg, active: "second"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := app.ModelLabel(); got != "second" {
-		t.Errorf("with --active second, label = %q, want second", got)
+	if got := app.ModelLabel(); got != "second (model-two)" {
+		t.Errorf("with --active second, label = %q, want second (model-two)", got)
+	}
+}
+
+func TestModelOverridesTheActiveConnectionsModel(t *testing.T) {
+	app, err := buildApp(appOptions{configPath: writeConfig(t, twoConnections), active: "second", model: "model-three"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := app.ModelLabel(); got != "second (model-three)" {
+		t.Errorf("with --active second --model model-three, label = %q", got)
+	}
+	app, err = buildApp(appOptions{configPath: writeConfig(t, `{"model": {"baseUrl": "http://127.0.0.1:1", "model": "m"}}`), model: "m2"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := app.ModelLabel(); got != "m2" {
+		t.Errorf("single-model config with --model m2, label = %q", got)
 	}
 }
 

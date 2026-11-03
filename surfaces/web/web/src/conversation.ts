@@ -255,6 +255,12 @@ export function createConversationStore(client: Client<typeof HostService>): Con
     try {
       const resp = await client.dispatch({ line: text });
       push({ role: "system", text: cmdText(resp.payload, text) });
+      // A command can change what the status line names (/provider switches
+      // the model), and its result comes back here rather than on the Watch.
+      void client
+        .getStatus({})
+        .then((st) => setStatus({ model: st.modelLabel, session: st.runId }))
+        .catch(() => {});
     } catch (e) {
       if (ConnectError.from(e).code === Code.InvalidArgument) return false;
       setError(e instanceof Error ? e.message : String(e));
