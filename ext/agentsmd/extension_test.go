@@ -341,7 +341,7 @@ func TestBlockSharesTheCapWithThePrompt(t *testing.T) {
 }
 
 func TestBadProfilesAreRefused(t *testing.T) {
-	if _, err := Preset("cursor"); err == nil {
+	if _, err := Preset("no-such-agent"); err == nil {
 		t.Error("unknown preset accepted")
 	}
 	for _, mut := range []func(*Profile){

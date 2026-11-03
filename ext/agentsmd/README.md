@@ -21,25 +21,48 @@ preset unless `WorkspaceConfig.Instructions` names another. In a workspace file:
 
 ## Presets
 
-| | `codex` | `claude` | `chakra` (default) |
-|---|---|---|---|
-| Names, first present per directory | `AGENTS.md` | `CLAUDE.md`, `.claude/CLAUDE.md` | `AGENTS.md`, `CLAUDE.md` |
-| Override | `AGENTS.override.md` | none | `AGENTS.override.md` |
-| Local file, after the main one | none | `CLAUDE.local.md` | none |
-| Fallback, only if the chain has none of the above | none | `AGENTS.md`, `.claude/AGENTS.md` | none |
-| Global directory | `~/.codex` | `~/.claude` | none |
-| Startup chain | git root down to the workspace root | every parent down to the workspace root | git root down to each workspace root |
-| Subdirectories | never | once a tool call names a path there | once a tool call names a path there |
-| Edits during a session | ignored until the next session | ignored until the next session | shown before the next model call |
-| `@path` imports, stripped HTML comments | no | yes | no |
-| Size cap, all files together | 32 KiB | none | 32 KiB |
+| | `codex` | `claude` | `cursor` | `chakra` (default) |
+|---|---|---|---|---|
+| Names, first present per directory | `AGENTS.md` | `CLAUDE.md`, `.claude/CLAUDE.md` | `AGENTS.md` | `AGENTS.md`, `CLAUDE.md` |
+| Override | `AGENTS.override.md` | none | none | `AGENTS.override.md` |
+| Local file, after the main one | none | `CLAUDE.local.md` | none | none |
+| Fallback, only if the chain has none of the above | none | `AGENTS.md`, `.claude/AGENTS.md` | none | none |
+| Global directory | `~/.codex` | `~/.claude` | none | none |
+| Startup chain | git root down to the workspace root | every parent down to the workspace root | git root down to the workspace root | git root down to each workspace root |
+| Subdirectories | never | once a tool call names a path there | once a tool call names a path there | once a tool call names a path there |
+| Edits during a session | ignored until the next session | ignored until the next session | ignored until the next session | shown before the next model call |
+| `@path` imports, stripped HTML comments | no | yes | no | no |
+| Size cap, all files together | 32 KiB | none | none | 32 KiB |
+| Rule folders | none | `.claude/rules` | `.cursorrules`, `.cursor/rules` | none |
 
 The Codex column follows its documentation for `AGENTS.md` discovery. The Claude column follows
 Claude Code's memory documentation, with one difference. Claude Code re-reads its root file after a
 compaction, and this preset doesn't.
 
-Cursor's rule folders are a different mechanism and aren't covered here. They live in
-`.cursor/rules/*.mdc` and apply always, by glob, by description or on mention.
+The Cursor column follows Cursor's rules documentation. Cursor also reads `AGENTS.md`, and its
+older single `.cursorrules` file still works.
+
+## Rule folders
+
+`Profile.Rules` names rule folders or single rule files, relative to each workspace root. A folder
+is read recursively for `.md` and `.mdc` files. Each rule's frontmatter says when it applies:
+
+| Frontmatter | When it applies |
+|---|---|
+| `alwaysApply: true`, or a `.md` file with none of the keys below | always, in the system prompt after the startup chain |
+| `globs:` (Cursor) or `paths:` (Claude Code) | once a tool call names a matching path, in the per-call block |
+| `description:` only | listed in the system prompt with its path, so the model reads it when the task matches |
+| none of these, in a `.mdc` file | Cursor's manual rule, which applies only when mentioned, so it isn't loaded |
+
+A glob is relative to the workspace root. `**` spans directories, a trailing `/` means everything
+under a directory, and a glob with no `/` matches the file name at any depth (`*.tsx`). Values can
+be a comma-separated string, a `[flow, list]` or `- item` lines. The frontmatter is read line by
+line rather than as YAML, because Cursor writes `globs: *.ts` unquoted, and YAML would read that
+as an alias.
+
+Rules are read once, on the first turn. Each glob rule is shown once per session, the first time a
+path matches it, and the announcement names the path and the glob. A described rule goes through
+the model's ordinary file tools, so the approval gate sees that read like any other.
 
 ## Where each part hooks in
 
