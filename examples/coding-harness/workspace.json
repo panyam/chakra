@@ -13,5 +13,6 @@
         { "prefix": ["git", "push", ["--force", "-f"]], "decision": "forbidden", "justification": "rewrites shared history" }
       ]
     }
-  }
+  },
+  "skills": {"dirs": [".agents/skills"]}
 }

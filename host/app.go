@@ -133,6 +133,9 @@ type App struct {
 	// approvalClassifiers, also in registration order; see classifyApproval.
 	approvalClassifiers []ApprovalClassifier
 
+	// skillDirs are the local skill folders, labels filled in.
+	skillDirs []SkillDir
+
 	// steer queues input sent while a turn runs; see Submit.
 	steer steerQueue
 
@@ -170,6 +173,7 @@ type App struct {
 type AppOption func(*appOptions)
 
 type appOptions struct {
+	skillDirs       []SkillDir
 	provider        agent.Provider
 	ui              agent.ElicitationUI
 	tp              core.TracerProvider
@@ -351,6 +355,16 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	for _, sc := range cfg.Servers {
 		app.skills.track(sc.ID)
 	}
+	// Local skill folders come after the servers in the prompt and catalog.
+	app.skillDirs = resolveSkillDirs(append(append([]SkillDir(nil), cfg.SkillDirs...), o.skillDirs...))
+	for _, d := range app.skillDirs {
+		for _, sc := range cfg.Servers {
+			if sc.ID == d.Label {
+				return nil, fmt.Errorf("host: skill folder %s has label %q, which a server already uses", d.Path, d.Label)
+			}
+		}
+		app.skills.track(d.Label)
+	}
 	if o.configPath != "" {
 		app.overlay = &configOverlay{path: overlayPathFor(o.configPath)}
 	}
@@ -454,6 +468,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	// the dynamic system prompt (buildInstructions) and load_skill read live, so
 	// a server that connects after boot contributes its skills on the next turn.
 	_ = app.servers.group.WaitSettled(context.Background())
+	app.loadLocalSkills()
 
 	provider := o.provider
 	if provider == nil && cfg.Connections != nil {

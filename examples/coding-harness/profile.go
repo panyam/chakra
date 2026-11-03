@@ -92,8 +92,13 @@ func (p profile) build(context.Context) (*host.App, error) {
 	if err != nil {
 		return nil, err
 	}
+	skillDirs, err := agentsurfaces.WorkspaceSkillDirs(ws)
+	if err != nil {
+		return nil, err
+	}
 	return host.NewApp(cfg, io.Discard, strings.NewReader(""),
 		host.WithExtension(exts...),
+		host.WithSkillDirs(skillDirs...),
 		host.WithProvider(prov),
 		host.WithElicitationUI(awaitSurface),
 	)

@@ -27,6 +27,9 @@ func scriptedProvider(fixture string) (agent.Provider, error) {
 	}
 	return agent.NewStubProvider(
 		agent.StubTurn{ToolCalls: []agent.ToolCall{
+			call("c0", "load_skill", map[string]any{"name": "go-testing"}),
+		}},
+		agent.StubTurn{ToolCalls: []agent.ToolCall{
 			call("c1", "read_file", map[string]any{"path": "stats/stats.go"}),
 		}},
 		agent.StubTurn{ToolCalls: []agent.ToolCall{

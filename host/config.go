@@ -131,6 +131,11 @@ type Config struct {
 	// single-connection quick-start path. See ConnectionsConfig.
 	Connections *ConnectionsConfig `json:"connections,omitempty"`
 
+	// SkillDirs are local folders of skills (<folder>/<name>/SKILL.md) that
+	// join the skill catalog beside MCP-served skills. WithSkillDirs adds
+	// more, which is how a surface adds workspace folders.
+	SkillDirs []SkillDir `json:"skillDirs,omitempty"`
+
 	// Offload configures tool-result offloading. Nil means off: tool
 	// results flow into the conversation verbatim. Set it to store
 	// over-threshold results out of band and hand the model a compact
