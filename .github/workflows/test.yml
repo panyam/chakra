@@ -61,7 +61,9 @@ jobs:
           go-version-file: chakra/main/go.mod
           cache: false
 
-      # The module cache and the build cache. Only main saves (the step at the
+      # The module cache and the build cache. The build cache also holds go
+      # test's results, so the test steps pass -count=1: CI runs every test,
+      # and only compiling and downloading are saved. Only main saves (the step at the
       # end of the job), a fresh entry per run so the build cache follows the
       # code; a PR restores main's latest for this job, falling back to one
       # from before the last go.sum change, so a dependency bump still starts
@@ -91,7 +93,7 @@ jobs:
         run: make vet
 
       - name: Test every module
-        run: make test GOTESTFLAGS='-v -race -timeout 300s'
+        run: make test GOTESTFLAGS='-v -race -count=1 -timeout 300s'
 
       - if: (github.ref == 'refs/heads/main' || github.head_ref == 'ci/per-job-go-cache') && !cancelled()
         uses: actions/cache/save@v6.1.0
@@ -143,7 +145,9 @@ jobs:
           go-version-file: chakra/main/go.mod
           cache: false
 
-      # The module cache and the build cache. Only main saves (the step at the
+      # The module cache and the build cache. The build cache also holds go
+      # test's results, so the test steps pass -count=1: CI runs every test,
+      # and only compiling and downloading are saved. Only main saves (the step at the
       # end of the job), a fresh entry per run so the build cache follows the
       # code; a PR restores main's latest for this job, falling back to one
       # from before the last go.sum change, so a dependency bump still starts
@@ -159,7 +163,7 @@ jobs:
             go-${{ runner.os }}-${{ steps.go.outputs.go-version }}-${{ github.job }}-
 
       - name: Test every example
-        run: make test-examples GOTESTFLAGS='-v -race -timeout 300s'
+        run: make test-examples GOTESTFLAGS='-v -race -count=1 -timeout 300s'
 
       - if: (github.ref == 'refs/heads/main' || github.head_ref == 'ci/per-job-go-cache') && !cancelled()
         uses: actions/cache/save@v6.1.0
