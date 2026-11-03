@@ -1,18 +1,19 @@
 # web — Connect bridge over the agent host
 
-`web` exposes `agent/host.App` (the surface-agnostic host the terminal
-`cmd/agentchat` drives) over a Connect RPC bridge with a live event stream, so a
-browser can be another surface on the same running agent. It is a thin
-projection: it holds only an `*App` and maps each RPC to an App method. No web or
-proto type leaks back into `host` (agent/CONSTRAINTS A4/A6).
+`agent/host.App` is the surface-agnostic host, and the terminal `cmd/agentchat`
+drives it. `web` exposes the same `App` over a Connect RPC bridge with a live
+event stream, so a browser can be another surface on the same running agent.
+`web` is a thin projection. It holds only an `*App` and maps each RPC to an App
+method. No web or proto type leaks back into `host` (agent/CONSTRAINTS A4/A6).
 
-This is E3 of the web-UI epic (issue 1196, epic 1193). E4 (issue 1197) adds the
-DockView + Solid frontend that consumes this bridge — see "Frontend" below.
+This is E3 of the web-UI epic (issue 1196, epic 1193). E4 (issue 1197) adds a
+DockView + Solid frontend, and that frontend consumes this bridge. "Frontend"
+below describes it.
 
 ## Surface
 
-Proto `chakra.web.v1.HostService` (`protos/`, generated Go + Connect under
-`gen/go/`):
+The proto is `chakra.web.v1.HostService` in `protos/`, with generated Go +
+Connect under `gen/go/`.
 
 | RPC | App method | Shape |
 |-----|-----------|-------|
@@ -28,51 +29,54 @@ Proto `chakra.web.v1.HostService` (`protos/`, generated Go + Connect under
 
 ### Multi-session (epic 1193)
 
-One agentweb server hosts many concurrent conversations, each its own live
-`host.App`. Every request carries a `session_id` routing field on its envelope
-that selects the App it acts on. A `SessionManager` (`sessions.go`) owns the Apps
-keyed by id and builds new ones on demand from a factory (a fresh App from the
-server's config). `HostService` routes each RPC through it: an unknown
-`session_id` is `CodeNotFound`. An **empty** `session_id` resolves to a default
-session created at startup, so a client that predates multi-session (and sends no
-`session_id` — the current frontend) keeps working unchanged.
+One agentweb server hosts many concurrent conversations, each with its own
+live `host.App`. Every request carries a `session_id` routing field on its
+envelope, and that field selects which App handles the request. A
+`SessionManager` in `sessions.go` owns the Apps, keyed by id. It builds new ones
+on demand from a factory, which makes a fresh App from the server's config.
+`HostService` routes each RPC through it, and an unknown `session_id` gets
+`CodeNotFound`. An **empty** `session_id` resolves to a default session created
+at startup. Some clients predate multi-session and send no `session_id`, and the
+current frontend is one of them. Those clients keep working unchanged.
 
-`session_id` is a routing field on the request, never part of an event payload —
-the `Frame` stays event-flat (A2). `web.HandlerWithSessions(mgr)` serves the
-multi-session mux; `web.Handler(app)` remains the single-App shortcut (it wraps
-`app` as the default session with no factory, so `CreateSession` is unavailable).
+`session_id` is a routing field on the request, and never part of an event
+payload. So the `Frame` is still event-flat (A2). `web.HandlerWithSessions(mgr)`
+serves the multi-session mux. `web.Handler(app)` is still the single-App
+shortcut. It wraps `app` as the default session with no factory, so
+`CreateSession` is unavailable.
 
-`ListSessions` (an App's persisted RunStore runs) and `ListWebSessions` (the
-roster of concurrent conversations) are distinct: the former pages history inside
-one conversation, the latter enumerates the conversations themselves.
+`ListSessions` and `ListWebSessions` are distinct. `ListSessions` pages an
+App's persisted RunStore runs, which is history inside one conversation.
+`ListWebSessions` lists the roster of concurrent conversations themselves.
 
 A browser session-switcher UI (open / list / switch conversations) is a
 follow-up; this slice is the backend + wire + tests.
 
 ### Frame envelope (A2)
 
-`Watch` streams `Frame{kind, payload bytes}` where `payload = json.Marshal(HostEvent)`
-— the event's own A2 wire JSON, a 1:1 projection, never a per-kind proto schema
-(A2 forbids a translation layer). The client decodes `payload` as JSON keyed by
+`Watch` streams `Frame{kind, payload bytes}`, where
+`payload = json.Marshal(HostEvent)`. The payload is the event's own A2 wire JSON,
+a 1:1 projection. It is never a per-kind proto schema, because A2 forbids a
+translation layer. The client decodes `payload` as JSON keyed by
 `kind`. `Dispatch` uses the same `{kind, json}` shape for `CmdResult`.
 
-The first `Watch` frame is a ready sentinel with an empty `kind` (the Connect
-protocol flushes response headers on the first `Send`, so this opens the stream
-promptly even on an idle session). Clients skip an empty-kind frame.
+The first `Watch` frame is a ready sentinel with an empty `kind`. The Connect
+protocol flushes response headers on the first `Send`, so the sentinel opens the
+stream promptly even on an idle session. Clients skip an empty-kind frame.
 
-A few `HostEvent` kinds still carry live pointers `json.Marshal` can reject
-(`TaskStatus`, `Task`, and the `Failover` inside a command result) — that is the
-already-filed issue 994. Until they get serializable snapshots, their frame
-carries a minimal `{kind}` payload so one un-serializable event never stalls the
-stream.
+A few `HostEvent` kinds still carry live pointers, and `json.Marshal` can reject
+them. They are `TaskStatus`, `Task`, and the `Failover` inside a command result,
+and the already-filed issue 994 tracks them. Until they get serializable
+snapshots, their frame carries a minimal `{kind}` payload so one un-serializable
+event never stalls the stream.
 
 ## Serve
 
-`web.Handler(app)` builds the mux: HostService Connect handlers under the proto
-service path, the frontend bundle under `/static/`, and the server-rendered shell
-at `/` (`shell.go`, stdlib `html/template`, island holes + `data-layout`).
-`cmd/agentweb` is the thin serve binary over it (mirrors how `cmd/agentchat` is
-thin over the host):
+`web.Handler(app)` builds the mux. The mux serves HostService Connect handlers
+under the proto service path, the frontend bundle under `/static/`, and the
+server-rendered shell at `/`. The shell is `shell.go`, which uses stdlib
+`html/template` with island holes + `data-layout`. `cmd/agentweb` is the thin
+serve binary over the mux, the same way `cmd/agentchat` is thin over the host.
 
 ```
 go run ./cmd/agentweb --addr :8090 --config path/to/host-config.json
@@ -80,8 +84,8 @@ go run ./cmd/agentweb --addr :8090 --config path/to/host-config.json
 
 agentweb has no terminal, so an approval ask waits until some surface answers
 it through `RespondToAsk`, or until the turn is cancelled. A turn with no tab
-open just sits at the ask (issue 121; before that the empty stdin declined every
-ask on the spot).
+open just waits at the ask (issue 121). Before that, the empty stdin declined
+every ask on the spot.
 
 The browser answers an ask from its `requestedSchema`, since the host reads
 specific fields out of the answer. Approve on a plain approval sends
@@ -91,8 +95,8 @@ no fields at all, which the host reads as a refusal. Fields that aren't boolean
 aren't rendered yet. The answers are pinned by `testdata/asks/`, which both the
 vitest and the Go tests read.
 
-Connect server-streaming (`Watch`) rides the Connect protocol, which supports
-server streams over HTTP/1.1, so no h2c is needed for local dev.
+`Watch` streams over the Connect protocol, which supports server streams over
+HTTP/1.1. So local dev needs no h2c.
 
 The API only answers pages served from localhost, and requests with no `Origin`
 only when their `Host` is localhost, so another site open in the browser cannot
@@ -110,27 +114,28 @@ lasts as long as a tab is open and `Submit` as long as a turn.
 ## Deploy (App Engine)
 
 `make deploy-web` from the repo root deploys to the `vibestitch` App Engine
-project (`GCP_PROJECT=...` to change it), at https://vibestitch.uc.r.appspot.com.
-It runs the web tests and rebuilds the bundle, then `deploy.sh` vendors the
-module (its go.mod replaces chakra and mcpkit with paths that don't exist once
-it's uploaded alone), adds the access token to a temporary copy of `app.yaml`,
+project (`GCP_PROJECT=...` to change it), at
+https://vibestitch.uc.r.appspot.com. It runs the web tests and rebuilds the
+bundle. Then `deploy.sh` vendors the module, because the module's go.mod
+replaces chakra and mcpkit with paths that don't exist once it's uploaded alone.
+`deploy.sh` then adds the access token to a temporary copy of `app.yaml`,
 deploys, and removes both. `make weblogs` tails the logs.
 
 The first deploy writes a random access token to `surfaces/web/.agentweb-token`
 (gitignored). Paste it into the Sessions panel once per browser.
 
-Things `app.yaml` settles, and why:
+`app.yaml` sets the following, each for the reason given.
 
 - **One instance, basic scaling.** Sessions live in that instance's memory, so a
   second instance wouldn't have them, and basic scaling allows long requests.
 - **`AGENTWEB_BYOK`** (`--byok`). The server holds no keys. The browser keeps
-  its providers and keys in localStorage (the Sessions panel) and sends one with
-  the `CreateSession` that starts a session; the key then lives in that
+  its providers and keys in localStorage (the Sessions panel) and sends one key
+  with the `CreateSession` that starts a session. The key then lives in that
   session's provider, in memory, until the session closes or the instance
   restarts. There's no default session, `ListWebSessions` is refused, and an
-  empty `session_id` is NotFound, so a session is reachable only by its random
-  id, which only the browser that made it has. The demo is one of the provider
-  types, so the page is usable with no key at all.
+  empty `session_id` is NotFound. So a session is reachable only by its random
+  id, and only the browser that created it has that id. The demo is one of the
+  provider types, so the page is usable with no key at all.
 - **`AGENTWEB_ACCESS_TOKEN`** (`--access-token`). Every API call needs it in
   `X-Agentweb-Token`. The origin check only stops other sites' pages; a script
   can send any Origin, so a public server needs this as well.
@@ -138,11 +143,11 @@ Things `app.yaml` settles, and why:
   until it ends, so an open `Watch` never reaches the browser. With a window the
   server ends each `Watch` after 3s and the client reconnects, passing
   `resume_after` (the number of events it has applied) so the replay isn't
-  applied twice. Replies arrive in batches up to a few seconds late; the
+  applied twice. Replies arrive in batches up to a few seconds late. The
   Conversation panel shows a waiting cell from submit until the turn's done
-  event lands. Live streaming is #165.
-- **`AGENTWEB_ALLOW_ORIGIN`.** The environment stands in for `--allow-origin`,
-  and `$PORT` for `--addr`.
+  event arrives. Live streaming is #165.
+- **`AGENTWEB_ALLOW_ORIGIN`.** This variable replaces `--allow-origin`, and
+  `$PORT` replaces `--addr`.
 
 Switching sessions reloads the page, so every panel and the Watch stream start
 over against the new session. The transcript comes back whole, because the host
@@ -150,16 +155,18 @@ announces each turn's input as a `user-input` event.
 
 ## Frontend (E4, issue 1197)
 
-The frontend lives in `web/` and follows the diffpp/Agni pattern: a server-rendered
-shell with island "holes", DockView for the dockable desktop layout, SolidJS
-islands mounted into the holes, and Connect-Web clients generated from the same
-proto. It consumes E3's `Watch` server-stream **directly** via connect-web (no
-massrelay — that is a later follow-up). This slice ships one **Conversation** panel
-(streams the live turn off `Watch`, a prompt box that `Submit`s, an approval prompt
-on `HostElicitRequest` answered via `RespondToAsk`) in both a DockView desktop
-layout and a mobile-overlay layout; the observability panels are E5 (issue 1198),
-which extend the panel registry in `web/src/dock.ts` and reconcile into existing
-saved layouts.
+The frontend lives in `web/` and follows the diffpp/Agni pattern. A
+server-rendered shell has island "holes", and SolidJS islands mount into them.
+DockView provides the dockable desktop layout. Connect-Web clients are generated
+from the same proto. The frontend reads E3's `Watch` server-stream **directly**
+through connect-web, with no massrelay. massrelay is a later follow-up.
+
+This slice ships one **Conversation** panel. It streams the live turn off
+`Watch`, has a prompt box that `Submit`s, and shows an approval prompt on
+`HostElicitRequest` that it answers via `RespondToAsk`. The panel works in both a
+DockView desktop layout and a mobile-overlay layout. The observability panels
+are E5 (issue 1198). They extend the panel registry in `web/src/dock.ts` and
+reconcile into existing saved layouts.
 
 Layout map (`web/src/`):
 
@@ -173,7 +180,7 @@ Layout map (`web/src/`):
 | `ConversationPanel.tsx` | the Conversation Solid island (transcript, ask prompt, compose box) |
 | `dock.ts` | framework-neutral panel registry + saved-layout persistence + reconcile |
 | `DockviewWorkspace.ts` | dockview-core glue: adopt island hosts into panels |
-| `MobileOverlays.tsx` | phone layout: the chat as the hero, a bottom bar (Chat, Agents, Activity, Tools) and a More drawer (Memory, Budget) whose panels open over the tab with a back bar. Every panel stays mounted, only hidden |
+| `MobileOverlays.tsx` | phone layout: the chat as the hero, a bottom bar (Chat, Agents, Activity, Tools) and a More drawer (Memory, Budget) whose panels open over the tab with a back bar. Every panel remains mounted, only hidden |
 | `mobilenav.ts` | the phone layout's navigation state and unread dots, with no DOM, so it's unit-tested |
 | `StatusLine.tsx`, `status.ts` | the topbar status island (model and session), and the model picker that runs `/provider` when the session has connections to choose from |
 | `page.ts` | tsappkit `IslandPage`: the island registry and the shared stores and `Watch` |
@@ -182,13 +189,14 @@ Layout map (`web/src/`):
 | `sessions.ts` | the session lifecycle: create with a provider, switch, close, and why there's nothing to show |
 | `SessionsPanel.tsx` | the Sessions panel over it (in the dock, and first in the phone layout's More drawer) |
 
-`shell.go` writes a page spec into `#page-spec` naming the islands for the chosen
-layout and their `[data-slot]`s (`status` plus `dock` or `mobile`), and the
-registry in `page.ts` builds each one. The dock is a lazy entry, so dockview-core
-loads only on the desktop layout. The dock's own panels stay hand-mounted
-`SolidIsland`s, because dockview builds them in detached hosts rather than in
-slots the spec could name. Dockview 8 ships no CSS file, so `build.mjs` extracts
-the stylesheet from its UMD build into `static/dockview.css`.
+`shell.go` writes a page spec into `#page-spec`. The spec names the islands for
+the chosen layout and their `[data-slot]`s, which are `status` plus `dock` or
+`mobile`. The registry in `page.ts` builds each island. The dock is a lazy
+entry, so dockview-core loads only on the desktop layout. The dock's own panels
+are still hand-mounted `SolidIsland`s. Dockview builds them in detached hosts,
+not in slots, so the spec can't name them. Dockview 8 ships no CSS file, so
+`build.mjs` extracts the stylesheet from its UMD build into
+`static/dockview.css`.
 
 ### Run it (offline demo)
 
@@ -196,9 +204,9 @@ the stylesheet from its UMD build into `static/dockview.css`.
 ./run.sh          # builds the bundle, serves --demo on :8090
 ```
 
-`--demo` wires an offline, inexhaustible streaming provider (no model or MCP
-server needed), so opening `http://localhost:8090/` and sending a message streams a
-live turn into the Conversation panel. `?layout=mobile` (or the topbar Layout
+`--demo` wires in an offline, inexhaustible streaming provider, so it needs no
+model or MCP server. Open `http://localhost:8090/` and send a message, and a live
+turn streams into the Conversation panel. `?layout=mobile` (or the topbar Layout
 select) switches to the phone layout. With no `?layout=`, a phone's user agent
 gets it by default.
 
@@ -213,12 +221,12 @@ npm run typecheck
 npm run test     # vitest: Frame-decode, event fold, dock reconcile, status line
 ```
 
-The built bundle is committed under `static/` so `go build` and `just test-agent`
-need no Node step; rebuild it after a frontend change. When a rebase or merge
-conflicts in `static/`, don't pick a side: take either copy, run `npm ci` and
-`npm run build` on the merged sources, and stage the result (a fresh worktree
-has no `node_modules`). The chunk names are content hashes, so a rebuild also
-renames chunks.
+The built bundle is committed under `static/`, so `go build` and
+`just test-agent` need no Node step. Rebuild it after a frontend change.
+Suppose a rebase or merge conflicts in `static/`. Don't pick a side. Take either
+copy, run `npm ci` and `npm run build` on the merged sources, and stage the
+result. A fresh worktree has no `node_modules`, so `npm ci` comes first. The
+chunk names are content hashes, so a rebuild also renames chunks.
 
 ## Regenerating proto code
 

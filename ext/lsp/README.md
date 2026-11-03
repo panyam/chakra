@@ -22,9 +22,9 @@ app, _ := host.NewApp(cfg, out, in, host.WithExtension(fx, ext))
 ```
 
 `Command` comes from configuration and is deliberately unreachable from a tool
-argument. A model's instructions can come from content it read, so an agent
-that could name the subprocess it starts would be one injected instruction away
-from running anything.
+argument. A model's instructions can come from content it read. Suppose an
+agent could name the subprocess it starts. It would then be one injected
+instruction away from running anything.
 
 ## Diagnostics arrive twice, for two different questions
 
@@ -32,23 +32,23 @@ from running anything.
 |---|---|---|
 | Mechanism | appended to the write's tool result | transient `ContextStage` |
 | The claim | "this edit introduced these errors" | "the file currently has these errors" |
-| Lands in history | yes, and stays true there | never |
+| Goes into history | yes, and is still true there later | never |
 
 The split is the design, not an implementation detail.
 
-A tool result joins the conversation permanently. That is right for a statement
-about what an edit *caused*, which stays true as a record of the past. It is
-wrong for a statement about *current state*, which stops being true the moment
-the model fixes one of the errors, and which would then accumulate one stale
-block per edit until the context held ten overlapping and mostly wrong
-descriptions of the same file. `host.contextPipeline` already names that failure
-for memory injection.
+A tool result joins the conversation permanently. That suits a statement about
+what an edit *caused*, since a record of the past is still true later. It
+doesn't suit a statement about *current state*. Imagine the model fixes one of
+the errors. The current-state statement is now false, but it is still in the
+conversation. Each edit adds another stale block, until the context holds ten
+overlapping and mostly wrong descriptions of the same file.
+`host.contextPipeline` already names that failure for memory injection.
 
 So why not put everything in the stage? Because **stages run once per turn**, at
 `RunTurn`, while an edit-check-fix loop runs across the tool-call steps *inside*
-a turn. A model that edits at step 3 and keeps working to step 12 would learn
-nothing for nine steps. The tool result is the only path that reaches it in
-time.
+a turn. Suppose a model edits at step 3 and keeps working to step 12. With only
+the stage, it would learn nothing for nine steps. Only the tool result reaches
+it in time.
 
 ```
 $ edit_file {"path": "cache.go", ...}
@@ -58,31 +58,31 @@ $ edit_file {"path": "cache.go", ...}
 ```
 
 The per-turn block reports only what is currently wrong, and says nothing at all
-when nothing is. An all-clear repeated every turn spends context to say nothing
-and trains the model to skip the section.
+when nothing is. If an all-clear were repeated every turn, it would spend
+context to say nothing and train the model to skip the section.
 
-A server that does not answer in time is reported as not having answered:
+If a server does not answer in time, the result says so:
 
 ```
 cache.go: the language server did not report back within 8s
 ```
 
-Silence would read as "no problems" and the diagnostics we happened to be
-holding would read as problems this edit caused, sending the model to fix
+Silence would read as "no problems". The diagnostics we happened to be holding
+would then read as problems this edit caused, and the model would go fix
 something it already fixed.
 
 ### The first publication is not always the answer
 
 Most servers publish once with what they found. Some compute in two phases and
 publish an **empty set immediately**, then the real diagnostics after a slow
-pass. An empty set means "clean" or "not computed yet" and nothing in the
-protocol distinguishes them, so taking the first publication reports a file that
-does not compile as clean.
+pass. An empty set can mean "clean" or "not computed yet", and nothing in the
+protocol distinguishes them. So if we took the first publication, a file that
+does not compile would be reported as clean.
 
-So an empty result waits a quiet period for a correction, extended while the
-server reports itself busy through work-done progress. A result that already has
-problems in it returns at once: a later publication can only add more, and the
-next turn's context stage carries the full set anyway.
+So an empty result waits a quiet period for a correction. While the server
+reports itself busy through work-done progress, the wait is extended. A result
+with problems in it returns at once. A later publication can only add more, and
+the next turn's context stage reports the full set anyway.
 
 Measured on a warm rust-analyzer over a small crate:
 
@@ -93,24 +93,24 @@ Measured on a warm rust-analyzer over a small crate:
 | any edit, gopls / pyright / clangd | ~250ms | they publish once and report no busy work |
 
 `ServerSpec.SettleDelay` tunes the quiet period. The busy extension is bounded
-on purpose: waiting for a busy server to fall quiet does not work, because
-rust-analyzer reports progress almost continuously and that measured at the full
-eight-second timeout on every write.
+on purpose. Waiting for a busy server to fall quiet does not work.
+rust-analyzer reports progress almost continuously, and with that approach
+every write measured the full eight-second timeout.
 
 ### Saving matters as much as changing
 
-A write sends `didChange` **and** `didSave`, which is honest because everything
-here reads the file from disk after it was written.
+A write sends `didChange` **and** `didSave`. Sending the save is honest,
+because everything here reads the file from disk after it was written.
 
-It is also load-bearing. **rust-analyzer publishes nothing at all for a
-`didChange`**; its cargo check runs on save. Without the save, the first edit to
-a file was checked only because opening the document happened to trigger one,
-and every edit after that went unchecked.
+The save also matters. **rust-analyzer publishes nothing at all for a
+`didChange`**, and its cargo check runs on save. Without the save, only the
+first edit to a file got checked, and only because opening the document
+happened to trigger a check. Every edit after that went unchecked.
 
-Content the server already has is not resent, so a navigation call and a
-re-check over an unchanged file cost no round trip. That also matters for
-clangd, which does not re-publish for a `didChange` carrying content it already
-holds.
+If the server already has the content, it is not resent. So a navigation call
+and a re-check over an unchanged file cost no round trip. That also matters for
+clangd. clangd does not re-publish for a `didChange` carrying content it
+already holds.
 
 ## The tools take a symbol name, not a position
 
@@ -125,8 +125,8 @@ worker.go:88:9: 	_ = cache.Get(ctx, id)
 ```
 
 A bare name works when it is unique. When it is not, the call is refused rather
-than resolved to a guess, which is the discipline `edit_file` already applies to
-a non-unique anchor:
+than resolved to a guess. `edit_file` already applies the same discipline to a
+non-unique anchor:
 
 ```
 cache.go: "Close" is ambiguous: it matches Reader.Close, Writer.Close. Use the qualified name
@@ -150,16 +150,17 @@ An omitted value means utf-16 per spec, so columns arrive in code units and a
 line containing an emoji counts differently from its bytes. That conversion
 lives in one function and no position ever reaches the model.
 
-A location outside the workspace is named but not quoted, since a definition in
-a dependency is a real answer and reading that file would reach outside the root
-that confines everything else.
+A location outside the workspace is named but not quoted. A definition in a
+dependency is a real answer. But reading that file would reach outside the
+roots, and the roots confine everything else.
 
 ## The repository map
 
 `Config.RepoMap` adds a ranked summary of the tree to the system prompt, so the
-model is oriented before it knows what to ask for. That is also why it is not a
-tool: a tool you have to know to call does not orient you, because the model
-that would think to call it already has some idea what it is looking at.
+model is oriented before it knows what to ask for. For the same reason, the map
+is not a tool. A model has to know to call a tool, so a tool can't orient it.
+If the model thinks to call the tool, it already has some idea what it is
+looking at.
 
 ```
 ## Repository map
@@ -175,77 +176,81 @@ Ranked, not complete: use list_files and search_files for the rest.
 18 more file(s) not shown, ranked lower.
 ```
 
-**Definitions come from the language server** and edges are lexical: a file
-references another if it mentions a name that other file declares, matched as a
-whole identifier. Reference edges from the server would be more accurate and
-cost a request per symbol, which is thousands of round trips to order a list
-nobody reads past the top of. Ranking is PageRank over that graph. A new
-contributor needs the files the rest of the code leans on first, and that is a
-question about the graph rather than about file size or recency.
+**Definitions come from the language server**, and edges are lexical. File A
+references file B if A mentions a name that B declares, matched as a whole
+identifier. Reference edges from the server would be more accurate, but they
+cost a request per symbol. That adds up to thousands of round trips to order a
+list nobody reads past the top of. Ranking is PageRank over that graph. A new
+contributor first needs the files the rest of the code depends on most. That is
+a question about the graph, not about file size or recency.
 
-**It lives here rather than in its own extension** because it needs the same
-servers this extension already runs. A separate module could not import this one
-(constraint C4), so it would start a second `gopls` over the same tree to ask
-the same questions.
+**It lives here rather than in its own extension.** The map needs the language
+servers, and this extension already runs them. A separate module could not
+import this one (constraint C4), so it would start a second `gopls` over the
+same tree to ask the same questions.
 
-Indexing runs in the background and the section is empty until it finishes, so
-an early turn is missing the map rather than waiting on it. Both caps, the token
+Indexing runs in the background, and the section is empty until it finishes.
+So an early turn is missing the map rather than waiting on it. Both caps, the token
 budget and the file limit, report what they dropped.
 
 ## There is no `document_symbols` tool
 
-The file outline is the repo map's question, and the repo map answers it across
-the whole tree rather than one file at a time. Shipping both would mean two
-mechanisms for one question, with the better one arriving later and having to
-argue against an incumbent. `textDocument/documentSymbol` is called internally
-for symbol resolution, so the capability is here and only the tool is withheld.
+The repo map already answers the file-outline question, and it does so across
+the whole tree rather than one file at a time. Shipping both would give two
+mechanisms for one question. The better one would arrive later and have to
+argue against an incumbent. Symbol resolution calls
+`textDocument/documentSymbol` internally, so the capability is here and only
+the tool is withheld.
 
 ## One server covers every root
 
 `Roots` matches `files.Config.Roots`, and **one server instance covers all of
-them** through the `workspaceFolders` array the protocol has carried since 3.6.
+them**. It does so through the `workspaceFolders` array, which the protocol has
+had since 3.6.
 
-That was measured rather than assumed, and the measurement changed the design.
-gopls, rust-analyzer and typescript-language-server each answer correctly for a
-file in a folder that is not the `rootUri`, so a session spanning three
-repositories runs one gopls rather than three, with one index and one cold
-start. `TestServersSpanTwoWorkspaceFolders` keeps that honest against real
+We measured that rather than assumed it, and the measurement changed the
+design. gopls, rust-analyzer and typescript-language-server each answer
+correctly for a file in a folder other than the `rootUri`. So a session across
+three repositories runs one gopls rather than three, with one index and one
+cold start. `TestServersSpanTwoWorkspaceFolders` checks that against real
 servers.
 
-Paths are absolute, in and out, for the reason `ext/files` gives: two
-repositories can both hold `src/main.go`, so a bare relative path names either.
-A relative path on the way in still resolves against the first root.
+Paths are absolute, in and out, for the same reason as in `ext/files`. Two
+repositories can both hold `src/main.go`, so a bare relative path could name
+either. A relative path on the way in still resolves against the first root.
 
 **Cross-language references remain out of reach.** A Go server cannot tell you
-that a TypeScript file calls the endpoint you renamed. That boundary belongs to
-the language server, not to the number of roots, so a cross-language rename is
+that a TypeScript file calls the endpoint you renamed. The language server sets
+that boundary, not the number of roots. So a cross-language rename still takes
 `search_files` and judgement.
 
 ## Every request is bounded
 
-A request to a language server is a local IPC round trip that a healthy server
-answers in milliseconds, so each one carries a 30-second backstop. A caller with
-a shorter deadline keeps it; the backstop never extends one.
+A request to a language server is a local IPC round trip, and a healthy server
+answers it in milliseconds. Each request carries a 30-second backstop. If a
+caller has a shorter deadline, that deadline still applies. The backstop never
+extends one.
 
-It exists because nothing else bounded it. A server that reads a request, never
-answers, and keeps its stdout open gives the read loop nothing to fail on, so
-the "server exited" path never fires. The navigation tools pass the Runner's
-context straight down and that context often carries no deadline, so one wedged
-server could hold a turn open with no error anywhere to explain it. A wedged
-server now comes back as a refusal the model can act on.
+The backstop exists because nothing else bounded a request. Imagine a server
+reads a request, never answers, and keeps its stdout open. The read loop has
+nothing to fail on, so the "server exited" path never fires. The navigation
+tools pass the Runner's context straight down, and that context often has no
+deadline. So one wedged server could hold a turn open with no error anywhere to
+explain it. Now a wedged server comes back as a refusal the model can act on.
 
 ## Closing
 
 This is the first extension to own a subprocess. Nothing before it needed shutting down, so
-`host.Extension` grew `Close`. `App.Close` calls it in reverse registration order. A server that
-ignores `shutdown` and keeps running after its stdin closes is killed, because a host that blocks
+`host.Extension` grew `Close`. `App.Close` calls it in reverse registration order. If a server
+ignores `shutdown` and keeps running after its stdin closes, it is killed. A host that blocks
 forever on Close is worse than one that leaves an orphan.
 
 ## Wiring it with the file tools
 
-`surfaces.WorkspaceExtensions` does the pairing, registering checkpoint, then
-files, then this. The order is load-bearing in both directions: checkpoint must
-see a file *before* it is written and this must see it *after*.
+`surfaces.WorkspaceExtensions` does the pairing. It registers checkpoint, then
+files, then this extension. The order matters in both directions. Checkpoint
+must see a file *before* it is written, and this extension must see it
+*after*.
 
 ```go
 exts, _ := surfaces.WorkspaceExtensions(surfaces.WorkspaceConfig{
@@ -254,16 +259,17 @@ exts, _ := surfaces.WorkspaceExtensions(surfaces.WorkspaceConfig{
 })
 ```
 
-Language servers are opt-in there, unlike checkpoint, which is opt-out. A
-checkpoint costs a directory and is wanted wherever writes are. A language
-server is a subprocess and an index of the whole tree, and nothing can guess
-which languages a workspace holds or which server should drive them.
+There, language servers are opt-in and checkpoint is opt-out. A checkpoint
+costs a directory, and you want one wherever there are writes. A language
+server is a subprocess and an index of the whole tree. Nothing can guess which
+languages a workspace holds or which server should drive them.
 
 ## Testing
 
-The suite drives a stub language server that is the test binary re-executed, so
-it needs nothing installed and exercises spawn, framing, and teardown for real.
-It proves nothing about whether gopls behaves the way the stub does.
+The suite drives a stub language server. The stub is the test binary
+re-executed, so the suite needs nothing installed and exercises spawn, framing,
+and teardown for real. It proves nothing about whether gopls behaves the way
+the stub does.
 
 The `lsp_live` tag runs the same surface against real servers and is not wired
 into CI:
@@ -273,19 +279,19 @@ go test -tags lsp_live ./ext/lsp/ -v
 ```
 
 `TestLive*` drives one server, defaulting to `gopls` and overridable with
-`LSP_LIVE_SERVER`. `TestServers` is the multi-language conformance probe: it
-checks startup, `documentSymbol` decoding, symbol resolution by name, and that a
-file which does not compile produces a diagnostic, for gopls,
-typescript-language-server, pyright, rust-analyzer and clangd. Each subtest skips
-when its binary is absent.
+`LSP_LIVE_SERVER`. `TestServers` is the multi-language conformance probe. It
+runs against gopls, typescript-language-server, pyright, rust-analyzer and
+clangd. For each server it checks startup, `documentSymbol` decoding, and
+symbol resolution by name. It also checks that a file which does not compile
+produces a diagnostic. Each subtest skips when its binary is absent.
 
-That probe is what found the provisional-publication bug (#1303), which shipped
-because gopls was the only server ever tried. Adding a server to it is the
-cheapest way to find the next assumption of that kind.
+That probe found the provisional-publication bug (#1303). The bug shipped
+because gopls was the only server anyone had tried. Adding a server to the
+probe is the cheapest way to find the next assumption of that kind.
 
 ## Status
 
 Stdio JSON-RPC client, diagnostics on both paths, two navigation tools, and the
-host extension. No code actions: applying a server-proposed edit is a write, and
-writes belong to `ext/files` for anchoring and `ext/checkpoint` for reversal
-rather than going around both.
+host extension. There are no code actions. Applying a server-proposed edit is a
+write. Writes go through `ext/files` for anchoring and `ext/checkpoint` for
+reversal, and a code action would go around both.

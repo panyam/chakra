@@ -1,14 +1,14 @@
 # files
 
-File reading and editing for an agent, where an edit written against a stale
-view of a file fails instead of applying.
+File reading and editing for an agent. If an edit was written against a stale
+view of a file, it fails instead of applying.
 
 ## The failure this prevents
 
 An agent reads a file, decides on a change, and writes it back. In between,
-the file changed underneath: a formatter ran, a sibling tool wrote it, the
-user saved in their editor. An edit addressed by line number applies anyway
-and silently discards that change, and nothing reports it, because nothing
+something changed the file underneath. A formatter ran, a sibling tool wrote
+it, or the user saved in their editor. An edit addressed by line number applies
+anyway and silently discards that change. Nothing reports it, because nothing
 noticed.
 
 ## Two mechanisms, two questions
@@ -19,9 +19,9 @@ noticed.
 | Survives | lines moving around | nothing, by design |
 | Misses | a file reformatted underneath | where anything belongs |
 
-Neither substitutes for the other, so both are here. An anchor can
-still match uniquely in a file that was reformatted after you read it, and
-that is exactly the case where applying it is wrong.
+Neither substitutes for the other, so both are here. Suppose a file was
+reformatted after you read it. An anchor can still match uniquely in it, and in
+exactly that case applying the edit is wrong.
 
 ```go
 src, _ := files.NewSource(files.Config{Roots: []string{
@@ -30,25 +30,24 @@ src, _ := files.NewSource(files.Config{Roots: []string{
 }})
 ```
 
-`Roots` is required and has no "unset means anywhere" mode. These tools are
-driven by a model, and a model's instructions can come from content it read
-rather than from the user, which `agent.Spotlight` exists because you cannot
-distinguish after the fact. An unconfined editor turns any such instruction
-into a write to an arbitrary path.
+`Roots` is required and has no "unset means anywhere" mode. A model drives
+these tools. Its instructions can come from content it read rather than from
+the user, and you cannot tell the two apart after the fact. `agent.Spotlight`
+exists for that reason. An unconfined editor turns any such instruction into a
+write to an arbitrary path.
 
 **A workspace is a set of directories, and one is the degenerate case.** A
-coding session that stays inside a single repository is the exception: the
-ordinary task changes an API in one repo and fixes its callers in another. An
-agent given one root edits the API, reports success, and never sees what it
-broke.
+coding session rarely keeps to a single repository. The ordinary task changes
+an API in one repo and fixes its callers in another. Give the agent one root,
+and it edits the API, reports success, and never sees what it broke.
 
 Naming a common parent instead of listing the roots is not a shortcut. It
-silently widens confinement to everything else under that parent, which is the
-property this exists to deny.
+silently widens confinement to everything else under that parent, and
+confinement exists to deny exactly that.
 
-**Results are absolute paths.** Two repositories both holding `src/main.go` is
-normal, so a bare relative path would name either. A relative path on the way
-*in* still resolves against the first root, so a single-root workspace
+**Results are absolute paths.** Two repositories often both hold
+`src/main.go`, so a bare relative path could name either. A relative path on
+the way *in* still resolves against the first root, so a single-root workspace
 behaves as it always did.
 
 The confinement is a directory handle (`os.Root`), not a string comparison.
@@ -58,14 +57,14 @@ every way out of a workspace lives in the gap between them:
 - A symlink is followed when the file is **opened**, not when the path is
   checked. `workspace/notes.md -> /etc/passwd` passes any comparison of the
   path text and then reads the wrong file.
-- The filesystem can change between the two. A name that was a regular file
-  when it was checked can be a symlink a moment later, so a check that
-  happened earlier is a statement about the past.
+- The filesystem can change between the two. A name can be a regular file
+  when it is checked and a symlink a moment later. So an earlier check only
+  says something about the past.
 
-`os.Root` resolves each component at open time against the directory it holds
-and refuses anything that leaves it, which collapses the check and the use
-into one act. There is one handle per root, and a path has to land inside one
-of them. Escape attempts come back as refusals:
+`os.Root` holds a directory. At open time it resolves each path component
+against that directory and refuses anything that leaves it. So the check and
+the use become one act. There is one handle per root, and a path has to resolve
+inside one of them. Escape attempts come back as refusals:
 
 ```
 refusing ../../etc/passwd: outside every workspace root
@@ -100,8 +99,9 @@ func (a *App) RunTurn(ctx context.Context, input string) error {
 **`edit_file`** takes that hash as `expect_hash`, plus a list of exact
 replacements. It reports the new hash, so a follow-up edit needs no re-read.
 
-Three refusals, all reported as `IsError` results rather than dispatch errors,
-so the model gets them back and can correct rather than the turn aborting:
+There are three refusals. Each comes back as an `IsError` result rather than
+a dispatch error, so the model gets it back and can correct, and the turn
+doesn't abort:
 
 ```
 notes.md: file changed since it was read: expected dcf19a8dce4a, found 9dd516a4fd95; re-read it before editing
@@ -109,15 +109,15 @@ notes.md: hunk 0: anchor is not unique: "todo: write the" matches 2 places; exte
 notes.md: hunk 0: anchor not found: "todo: write the middle"
 ```
 
-Matching is byte-exact. There is no fuzzy or whitespace-normalized fallback,
-because approximate matching is the mechanism that produces silently wrong
-edits, which is the thing this package exists to prevent. An anchor that does
-not match gets an error and a chance to look again.
+Matching is byte-exact. There is no fuzzy or whitespace-normalized fallback.
+Approximate matching produces silently wrong edits, and this package exists to
+prevent those. When an anchor does not match, the model gets an error and a
+chance to look again.
 
 All edits in one call apply together or none do, and every anchor resolves
 against the original content rather than against the result of earlier edits.
-So listing order cannot change the outcome, and an edit cannot match text an
-earlier edit introduced.
+So listing order cannot change the outcome. If an earlier edit introduces
+some text, a later edit cannot match it.
 
 ## Multi-file patches (`apply_patch`)
 
@@ -139,16 +139,17 @@ one `input` string:
 ```
 
 An update can rename with `*** Move to: new/path`, and `*** End of File` anchors
-a hunk to the end. Hunks are found by their context lines: an exact match
-first, then ignoring trailing whitespace, then ignoring whitespace at both ends.
-An `@@ text` header finds that line first and searches after it.
+a hunk to the end. `apply_patch` finds each hunk by its context lines. It tries
+an exact match first, then ignores trailing whitespace, then ignores whitespace
+at both ends. An `@@ text` header finds that line first and searches after it.
 
 The whole patch applies or none of it does. Every file's new content is worked
-out before anything is written, so a hunk that doesn't match, a path outside the
-roots, or a file in the wrong state (adding one that exists, updating one that
-doesn't) refuses the call with nothing changed. A write that fails part-way puts
-back the files already written. There is no `expect_hash`: the context lines are
-the anchor, and a stale file shows up as a hunk that doesn't match.
+out before anything is written. So the call is refused with nothing changed if
+a hunk doesn't match, if a path is outside the roots, or if a file is in the
+wrong state (adding one that exists, updating one that doesn't). If a write
+fails part-way, the files already written are put back. There is no
+`expect_hash`. The context lines act as the anchor, so a stale file shows up as
+a hunk that doesn't match.
 
 `Config.EditTools` picks `edit_file`, `apply_patch`, or both (the default), and
 the prompt section only describes the tools offered. Checkpoint snapshots every
@@ -157,18 +158,18 @@ whole patch.
 
 ## Creating and replacing whole files
 
-`edit_file` needs existing content to anchor against, so creating a file and
-replacing one outright are `write_file`'s job. It carries the same discipline,
-expressed through `expect_hash` rather than through a separate flag:
+`edit_file` needs existing content to anchor against. So `write_file` creates
+a file or replaces one outright. It applies the same discipline through
+`expect_hash` rather than through a separate flag:
 
 | Call | Meaning |
 |---|---|
 | no `expect_hash` | create; **refused** if the path already exists |
 | `expect_hash` set | replace, only if the content still hashes to it |
 
-There is deliberately no way to spell "write this, whatever is there". A
-create-or-overwrite mode would reopen the hole `edit_file` exists to close, and
-it would be the mode a model reached for the moment anchoring felt awkward.
+There is deliberately no way to spell "write this, whatever is there".
+`edit_file` exists to close a hole, and a create-or-overwrite mode would reopen
+it. A model would also reach for that mode the moment anchoring felt awkward.
 
 ```
 $ write_file {"path": "notes.md", "content": "..."}
@@ -180,11 +181,11 @@ Missing parent directories are created. Replacing a file keeps its mode, so
 editing a script does not disarm it.
 
 `delete_file` removes a file, and always needs `expect_hash`. A create has a
-harmless mode (the path must not exist yet), but a delete doesn't, so it only
-removes content that still hashes to what the model read. It refuses
-directories and symlinks, and its approval prompt is the same one the writes
-get. Emptying a file through `edit_file` isn't a substitute, since a zero-byte
-`.go` file breaks the build (issue 108).
+harmless mode, since the path must not exist yet. A delete has no harmless
+mode, so it only removes content that still hashes to what the model read. It
+refuses directories and symlinks, and it gets the same approval prompt as the
+writes. Emptying a file through `edit_file` isn't a substitute, since a
+zero-byte `.go` file breaks the build (issue 108).
 
 ## Finding things
 
@@ -203,15 +204,15 @@ a.go:31: func GetOrder(id string) (*Order, error) {
 ```
 
 **The query is a regex** (RE2, so no catastrophic backtracking). Pass
-`literal: true` for text containing `( ) [ ] . * + ? | \ $`. A pattern that
-does not compile comes back as a refusal naming it, never as zero matches:
-"no matches" and "your pattern was malformed" are answers you act on
-differently, and reporting the second as the first sends you looking for code
-that is sitting right there.
+`literal: true` for text containing `( ) [ ] . * + ? | \ $`. If a pattern does
+not compile, the call comes back as a refusal naming the pattern, never as
+zero matches. You act differently on "no matches" and on "your pattern was
+malformed". If the second were reported as the first, you would go looking for
+code that is sitting right there.
 
-**Both tools say what they left out.** A capped listing that stayed quiet about
-being capped reads as the complete contents of a directory, so it reports the
-cap, the directories it skipped, and the files it would not search:
+**Both tools say what they left out.** If a capped listing didn't say it was
+capped, it would read as the complete contents of a directory. So each tool
+reports the cap, the directories it skipped, and the files it would not search:
 
 ```
 showing 100 of 4312 match(es); narrow the query or raise limit
@@ -221,20 +222,20 @@ showing 100 of 4312 match(es); narrow the query or raise limit
 ```
 
 Those limits bound the work a call does. They are **not** a context-window
-mechanism, and deliberately do not try to be: `agent.OffloadingSource` already
-stores oversized tool results out of band behind a `read_tool_result` stub, and
-a second truncation mechanism here would only disagree with it.
+mechanism, and deliberately so. `agent.OffloadingSource` already stores
+oversized tool results out of band behind a `read_tool_result` stub. A second
+truncation mechanism here would only disagree with it.
 
 `Config.Exclude` sets which directories are skipped, defaulting to
 `DefaultExclude` (`.git`, `node_modules`, `vendor`, and similar). A nil slice
-means the default; an explicitly empty one means exclude nothing. It does not
-read `.gitignore`, which is a different question: that file says what should
-not be *committed*, and a `.env` is ignored while sometimes being exactly what
-you need, while a vendored dependency is committed and is usually noise.
+means the default, and an explicitly empty one means exclude nothing. It does
+not read `.gitignore`, because that file answers a different question. It says
+what should not be *committed*. A `.env` is ignored but is sometimes exactly
+what you need, and a vendored dependency is committed but is usually noise.
 
 Traversal uses the same root handle as everything else, so it cannot leave the
-workspace. A symlinked directory is listed as a name but never descended into,
-which also means a link cycle cannot hang a walk.
+workspace. A symlinked directory is listed as a name but never descended into.
+So a link cycle cannot hang a walk either.
 
 ## Wiring it into a host
 
@@ -244,25 +245,25 @@ app, _ := host.NewApp(cfg, out, in, host.WithExtension(ext))
 ```
 
 The extension contributes the tools and a prompt section stating the rules the
-tools enforce. Those travel together on purpose: a model that has not been
-told anchors must be unique will keep sending single-word anchors and keep
-being refused, so shipping the tools alone would make the contract
-discoverable only by failing.
+tools enforce. Those travel together on purpose. Suppose a model has not been
+told that anchors must be unique. It will keep sending single-word anchors and
+keep being refused. So if the tools shipped alone, the model could only
+discover the contract by failing.
 
 `files.NewSource` returns the bare `agent.ToolSource` instead, for a `Runner`
 with no `host`. Prefer `New` wherever there is a host, for the reason
 above.
 
-To get `/undo` over these writes, pair it with `ext/checkpoint`,
-registered **first** so its snapshot is taken before the write lands.
-`surfaces.WorkspaceExtensions` does that pairing, and is what `agentchat
---workspace` and `agentweb --workspace` use.
+To get `/undo` over these writes, pair it with `ext/checkpoint`. Register
+checkpoint **first**, so it takes its snapshot before the write happens.
+`surfaces.WorkspaceExtensions` does that pairing, and both
+`agentchat --workspace` and `agentweb --workspace` use it.
 
 ## What the approval prompt shows
 
-When a write is gated, the host asks before it runs. Its default rendering is a
-call's JSON trimmed to 200 characters, which for an edit truncates the one
-thing you are being asked to judge:
+When a write is gated, the host asks before it runs. By default it renders the
+call's JSON trimmed to 200 characters. For an edit, that cuts off the change,
+and you are being asked to judge the change:
 
 ```
 Allow tool call "edit_file" with {"path":"main.go","expect_hash":"dcf19a8dce4a"…
@@ -282,7 +283,7 @@ Apply 2 change(s) to main.go?
 ```
 
 A whole-file write shows a capped preview and says whether it creates or
-replaces, since those differ by whether anything is destroyed. Everything this
+replaces, since those differ by whether anything is destroyed. Any call this
 package does not own falls through to the host default untouched.
 
 An edit with two or more hunks is asked about one hunk at a time, in a single
@@ -300,10 +301,11 @@ Change 1:
   Apply change 3 (y/n): y
 ```
 
-Only the ticked hunks are sent to `edit_file`, and since every anchor is
-resolved against the original content they land exactly where they would have
+Only the ticked hunks are sent to `edit_file`. Every anchor resolves against
+the original content, so each ticked hunk applies exactly where it would have
 with the others present. The model's tool result ends with a note naming the
-changes the user left out. A one-hunk edit keeps the plain yes/no question.
+changes the user left out. A one-hunk edit still gets the plain yes/no
+question.
 
 ## Undo, and why there is no Reverser here
 
@@ -323,20 +325,22 @@ cp, _ := checkpoint.New(checkpoint.Config{
 app, _ := host.NewApp(cfg, out, in, host.WithExtension(cp, ext))
 ```
 
-`checkpoint.WriteSpec` is a declaration keyed by tool name, supplied by the
-wiring, so the two features compose at the config layer with no import edge in
-either direction. Every writing tool here names its target in the same `path` argument, so one
-`WritePaths` serves them all. It resolves that argument against the workspace
-roots the way the tools do, and returns an absolute path, because the
-checkpoint refuses a relative one: resolving it against the process's working
-directory snapshotted the wrong file (issue 69). `PathArg` still returns the
-raw argument for anything that wants it. Both are plain functions rather than
-a `WriteSpec` precisely to keep it that way. The alternative, this package declaring its own
-`checkpoint.Reverser`, would stabilize checkpoint's API for this package's
-benefit with no design decision saying the two must interoperate, which is the
-coupling constraint C4 exists to prevent.
+`checkpoint.WriteSpec` is a declaration keyed by tool name, and the wiring
+supplies it. So the two features compose at the config layer, with no import
+edge in either direction. Every writing tool here names its target in the same
+`path` argument, so one `WritePaths` serves them all. `WritePaths` resolves
+that argument against the workspace roots the way the tools do, and returns an
+absolute path. It has to, because the checkpoint refuses a relative one.
+Resolving against the process's working directory snapshotted the wrong file
+(issue 69). `PathArg` still returns the raw argument for anything that wants
+it. Both are plain functions rather than a `WriteSpec`, precisely so that
+neither package imports the other. The alternative was for this package to
+declare its own `checkpoint.Reverser`. That would stabilize checkpoint's API
+for this package's benefit, and no design decision says the two must
+interoperate. Constraint C4 exists to prevent that kind of coupling.
 
 ## Status
 
-Anchored edit engine, six tools (`read_file`, `edit_file`, `write_file`,
-`delete_file`, `list_files`, `search_files`), and the host extension.
+Anchored edit engine, seven tools (`read_file`, `edit_file`, `apply_patch`,
+`write_file`, `delete_file`, `list_files`, `search_files`), and the host
+extension.

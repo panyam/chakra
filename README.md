@@ -15,7 +15,7 @@
   <a href="https://github.com/panyam/chakra/stargazers"><img src="https://img.shields.io/github/stars/panyam/chakra?style=social" alt="GitHub stars"></a>
 </p>
 
-<!-- Add once the first tag lands; until then it renders as "no releases":
+<!-- Add once the first tag is pushed; until then it renders as "no releases":
   <a href="https://github.com/panyam/chakra/releases"><img src="https://img.shields.io/github/v/release/panyam/chakra?sort=semver" alt="Release"></a>
 -->
 
@@ -29,20 +29,19 @@ protocol layer; chakra is the agent layer above it.
 
 ## Status
 
-Unreleased, and carrying no compatibility promise. Nothing here is tagged, so
-`go get github.com/panyam/chakra@main` resolves to a pseudo-version, and that pseudo-version is the
-whole stability signal you get. The surface still takes deliberate breaking reshapes.
+Pre-1.0, and carrying no compatibility promise. Releases are tagged (`CHANGELOG.md` lists them), but
+the surface still takes deliberate breaking reshapes between them.
 
 The tree previously lived in `panyam/mcpkit`, first under `agent/` and then under
 `experimental/agent/`. It moved here so the protocol surface could commit to API stability while the
-agent surface kept breaking things. History came with it: `git log` and `git blame` reach back
-through both moves. Issue numbers referenced in commit messages and docs point at `panyam/mcpkit`
-for anything predating the split.
+agent surface kept breaking things. History came with it, so `git log` and `git blame` reach back
+through both moves. When a commit message or doc predates the split, its issue numbers point at
+`panyam/mcpkit`.
 
 ## Modules
 
-Each of these is its own Go module, so a heavy dependency stays out of the modules that do not need
-it. `make test` walks all of them.
+Each of these is its own Go module, so only the modules that need a heavy dependency require it.
+`make test` walks all of them.
 
 | Module | What it is |
 |---|---|
@@ -93,10 +92,10 @@ Three gates run in CI and in the pre-push hook:
 | `make check-dep-consistency` | a third-party dependency pinned at two versions across modules |
 
 The last one is not bookkeeping. Every module replaces its siblings by relative path, so third-party
-deps resolve through MVS, which takes the maximum required version across the graph. A bump in one
-module silently raises the version its siblings build against, and if that bump is API-breaking the
-sibling fails without its `go.mod` ever changing. It found a real split (`golang.org/x/sys`) on its
-first run.
+deps resolve through MVS, which takes the maximum required version across the graph. Suppose one
+module bumps a dependency. Its siblings now build against the bumped version too, silently. If the
+bump is API-breaking, a sibling fails without its `go.mod` ever changing. The gate found a real
+split (`golang.org/x/sys`) on its first run.
 
 `make tidy-all` matters for the same reason. Changing a shared import can drift the `go.sum` of a
 module you never opened, and CI then fails somewhere unrelated.
@@ -112,10 +111,10 @@ git commit -am "release: v0.1.0"
 make tag-push V=v0.1.0        # tag root + every module, push
 ```
 
-`bump-siblings` is the step that is easy to skip and expensive to skip. Go ignores `replace` outside
-the main module, so a sibling requirement naming a version that was never tagged makes the whole
-tree unresolvable to anyone outside this repo, while building fine here. That was the deliberate
-state under mcpkit, and it is the state to stay out of now.
+`bump-siblings` is easy to skip, and skipping it is expensive. Go ignores `replace` outside the main
+module. So if a sibling requirement names a version that was never tagged, the tree still builds
+here, but nobody outside this repo can resolve it. Under mcpkit the tree sat in that state on
+purpose. Here it should never be in that state.
 
 ## Where knowledge lives
 
