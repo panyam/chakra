@@ -472,7 +472,15 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 
 	provider := o.provider
 	if provider == nil && cfg.Connections != nil {
-		reg, err := NewConnectionRegistry(cfg.Connections, o.providerBuilder)
+		build := o.providerBuilder
+		if build == nil {
+			build = func(conn ConnectionConfig) (agent.Provider, error) {
+				return buildProvider(conn, func(reason string) {
+					app.emit(HostEvent{Kind: HostSessionWarn, Err: "model connection sent full history: " + reason})
+				})
+			}
+		}
+		reg, err := NewConnectionRegistry(cfg.Connections, build)
 		if err != nil {
 			app.Close()
 			return nil, err

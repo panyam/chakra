@@ -827,6 +827,41 @@ behind the seam**, not from growing the no-SDK provider, which would chase API d
 Loop-*visible* capabilities (logprob→routing, grammar→structured output) are kept and exposed
 capability-optionally on the seam.
 
+### Responses API: reasoning continuity without carrying the reasoning (#157)
+
+On a reasoning model, the Chat Completions wire drops the model's reasoning between tool steps,
+because there is nowhere to put it. The Responses API offers two ways to keep it: replay the
+encrypted reasoning items yourself (`include: ["reasoning.encrypted_content"]`), or let the server
+store each response and chain the next request with `previous_response_id`. The first would mean
+carrying an opaque blob through `agent.Message`, which A2 rules out. `ResponsesProvider` takes the
+second, so the only state is a response id, and it never leaves the provider.
+
+The provider is stateless per request, so it can't know which conversation a request continues.
+It remembers each response it returned, keyed by a hash of the history it answered plus the
+assistant message the Runner will append for it (`responses_cursor.go`). A request chains only
+when everything before its last assistant message hashes to a remembered id, and then sends just
+the messages after it. Compaction, an edited or forked history, a resume from RunStore, a
+provider switch and an evicted entry all fall out as a miss, and a miss sends full history. That
+makes the cursor unobservable to the loop, which is why it isn't a capability on the seam (A9).
+
+What bit, or nearly did:
+
+- The hash has to leave out `Timestamp`. RunStore stamps messages on append, so a key that
+  included it would miss on every step.
+- `instructions` and `tools` don't carry over from the previous response, so every request
+  resends them. Only the input items are chained.
+- Transient per-turn context (recall, summaries) is in the request but not in history, so a turn
+  whose injected context changed misses and resends full history. That is correct, since the
+  stored response holds the old context. It also means `OnFullHistory` can fire once per turn when
+  memory recall is on.
+- A stored response can expire. The server answers with a 400 or 404 naming
+  `previous_response_id`; the provider drops the entry and resends with full history once.
+
+It's a no-SDK provider like `OpenAIProvider`, against the line above, because the wire is small
+and wrapping `openai-go` would add a third direct require to the root module (A10). If the
+Responses surface this needs grows much past text, function calls and reasoning summaries, the
+SDK wrapper in a satellite module is the better home.
+
 ---
 
 ## Host wiring
