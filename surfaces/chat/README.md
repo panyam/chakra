@@ -139,6 +139,37 @@ Unknown fields are an error, so a misspelt `readOnly` fails at startup instead
 of quietly making a command ask (or not ask). `examples/dogfood/workspace.json`
 is a working file for this repo.
 
+## Headless runs (`agentchat exec`)
+
+`exec` runs one task without a terminal UI and exits, for CI jobs and scripts. It takes every
+flag above (config, workspace, session store) plus its own:
+
+```
+agentchat exec --config agentchat.json --workspace . --approve reversible-auto \
+  --output-schema result.schema.json --output-last-message result.json --json \
+  -p "The tests fail. Make them pass." > events.jsonl
+```
+
+- The prompt comes from `-p`, `--prompt-file`, the arguments, or stdin.
+- `--json` writes every event to stdout as JSON lines, `{"kind": ..., "payload": ...}`, the same
+  frames agentweb's Watch sends. Without it only the final message is printed.
+- `--output-schema` asks for the final answer as JSON valid against the schema. The Runner
+  checks it, shows the model what was wrong, and retries once.
+- `--approve` is required, since nobody can answer an approval prompt. A call the mode would ask
+  about is denied, and the run writes an `ask-denied` line saying so.
+- With `--session-store`, the run id goes to stderr (`agentchat exec: session <id>`), and
+  `--session <id>` continues that run.
+
+| Exit | Meaning |
+|---|---|
+| 0 | done |
+| 1 | the turn failed |
+| 2 | it hit `--max-steps` |
+| 3 | `--output-schema` was set and no answer matched it |
+| 64 | bad usage: no `--approve`, no prompt, an unreadable schema |
+
+`--max-steps` overrides a config file's `maxSteps`, as the tree-budget flags do.
+
 ## Status line
 
 Both TUI surfaces show a persistent status line (kept in the managed live

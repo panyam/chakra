@@ -6,7 +6,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strings"
@@ -18,7 +20,7 @@ import (
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 
-	"github.com/panyam/chakra"
+	agent "github.com/panyam/chakra"
 	"github.com/panyam/chakra/host"
 	gormstore "github.com/panyam/chakra/store/gorm"
 	redisstore "github.com/panyam/chakra/store/redis"
@@ -145,7 +147,9 @@ func newRoot() (*cobra.Command, *viper.Viper) {
 		},
 	}
 
-	fl := root.Flags()
+	// Persistent so `agentchat exec` takes the same config, workspace and
+	// store flags as the interactive modes.
+	fl := root.PersistentFlags()
 	fl.String("config", "", "path to agentchat JSON config")
 	fl.StringSlice("url", nil, "MCP server URL (repeatable; used when no config)")
 	fl.String("base-url", "http://localhost:1234/v1", "OpenAI-compatible endpoint (when no config)")
@@ -190,10 +194,31 @@ func newRoot() (*cobra.Command, *viper.Viper) {
 	if err := v.BindPFlags(fl); err != nil {
 		panic(err)
 	}
+	root.AddCommand(newExecCmd(v))
 	return root, v
 }
 
-func runChat(v *viper.Viper) error {
+// appSetup is an App built from agentchat's flags, with what the caller
+// needs beside it.
+type appSetup struct {
+	app   *host.App
+	cfg   *host.Config
+	store agent.RunStore
+	close func()
+}
+
+// buildApp builds the App every agentchat mode shares from the flags:
+// config, telemetry, session and tool-result stores, memory, compaction and
+// the workspace. surfaceOpts are the caller's observers and other options,
+// and configure, when set, adjusts the config last (exec sets the approval
+// mode there).
+func buildApp(ctx context.Context, v *viper.Viper, surfaceOpts []host.AppOption, configure func(*host.Config) error, out io.Writer, in io.Reader) (*appSetup, error) {
+	var closers []func()
+	closeAll := func() {
+		for i := len(closers) - 1; i >= 0; i-- {
+			closers[i]()
+		}
+	}
 	configPath := v.GetString("config")
 	persistConfig := v.GetBool("persist-config") && configPath != ""
 	cfg, err := buildConfig(
@@ -207,10 +232,16 @@ func runChat(v *viper.Viper) error {
 		v.GetInt("max-steps"),
 	)
 	if err != nil {
-		return err
+		closeAll()
+		return nil, err
 	}
 	// Tree-budget flags override the config (and apply to the flag-built config
 	// too), so the aggregate cost rail can be set without editing JSON.
+	// --max-steps overrides the config's cap the same way, so a headless run
+	// can be bounded without editing JSON.
+	if n := v.GetInt("max-steps"); n > 0 {
+		cfg.MaxSteps = n
+	}
 	if n := v.GetInt("max-tree-steps"); n > 0 {
 		cfg.MaxTreeSteps = n
 	}
@@ -230,68 +261,51 @@ func runChat(v *viper.Viper) error {
 		cfg.Connections.Active = active
 	}
 
-	ctx := context.Background()
 	tp, tpShutdown, err := SetupTelemetry(ctx,
 		WithServiceName("agentchat"),
 		WithExporter(v.GetString("exporter")),
 		WithOTLPEndpoint(v.GetString("otlp-endpoint")),
 	)
 	if err != nil {
-		return err
+		closeAll()
+		return nil, err
 	}
-	defer tpShutdown(context.Background())
+	closers = append(closers, func() { tpShutdown(context.Background()) })
 	mp, mpShutdown, err := SetupMeter(ctx,
 		WithServiceName("agentchat"),
 		WithExporter(v.GetString("exporter")),
 		WithOTLPEndpoint(v.GetString("otlp-endpoint")),
 	)
 	if err != nil {
-		return err
+		closeAll()
+		return nil, err
 	}
-	defer mpShutdown(context.Background())
+	closers = append(closers, func() { mpShutdown(context.Background()) })
 	logger, logShutdown, err := SetupLogs(ctx,
 		WithServiceName("agentchat"),
 		WithExporter(v.GetString("exporter")),
 		WithOTLPEndpoint(v.GetString("otlp-endpoint")),
 	)
 	if err != nil {
-		return err
+		closeAll()
+		return nil, err
 	}
-	defer logShutdown(context.Background())
+	closers = append(closers, func() { logShutdown(context.Background()) })
 
 	appOpts := []host.AppOption{
 		host.WithTracerProvider(tp),
 		host.WithMeterProvider(mp),
 		host.WithLogger(logger),
 	}
+	appOpts = append(appOpts, surfaceOpts...)
 	if persistConfig {
 		appOpts = append(appOpts, host.WithConfigOverlay(configPath))
-	}
-	mode := uiMode(v.GetString("ui"))
-	// One color decision (flag → NO_COLOR → TERM=dumb) drives every surface: the
-	// lipgloss profile for the overlay/status/notebook chrome, and the host's
-	// ANSI renderer + glamour via the observers below (issue 1063 E1/E2).
-	colorEnabled := resolveColorEnabled(v.GetBool("no-color"), os.LookupEnv)
-	applyLipglossProfile(colorEnabled)
-	var surface *tuiObserver
-	var nbSurface *nbObserver
-	switch mode {
-	case "tui":
-		surface = newTUIObserver(colorEnabled)
-		appOpts = append(appOpts, host.WithObserver(surface))
-	case "notebook":
-		nbSurface = newNBObserver(colorEnabled)
-		appOpts = append(appOpts, host.WithObserver(nbSurface))
-	default:
-		// The plain REPL uses the host's auto-created renderer; register a
-		// color-resolved one explicitly so --no-color reaches it too (the
-		// auto default follows only the environment).
-		appOpts = append(appOpts, host.WithObserver(host.NewTerminalRendererColor(os.Stdout, colorEnabled)))
 	}
 	sessionStore := v.GetString("session-store")
 	store, err := surfaces.RunStoreFromSpec(sessionStore)
 	if err != nil {
-		return err
+		closeAll()
+		return nil, err
 	}
 	if store != nil {
 		appOpts = append(appOpts, host.WithRunStore(store))
@@ -301,7 +315,8 @@ func runChat(v *viper.Viper) error {
 		cfg.Offload = &host.OffloadConfig{ThresholdBytes: threshold}
 		trStore, err := buildToolResultStore(sessionStore, v.GetString("offload-dir"))
 		if err != nil {
-			return err
+			closeAll()
+			return nil, err
 		}
 		if trStore != nil {
 			appOpts = append(appOpts, host.WithToolResultStore(trStore))
@@ -324,12 +339,14 @@ func runChat(v *viper.Viper) error {
 		// neither, memory stays the in-memory substring default.
 		embedder, dim, err := resolveEmbedder(v, cfg, tp)
 		if err != nil {
-			return err
+			closeAll()
+			return nil, err
 		}
 		if embedder != nil {
 			store, err := buildSemanticMemoryStore(v.GetString("session-store"), embedder, dim, tp)
 			if err != nil {
-				return err
+				closeAll()
+				return nil, err
 			}
 			appOpts = append(appOpts, host.WithMemoryStore(store))
 		}
@@ -344,22 +361,64 @@ func runChat(v *viper.Viper) error {
 	// --workspace is unset, so the no-workspace path is what it was before.
 	wsCfg, err := workspaceConfig(v)
 	if err != nil {
-		return err
+		closeAll()
+		return nil, err
 	}
 	wsCfg.Offloading = cfg.Offload != nil
 	wsExts, err := surfaces.WorkspaceExtensions(wsCfg)
 	if err != nil {
-		return err
+		closeAll()
+		return nil, err
 	}
 	if len(wsExts) > 0 {
 		appOpts = append(appOpts, host.WithExtension(wsExts...))
 	}
 
-	app, err := host.NewApp(cfg, os.Stdout, os.Stdin, appOpts...)
+	if configure != nil {
+		if err := configure(cfg); err != nil {
+			closeAll()
+			return nil, err
+		}
+	}
+	app, err := host.NewApp(cfg, out, in, appOpts...)
+	if err != nil {
+		closeAll()
+		return nil, err
+	}
+	closers = append(closers, app.Close)
+	return &appSetup{app: app, cfg: cfg, store: store, close: closeAll}, nil
+}
+
+func runChat(v *viper.Viper) error {
+	ctx := context.Background()
+	mode := uiMode(v.GetString("ui"))
+	// One color decision (flag → NO_COLOR → TERM=dumb) drives every surface: the
+	// lipgloss profile for the overlay/status/notebook chrome, and the host's
+	// ANSI renderer + glamour via the observers below (issue 1063 E1/E2).
+	colorEnabled := resolveColorEnabled(v.GetBool("no-color"), os.LookupEnv)
+	applyLipglossProfile(colorEnabled)
+	var surfaceOpts []host.AppOption
+	var surface *tuiObserver
+	var nbSurface *nbObserver
+	switch mode {
+	case "tui":
+		surface = newTUIObserver(colorEnabled)
+		surfaceOpts = append(surfaceOpts, host.WithObserver(surface))
+	case "notebook":
+		nbSurface = newNBObserver(colorEnabled)
+		surfaceOpts = append(surfaceOpts, host.WithObserver(nbSurface))
+	default:
+		// The plain REPL uses the host's auto-created renderer; register a
+		// color-resolved one explicitly so --no-color reaches it too (the
+		// auto default follows only the environment).
+		surfaceOpts = append(surfaceOpts, host.WithObserver(host.NewTerminalRendererColor(os.Stdout, colorEnabled)))
+	}
+	setup, err := buildApp(ctx, v, surfaceOpts, nil, os.Stdout, os.Stdin)
 	if err != nil {
 		return err
 	}
-	defer app.Close()
+	defer setup.close()
+	app, cfg, store := setup.app, setup.cfg, setup.store
 
 	if session := v.GetString("session"); session != "" {
 		if store == nil {
@@ -427,6 +486,10 @@ func main() {
 	root, _ := newRoot()
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "agentchat:", err)
+		var ee *exitError
+		if errors.As(err, &ee) {
+			os.Exit(ee.code)
+		}
 		os.Exit(1)
 	}
 }

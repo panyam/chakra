@@ -8,10 +8,9 @@ package main
 //
 // Live runs are not held to this list; they print the same table to compare.
 var expectedFailures = map[string]string{
-	"patch_edit":        "#156",
-	"skill_loaded":      "#147",
-	"plan_published":    "#148",
-	"steered_mid_turn":  "#149",
-	"review_findings":   "#152",
-	"structured_result": "#145",
+	"patch_edit":       "#156",
+	"skill_loaded":     "#147",
+	"plan_published":   "#148",
+	"steered_mid_turn": "#149",
+	"review_findings":  "#152",
 }

@@ -792,6 +792,27 @@ func (a *App) ReconnectServer(id string) {
 // exception. It keeps the user message and what it produced, so a "keep going"
 // turn picks up where it stopped.
 func (a *App) RunTurn(ctx context.Context, input string) error {
+	return a.RunTurnWith(ctx, input, TurnOptions{})
+}
+
+// TurnOptions are per-turn settings a caller can add to RunTurnWith.
+type TurnOptions struct {
+	// ResponseSchema asks for the turn's final answer as a JSON document
+	// valid against this schema, on the turn-done event's
+	// TurnResult.Structured (TurnResult.StructuredError says why when no
+	// attempt validated). Empty asks for nothing. Team mode can't take one,
+	// so it fails the turn there.
+	ResponseSchema core.RawJSON
+}
+
+// RunTurnWith is RunTurn with per-turn options, for a caller such as a
+// headless run that wants one structured result.
+func (a *App) RunTurnWith(ctx context.Context, input string, opts TurnOptions) error {
+	if opts.ResponseSchema.Len() > 0 && a.team != nil {
+		err := fmt.Errorf("host: a response schema needs a single agent, not a team")
+		a.emit(HostEvent{Kind: HostTurnFailed, Err: err.Error()})
+		return err
+	}
 	a.turnMu.Lock()
 	defer a.turnMu.Unlock()
 	a.triggers.NotifyEngagement()
@@ -865,9 +886,10 @@ func (a *App) RunTurn(ctx context.Context, input string) error {
 		a.ctrl = ctrl
 		a.ctrlMu.Unlock()
 		result, err = a.runner.RunTurn(ctx, agent.TurnRequest{
-			History: turnMsgs,
-			Emit:    emit,
-			Control: ctrl,
+			History:        turnMsgs,
+			Emit:           emit,
+			Control:        ctrl,
+			ResponseSchema: opts.ResponseSchema,
 		})
 		a.ctrlMu.Lock()
 		a.ctrl = nil

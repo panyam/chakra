@@ -106,10 +106,16 @@ func drive(ctx context.Context, p profile) (*runResult, error) {
 		}
 	}()
 
+	// The task asks for the result in result.schema.json's shape, as the
+	// parity run asks codex exec with --output-schema.
+	schema, err := os.ReadFile(filepath.Join(p.dir, "result.schema.json"))
+	if err != nil {
+		return nil, err
+	}
 	start := time.Now()
 	submitErr := make(chan error, 1)
 	go func() {
-		_, err := client.Submit(ctx, connect.NewRequest(&webv1.SubmitRequest{Input: prompt, SessionId: sid}))
+		_, err := client.Submit(ctx, connect.NewRequest(&webv1.SubmitRequest{Input: prompt, SessionId: sid, ResponseSchema: string(schema)}))
 		submitErr <- err
 	}()
 

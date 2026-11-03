@@ -49,6 +49,8 @@ func scriptedProvider(fixture string) (agent.Provider, error) {
 			}),
 		}},
 		agent.StubTurn{Text: "Fixed Sum's loop, which skipped the first element. go test ./... passes."},
+		// The finalizing call for result.schema.json.
+		agent.StubTurn{Text: `{"status":"fixed","summary":"Sum skipped the first element; the loop now starts at 0.","files_changed":["stats/stats.go"],"tests_passed":true}`},
 		agent.StubTurn{Text: fmt.Sprintf("I changed %s.", "Sum in stats/stats.go")},
 	), nil
 }

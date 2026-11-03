@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -284,6 +285,13 @@ type TurnResult struct {
 	// finalizing Generate call; Bind it into a typed value. Its Usage is
 	// already folded into Usage above. Empty when no schema was configured.
 	Structured core.RawJSON `json:"structured,omitempty"`
+
+	// StructuredError says why Structured is not valid against the schema,
+	// after every finalizing attempt: not JSON, or the validation errors of
+	// the last attempt. Empty when Structured is valid or no schema was set.
+	// The turn itself still succeeds, so a caller that needs a valid
+	// document checks this rather than the error.
+	StructuredError string `json:"structuredError,omitempty"`
 }
 
 // Control is the turn's steering envelope: surfaces send Controls on
@@ -346,6 +354,14 @@ type TurnRequest struct {
 	// The zero value changes nothing and the turn runs on the config's
 	// defaults.
 	Generation GenerationParams
+
+	// ResponseSchema overrides RunnerConfig.ResponseSchema for this turn: the
+	// final answer is coerced into a JSON document valid against it and put
+	// on TurnResult.Structured. A headless caller that wants one structured
+	// result from a session otherwise used for chat sets it here. Empty keeps
+	// the config's schema. A schema that doesn't compile fails the turn
+	// before any model call.
+	ResponseSchema core.RawJSON
 }
 
 // Run executes one turn against history. Events stream to emit (nil is
@@ -368,6 +384,22 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 		emit = func(Event) {}
 	}
 	gen := r.cfg.Generation.merge(req.Generation)
+	schema := r.cfg.ResponseSchema
+	if req.ResponseSchema.Len() > 0 {
+		schema = req.ResponseSchema
+	}
+	var compiled *core.CompiledSchema
+	if schema.Len() > 0 {
+		var doc any
+		if err := json.Unmarshal(schema.Raw(), &doc); err != nil {
+			return nil, fmt.Errorf("agent: response schema: %w", err)
+		}
+		c, err := core.CompileSchema(doc)
+		if err != nil {
+			return nil, fmt.Errorf("agent: response schema: %w", err)
+		}
+		compiled = c
+	}
 
 	var reg *callCancels
 	if req.Control != nil {
@@ -492,20 +524,22 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 			}
 			stepSpan.End()
 			var structured core.RawJSON
-			if r.cfg.ResponseSchema.Len() > 0 {
-				s, err := r.finalizeStructured(ctx, turnInstructions, msgs, &usage, gen)
+			var structuredErr string
+			if compiled != nil {
+				s, invalid, err := r.finalizeStructured(ctx, turnInstructions, msgs, &usage, gen, schema, compiled)
 				if err != nil {
 					return nil, r.failSpan(emit, turnSpan, fmt.Errorf("agent: structured finalize: %w", err))
 				}
-				structured = s
+				structured, structuredErr = s, invalid
 			}
 			result := &TurnResult{
-				Text:         resp.Text,
-				Messages:     added,
-				Usage:        usage,
-				Steps:        step,
-				FinishReason: resp.FinishReason,
-				Structured:   structured,
+				Text:            resp.Text,
+				Messages:        added,
+				Usage:           usage,
+				Steps:           step,
+				FinishReason:    resp.FinishReason,
+				Structured:      structured,
+				StructuredError: structuredErr,
 			}
 			turnSpan.SetAttribute("agent.steps", fmt.Sprint(step))
 			turnSpan.SetAttribute("agent.finish_reason", resp.FinishReason)
@@ -642,24 +676,25 @@ func consumeStream(stream Stream, step int, emit func(Event)) (*ProviderResponse
 }
 
 // structuredMaxAttempts bounds the finalizing Generate: one initial call plus
-// retries when the model returns text that is not valid JSON. Two total keeps
-// the extra cost low while absorbing the occasional near-miss.
+// retries when the model returns text that isn't valid against the schema.
+// Two total keeps the extra cost low while absorbing the occasional near-miss.
 const structuredMaxAttempts = 2
 
 // finalizeStructured makes the schema-coercing Generate call over the finished
 // conversation (msgs already includes the terminal assistant text) with no
-// tools offered. It retries up to structuredMaxAttempts when the returned text
-// is not valid JSON, folding each call's usage into usage. A provider error
-// aborts (the caller asked for structured output and cannot get it); after the
-// retry budget it returns the last output best-effort so a caller's Bind, not
-// a lost turn, surfaces a still-malformed document.
-func (r *Runner) finalizeStructured(ctx context.Context, instructions string, msgs []Message, usage *Usage, gen GenerationParams) (core.RawJSON, error) {
+// tools offered, and checks the answer against the schema. A failed attempt is
+// shown to the model with what was wrong before the next one, folding each
+// call's usage into usage. A provider error aborts (the caller asked for
+// structured output and cannot get it). After the retry budget it returns the
+// last output best-effort, with invalid saying why it doesn't validate.
+func (r *Runner) finalizeStructured(ctx context.Context, instructions string, msgs []Message, usage *Usage, gen GenerationParams, schema core.RawJSON, compiled *core.CompiledSchema) (doc core.RawJSON, invalid string, err error) {
 	var last string
+	msgs = slices.Clip(msgs)
 	for attempt := 0; attempt < structuredMaxAttempts; attempt++ {
 		finalReq := ProviderRequest{
 			Instructions:   instructions,
 			Messages:       msgs,
-			ResponseSchema: r.cfg.ResponseSchema,
+			ResponseSchema: schema,
 		}
 		gen.applyTo(&finalReq)
 		// The finalizing call offers no tools, so a ToolChoice carried from
@@ -669,7 +704,7 @@ func (r *Runner) finalizeStructured(ctx context.Context, instructions string, ms
 		finalReq.ToolChoice = ToolChoice{}
 		resp, err := r.cfg.Provider.Generate(ctx, finalReq)
 		if err != nil {
-			return core.RawJSON{}, err
+			return core.RawJSON{}, "", err
 		}
 		if resp.Usage != nil {
 			usage.InputTokens += resp.Usage.InputTokens
@@ -677,12 +712,51 @@ func (r *Runner) finalizeStructured(ctx context.Context, instructions string, ms
 			usage.CachedInputTokens += resp.Usage.CachedInputTokens
 			treeBudgetFrom(ctx).addTokens(resp.Usage.InputTokens + resp.Usage.OutputTokens)
 		}
-		last = resp.Text
-		if json.Valid([]byte(last)) {
-			return core.NewRawJSON(json.RawMessage(last)), nil
+		last = stripJSONFence(resp.Text)
+		invalid = checkStructured(last, compiled)
+		if invalid == "" {
+			return core.NewRawJSON(json.RawMessage(last)), "", nil
 		}
+		msgs = append(msgs,
+			Message{Role: RoleAssistant, Text: resp.Text},
+			Message{Role: RoleUser, Text: "That answer doesn't match the required JSON schema: " + invalid + ". Reply with only a JSON document that matches it."})
 	}
-	return core.NewRawJSON(json.RawMessage(last)), nil
+	return core.NewRawJSON(json.RawMessage(last)), invalid, nil
+}
+
+// checkStructured returns why text is not a document valid against compiled,
+// or "" when it is.
+func checkStructured(text string, compiled *core.CompiledSchema) string {
+	if !json.Valid([]byte(text)) {
+		return "it is not valid JSON"
+	}
+	errs := compiled.Validate(json.RawMessage(text))
+	if errs == nil || len(errs.Errors) == 0 {
+		return ""
+	}
+	parts := make([]string, len(errs.Errors))
+	for i, e := range errs.Errors {
+		path := e.Path
+		if path == "" {
+			path = "/"
+		}
+		parts[i] = path + ": " + e.Message
+	}
+	return strings.Join(parts, "; ")
+}
+
+// stripJSONFence removes a ```json fence some models put around a JSON answer
+// even when asked for JSON alone.
+func stripJSONFence(text string) string {
+	t := strings.TrimSpace(text)
+	if !strings.HasPrefix(t, "```") {
+		return text
+	}
+	t = strings.TrimPrefix(t, "```")
+	if nl := strings.IndexByte(t, '\n'); nl >= 0 {
+		t = t[nl+1:]
+	}
+	return strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(t), "```"))
 }
 
 // callCancels tracks the in-flight tool calls of one turn so the

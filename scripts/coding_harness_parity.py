@@ -101,7 +101,7 @@ def chakra_side(out):
         "output_tokens": m.get("output_tokens"),
         "wall_seconds": m.get("wall_seconds"),
         "tests_passed": m.get("tests_passed"),
-        "schema_valid": False,
+        "schema_valid": m.get("schema_valid", False),
         "test_files_untouched": m.get("test_files_untouched"),
         "stats_rule_followed": STATS_RULE in text,
         "commands": tools,
@@ -124,7 +124,6 @@ def main():
     for r in rows:
         print(f"{r:22}{str(cx.get(r)):>12}{str(ck.get(r) if ck else 'no run'):>12}")
     print()
-    print("chakra schema_valid stays False until #145.")
     print(f"chakra loaded instruction files with the {os.environ.get('PARITY_INSTRUCTIONS') or 'workspace.json'} preset.")
     print("\ncodex commands:")
     for c in cx["commands"]:

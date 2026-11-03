@@ -219,8 +219,11 @@ type metrics struct {
 	WallSeconds int  `json:"wall_seconds"`
 	TestsPassed bool `json:"tests_passed"`
 	// TestFilesUntouched is AGENTS.md's "never edit *_test.go" rule.
-	TestFilesUntouched bool   `json:"test_files_untouched"`
-	TurnError          string `json:"turn_error,omitempty"`
+	TestFilesUntouched bool `json:"test_files_untouched"`
+	// SchemaValid is whether the run returned a result valid against
+	// result.schema.json. The Runner validated it; this reads the outcome.
+	SchemaValid bool   `json:"schema_valid"`
+	TurnError   string `json:"turn_error,omitempty"`
 }
 
 func metricsOf(r *runResult) metrics {
@@ -229,6 +232,7 @@ func metricsOf(r *runResult) metrics {
 		m.Steps = r.turn.Steps
 		m.InputTok = r.turn.Usage.InputTokens
 		m.OutputTok = r.turn.Usage.OutputTokens
+		m.SchemaValid = r.turn.Structured.Len() > 0 && r.turn.StructuredError == ""
 	}
 	return m
 }
