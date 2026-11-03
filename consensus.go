@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 )
 
@@ -23,8 +24,18 @@ type Consensus struct {
 	// caps the whole vote rather than each draw.
 	Runner *Runner
 
-	// Draws is how many times the turn runs. Values below 1 mean 1.
+	// Draws is how many times the turn runs. Values below 1 mean 1. Prior
+	// answers don't count toward it.
 	Draws int
+
+	// Prior holds answers the caller already has, such as the one a turn
+	// already accepted, so the vote counts them without paying to redraw
+	// them. Each is keyed and counted like a draw that ran before draw 0:
+	// priors come first in ConsensusResult.Draws, unseeded, and win ties
+	// against fresh draws. Fresh draws keep seeds 0..Draws-1, so adding a
+	// prior doesn't change what they sample. A nil entry is a misconfigured
+	// Consensus.
+	Prior []*TurnResult
 
 	// Parallel bounds how many draws run at once. Values below 1 mean 1, so
 	// draws run in order by default. Running draws at once is faster but can
@@ -69,6 +80,9 @@ type DrawResult struct {
 	// Err is why the draw failed, empty when it finished. A draw that never
 	// started because the vote stopped carries the stopping error.
 	Err string `json:"err,omitempty"`
+	// Prior says the answer came from Consensus.Prior rather than a draw
+	// this vote ran.
+	Prior bool `json:"prior,omitempty"`
 }
 
 // ConsensusResult is the vote.
@@ -86,8 +100,9 @@ type ConsensusResult struct {
 	// is the denominator for Agree. Draws that failed or never started are
 	// not counted.
 	Counted int `json:"counted"`
-	// Draws holds every draw in index order, including failed and unstarted
-	// ones.
+	// Draws holds Consensus.Prior's answers first, then every fresh draw
+	// in index order, including failed and unstarted ones. A fresh draw i
+	// sits at Draws[len(Prior)+i].
 	Draws []DrawResult `json:"draws"`
 	// Split says no key won a strict majority of Counted, including when no
 	// draw was accepted.
@@ -108,12 +123,16 @@ type ConsensusResult struct {
 // provider takes a seed, and Emit is replaced by c.Emit's envelope.
 //
 // A draw that fails with an ordinary error is recorded on its DrawResult and
-// the vote goes on. A draw that hits the tree budget, or a cancelled ctx,
+// the vote goes on. That includes a draw a turn-end hook stopped
+// (ErrTurnStopped): its refused answer is not a vote. A draw that hits the tree budget, or a cancelled ctx,
 // stops further draws, and Run returns the draws so far with Stopped set and
 // a nil error. Run returns an error only for a misconfigured Consensus.
 func (c *Consensus) Run(ctx context.Context, req TurnRequest) (*ConsensusResult, error) {
 	if c.Runner == nil || c.Key == nil {
 		return nil, fmt.Errorf("agent: Consensus requires Runner and Key")
+	}
+	if slices.Contains(c.Prior, nil) {
+		return nil, fmt.Errorf("agent: Consensus.Prior holds a nil result")
 	}
 	n := max(c.Draws, 1)
 	par := min(max(c.Parallel, 1), n)
@@ -126,7 +145,15 @@ func (c *Consensus) Run(ctx context.Context, req TurnRequest) (*ConsensusResult,
 		ctx = WithTreeBudget(ctx, c.Runner.cfg.TreeBudget)
 	}
 
-	out := &ConsensusResult{Draws: make([]DrawResult, n), Seeded: seeded}
+	k := len(c.Prior)
+	out := &ConsensusResult{Draws: make([]DrawResult, k+n), Seeded: seeded}
+	for i, res := range c.Prior {
+		d := &out.Draws[i]
+		d.Prior, d.Result = true, res
+		if d.Key, d.OK = c.Key(res); !d.OK {
+			d.Key = ""
+		}
+	}
 	var (
 		mu      sync.Mutex
 		emitMu  sync.Mutex
@@ -159,11 +186,11 @@ func (c *Consensus) Run(ctx context.Context, req TurnRequest) (*ConsensusResult,
 						stopped = err
 					}
 					mu.Unlock()
-					out.Draws[i].Err = err.Error()
+					out.Draws[k+i].Err = err.Error()
 					continue
 				}
 				dr := c.draw(ctx, req, i, seeded, &emitMu)
-				out.Draws[i] = dr.DrawResult
+				out.Draws[k+i] = dr.DrawResult
 				if dr.stop != nil {
 					mu.Lock()
 					if stopped == nil {

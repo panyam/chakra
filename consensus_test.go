@@ -234,3 +234,43 @@ func (f failingSeed) Stream(ctx context.Context, req ProviderRequest) (Stream, e
 	}
 	return f.bySeed.Stream(ctx, req)
 }
+
+// A prior answer is counted like a draw that came first: it votes, it wins
+// ties, and the fresh draws keep their seeds 0..Draws-1.
+func TestConsensusCountsPriors(t *testing.T) {
+	p := &bySeed{answers: []string{"b", "a"}}
+	prior := &TurnResult{Text: "a"}
+	res := vote(t, &Consensus{Runner: runnerOver(t, p, RunnerConfig{}), Draws: 2, Prior: []*TurnResult{prior}, Key: keyText})
+	if res.WinnerKey != "a" || res.Agree != 2 || res.Counted != 3 || res.Split || res.Winner != prior {
+		t.Fatalf("vote = key %q %d/%d split %v winner %+v", res.WinnerKey, res.Agree, res.Counted, res.Split, res.Winner)
+	}
+	if len(res.Draws) != 3 || !res.Draws[0].Prior || res.Draws[0].Seed != nil || res.Draws[1].Prior || res.Draws[2].Prior {
+		t.Fatalf("draws %+v", res.Draws)
+	}
+	if !slices.Equal(p.seeds, []int{0, 1}) || *res.Draws[1].Seed != 0 || *res.Draws[2].Seed != 1 {
+		t.Fatalf("seeds sent %v", p.seeds)
+	}
+}
+
+func TestConsensusRefusesANilPrior(t *testing.T) {
+	c := &Consensus{Runner: runnerOver(t, NewStubProvider(), RunnerConfig{}), Key: keyText, Prior: []*TurnResult{nil}}
+	if _, err := c.Run(context.Background(), TurnRequest{}); err == nil {
+		t.Fatal("a nil prior should be refused")
+	}
+}
+
+// A draw whose turn-end hook stops it is a failed draw: recorded, not
+// counted, and the vote goes on.
+func TestConsensusRecordsAStoppedDrawAsFailed(t *testing.T) {
+	p := &bySeed{answers: []string{"a", "stop", "a"}}
+	stop := func(_ context.Context, info TurnEndInfo) (TurnEndVerdict, error) {
+		if info.Text == "stop" {
+			return TurnEndVerdict{Stop: "refused"}, nil
+		}
+		return TurnEndVerdict{}, nil
+	}
+	res := vote(t, &Consensus{Runner: runnerOver(t, p, RunnerConfig{TurnEnd: []TurnEndHook{stop}}), Draws: 3, Key: keyText})
+	if res.Stopped != nil || res.Counted != 2 || res.Agree != 2 || res.Draws[1].OK || !strings.Contains(res.Draws[1].Err, ErrTurnStopped.Error()) {
+		t.Fatalf("res = %+v", res)
+	}
+}

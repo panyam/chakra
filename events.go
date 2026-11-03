@@ -53,7 +53,8 @@ const (
 	// EventTurnContinued marks that a TurnEndHook refused the model's final
 	// answer (#150). Step is the step that answered, and Reason the message
 	// the turn continues with, which also joins the record as a RoleSystem
-	// note. Another step follows unless the turn is at MaxSteps.
+	// note (RoleUser when the verdict set AsUser). A Stop emits no
+	// turn-continued; the turn ends with EventError. Another step follows unless the turn is at MaxSteps.
 	EventTurnContinued EventKind = "turn-continued"
 	// EventPlan carries the plan a model published with update_plan (#148),
 	// on Plan, whole each time: a surface replaces the plan it showed. Step is

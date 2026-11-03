@@ -5,6 +5,13 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
+## [Unreleased]
+
+### Added
+- `TurnEndVerdict.Stop` ends the turn on the refused answer without another step. The turn returns an error wrapping the new `ErrTurnStopped` with the reason, and a partial `TurnResult` whose messages end with the refused answer (#222).
+- `TurnEndVerdict.AsUser` sends a `Continue` note as a user message instead of a system note, for chat templates that reject a system message after the first (#222).
+- `Consensus.Prior` counts answers the caller already has in the vote without redrawing them. They come first in `ConsensusResult.Draws`, marked `Prior`, and win ties (#222).
+
 ## [v0.2.4] - 2026-11-03
 
 ### Added

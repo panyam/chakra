@@ -191,3 +191,88 @@ func TestTurnEndHooksRunInOrder(t *testing.T) {
 		t.Errorf("a failing hook: %v", err)
 	}
 }
+
+// A Stop ends the turn on the refused answer: no further model call, an
+// error wrapping ErrTurnStopped with the reason, and a partial result whose
+// record ends with the answer the hook refused.
+func TestTurnEndStopEndsTheTurnWithThePartialRecord(t *testing.T) {
+	stop := func(_ context.Context, info TurnEndInfo) (TurnEndVerdict, error) {
+		return TurnEndVerdict{Stop: "resent a draft already refused"}, nil
+	}
+	stub := NewStubProvider(StubTurn{Text: "same draft"}, StubTurn{Text: "never asked"})
+	res, events, err := runTurnEnd(t, RunnerConfig{Provider: stub, TurnEnd: []TurnEndHook{stop}})
+	if !errors.Is(err, ErrTurnStopped) || !strings.Contains(err.Error(), "resent a draft already refused") {
+		t.Fatalf("err = %v", err)
+	}
+	if res == nil || res.Steps != 1 || res.Text != "" || len(res.Messages) != 1 {
+		t.Fatalf("partial result %+v", res)
+	}
+	if last := res.Messages[0]; last.Role != RoleAssistant || last.Text != "same draft" {
+		t.Errorf("the record ends with %+v, want the refused answer", last)
+	}
+	if n := len(stub.Requests()); n != 1 {
+		t.Errorf("%d model calls, want 1", n)
+	}
+	if len(kindsOf(events, EventTurnContinued)) != 0 || len(kindsOf(events, EventTurnEnd)) != 0 || len(kindsOf(events, EventError)) != 1 {
+		t.Errorf("events %+v", events)
+	}
+}
+
+// A Stop from a later hook still wins over an earlier hook that accepted,
+// and a Continue from an earlier hook wins over a later Stop.
+func TestTurnEndFirstHookThatDoesNotAcceptWins(t *testing.T) {
+	accept := func(context.Context, TurnEndInfo) (TurnEndVerdict, error) { return TurnEndVerdict{}, nil }
+	stop := func(context.Context, TurnEndInfo) (TurnEndVerdict, error) { return TurnEndVerdict{Stop: "no"}, nil }
+	_, _, err := runTurnEnd(t, RunnerConfig{Provider: NewStubProvider(StubTurn{Text: "a"}), TurnEnd: []TurnEndHook{accept, stop}})
+	if !errors.Is(err, ErrTurnStopped) {
+		t.Fatalf("accept then stop: %v", err)
+	}
+	var seen []TurnEndInfo
+	stub := NewStubProvider(StubTurn{Text: "a"}, StubTurn{Text: "b"})
+	res, _, err := runTurnEnd(t, RunnerConfig{Provider: stub, TurnEnd: []TurnEndHook{refuseUntil(1, "again", &seen), stop}})
+	if !errors.Is(err, ErrTurnStopped) || res.Steps != 2 {
+		t.Fatalf("continue then stop: %+v %v", res, err)
+	}
+}
+
+func TestTurnEndStopAndContinueTogetherIsAnError(t *testing.T) {
+	both := func(context.Context, TurnEndInfo) (TurnEndVerdict, error) {
+		return TurnEndVerdict{Stop: "no", Continue: "again"}, nil
+	}
+	stub := NewStubProvider(StubTurn{Text: "a"}, StubTurn{Text: "b"})
+	res, _, err := runTurnEnd(t, RunnerConfig{Provider: stub, TurnEnd: []TurnEndHook{both}})
+	if err == nil || errors.Is(err, ErrTurnStopped) || res != nil || len(stub.Requests()) != 1 {
+		t.Fatalf("%+v %v", res, err)
+	}
+}
+
+// AsUser sends the Continue note as a user message, in the record and on the
+// next request; without it the note stays a system note.
+func TestTurnEndContinueAsUserReachesTheNextRequestAsAUserMessage(t *testing.T) {
+	for _, asUser := range []bool{true, false} {
+		want := RoleSystem
+		if asUser {
+			want = RoleUser
+		}
+		n := 0
+		hook := func(context.Context, TurnEndInfo) (TurnEndVerdict, error) {
+			n++
+			if n == 1 {
+				return TurnEndVerdict{Continue: "this draft failed; change it", AsUser: asUser}, nil
+			}
+			return TurnEndVerdict{}, nil
+		}
+		stub := NewStubProvider(StubTurn{Text: "draft"}, StubTurn{Text: "fixed"})
+		res, _, err := runTurnEnd(t, RunnerConfig{Provider: stub, TurnEnd: []TurnEndHook{hook}})
+		if err != nil || res.Text != "fixed" || len(res.Messages) != 3 {
+			t.Fatalf("asUser=%v: %+v %v", asUser, res, err)
+		}
+		if note := res.Messages[1]; note.Role != want || note.Text != "this draft failed; change it" {
+			t.Errorf("asUser=%v: recorded %+v", asUser, note)
+		}
+		second := stub.Requests()[1].Messages
+		if last := second[len(second)-1]; last.Role != want || last.Text != "this draft failed; change it" {
+			t.Errorf("asUser=%v: the next request ended with %+v", asUser, last)
+		}
+	}
+}
