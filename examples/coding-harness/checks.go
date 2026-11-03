@@ -70,7 +70,7 @@ var checks = []check{
 	{
 		id:        "escalation_asked",
 		behaviour: "a command outside the sandbox asked for escalation",
-		wiring:    "per-call approval disposition (#153, #154)",
+		wiring:    "ApprovalClassifier on the shell tool (#154, on #153)",
 		run: func(r *runResult, _ string) (bool, string) {
 			for _, ev := range r.events {
 				if ev.Kind == host.HostElicitRequest {

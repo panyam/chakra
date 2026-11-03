@@ -85,6 +85,61 @@ type Choice struct {
 	Note string
 }
 
+// CallDisposition is how much one call can change, as the tool that owns it
+// judges from the call's arguments.
+type CallDisposition int
+
+const (
+	// DispositionUnknown means the classifier has no opinion about the
+	// effect, and the tool's annotations decide it as before. A classifier can
+	// still claim the call to name its remember key and reason.
+	DispositionUnknown CallDisposition = iota
+	// DispositionReadOnly means the call changes nothing. It auto-allows under
+	// ModeReadOnlyAuto even when the tool as a whole is destructive, which is
+	// the point: "git status" through a tool that can also run "git push".
+	DispositionReadOnly
+	// DispositionReversible means the call writes something that can be
+	// undone, so ModeReversibleAuto allows it.
+	DispositionReversible
+	// DispositionDestructive means the call's effect is hard to take back. It
+	// asks under every mode but ModeAlwaysAllow.
+	DispositionDestructive
+	// DispositionForbidden refuses the call without asking. It wins over a
+	// remembered approval, a RuleAllow and ModeAlwaysAllow, so no setting can
+	// turn it into a yes.
+	DispositionForbidden
+)
+
+// CallClass is a classifier's verdict on one call.
+type CallClass struct {
+	// Disposition is the call's effect, or DispositionUnknown to leave that to
+	// the tool's annotations.
+	Disposition CallDisposition
+
+	// Key names what approving this call covers, for the remember cache, such
+	// as a command prefix ("git status"). It is scoped to the tool, so two
+	// tools can't share an approval through equal keys. Empty means the call
+	// is never remembered: falling back to the tool name would let one
+	// approved "rm foo" cover every later rm.
+	Key string
+
+	// Reason is a short phrase saying why, such as "recursive delete". It is
+	// the denial reason for a forbidden call and is available to renderers
+	// through ToolCallInfo.Class for an ask.
+	Reason string
+}
+
+// ClassifyFunc classifies one call from its arguments. The bool is "this call
+// is mine"; false leaves the call to the tool's annotations and the default
+// remember key, exactly as if no classifier were set.
+//
+// It runs inside the gate, on the arguments as they will execute, after every
+// earlier middleware has rewritten them. Classifying before the chain would
+// let a rewrite from a harmless call to a destructive one go unexamined. A
+// classifier is trusted to judge the tools it claims, so it should claim only
+// its own.
+type ClassifyFunc func(ctx context.Context, info ToolCallInfo) (CallClass, bool)
+
 // TieredApproval is the batteries-included permission gate: a default mode, a
 // map of per-tool rules that override it, an optional ask seam, and an
 // optional session-scoped cache that remembers a tool the user approved so
@@ -97,6 +152,7 @@ type TieredApproval struct {
 	choose   ChooseFunc
 	remember bool
 	key      RememberKeyFunc
+	classify ClassifyFunc
 
 	mu         sync.Mutex
 	remembered map[string]bool
@@ -144,8 +200,22 @@ func WithRememberKey(fn RememberKeyFunc) TieredOption {
 	return func(t *TieredApproval) { t.key = fn }
 }
 
+// WithClassifier sets the per-call classifier the gate consults before
+// anything else. Nil keeps every call's disposition at its tool's annotations.
+func WithClassifier(fn ClassifyFunc) TieredOption {
+	return func(t *TieredApproval) { t.classify = fn }
+}
+
 // rememberKey is the cache key for info, or ok false when it can't be cached.
+// A classified call is keyed by its tool and the classifier's key, and only by
+// those; RememberKeyFunc is for calls no classifier claimed.
 func (t *TieredApproval) rememberKey(info ToolCallInfo) (string, bool) {
+	if info.Class != nil {
+		if info.Class.Key == "" {
+			return "", false
+		}
+		return info.Call.Name + "\x00" + info.Class.Key, true
+	}
 	if t.key == nil {
 		return info.Call.Name, true
 	}
@@ -190,8 +260,9 @@ func (t *TieredApproval) DefaultMode() ApprovalMode {
 	return t.mode
 }
 
-// BeforeTool applies, in order: a remembered approval, a per-tool rule, then
-// the default mode. An ask that the user accepts is remembered when the cache
+// WrapToolCall applies, in order: the classifier (a forbidden call is refused
+// here), a remembered approval, a per-tool rule, then the default mode, which
+// reads the classifier's disposition in place of the tool's annotations. An ask that the user accepts is remembered when the cache
 // is on. A refusal (rule Deny, an ask returning false, or an ask with no
 // AskFunc wired) denies with a Reason; the Runner feeds that back to the model
 // and continues the turn.
@@ -201,6 +272,19 @@ func (t *TieredApproval) DefaultMode() ApprovalMode {
 // what lets this one run last and still see exactly what will execute; the one
 // exception is the user's own answer, and what runs is what they chose.
 func (t *TieredApproval) WrapToolCall(ctx context.Context, info ToolCallInfo, next ToolCallFunc) (*core.ToolResult, error) {
+	if t.classify != nil {
+		if c, ok := t.classify(ctx, info); ok {
+			if c.Disposition == DispositionForbidden {
+				reason := "forbidden by policy"
+				if c.Reason != "" {
+					reason += ": " + c.Reason
+				}
+				return nil, DenyTool(reason)
+			}
+			info = info.classified(c)
+		}
+	}
+
 	t.mu.Lock()
 	mode := t.mode
 	key, keyed := t.rememberKey(info)

@@ -95,11 +95,13 @@ integrated with a dedicated engine.
   hardcode a step per module, and the failure mode that ordering produced is worth remembering
   even now that it is fixed: a module absent from the workflow builds fine locally and never runs
   in CI, so the gap reports itself as a pass.
-- **A tool's safety annotations are per `ToolDef`, so they constrain tool shape.** `toolHints`
-  resolves `readOnlyHint` / `destructiveHint` by tool name, which means one tool covering N
-  operations gives all N the same approval disposition. An extension cannot work around it:
-  extension middleware runs *before* the host's permission gate, and `ApprovalRenderer` only
-  changes the wording. This is why `ext/exec` emits one tool per allowlisted command.
+- **A tool's safety annotations are per `ToolDef`; per-call dispositions need a classifier.**
+  `toolHints` resolves `readOnlyHint` / `destructiveHint` by tool name, so one tool covering N
+  operations gives all N the same disposition unless its extension supplies an
+  `ApprovalClassifier`, which the gate consults on the final arguments (#153). Extension
+  middleware can't do this job: it runs *before* the gate, and anything it sets on
+  `ToolCallInfo` is advisory. `ext/exec` still emits one tool per allowlisted command because it
+  has no classifier yet; #154 adds one.
 - **Tools are re-listed every step**, not once per turn, and `RunnerConfig.Selector` narrows the
   offered set per step. A context-varying tool set is already supported, and needs nothing new.
 - **An exec command's `argv[0]` resolves from the launching process, not the workspace root.**

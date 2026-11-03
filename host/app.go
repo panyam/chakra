@@ -130,6 +130,8 @@ type App struct {
 	// order and consulted before the built-in prompt format.
 	approvalRenderers []ApprovalRenderer
 	approvalChoosers  []ApprovalChooser
+	// approvalClassifiers, also in registration order; see classifyApproval.
+	approvalClassifiers []ApprovalClassifier
 
 	// toolOrigins records what each source id IS, so spotlight provenance is
 	// derived from where a tool came from rather than restated in config.
@@ -353,7 +355,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	choose := func(ctx context.Context, info agent.ToolCallInfo) (agent.Choice, error) {
 		return app.chooseApproval(ctx, info, agent.ElicitationUI(coord.Handler()))
 	}
-	app.approval = cfg.Approval.buildApproval(ask, choose, app.rememberKey)
+	app.approval = cfg.Approval.buildApproval(ask, choose, app.rememberKey, app.classifyApproval)
 
 	// serverTools mirrors the server sources only — no meta-tools, no
 	// sub-agents — so a sub-agent or fan-out persona gets a filtered view of the

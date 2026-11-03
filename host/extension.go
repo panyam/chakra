@@ -119,6 +119,14 @@ type Extension interface {
 	// middleware; the chooser runs inside it. See ApprovalChooser.
 	ApprovalChoosers() []ApprovalChooser
 
+	// ApprovalClassifiers judge each call to the tools this extension owns
+	// from its arguments: read-only, reversible, destructive or forbidden, the
+	// remember key that an approval of it covers, and why. The gate consults
+	// them before anything else, so one tool can let "git status" through
+	// while asking about "git push". Consulted in registration order; the
+	// first to claim a call wins. See ApprovalClassifier.
+	ApprovalClassifiers() []ApprovalClassifier
+
 	// InputTransforms rewrite the user's message before the turn is built
 	// (issue 27), in registration order, each over the previous one's output.
 	// The result is the user message history keeps and the model reads. A
@@ -176,9 +184,12 @@ func (BaseExtension) Commands() []*Command                  { return nil }
 func (BaseExtension) ContextStages() []ContextStage         { return nil }
 func (BaseExtension) ApprovalRenderers() []ApprovalRenderer { return nil }
 func (BaseExtension) ApprovalChoosers() []ApprovalChooser   { return nil }
-func (BaseExtension) InputTransforms() []InputTransform     { return nil }
-func (BaseExtension) TurnStart(context.Context) error       { return nil }
-func (BaseExtension) Close() error                          { return nil }
+func (BaseExtension) ApprovalClassifiers() []ApprovalClassifier {
+	return nil
+}
+func (BaseExtension) InputTransforms() []InputTransform { return nil }
+func (BaseExtension) TurnStart(context.Context) error   { return nil }
+func (BaseExtension) Close() error                      { return nil }
 
 // ApprovalRenderer turns a pending tool call into the question a user is
 // asked about it, or declines to.
@@ -221,6 +232,17 @@ type ApprovalRenderer func(context.Context, agent.ToolCallInfo) (string, bool)
 // The info carries the call as it will execute, after every middleware, which
 // is what the chooser narrows.
 type ApprovalChooser func(ctx context.Context, info agent.ToolCallInfo, present agent.ElicitationUI) (agent.Choice, error)
+
+// ApprovalClassifier classifies one pending call from its arguments, or
+// declines to. The bool is "this call is mine", as with ApprovalRenderer; a
+// classifier should claim only its own extension's tools, because the gate
+// trusts its verdict, including a read-only verdict on a tool annotated
+// destructive.
+//
+// The info carries the call as it will execute, after every middleware, so a
+// rewrite can't turn a classified-safe call into something else. See
+// agent.ClassifyFunc for what each field of the verdict does at the gate.
+type ApprovalClassifier func(ctx context.Context, info agent.ToolCallInfo) (agent.CallClass, bool)
 
 // InputTransform rewrites the user's input into the message a turn is built
 // from. An error aborts the turn before history is touched or the model is
@@ -272,6 +294,20 @@ func (a *App) chooseApproval(ctx context.Context, info agent.ToolCallInfo, prese
 		}
 	}
 	return agent.Choice{}, nil
+}
+
+// classifyApproval gives each registered classifier a look at a pending call,
+// in registration order, and returns the first claim.
+func (a *App) classifyApproval(ctx context.Context, info agent.ToolCallInfo) (agent.CallClass, bool) {
+	for _, c := range a.approvalClassifiers {
+		if c == nil {
+			continue
+		}
+		if class, ok := c(ctx, info); ok {
+			return class, true
+		}
+	}
+	return agent.CallClass{}, false
 }
 
 // startExtensionTurns runs every extension's TurnStart, in registration
@@ -379,6 +415,7 @@ func (a *App) applyExtensions(exts []Extension) ([]agent.ToolMiddleware, error) 
 		a.context.transient = append(a.context.transient, ext.ContextStages()...)
 		a.approvalRenderers = append(a.approvalRenderers, ext.ApprovalRenderers()...)
 		a.approvalChoosers = append(a.approvalChoosers, ext.ApprovalChoosers()...)
+		a.approvalClassifiers = append(a.approvalClassifiers, ext.ApprovalClassifiers()...)
 
 		for _, cmd := range ext.Commands() {
 			// Register overwrites silently, which is the wrong behaviour for

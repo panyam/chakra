@@ -95,6 +95,28 @@ type ToolCallInfo struct {
 	// zero value is the conservative reading here rather than the inverted
 	// one. Read-only tools report true.
 	Idempotent bool
+
+	// Class is the gate's classifier verdict on this call, nil when no
+	// classifier claimed it. The gate sets it before deciding, so the ask and
+	// its renderer see why a call is being asked about; ReadOnly, Destructive
+	// and Idempotent already reflect it by then. Middleware before the gate
+	// always sees nil.
+	Class *CallClass
+}
+
+// classified returns info with c applied: Class set and, unless c has no
+// opinion, the safety hints replaced by c's disposition.
+func (info ToolCallInfo) classified(c CallClass) ToolCallInfo {
+	info.Class = &c
+	switch c.Disposition {
+	case DispositionReadOnly:
+		info.ReadOnly, info.Destructive, info.Idempotent = true, false, true
+	case DispositionReversible:
+		info.ReadOnly, info.Destructive = false, false
+	case DispositionDestructive:
+		info.ReadOnly, info.Destructive = false, true
+	}
+	return info
 }
 
 // ToolDeniedError is how a middleware refuses a call. The Runner unwraps it
