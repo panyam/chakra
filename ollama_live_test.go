@@ -10,8 +10,8 @@ import (
 )
 
 // TestOllamaServerHonorsSchemaAndSeed runs NewOllamaProvider against a real
-// Ollama, the only way to see its response_format actually hold a reply to a
-// schema. Any small model works:
+// Ollama. Only a real server shows whether its response_format actually holds
+// a reply to a schema. Any small model works.
 //
 //	ollama serve & ollama pull qwen2.5:0.5b
 //	CHAKRA_OLLAMA_MODEL=qwen2.5:0.5b go test -run OllamaServer -v .

@@ -7,21 +7,22 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// ServerAgentConfig bridges a decoded server-advertised agent definition (the
-// experimental/ext/agents agents/get result: instructions + a scoped tool set)
-// into the existing composition surface. NewServerAgentSource turns it into an
-// AgentSource the parent delegates to exactly like any other sub-agent.
+// ServerAgentConfig bridges a decoded server-advertised agent definition into
+// the existing composition surface. The definition is the experimental/ext/agents
+// agents/get result, with instructions and a scoped tool set.
+// NewServerAgentSource turns it into an AgentSource. The parent delegates to
+// that source exactly like any other sub-agent.
 //
-// The deliberate non-coupling: this config takes the decoded pieces
-// (Instructions string, Tools []core.ToolDef) plus a Backing ToolSource, NOT
-// the experimental agents.GetAgentResult wire type. That keeps agent/ free of the
-// experimental extension module — the host layer decodes the wire object and
-// hands the parts here (agent/CONSTRAINTS.md A6: this is agent-layer because
-// constructing a Runner needs a model + a turn).
+// This config deliberately takes the decoded pieces (Instructions string,
+// Tools []core.ToolDef) plus a Backing ToolSource. It does NOT take the
+// experimental agents.GetAgentResult wire type. That keeps agent/ free of the
+// experimental extension module. The host layer decodes the wire object and
+// hands the parts here. Constructing a Runner needs a model and a turn, so
+// this is agent-layer under agent/CONSTRAINTS.md A6.
 type ServerAgentConfig struct {
-	// Name is the delegate tool name the parent model sees and calls. The
-	// supervisor routes on it; the scoped Tools never enter the parent's
-	// context. Required.
+	// Name is the delegate tool name. The parent model sees it and calls it.
+	// The supervisor routes on it, and the scoped Tools never enter the
+	// parent's context. Required.
 	Name string
 
 	// Description tells the parent model when to delegate to this agent. The
@@ -32,20 +33,20 @@ type ServerAgentConfig struct {
 	// child Runner, so the child behaves as the server author declared.
 	Instructions string
 
-	// Tools is the agent's scoped tool set from agents/get: the schemas the
-	// child Runner advertises to its own model. These are the ONLY tools the
-	// child can call — the capability boundary that keeps a server-advertised
-	// agent to its declared scope, not the server's full tools/list. Their
-	// names must match tools the Backing source can dispatch (the same server's
-	// tools, per the WG execution model: the host loops the child's tool calls
-	// back to the server).
+	// Tools is the agent's scoped tool set from agents/get. The child Runner
+	// advertises these schemas to its own model. They are the ONLY tools the
+	// child can call. That capability boundary limits a server-advertised
+	// agent to its declared scope rather than the server's full tools/list.
+	// Each name must match a tool that the Backing source can dispatch. Under
+	// the WG execution model, the host loops the child's tool calls back to
+	// the server, so these are the same server's tools.
 	Tools []core.ToolDef
 
 	// Backing executes a scoped tool call. In the host it is the ClientSource
-	// for the server that advertised this agent, so a call the child makes is
-	// dispatched via tools/call back to that server. Only its Call is used;
-	// its own Tools list is ignored (the scoped Tools above are authoritative).
-	// Required.
+	// for the server that advertised this agent. So when the child makes a
+	// call, tools/call dispatches it back to that server. Only its Call is
+	// used. The scoped Tools above are authoritative, so its own Tools list
+	// is ignored. Required.
 	Backing ToolSource
 
 	// Provider is the LLM the child Runner uses. Required. In the host it is
@@ -59,35 +60,36 @@ type ServerAgentConfig struct {
 	// MaxDepth caps sub-agent nesting depth. Zero uses DefaultMaxAgentDepth.
 	MaxDepth int
 
-	// OnEvent, when set, receives the child's event stream wrapped in a
-	// SubAgentEvent envelope for nested rendering, exactly as for a persona
-	// AgentSource. Nil runs the child invisibly.
+	// OnEvent receives the child's event stream when set. Each event comes
+	// wrapped in a SubAgentEvent envelope for nested rendering, exactly as
+	// for a persona AgentSource. Nil runs the child invisibly.
 	OnEvent func(SubAgentEvent)
 
 	// TracerProvider and MeterProvider opt the child Runner into the same
 	// SEP-414 spans / OTel metrics as any other Runner. Nil means zero
-	// overhead. The dedicated spans for the agents extension itself are issue
-	// 1145; this just threads the existing Runner instrumentation.
+	// overhead. Issue 1145 tracks dedicated spans for the agents extension
+	// itself. This field just threads the existing Runner instrumentation.
 	TracerProvider core.TracerProvider
 	MeterProvider  core.MeterProvider
 
-	// ResponseSchema, when set, coerces the child's final answer into
-	// structured output (AgentSource.Call then returns the coerced JSON).
-	// Empty keeps the plain-text answer.
+	// ResponseSchema coerces the child's final answer into structured output
+	// when set, and AgentSource.Call then returns the coerced JSON. Empty
+	// keeps the plain-text answer.
 	ResponseSchema core.RawJSON
 }
 
 // NewServerAgentSource builds an AgentSource from a decoded server-advertised
-// agent definition: a child Runner on cfg.Provider whose ToolSource advertises
-// the agent's scoped Tools and dispatches every call back through cfg.Backing
-// (the advertising server), seeded with the agent's Instructions. The parent
-// then delegates to the returned source like any other AgentSource — depth,
-// call budget, scope, and signal plumbing all apply unchanged.
+// agent definition. The source runs a child Runner on cfg.Provider, seeded
+// with the agent's Instructions. The child's ToolSource advertises the
+// agent's scoped Tools. It dispatches every call back through cfg.Backing,
+// which is the advertising server. The parent then delegates to the returned
+// source like any other AgentSource. Depth, call budget, scope, and signal
+// plumbing all apply unchanged.
 //
 // Name, Provider, and Backing are required. The child is deliberately built
-// over a scoped source (not cfg.Backing directly) so it can call only the
-// tools the agent's definition scoped it to; a tool the server has but the
-// definition did not scope is unreachable from the child.
+// over a scoped source rather than cfg.Backing directly. So it can call only
+// the tools that the agent's definition scoped it to. Imagine the server has
+// a tool that the definition did not scope. The child cannot reach it.
 func NewServerAgentSource(cfg ServerAgentConfig) (*AgentSource, error) {
 	if cfg.Name == "" {
 		return nil, fmt.Errorf("agent: ServerAgentSource requires a Name")
@@ -119,13 +121,13 @@ func NewServerAgentSource(cfg ServerAgentConfig) (*AgentSource, error) {
 	})
 }
 
-// scopedSource advertises a fixed set of tool schemas (an agents/get result's
-// scoped Tools) and dispatches a call to a backing ToolSource ONLY when the
-// name is in that set. A name outside the set is ErrUnknownTool even if the
-// backing would serve it — the capability boundary that keeps a
-// server-advertised agent to its declared scope rather than the server's whole
-// tools/list. It is a leaf source: its Tools are authoritative (the backing's
-// own Tools list is never consulted).
+// scopedSource advertises a fixed set of tool schemas, the scoped Tools of an
+// agents/get result. It dispatches a call to a backing ToolSource ONLY when
+// the name is in that set. A name outside the set gets ErrUnknownTool, even
+// if the backing would serve it. That capability boundary limits a
+// server-advertised agent to its declared scope rather than the server's
+// whole tools/list. It is a leaf source. Its Tools are authoritative, and it
+// never consults the backing's own Tools list.
 type scopedSource struct {
 	defs    []core.ToolDef
 	names   map[string]bool
@@ -149,8 +151,8 @@ func (s *scopedSource) Tools(ctx context.Context) ([]core.ToolDef, error) {
 	return out, nil
 }
 
-// Call dispatches to the backing source only for a scoped name; any other name
-// is ErrUnknownTool, so the child can never reach an un-scoped server tool.
+// Call dispatches to the backing source only for a scoped name. Any other name
+// gets ErrUnknownTool, so the child can never reach an un-scoped server tool.
 func (s *scopedSource) Call(ctx context.Context, name string, args map[string]any) (*core.ToolResult, error) {
 	if !s.names[name] {
 		return nil, fmt.Errorf("%w: %q", ErrUnknownTool, name)

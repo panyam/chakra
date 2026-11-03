@@ -9,8 +9,8 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// spinTurn is a stub turn that always calls a no-op tool, so a Runner keeps
-// looping (one step per turn) until a step cap stops it.
+// spinTurn is a stub turn that always calls a no-op tool. So a Runner keeps
+// looping, one step per turn, until a step cap stops it.
 func spinTurn() StubTurn {
 	return StubTurn{ToolCalls: []ToolCall{{ID: "s", Name: "noop", Args: core.NewRawJSON(json.RawMessage(`{}`))}}}
 }
@@ -25,8 +25,8 @@ func noopSource(t *testing.T) *FuncSource {
 // TestTreeBudget_StepCapAbortsTurn asserts the aggregate step budget stops a
 // chatty single Runner before its own MaxSteps, with ErrTreeBudget.
 func TestTreeBudget_StepCapAbortsTurn(t *testing.T) {
-	// The provider would spin forever; MaxSteps is high, but the tree budget of
-	// 3 steps must stop it first.
+	// The provider would spin forever. MaxSteps is high, but the tree budget
+	// of 3 steps must stop it first.
 	turns := make([]StubTurn, 10)
 	for i := range turns {
 		turns[i] = spinTurn()
@@ -55,7 +55,7 @@ func usageTurn(text string, in, out int) StubTurn {
 	}}
 }
 
-// spinUsageTurn spins (calls noop) AND reports usage, so a multi-step run
+// spinUsageTurn spins by calling noop, AND reports usage. So a multi-step run
 // accumulates tokens across steps.
 func spinUsageTurn(in, out int) StubTurn {
 	return StubTurn{Deltas: []Delta{
@@ -66,11 +66,13 @@ func spinUsageTurn(in, out int) StubTurn {
 }
 
 // TestTreeBudget_TokenCapAbortsTurn asserts the token budget stops the turn once
-// cumulative usage exceeds MaxTokens (post-hoc: after the step that crosses it).
+// cumulative usage exceeds MaxTokens. The check is after the fact, so the turn
+// stops after the step that crosses the cap.
 func TestTreeBudget_TokenCapAbortsTurn(t *testing.T) {
-	// each step reports 40 tokens; a 90-token budget allows steps 1 and 2 (80),
-	// then step 3's top-of-loop check sees 80 < 90 so it runs (120), and step 4
-	// is rejected. So 3 model calls, then ErrTreeBudget.
+	// Each step reports 40 tokens. A 90-token budget allows steps 1 and 2,
+	// which use 80. Step 3's top-of-loop check sees 80 < 90, so it runs and
+	// the total reaches 120. Step 4 is rejected. So 3 model calls happen, then
+	// ErrTreeBudget.
 	turns := make([]StubTurn, 10)
 	for i := range turns {
 		turns[i] = spinUsageTurn(30, 10)
@@ -86,13 +88,13 @@ func TestTreeBudget_TokenCapAbortsTurn(t *testing.T) {
 	}
 }
 
-// TestTreeBudget_SharedAcrossSubAgents asserts the budget is AGGREGATE: a
-// parent's steps and a sub-agent's steps draw from ONE shared counter, so the
-// total across the tree hits the cap — not one cap per Runner. With a 3-step
-// budget, the parent's step 1 (delegate) + the child's steps 2 & 3 exhaust it;
-// then the parent cannot continue either.
+// TestTreeBudget_SharedAcrossSubAgents asserts the budget is AGGREGATE. A
+// parent's steps and a sub-agent's steps draw from ONE shared counter. So the
+// total across the tree hits the cap, and there is no separate cap per Runner.
+// The budget here is 3 steps. The parent's step 1 delegates, and the child's
+// steps 2 and 3 exhaust the budget. Then the parent can't continue either.
 func TestTreeBudget_SharedAcrossSubAgents(t *testing.T) {
-	// child spins forever if allowed; the shared budget stops it.
+	// The child would spin forever, and the shared budget stops it.
 	childTurns := make([]StubTurn, 10)
 	for i := range childTurns {
 		childTurns[i] = spinTurn()
@@ -114,7 +116,8 @@ func TestTreeBudget_SharedAcrossSubAgents(t *testing.T) {
 	if !errors.Is(err, ErrTreeBudget) {
 		t.Fatalf("tree budget shared across parent+child should exhaust, got %v", err)
 	}
-	// One shared counter of 3: parent made 1 model call, child made 2 (total 3).
+	// One shared counter of 3. The parent made 1 model call and the child made
+	// 2, for a total of 3.
 	// A per-Runner budget would let each run 3, and neither would exhaust.
 	if pn, cn := len(parentStub.Requests()), len(childStub.Requests()); pn != 1 || cn != 2 {
 		t.Fatalf("aggregate step count wrong: parent=%d child=%d, want 1+2=3 shared", pn, cn)

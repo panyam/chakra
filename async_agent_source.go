@@ -14,50 +14,53 @@ type AsyncAgentSourceConfig struct {
 	// Name is the tool the parent model calls to spawn the sub-agent. Required.
 	Name string
 
-	// Description tells the parent when to spawn it (and that it returns later).
+	// Description tells the parent when to spawn it, and that it returns later.
 	Description string
 
-	// Runner is the child agent. Required. Run is stateless over the history it
-	// is handed, so one Runner serves concurrent spawns.
+	// Runner is the child agent. Required. Run is stateless over the history
+	// it is given, so one Runner serves concurrent spawns.
 	Runner *Runner
 
-	// MaxDepth caps sub-agent nesting (checked at spawn time). Zero uses
-	// DefaultMaxAgentDepth.
+	// MaxDepth caps sub-agent nesting, and is checked at spawn time. Zero
+	// uses DefaultMaxAgentDepth.
 	MaxDepth int
 
-	// InputSchema, when set, replaces the default {task} schema so a parent
-	// spawns a TYPED subtask; the child is seeded with the raw args JSON. Nil
-	// keeps {task: string} (mirrors AgentSourceConfig.InputSchema).
+	// InputSchema, when set, replaces the default {task} schema, so a parent
+	// spawns a TYPED subtask. The child's first message is the raw args
+	// JSON. Nil keeps {task: string}, as AgentSourceConfig.InputSchema does.
 	InputSchema core.RawJSON
 
-	// OnEvent, when set, receives the child's event stream (scoped/depth in a
-	// SubAgentEvent) WHILE it runs in the background, so a surface can still
-	// render the sub-agent's activity after the spawning turn has ended. Nil
-	// drops it.
+	// OnEvent, when set, receives the child's event stream WHILE the child
+	// runs in the background. Each event comes in a SubAgentEvent with its
+	// scope and depth. So a surface can still render the sub-agent's activity
+	// after the spawning turn has ended. Nil drops the events.
 	OnEvent func(SubAgentEvent)
 
-	// OnComplete is called on the child's goroutine when it finishes, with the
-	// sub-agent name, its result (nil on error), and any run error. Required.
-	// A host wires it to its injection seam (Ingest as a subagent.completed event), so the parent picks
-	// the result up on a later turn. Without it the result is dropped.
+	// OnComplete is called on the child's goroutine when it finishes. It gets
+	// the sub-agent name, its result (nil on error), and any run error.
+	// Required. A host wires it to its injection seam, and Ingests it as a
+	// subagent.completed event. The parent then picks the result up on a
+	// later turn. Without it the result is dropped.
 	OnComplete func(name string, result *TurnResult, err error)
 }
 
-// AsyncAgentSource is the Task form of a sub-agent: the spawn-and-continue
-// counterpart to AgentSource's blocking Tool form. Call returns an ack
-// IMMEDIATELY ("sub-agent X started") and runs the child on a detached
-// goroutine; when the child finishes, OnComplete delivers its result, which a
-// host injects so the parent picks it up on a later turn. The spawning turn does
-// not wait for the subtree — right for long-running or fan-out-and-continue work
-// (contrast AgentSource: call-and-block, answer this turn).
+// AsyncAgentSource is the Task form of a sub-agent. AgentSource has the
+// blocking Tool form, and this is its spawn-and-continue counterpart. Call
+// returns an ack IMMEDIATELY ("sub-agent X started") and runs the child on a
+// detached goroutine. When the child finishes, OnComplete delivers its result.
+// A host injects that result, and the parent picks it up on a later turn. The
+// spawning turn doesn't wait for the subtree. That suits long-running or
+// fan-out-and-continue work. AgentSource differs, because it calls, blocks,
+// and answers in the same turn.
 //
-// It is NOT an MCP task: there is no wire presence, no model-visible poll/cancel,
-// and the goroutine is ephemeral (it dies with the process). For controllable or
-// restart-surviving background work, use a real server-side task instead.
+// It is NOT an MCP task. It has no wire presence and no model-visible poll
+// or cancel. The goroutine is ephemeral and dies with the process. For
+// controllable or restart-surviving background work, use a real server-side
+// task instead.
 //
-// Depth and the ctx-threaded aggregate call budget still apply (checked at spawn
-// time, before the goroutine starts). SubAgentEvent nesting still surfaces the
-// child's stream while it runs in the background.
+// Depth and the ctx-threaded aggregate call budget still apply. Call checks
+// them at spawn time, before the goroutine starts. SubAgentEvent nesting
+// still surfaces the child's stream while it runs in the background.
 type AsyncAgentSource struct {
 	cfg      AsyncAgentSourceConfig
 	def      core.ToolDef
@@ -101,8 +104,8 @@ func (s *AsyncAgentSource) Tools(ctx context.Context) ([]core.ToolDef, error) {
 }
 
 // Call spawns the child on a detached goroutine and returns an ack immediately.
-// Guards (depth, budget) are checked before the spawn and refuse as an IsError
-// result; only an unknown name is a dispatch error.
+// The depth and budget guards are checked before the spawn, and they refuse
+// with an IsError result. Only an unknown name is a dispatch error.
 func (s *AsyncAgentSource) Call(ctx context.Context, name string, args map[string]any) (*core.ToolResult, error) {
 	if name != s.cfg.Name {
 		return nil, fmt.Errorf("%w: %q", ErrUnknownTool, name)
@@ -129,10 +132,10 @@ func (s *AsyncAgentSource) Call(ctx context.Context, name string, args map[strin
 	}
 
 	childScope := agentScope(ctx).Child(s.cfg.Name)
-	// Detach for background: the child outlives the spawning turn AND calls MCP
-	// server tools, so it needs the session-level push (DetachForBackground),
-	// not a plain context.WithoutCancel. Depth/scope are threaded onto the
-	// detached ctx so nested spawns and event tagging still compose.
+	// The child outlives the spawning turn AND calls MCP server tools. So it
+	// needs the session-level push from DetachForBackground, and a plain
+	// context.WithoutCancel isn't enough. Depth and scope are threaded onto
+	// the detached ctx, so nested spawns and event tagging still compose.
 	childCtx := withAgentScope(withAgentDepth(core.DetachForBackground(ctx), depth+1), childScope)
 
 	emit := func(Event) {}

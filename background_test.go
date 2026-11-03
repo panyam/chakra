@@ -118,7 +118,7 @@ func TestGraceInlineCompletionSkipsDetach(t *testing.T) {
 func TestGraceHoldsDuringInputPause(t *testing.T) {
 	f := &taskFixture{}
 	// The fixture parks input_required on poll 2. The UI takes far longer
-	// than the grace to answer; the timer must hold instead of detaching
+	// than the grace to answer. The timer must hold instead of detaching
 	// mid-prompt.
 	slowUI := func(ctx context.Context, req core.ElicitationRequest) (core.ElicitationResult, error) {
 		time.Sleep(200 * time.Millisecond)
@@ -163,9 +163,9 @@ func TestBackgroundCancel(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("cancel must finish the handle")
 	}
-	// Cancel reaches Done two ways, both valid: the poll context cancels
-	// (context.Canceled) or the next tasks/get returns cancelled status
-	// (nil error, cancelled DetailedTask). Accept either.
+	// Cancel reaches Done in two valid ways. The poll context can cancel,
+	// giving context.Canceled. Or the next tasks/get can return cancelled
+	// status, giving a nil error and a cancelled DetailedTask. Accept either.
 	dt, err := bt.Result()
 	cancelled := errors.Is(err, context.Canceled) || (dt != nil && dt.Status == core.TaskCancelled)
 	if !cancelled {

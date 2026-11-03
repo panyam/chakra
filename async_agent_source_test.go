@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// latchProvider blocks in Stream until released, so a test can assert the async
-// Call returned its ack BEFORE the child finished.
+// latchProvider blocks in Stream until released. So a test can assert that the
+// async Call returned its ack BEFORE the child finished.
 type latchProvider struct {
 	release <-chan struct{}
 	text    string
@@ -26,8 +26,8 @@ func (p *latchProvider) Generate(ctx context.Context, req ProviderRequest) (*Pro
 	return acc.Result(), nil
 }
 
-// TestAsyncAgentSource_AcksThenDelivers is the core guarantee: Call returns an
-// ack immediately (does not block on the child), and OnComplete delivers the
+// TestAsyncAgentSource_AcksThenDelivers covers the core guarantee. Call returns
+// an ack immediately and does not block on the child. OnComplete delivers the
 // child's result once it finishes.
 func TestAsyncAgentSource_AcksThenDelivers(t *testing.T) {
 	release := make(chan struct{})
@@ -69,8 +69,8 @@ func TestAsyncAgentSource_AcksThenDelivers(t *testing.T) {
 	}
 }
 
-// TestAsyncAgentSource_DepthGuard asserts the depth guard refuses (before spawn)
-// and does not start the child.
+// TestAsyncAgentSource_DepthGuard asserts that the depth guard refuses before
+// spawn and does not start the child.
 func TestAsyncAgentSource_DepthGuard(t *testing.T) {
 	child, _ := NewRunner(RunnerConfig{Provider: NewStubProvider(StubTurn{Text: "x"})})
 	fired := make(chan struct{}, 1)
@@ -91,8 +91,9 @@ func TestAsyncAgentSource_DepthGuard(t *testing.T) {
 	}
 }
 
-// TestAsyncAgentSource_ForwardsEvents asserts the child's stream still surfaces
-// (SubAgentEvent, scoped/depth) while it runs in the background.
+// TestAsyncAgentSource_ForwardsEvents asserts that the child's stream still
+// reaches the caller as SubAgentEvent, scoped with depth, while the child runs
+// in the background.
 func TestAsyncAgentSource_ForwardsEvents(t *testing.T) {
 	child, _ := NewRunner(RunnerConfig{Provider: NewStubProvider(StubTurn{Text: "hi"})})
 	events := make(chan SubAgentEvent, 16)

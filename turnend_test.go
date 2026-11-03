@@ -43,8 +43,8 @@ func kindsOf(events []Event, k EventKind) []Event {
 	return out
 }
 
-// A hook that accepts leaves the turn exactly as it was without one: one
-// step, the answer as the result, no continuation.
+// A hook that accepts leaves the turn exactly as it was without one. There is
+// one step, the answer is the result, and there is no continuation.
 func TestTurnEndHookThatAcceptsChangesNothing(t *testing.T) {
 	var seen []TurnEndInfo
 	stub := NewStubProvider(StubTurn{Text: "done"})
@@ -60,9 +60,9 @@ func TestTurnEndHookThatAcceptsChangesNothing(t *testing.T) {
 	}
 }
 
-// A refusal puts its message in the record as a system note, emits
-// turn-continued, and the model answers again with the note in view; the
-// second answer, accepted, is the turn's.
+// A refusal puts its message in the record as a system note and emits
+// turn-continued. The model answers again with the note in view. The hook
+// accepts the second answer, and it becomes the turn's answer.
 func TestTurnEndHookRefusesThenAccepts(t *testing.T) {
 	var seen []TurnEndInfo
 	const keepGoing = "the tests are still red; keep going"
@@ -91,7 +91,7 @@ func TestTurnEndHookRefusesThenAccepts(t *testing.T) {
 	}
 }
 
-// A hook that never accepts can't loop: the refusals use up MaxSteps and the
+// A hook that never accepts can't loop. The refusals use up MaxSteps, and the
 // turn ends with ErrMaxSteps and the partial record, notes included.
 func TestTurnEndHookThatNeverAcceptsHitsTheStepCap(t *testing.T) {
 	var seen []TurnEndInfo
@@ -105,8 +105,8 @@ func TestTurnEndHookThatNeverAcceptsHitsTheStepCap(t *testing.T) {
 	}
 }
 
-// A refusal counts against the tree budget too: a budget of two steps stops
-// a turn whose hook refuses forever after two model calls.
+// A refusal counts against the tree budget too. Imagine a hook that refuses
+// forever. A budget of two steps stops its turn after two model calls.
 func TestTurnEndRefusalsCountAgainstTheTreeBudget(t *testing.T) {
 	var seen []TurnEndInfo
 	stub := NewStubProvider(StubTurn{Text: "a"}, StubTurn{Text: "b"}, StubTurn{Text: "c"})
@@ -121,8 +121,8 @@ func TestTurnEndRefusalsCountAgainstTheTreeBudget(t *testing.T) {
 	}
 }
 
-// Turn-end hooks judge ResponseSchema's finalized document, with the prose it
-// came from as the draft, so a hook refuses what the turn would return. A
+// Turn-end hooks judge ResponseSchema's finalized document, and the draft is
+// the prose it came from. So a hook refuses what the turn would return. A
 // refusal re-runs the finalizing call on the next answer.
 func TestTurnEndJudgesTheStructuredAnswer(t *testing.T) {
 	var seen []TurnEndInfo
@@ -192,9 +192,9 @@ func TestTurnEndHooksRunInOrder(t *testing.T) {
 	}
 }
 
-// A Stop ends the turn on the refused answer: no further model call, an
-// error wrapping ErrTurnStopped with the reason, and a partial result whose
-// record ends with the answer the hook refused.
+// A Stop ends the turn on the refused answer. There is no further model call.
+// The turn returns an error wrapping ErrTurnStopped with the reason. It also
+// returns a partial result, and that record ends with the refused answer.
 func TestTurnEndStopEndsTheTurnWithThePartialRecord(t *testing.T) {
 	stop := func(_ context.Context, info TurnEndInfo) (TurnEndVerdict, error) {
 		return TurnEndVerdict{Stop: "resent a draft already refused"}, nil
@@ -247,7 +247,7 @@ func TestTurnEndStopAndContinueTogetherIsAnError(t *testing.T) {
 }
 
 // AsUser sends the Continue note as a user message, in the record and on the
-// next request; without it the note stays a system note.
+// next request. Without it the note is a system note.
 func TestTurnEndContinueAsUserReachesTheNextRequestAsAUserMessage(t *testing.T) {
 	for _, asUser := range []bool{true, false} {
 		want := RoleSystem

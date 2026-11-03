@@ -59,9 +59,9 @@ func TestClassifierDecidesPerCallUnderEachMode(t *testing.T) {
 		{"touch new.txt", map[ApprovalMode]string{ModeAlwaysAsk: ask, ModeReadOnlyAuto: ask, ModeReversibleAuto: allow, ModeAlwaysAllow: allow}},
 		{"rm -rf build", map[ApprovalMode]string{ModeAlwaysAsk: ask, ModeReadOnlyAuto: ask, ModeReversibleAuto: ask, ModeAlwaysAllow: allow}},
 		{"rm -rf /", map[ApprovalMode]string{ModeAlwaysAsk: deny, ModeReadOnlyAuto: deny, ModeReversibleAuto: deny, ModeAlwaysAllow: deny}},
-		// No opinion on the effect: the tool's destructive annotation decides.
+		// No opinion on the effect, so the tool's destructive annotation decides.
 		{"make test", map[ApprovalMode]string{ModeAlwaysAsk: ask, ModeReadOnlyAuto: ask, ModeReversibleAuto: ask, ModeAlwaysAllow: allow}},
-		// Unclaimed: as if there were no classifier.
+		// Unclaimed, so the gate acts as if there were no classifier.
 		{"curl example.com", map[ApprovalMode]string{ModeAlwaysAsk: ask, ModeReadOnlyAuto: ask, ModeReversibleAuto: ask, ModeAlwaysAllow: allow}},
 	}
 	for _, c := range cases {

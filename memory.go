@@ -12,18 +12,20 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// Reserved tool names MemorySource exposes so the model can manage its own
-// working memory — a scratchpad it reads and writes across turns.
+// MemorySource exposes these reserved tool names so the model can manage its
+// own working memory. Working memory is a scratchpad that the model reads and
+// writes across turns.
 const (
 	RememberToolName = "remember"
 	RecallToolName   = "recall"
 	ForgetToolName   = "forget"
 )
 
-// MemoryItem is one note in working memory: a short labeled value the model
-// chose to keep. Key is the model-chosen (or auto-assigned) label used to
-// recall or forget it; Value is the content; CreatedAt is when it was
-// stored, used only for stable ordering in listings and the summary.
+// MemoryItem is one note in working memory. It is a short labeled value, and
+// the model chose to keep it. Key is the label that recalls or forgets it,
+// chosen by the model or auto-assigned. Value is the content. CreatedAt is
+// when it was stored, and it is used only for stable ordering in listings and
+// the summary.
 type MemoryItem struct {
 	Key       string    `json:"key"`
 	Value     string    `json:"value"`
@@ -31,22 +33,23 @@ type MemoryItem struct {
 }
 
 // MemoryStore is the persistence seam for working memory. It pairs with the
-// agent-only MemorySource (the model-facing tools), so it lives in agent/
-// and traffics in MemoryItem (A6 — same rationale as ToolResultStore and
-// RunStore: a model-facing type keeps the seam out of root stores/).
+// agent-only MemorySource, which provides the model-facing tools. So it lives
+// here and takes and returns MemoryItem. The A6 rationale matches
+// ToolResultStore and RunStore. A model-facing type keeps the seam out of
+// mcpkit's stores/.
 //
-// API shape follows the gRPC-style convention in stores/STORAGE_SEAMS.md:
-// Method(ctx, req) (resp, error); app-state travels on the response, error
+// API shape follows the gRPC-style convention in mcpkit's
+// experimental/ext/events/STORAGE_SEAMS.md, Method(ctx, req) (resp, error). App-state is on the response, and error
 // is reserved for storage-layer faults. In particular, forgetting an
-// unknown key is app-state (Deleted=false), never an error — the model may
+// unknown key is app-state (Deleted=false), never an error. The model may
 // forget a key it never stored, and that is a normal "nothing to do"
 // answer, not a failure.
 //
-// ListMemories carries an optional Query. The contract is loose on purpose:
-// return the items relevant to Query, all items when Query is empty. The
-// in-memory default interprets relevance as a substring match; a future
-// semantic backend (issue 940) interprets the same Query as a similarity
-// search without changing the tool surface the model sees.
+// ListMemories takes an optional Query. The contract is loose on purpose. A
+// store returns the items relevant to Query, or all items when Query is
+// empty. The in-memory default interprets relevance as a substring match. A
+// future semantic backend (issue 940) can interpret the same Query as a
+// similarity search, and the model's tool surface does not change.
 type MemoryStore interface {
 	// PutMemory upserts an item by Key. Storing an existing Key overwrites
 	// its Value and keeps its original listing position, so an update does
@@ -54,36 +57,37 @@ type MemoryStore interface {
 	PutMemory(ctx context.Context, req PutMemoryRequest) (PutMemoryResponse, error)
 
 	// ListMemories returns items relevant to req.Query (all items when
-	// Query is empty), most-relevant first, capped at req.Limit. The "how"
-	// of relevance is the implementation's business — the substring default
-	// filters and returns Score 1, a semantic store ranks by embedding
-	// similarity, a pgvector backend does ANN — but the contract (ranked,
-	// scored, top-k) is the same, so recall never branches on the backend.
+	// Query is empty), most-relevant first, capped at req.Limit. Each
+	// implementation decides how to judge relevance. The substring default
+	// filters and returns Score 1. A semantic store ranks by embedding
+	// similarity. A pgvector backend does ANN. The contract is the same for
+	// all of them: ranked, scored, top-k. So recall never branches on the
+	// backend.
 	ListMemories(ctx context.Context, req ListMemoriesRequest) (ListMemoriesResponse, error)
 
 	// DeleteMemory removes an item by Key. Deleted reports whether a
-	// matching item existed; an unknown Key is Deleted=false, not an error.
+	// matching item existed. An unknown Key is Deleted=false, not an error.
 	DeleteMemory(ctx context.Context, req DeleteMemoryRequest) (DeleteMemoryResponse, error)
 }
 
 // PutMemoryRequest carries the item to store. A zero CreatedAt is stamped
-// with the store clock at Put time (caller-set wins, mirroring
-// Message.Timestamp). Namespace scopes the item to one independent scratchpad
-// (a session id, a user id, ...); empty is the default/global scratchpad. It is
-// the per-request session-scope seam (issue 1003) — a caller that never sets it
-// gets the single shared scratchpad, unchanged.
+// with the store clock at Put time. A caller-set value wins, mirroring
+// Message.Timestamp. Namespace scopes the item to one independent scratchpad,
+// such as a session id or a user id. Empty is the default/global scratchpad.
+// Namespace is the per-request session-scope seam (issue 1003). A caller that
+// never sets it gets the single shared scratchpad, unchanged.
 type PutMemoryRequest struct {
 	Item      MemoryItem
 	Namespace string
 }
 
-// PutMemoryResponse is empty today; it exists so the method can grow
+// PutMemoryResponse is empty today. It exists so the method can grow
 // app-state without a signature break, per the gRPC-style convention.
 type PutMemoryResponse struct{}
 
 // ListMemoriesRequest filters by Query (empty means all) and caps the result
 // at Limit (0 means no cap). Limit is the k of a top-k recall. Namespace scopes
-// the listing to one scratchpad (empty = the default/global scratchpad); recall
+// the listing to one scratchpad (empty = the default/global scratchpad). Recall
 // never crosses namespaces.
 type ListMemoriesRequest struct {
 	Query     string
@@ -99,22 +103,22 @@ type ListMemoriesResponse struct {
 // ScoredMemory pairs a stored MemoryItem with its per-query relevance Score.
 // Score is a property of the QUERY, not of the stored fact. The same item
 // scores differently against different queries. So Score lives here on the
-// result and not on MemoryItem, and MemoryItem stays the durable,
-// query-independent fact. Room to grow: a future ranking/reranker stage can
-// add per-signal provenance (similarity vs recency vs importance) here
-// without touching the store or the item.
+// result and not on MemoryItem, and MemoryItem is still the durable,
+// query-independent fact. A future ranking/reranker stage can add per-signal
+// provenance (similarity vs recency vs importance) here without touching the
+// store or the item.
 //
 // Direction is contractual and scale is not. Higher always means more
 // relevant, in every backend: the semantic stores report cosine similarity,
 // and the pgvector backend converts distance with 1 - (embedding <=> query)
-// specifically so it agrees. The range varies by backend. A matching store (the
-// in-memory default, Redis) reports a flat 1 for every hit because it has no
-// graded notion of relevance, and every store reports 0 on the "list
-// everything" path where there is no query to rank against.
+// specifically so it agrees. The range varies by backend. The in-memory default
+// and Redis are matching stores. They report a flat 1 for every hit, because
+// they have no graded notion of relevance. Every store reports 0 on the "list
+// everything" path, where there is no query to rank against.
 //
 // So Score is safe to sort and compare within one response, and unsafe to
 // compare across backends or to threshold with a constant tuned elsewhere.
-// See RecallOptions.MinScore, the one place in-tree that thresholds on it.
+// RecallOptions.MinScore is the only in-tree threshold on it.
 type ScoredMemory struct {
 	Item  MemoryItem
 	Score float64
@@ -134,9 +138,9 @@ type DeleteMemoryResponse struct {
 
 // InMemoryMemoryStore is the default MemoryStore: a mutex-guarded map with
 // stable insertion ordering, safe for concurrent use. Nothing survives
-// process exit — a durable, session-scoped backend is a sibling-module
-// follow-up (mirroring the ToolResultStore redis/gorm arc). An optional
-// entry cap (WithMaxMemories) evicts the oldest item when exceeded.
+// process exit. A durable, session-scoped backend is a sibling-module
+// follow-up, like the ToolResultStore redis/gorm arc. An optional entry cap
+// (WithMaxMemories) evicts the oldest item when exceeded.
 type InMemoryMemoryStore struct {
 	mu sync.Mutex
 	// ns partitions the store by namespace (the request's Namespace; "" is the
@@ -216,9 +220,9 @@ func (s *InMemoryMemoryStore) PutMemory(ctx context.Context, req PutMemoryReques
 	return PutMemoryResponse{}, nil
 }
 
-// ListMemories implements MemoryStore: substring match on key or value
-// (case-insensitive), oldest first, each match scored 1 (the substring
-// store has no graded relevance). Limit caps the count.
+// ListMemories implements MemoryStore. It matches a substring of key or value
+// (case-insensitive) and lists oldest first. Each match scores 1, because the
+// substring store has no graded relevance. Limit caps the count.
 func (s *InMemoryMemoryStore) ListMemories(ctx context.Context, req ListMemoriesRequest) (ListMemoriesResponse, error) {
 	q := strings.ToLower(req.Query)
 	s.mu.Lock()
@@ -253,16 +257,16 @@ func (s *InMemoryMemoryStore) DeleteMemory(ctx context.Context, req DeleteMemory
 	return DeleteMemoryResponse{Deleted: true}, nil
 }
 
-// MemorySource is working memory as a ToolSource: it exposes remember,
+// MemorySource is working memory as a ToolSource. It exposes remember,
 // recall, and forget tools over a MemoryStore, so the model manages its own
-// scratchpad through ordinary tool calls. It is a leaf source (like
-// FuncSource, not a wrapper like OffloadingSource) — a host adds it to its
+// scratchpad through ordinary tool calls. It is a leaf source like
+// FuncSource, not a wrapper like OffloadingSource. A host adds it to its
 // MultiSource alongside the server sources.
 //
-// Summary renders the current scratchpad for optional pre-turn injection,
-// keeping the model aware of what it has stored without a recall call every
-// turn. Injection is the host's job (through its existing EventInjectionPolicy
-// path); MemorySource only supplies the text, so the Runner never changes.
+// Summary renders the current scratchpad for optional pre-turn injection.
+// The model then knows what it has stored without a recall call every turn.
+// Injection is the host's job, through its existing EventInjectionPolicy
+// path. MemorySource only supplies the text, so the Runner never changes.
 type MemorySource struct {
 	store MemoryStore
 	fs    *FuncSource
@@ -275,9 +279,10 @@ type MemorySource struct {
 // MemorySourceOption configures a MemorySource.
 type MemorySourceOption func(*MemorySource)
 
-// WithMemoryNamespaceFunc scopes every memory operation to the namespace fn
-// returns at call time — pass a func that returns the current session/run id to
-// make working memory per-session, or omit it for one shared scratchpad.
+// WithMemoryNamespaceFunc scopes every memory operation to a namespace, and fn
+// returns that namespace at call time. To make working memory per-session,
+// pass a func that returns the current session/run id. Omit it for one shared
+// scratchpad.
 func WithMemoryNamespaceFunc(fn func() string) MemorySourceOption {
 	return func(m *MemorySource) { m.nsFn = fn }
 }
@@ -291,8 +296,8 @@ func (m *MemorySource) ns() string {
 }
 
 type rememberArgs struct {
-	// Key is the label to store under. Optional — a stable key lets you
-	// update or forget the note later; if omitted, one is assigned.
+	// Key is the label to store under. Optional. A stable key lets you
+	// update or forget the note later. If omitted, one is assigned.
 	Key string `json:"key,omitempty"`
 	// Value is the content to remember.
 	Value string `json:"value"`
@@ -389,20 +394,20 @@ func (m *MemorySource) Call(ctx context.Context, name string, args map[string]an
 	return m.fs.Call(ctx, name, args)
 }
 
-// SummaryOptions budgets what Summary renders, so injecting the scratchpad
-// every turn stays bounded even if the store grows. Both limits prioritize
-// by recency (newest notes win — they are the most likely to matter). The
-// zero value is unbounded: the whole scratchpad, which is affordable while
-// working memory is kept small (WithMaxMemories). Relevance-based selection
-// (inject only what matches the current turn) is the semantic-recall upgrade,
-// a separate seam.
+// SummaryOptions budgets what Summary renders. Injecting the scratchpad every
+// turn is then bounded even if the store grows. Both limits prioritize by
+// recency. The newest notes win, because they are the most likely to matter.
+// The zero value is unbounded and renders the whole scratchpad. That is
+// affordable while working memory is kept small (WithMaxMemories).
+// Relevance-based selection, which injects only what matches the current
+// turn, is the semantic-recall upgrade and a separate seam.
 type SummaryOptions struct {
 	// MaxItems caps how many notes are rendered, keeping the newest. Zero
 	// means no item cap.
 	MaxItems int
-	// MaxChars caps the rendered length of the notes (a cheap token proxy;
-	// the fixed header is not counted), dropping the oldest kept notes until
-	// they fit. Zero means no length cap.
+	// MaxChars caps the rendered length of the notes, as a cheap token proxy.
+	// The fixed header is not counted. Summary drops the oldest kept notes
+	// until they fit. Zero means no length cap.
 	MaxChars int
 }
 
@@ -430,29 +435,30 @@ type RecallOptions struct {
 	// TopK caps how many of the most-relevant notes are returned. Zero uses
 	// DefaultRecallTopK.
 	TopK int
-	// MinScore drops notes scoring below it — the poison guard: with a
-	// semantic store every note gets some cosine score, so without a floor a
+	// MinScore drops notes scoring below it. It is the poison guard. With a
+	// semantic store every note gets some cosine score. Without a floor, a
 	// low-TopK recall would inject the least-irrelevant notes even when
 	// nothing is actually relevant. Zero means no floor (keep all TopK).
 	//
 	// The threshold is not portable across backends, because ScoredMemory.Score
 	// shares a direction but not a scale. Ranking stores score on a cosine
-	// scale where a floor discriminates; matching stores (the in-memory
-	// default and Redis) return a flat 1 for every match, so any floor at or
-	// below 1 keeps everything and the guard is inert. It degrades safely —
-	// no filtering rather than wrong filtering — but a value tuned against a
-	// semantic store does nothing after a swap to a substring one. Tune it
-	// against the backend actually in use.
+	// scale, and a floor discriminates there. The in-memory default and Redis
+	// are matching stores. They return a flat 1 for every match, so any floor
+	// at or below 1 keeps everything and the guard is inert. That failure is
+	// safe, because it means no filtering rather than wrong filtering. But a
+	// value tuned against a semantic store does nothing after a swap to a
+	// substring one. Tune it against the backend actually in use.
 	MinScore float64
 }
 
 // RecallRelevant queries the store for notes relevant to query and renders
 // them as a block a host can inject as a RoleSystem message before a turn.
-// Unlike Summary (ambient, recency-budgeted, the whole scratchpad), this is
-// targeted at the current turn: it surfaces what matters for what the user
-// just said. The store's relevance ranking does the work (cosine for a
-// semantic store, substring for the default), so this is backend-agnostic; it
-// returns "" when the query is empty or nothing clears MinScore.
+// Summary is ambient and recency-budgeted, and it covers the whole scratchpad.
+// RecallRelevant targets the current turn instead. It surfaces what matters
+// for what the user just said. The store's relevance ranking does the work, by
+// cosine for a semantic store and by substring for the default. So
+// RecallRelevant is backend-agnostic. It returns "" when the query is empty or
+// nothing clears MinScore.
 func (m *MemorySource) RecallRelevant(ctx context.Context, query string, opts RecallOptions) (string, error) {
 	if strings.TrimSpace(query) == "" {
 		return "", nil
@@ -480,7 +486,7 @@ func (m *MemorySource) RecallRelevant(ctx context.Context, query string, opts Re
 
 // budgetMemories trims items (oldest-first) to opts, keeping the newest that
 // fit. MaxItems keeps the last N; MaxChars then drops from the front (oldest)
-// until the rendered length is within budget. The kept notes stay in
+// until the rendered length is within budget. The kept notes keep their
 // chronological order for readability.
 func budgetMemories(items []MemoryItem, opts SummaryOptions) []MemoryItem {
 	if opts.MaxItems > 0 && len(items) > opts.MaxItems {

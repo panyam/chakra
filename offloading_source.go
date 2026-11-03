@@ -16,56 +16,57 @@ import (
 // exposes this name is shadowed by the offloader's handler.
 const ReadToolResultName = "read_tool_result"
 
-// DefaultOffloadThreshold is the model-visible size (bytes of flattened
-// result text) at or above which a successful tool result is offloaded.
-// 4 KB keeps ordinary results inline while catching the file dumps and
-// long stdout that actually bloat context.
+// DefaultOffloadThreshold is the default offload cutoff. A successful tool
+// result is offloaded when its model-visible size is at or above it. The
+// size is measured in bytes of flattened result text. 4 KB keeps ordinary
+// results inline and still catches the file dumps and long stdout that
+// actually bloat context.
 const DefaultOffloadThreshold = 4096
 
-// DefaultOffloadPreview is how many leading characters of the flattened
-// result the stub carries inline, so the model can often act without a
-// read_tool_result round-trip at all.
+// DefaultOffloadPreview is the number of leading characters of the
+// flattened result that the stub shows inline. The model can often act on
+// that preview without a read_tool_result round-trip at all.
 const DefaultOffloadPreview = 400
 
 // defaultReadLimit bounds a read_tool_result window when the caller does
-// not set limit — large enough to be useful, small enough to stay a
-// window rather than re-inlining the whole payload.
+// not set limit. It is large enough to be useful, and small enough that
+// the window doesn't re-inline the whole payload.
 const defaultReadLimit = 4000
 
-// OffloadConfig tunes an OffloadingSource. The zero value is usable
-// (default threshold and preview); only Store is required and is set by
-// the constructor, not here.
+// OffloadConfig tunes an OffloadingSource. The zero value is usable and
+// gives the default threshold and preview. Store is the only required
+// input, and the constructor takes it as an argument.
 type OffloadConfig struct {
 	// Threshold is the offload cutoff in bytes of flattened result text.
 	// Zero means DefaultOffloadThreshold. Results below it inline
 	// unchanged.
 	Threshold int
 
-	// PreviewLen is the leading-character count the stub carries. Zero
+	// PreviewLen sets how many leading characters appear in the stub. Zero
 	// means DefaultOffloadPreview.
 	PreviewLen int
 
-	// PerToolThreshold overrides Threshold for named tools. A present
-	// entry with value <= 0 pins that tool to never offload (always
-	// inline), whatever its size — the escape hatch for a tool whose
-	// full output the model must always see verbatim.
+	// PerToolThreshold overrides Threshold for named tools. An entry with
+	// value <= 0 keeps that tool's results inline, whatever their size. It
+	// is the escape hatch for a tool when the model must always see its
+	// full output verbatim.
 	PerToolThreshold map[string]int
 }
 
-// OffloadingSource wraps a ToolSource so that large successful tool
-// results are stored out of band and replaced in the conversation by a
-// compact stub, with a read_tool_result tool for fetching the detail on
-// demand (the "just in time context" pattern). It composes exactly like
-// FilterSource: put it around the aggregate MultiSource and hand the
-// result to the Runner. No Runner change — the stub is a normal
-// ToolResult, so the RoleTool message, the tool-end event, and the
-// persisted log all carry the stub, keeping the log faithful to what the
-// model actually saw.
+// OffloadingSource wraps a ToolSource and moves large successful tool
+// results out of band. It stores each one and puts a compact stub in the
+// conversation instead. A read_tool_result tool fetches the detail on
+// demand, which is the "just in time context" pattern. It composes exactly
+// like FilterSource. Put it around the aggregate MultiSource and hand the
+// result to the Runner. The Runner doesn't change, because the stub is a
+// normal ToolResult. The RoleTool message, the tool-end event, and the
+// persisted log all contain the stub. So the log matches what the model
+// actually saw.
 //
-// Only successful results are offloaded: IsError results stay inline
-// (errors are usually short, and truncating one is worse than carrying
-// it). The stored blob keeps the full result including StructuredContent;
-// the stub is text-only.
+// Only successful results are offloaded, and IsError results are kept
+// inline. Errors are usually short, and truncating one is worse than
+// keeping it. The stored blob keeps the full result, including
+// StructuredContent. The stub is text-only.
 type OffloadingSource struct {
 	src   ToolSource
 	store ToolResultStore
@@ -86,20 +87,21 @@ type readToolResultArgs struct {
 	// Context keeps N lines either side of each Pattern match, like
 	// grep -C. Ignored when Pattern is empty.
 	//
-	// Two-sided rather than separate before/after knobs. The line a
-	// caller can name is often not the line carrying the information:
-	// `go test -v` prints an assertion ABOVE the "--- FAIL" marker and
-	// plain `go test` prints it BELOW, so a caller grepping for the
-	// marker needs the opposite side in the two cases and cannot tell
-	// which it is looking at. One knob that always reaches the detail
-	// beats two that need knowledge the caller does not have.
+	// It is two-sided, with no separate before and after knobs. A caller
+	// greps for a line it can name, and that line often doesn't hold the
+	// information. Imagine a caller grepping for the "--- FAIL" marker.
+	// `go test -v` prints the assertion ABOVE that marker, and plain
+	// `go test` prints it BELOW. So the caller needs the opposite side in
+	// the two cases, and it can't tell which case it is looking at. One
+	// knob that always reaches the detail beats two that need knowledge
+	// the caller doesn't have.
 	Context int `json:"context,omitempty"`
 }
 
 // DefaultGrepMaxLines bounds how many lines a Pattern read returns when
-// Limit does not. Grep used to return every match however many there
-// were, which for a big transcript and a loose pattern is the whole
-// payload re-inlined — the exact thing offloading exists to avoid.
+// Limit does not. Grep used to return every match, however many there
+// were. With a big transcript and a loose pattern, that re-inlined the
+// whole payload, and offloading exists to avoid exactly that.
 const DefaultGrepMaxLines = 200
 
 // NewOffloadingSource wraps src, offloading over-threshold results into
@@ -117,7 +119,7 @@ func NewOffloadingSource(src ToolSource, store ToolResultStore, cfg OffloadConfi
 	}
 	o := &OffloadingSource{src: src, store: store, cfg: cfg, read: NewFuncSource()}
 	// Registration cannot fail for a fresh FuncSource with one unique
-	// name; ignore the error to keep the constructor total.
+	// name. Ignore the error to keep the constructor total.
 	_ = AddFunc(o.read, ReadToolResultName,
 		"Fetch a previously offloaded tool result by its ref. Give offset+limit for a character window, or pattern (a regular expression) to return only matching lines. With pattern, add context=N to also get N lines either side of each match, which is how you see why something failed rather than only that it did. Refs appear in tool-result stubs like [tool result 52KB, stored as res:ab12].",
 		o.readToolResult, ReadOnly())
@@ -181,9 +183,10 @@ func (o *OffloadingSource) maybeOffload(ctx context.Context, name string, res *c
 }
 
 // stub renders the model-visible placeholder that replaces an offloaded
-// result: size, ref, a leading preview, and the retrieval instruction. A
-// result the store already held says so, because a model that re-reads a file
-// it has already paged through will otherwise page through it again (#109).
+// result. It shows the size, the ref, a leading preview, and the retrieval
+// instruction. Imagine a model that re-reads a file it has already paged
+// through. Without a hint it pages through the file again (#109). So when
+// the store already held the result, the stub says so.
 func (o *OffloadingSource) stub(ref, text string, seen bool) string {
 	if seen {
 		return fmt.Sprintf("[tool result %dB, stored as %s]\nThis is identical to an earlier result stored under the same ref. If you already read it in this conversation, nothing has changed and you don't need to read it again. Otherwise call %s(ref=%q) — add offset+limit for a window, or pattern to grep.",
@@ -246,15 +249,15 @@ func (o *OffloadingSource) readToolResult(ctx context.Context, in readToolResult
 	return window, nil
 }
 
-// grepLines returns the lines matching re, each widened by ctx lines on
-// both sides, with overlapping windows merged and a "--" between blocks
-// that are not contiguous (the separator grep uses, for the same reason:
-// otherwise two distant failures read as one).
+// grepLines returns the lines matching re and widens each by ctx lines on
+// both sides. It merges overlapping windows and puts "--" between blocks
+// that are not contiguous. grep uses the same separator for the same
+// reason. Without it, two distant failures read as one.
 //
-// The result is bounded. limit caps the lines returned, defaulting to
-// DefaultGrepMaxLines, and what got cut is stated rather than silently
-// dropped — a caller that cannot tell a complete answer from a truncated
-// one will read the first as the second.
+// The result is bounded. limit caps the lines returned and defaults to
+// DefaultGrepMaxLines. The result says what got cut instead of dropping it
+// silently. A caller that can't tell a complete answer from a truncated one
+// will read a truncated answer as complete.
 func grepLines(lines []string, re *regexp.Regexp, ctx, limit int, ref, pattern string) string {
 	if ctx < 0 {
 		ctx = 0
@@ -318,10 +321,10 @@ func grepLines(lines []string, re *regexp.Regexp, ctx, limit int, ref, pattern s
 }
 
 // contentRef names a stored result by its content. Re-reading an unchanged
-// file stores the same output twice, and both land on one ref, so the second
-// stub can say it was seen before. 48 bits of SHA-256, the
-// width ext/files uses for its file hashes: enough that two different results
-// in one store don't collide by accident.
+// file stores the same output twice, and both copies get one ref. So the
+// second stub can say the result was seen before. The ref uses 48 bits of
+// SHA-256, the same width ext/files uses for its file hashes. That is
+// enough that two different results in one store don't collide by accident.
 func contentRef(text string) string {
 	sum := sha256.Sum256([]byte(text))
 	return "res:" + hex.EncodeToString(sum[:6])

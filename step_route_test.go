@@ -103,7 +103,7 @@ func TestStepEventCarriesModelAndUsage(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	// Step 1 was not named, so it emits nothing: an unrouted turn's stream
+	// Step 1 was not named, so it emits nothing. An unrouted turn's stream
 	// is unchanged.
 	if len(steps) != 1 {
 		t.Fatalf("got %d step events, want 1 (the named step only)", len(steps))
@@ -161,10 +161,11 @@ func TestUsageByModelOnPartialTurn(t *testing.T) {
 	}
 }
 
-// A Responses provider chains from the response it gave for the history it
-// last answered. A step answered by another provider extends that history
-// with a message the server never saw, so the next Responses call misses the
-// cursor and resends the turn in full instead of chaining past the gap.
+// A Responses provider chains from its response to the last history that it
+// answered. Imagine another provider answers a step. That step extends the
+// history with a message that the server never saw. So the next Responses
+// call misses the cursor. It resends the turn in full instead of chaining past
+// the gap.
 func TestRoutedStepMakesTheNextResponsesCallResendInFull(t *testing.T) {
 	f := &rsFake{reply: func(n int, _ map[string]any) (int, string) {
 		if n == 1 {

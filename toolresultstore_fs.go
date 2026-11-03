@@ -11,27 +11,27 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// FileToolResultStore is a filesystem-backed ToolResultStore: one JSON
-// file per ref under a directory. It lives here in agent/ rather than a
-// sibling module because it is dependency-free (stdlib only) — the
-// sibling modules (agent/store/redis, agent/store/gorm) exist to isolate
-// heavy database dependencies, which this has none of.
+// FileToolResultStore is a filesystem-backed ToolResultStore. It writes one
+// JSON file per ref under a directory. It lives here in agent/ and not in a
+// sibling module, because it uses only the stdlib. The sibling modules
+// (agent/store/redis, agent/store/gorm) exist to isolate heavy database
+// dependencies, and this store has none.
 //
-// It is the natural store for a local or coding agent: no server to run,
-// durable across restarts for free, and the blobs are plain files the
-// agent can read with the file tools it already has (the "filesystem as
-// externalized memory" pattern). Blobs are immutable one-file-per-ref, so
-// forks share them by path with no copy, and retention is just deleting
-// old files.
+// It is the natural store for a local or coding agent. There is no server to
+// run, and it is durable across restarts at no extra cost. The blobs are
+// plain files, so the agent can read them with the file tools it already has.
+// That is the "filesystem as externalized memory" pattern. Each blob is one
+// immutable file per ref, so forks share blobs by path with no copy.
+// Retention is just deleting old files.
 type FileToolResultStore struct {
 	dir string
 }
 
 var _ ToolResultStore = (*FileToolResultStore)(nil)
 
-// NewFileToolResultStore returns a store writing under dir, creating it
-// (and parents) if absent. The directory is the store's to own; point
-// two stores at the same dir only if you intend them to share blobs.
+// NewFileToolResultStore returns a store that writes under dir. It creates
+// dir and its parents if they are absent. The store owns the directory.
+// Point two stores at the same dir only if you intend them to share blobs.
 func NewFileToolResultStore(dir string) (*FileToolResultStore, error) {
 	if dir == "" {
 		return nil, fmt.Errorf("agent: FileToolResultStore requires a directory")
@@ -43,8 +43,8 @@ func NewFileToolResultStore(dir string) (*FileToolResultStore, error) {
 }
 
 // refToFilename maps a ref to a unique, cross-platform-safe filename.
-// Safe bytes pass through; every other byte (including the ':' in a
-// "res:..." ref, and the escape byte itself) becomes "_XX" hex. The
+// Safe bytes pass through. Every other byte becomes "_XX" hex. That
+// includes the ':' in a "res:..." ref and the escape byte itself. The
 // escaping is injective, so distinct refs never collide on one file.
 func refToFilename(ref string) string {
 	var b strings.Builder
@@ -65,9 +65,8 @@ func (s *FileToolResultStore) path(ref string) string {
 }
 
 // PutToolResult implements ToolResultStore. The blob is written to a temp
-// file and renamed into place, so a crash mid-write never leaves a
-// partial blob a later read could trip on (rename is atomic within one
-// filesystem).
+// file and renamed into place. Rename is atomic within one filesystem. So a
+// crash mid-write never leaves a partial blob for a later read to trip on.
 func (s *FileToolResultStore) PutToolResult(ctx context.Context, req PutToolResultRequest) (PutToolResultResponse, error) {
 	body, err := json.Marshal(req.Result)
 	if err != nil {
@@ -95,8 +94,8 @@ func (s *FileToolResultStore) PutToolResult(ctx context.Context, req PutToolResu
 	return PutToolResultResponse{}, nil
 }
 
-// GetToolResult implements ToolResultStore. A missing file (never
-// stored, or deleted) is Found=false, not an error.
+// GetToolResult implements ToolResultStore. A file may be missing because
+// it was never stored or was deleted. That gives Found=false, not an error.
 func (s *FileToolResultStore) GetToolResult(ctx context.Context, req GetToolResultRequest) (GetToolResultResponse, error) {
 	body, err := os.ReadFile(s.path(req.Ref))
 	if os.IsNotExist(err) {

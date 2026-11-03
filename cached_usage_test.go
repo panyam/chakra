@@ -17,9 +17,9 @@ func jsonServer(t *testing.T, body string) *httptest.Server {
 	}))
 }
 
-// The three shapes an OpenAI-wire server reports its prompt cache in: OpenAI
-// and current llama.cpp put it in prompt_tokens_details, older llama.cpp only
-// in timings.cache_n, and plenty of servers say nothing.
+// An OpenAI-wire server reports its prompt cache in one of three shapes.
+// OpenAI and current llama.cpp put it in prompt_tokens_details, older
+// llama.cpp puts it only in timings.cache_n, and plenty of servers say nothing.
 var openaiCacheCases = []struct {
 	name   string
 	extra  string // fields after "usage":{...}, placed in the response or the final chunk

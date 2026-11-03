@@ -361,9 +361,10 @@ func TestAccumulatorEmptyArgsBecomeEmptyObject(t *testing.T) {
 }
 
 func TestOpenAIStreamSpecConformantSSE(t *testing.T) {
-	// Comment lines, a multi-line data event (spec joins with \n, legal
-	// JSON whitespace), and a keepalive blank event must all parse; the
-	// pre-servicekit line scanner mishandled the multi-line case.
+	// The stream has comment lines, a multi-line data event, and a keepalive
+	// blank event, and all of them must parse. The spec joins multi-line data
+	// with \n, and \n is legal JSON whitespace. The pre-servicekit line
+	// scanner mishandled the multi-line case.
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		fl := w.(http.Flusher)
@@ -387,7 +388,7 @@ func TestOpenAIStreamSpecConformantSSE(t *testing.T) {
 }
 
 // DeepSeek refuses response_format json_schema with a 400 but takes
-// json_object, which carries no schema, so the schema rides in the
+// json_object. json_object has no schema field, so the schema goes in the
 // instructions instead (#215).
 func TestOpenAIGenerateStructuredNoResponseSchema(t *testing.T) {
 	var captured []byte

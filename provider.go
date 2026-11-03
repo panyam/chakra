@@ -16,17 +16,17 @@ import (
 // Role identifies who authored a Message.
 type Role string
 
-// Message roles. RoleTool carries a tool result back to the model and must
-// set ToolCallID; RoleAssistant messages may carry ToolCalls.
+// Message roles. RoleTool sends a tool result back to the model and must
+// set ToolCallID; RoleAssistant messages may hold ToolCalls.
 const (
 	RoleUser      Role = "user"
 	RoleAssistant Role = "assistant"
 	RoleTool      Role = "tool"
-	// RoleSystem carries injected context (events, trigger instructions)
-	// into the conversation; providers map it to their native system
-	// slot. Distinct from ProviderRequest.Instructions, which is the
-	// static prompt: RoleSystem messages live in history and thread
-	// across turns like any other message.
+	// RoleSystem puts injected context, such as events and trigger
+	// instructions, into the conversation. Providers map it to their native
+	// system slot. ProviderRequest.Instructions is the static prompt and
+	// is separate. RoleSystem messages live in history and thread across
+	// turns like any other message.
 	RoleSystem Role = "system"
 )
 
@@ -46,11 +46,11 @@ type Message struct {
 	// answers.
 	ToolCallID string `json:"toolCallId,omitempty"`
 
-	// Timestamp records when the message was said. Zero means unstamped;
-	// RunStore implementations stamp zero-Timestamp messages with their
-	// own clock on AppendMessages, and a caller-set non-zero value wins
-	// (a surface can stamp the user message at keypress). Providers
-	// never map this field into request bodies — it is session metadata,
+	// Timestamp records when the message was said. Zero means unstamped.
+	// On AppendMessages, RunStore implementations stamp zero-Timestamp
+	// messages with their own clock and keep a non-zero value the caller
+	// set, so a surface can stamp the user message at keypress. Providers
+	// never map this field into request bodies. It is session metadata,
 	// not model input.
 	Timestamp time.Time `json:"timestamp,omitzero"`
 }
@@ -62,16 +62,16 @@ type ToolCall struct {
 	ID string `json:"id"`
 	// Name is the tool name as listed to the model.
 	Name string `json:"name"`
-	// Args is the JSON arguments object. core.RawJSON so readers share
-	// one parse (Bind for typed decode, Raw for display); wire shape is
-	// identical to a raw message.
+	// Args is the JSON arguments object. It is a core.RawJSON so readers
+	// share one parse, with Bind for typed decode and Raw for display. The
+	// wire shape is identical to a raw message.
 	Args core.RawJSON `json:"args"`
 }
 
 // ProviderRequest is one model call in provider-neutral form.
 type ProviderRequest struct {
 	// Instructions is the system prompt. Providers map it to their native
-	// system slot; it is not a Message so histories stay role-clean.
+	// system slot. It is not a Message, so histories are role-clean.
 	Instructions string `json:"instructions,omitempty"`
 
 	// Messages is the conversation so far, oldest first.
@@ -83,15 +83,16 @@ type ProviderRequest struct {
 	// Temperature overrides the provider default when non-nil. Set it on a
 	// turn through RunnerConfig.Generation or TurnRequest.Generation.
 	//
-	// Not universally supported, and the unsupported case is a hard failure
-	// rather than a graceful one: current Anthropic models reject sampling
-	// parameters outright, so a non-nil Temperature makes the request 400
-	// instead of being ignored, and so do OpenAI's reasoning models on both
-	// OpenAI wires. Leave it nil for those models; CapabilitiesOf(p).Temperature
-	// says whether the provider expects its model to take one. Providers
-	// forward this field as given and do not screen it by model, since mcpkit
-	// keeps no per-model capability table, so the vendor's own error is the
-	// diagnostic, carried verbatim in ProviderError.Body.
+	// Not every model supports it, and an unsupported one fails hard.
+	// Current Anthropic models reject sampling parameters outright, and so
+	// do OpenAI's reasoning models on both OpenAI wires. A non-nil
+	// Temperature makes their requests fail with a 400 instead of being
+	// ignored, so leave it nil for those models.
+	// CapabilitiesOf(p).Temperature says whether the provider expects its
+	// model to take one. mcpkit keeps no per-model capability table, so
+	// providers forward this field as given and do not screen it by model.
+	// The vendor's own error is the diagnostic, and ProviderError.Body holds
+	// it verbatim.
 	Temperature *float64 `json:"temperature,omitempty"`
 
 	// MaxTokens caps the completion length when positive. Set it on a turn
@@ -107,9 +108,9 @@ type ProviderRequest struct {
 	// force a specific tool. Support varies across OpenAI-compatible
 	// servers; a server that ignores it degrades to "auto".
 	//
-	// Pairs with RunnerConfig.Selector (narrow the offered set) to steer a
-	// proactive or injected turn toward acting rather than only replying:
-	// set Selector on the config and ToolChoice on that turn's
+	// To steer a proactive or injected turn toward acting rather than only
+	// replying, set RunnerConfig.Selector on the config to narrow the
+	// offered set, and set ToolChoice on that turn's
 	// TurnRequest.Generation.
 	ToolChoice ToolChoice `json:"toolChoice,omitempty"`
 
@@ -126,45 +127,45 @@ type ProviderRequest struct {
 	// independent.
 	Seed *int `json:"seed,omitempty"`
 
-	// Guided, when non-nil, constrains decoding token by token so the
-	// completion matches a grammar, a regex or a JSON Schema. Unlike
-	// ResponseSchema, which asks for a schema and is honored only by
-	// Generate, a guided completion cannot come out malformed on a server
-	// that supports it. Stream and Generate both forward it.
+	// Guided constrains decoding token by token when non-nil, so the
+	// completion matches a grammar, a regex or a JSON Schema. A server that
+	// supports it cannot produce a malformed guided completion.
+	// ResponseSchema differs. It only asks for a schema, and only Generate
+	// honors it. Stream and Generate both forward Guided.
 	//
 	// It targets self-hosted inference. OpenAIProvider maps it per
-	// OpenAIConfig.GuidedDialect and refuses it with ErrUnsupportedParam when
+	// OpenAIConfig.GuidedDialect. It refuses it with ErrUnsupportedParam when
 	// no dialect is configured or the dialect lacks the requested kind.
-	// AnthropicProvider always refuses it. Constraining a step that also
-	// offers tools is server-defined, so it is meant for single calls (a
-	// translator, a classifier) rather than a tool-using turn, and is not on
-	// GenerationParams.
+	// AnthropicProvider always refuses it. Each server defines what happens
+	// when a step that offers tools is also constrained. So Guided is meant
+	// for single calls, such as a translator or a classifier, rather than a
+	// tool-using turn, and it is not on GenerationParams.
 	Guided *GuidedDecoding `json:"guided,omitempty"`
 
-	// ResponseSchema, when set, asks Generate for structured output
-	// conforming to this JSON Schema. Ignored by Stream.
+	// ResponseSchema asks Generate for structured output conforming to
+	// this JSON Schema when set. Stream ignores it.
 	ResponseSchema core.RawJSON `json:"responseSchema,omitempty"`
 }
 
-// GenerationParams are the model-facing generation knobs a caller sets for a
-// turn: the subset of ProviderRequest that says *how* to generate rather than
+// GenerationParams hold the model-facing generation knobs for a turn. They
+// are the subset of ProviderRequest that says *how* to generate rather than
 // *what* to generate from. The Runner copies them onto every ProviderRequest
-// it builds, so they reach both the streaming step loop and the finalizing
-// Generate of a structured-output turn.
+// that it builds. So they reach the streaming step loop, and they also reach
+// the finalizing Generate of a structured-output turn.
 //
 // Set defaults for every turn on RunnerConfig.Generation and override them for
 // one turn on TurnRequest.Generation. Merge is per field, and a zero field
-// inherits: a TurnRequest that sets only ToolChoice keeps the config's
-// Temperature and MaxTokens. The corollary is that a turn cannot un-set a
-// config default back to the provider's own default — set the field to the
-// value you want instead.
+// inherits. For example, a TurnRequest that sets only ToolChoice keeps the
+// config's Temperature and MaxTokens. So a turn cannot un-set a config default
+// back to the provider's own default. Set the field to the value you want
+// instead.
 //
-// ResponseSchema is deliberately not here. It lives on RunnerConfig because it
-// selects a different turn shape (a finalizing Generate call) rather than
-// tuning the calls a turn already makes.
+// ResponseSchema is deliberately not here. It selects a different turn shape,
+// a finalizing Generate call, rather than tuning the calls in a turn. So it
+// lives on RunnerConfig.
 //
-// Support varies by provider and a rejected parameter is a failed request, not
-// a silently ignored one. See ProviderRequest.Temperature.
+// Support varies by provider. A provider that rejects a parameter fails the
+// request rather than ignoring it. See ProviderRequest.Temperature.
 type GenerationParams struct {
 	// Temperature overrides the provider default when non-nil.
 	//
@@ -179,10 +180,10 @@ type GenerationParams struct {
 	// decision to the provider, except on AnthropicProvider, whose API
 	// requires a cap and which substitutes AnthropicConfig.MaxTokens.
 	//
-	// A cap that truncates mid-turn ends the call with a length-flavored
-	// FinishReason and no error: the Runner treats the short completion as
-	// the model's answer, so too small a value silently degrades a turn
-	// rather than failing it.
+	// Imagine a cap that truncates the completion mid-turn. The call ends
+	// with a length-flavored FinishReason and no error. The Runner treats
+	// the short completion as the model's answer. So too small a value
+	// silently degrades a turn rather than failing it.
 	MaxTokens int `json:"maxTokens,omitempty"`
 
 	// ToolChoice biases tool calling. The zero value is the provider
@@ -241,10 +242,11 @@ type GuidedDecoding struct {
 	JSONSchema core.RawJSON `json:"jsonSchema,omitempty"`
 }
 
-// ErrUnsupportedParam reports a ProviderRequest field the provider, or the
-// server it is configured for, cannot honor. Providers return it wrapped with
-// the field's name, before sending anything, so a constraint the caller asked
-// for is never silently dropped. Test with errors.Is.
+// ErrUnsupportedParam reports that a provider cannot honor a ProviderRequest
+// field, either itself or on the server it is configured for. Providers
+// return it before sending anything, wrapped with the field's name. So a
+// provider never silently drops a constraint that the caller asked for. Test
+// with errors.Is.
 var ErrUnsupportedParam = errors.New("agent: provider does not support request parameter")
 
 func (g *GuidedDecoding) kind() (string, error) {
@@ -272,24 +274,24 @@ const (
 )
 
 // Capabilities says which loop-visible request parameters a provider can
-// send (#180), so a caller holding only a Provider knows whether to ask for a
-// grammar or a seed rather than being refused with ErrUnsupportedParam. It
-// describes what the provider puts on the wire, not whether the model behind
-// it honors it well.
+// send (#180). A caller that holds only a Provider can check it before asking
+// for a grammar or a seed, instead of getting ErrUnsupportedParam back. It
+// describes what the provider puts on the wire. It does not say whether the
+// model behind the provider honors those parameters well.
 type Capabilities struct {
-	// Guided lists the GuidedDecoding kinds the provider can send:
-	// GuidedGrammar, GuidedRegex, GuidedJSONSchema.
+	// Guided lists which GuidedDecoding kinds the provider can send, out of
+	// GuidedGrammar, GuidedRegex and GuidedJSONSchema.
 	Guided []string
 	// Seed says ProviderRequest.Seed is sent.
 	Seed bool
 	// Temperature says ProviderRequest.Temperature is sent and the endpoint
 	// is expected to accept it. Acceptance depends on the model as well as
-	// the wire: OpenAI's reasoning models and current Anthropic models answer
-	// 400 to a temperature on the same wire where other models take one. So
-	// this is the provider's configured expectation (OpenAIConfig.NoTemperature,
-	// ResponsesConfig.Temperature), not a per-model lookup. A provider still
-	// forwards a Temperature it reports false for, and the vendor's error is
-	// the diagnostic.
+	// the wire. OpenAI's reasoning models and current Anthropic models answer
+	// 400 to a temperature, on the same wire where other models take one. So
+	// this field is the provider's configured expectation, set through
+	// OpenAIConfig.NoTemperature or ResponsesConfig.Temperature. It is not a
+	// per-model lookup. A provider that reports false still forwards a
+	// Temperature, and the vendor's error is the diagnostic.
 	Temperature bool
 }
 
@@ -304,7 +306,7 @@ func (c Capabilities) CanGuide(g *GuidedDecoding) bool {
 	return err == nil && slices.Contains(c.Guided, kind)
 }
 
-// intersect is what both a and b can send.
+// intersect returns the capabilities both c and o can send.
 func (c Capabilities) intersect(o Capabilities) Capabilities {
 	var both []string
 	for _, k := range c.Guided {
@@ -316,9 +318,9 @@ func (c Capabilities) intersect(o Capabilities) Capabilities {
 }
 
 // CapabilityReporter is implemented by a Provider that can say what it
-// sends. It is separate from Provider so that implementing Provider stays
-// two methods; a wrapper that delegates to another provider implements it by
-// asking the one it wraps.
+// sends. It is separate from Provider so that Provider still has only two
+// methods to implement. A wrapper that delegates to another provider
+// implements it by asking the provider it wraps.
 type CapabilityReporter interface {
 	ProviderCapabilities() Capabilities
 }
@@ -378,18 +380,18 @@ func (tc ToolChoice) wire() any {
 // Usage reports token consumption for one model call. TurnResult.Usage is the
 // sum across a turn; see its doc for what that total does and does not cover.
 //
-// Both counts are as the provider reported them, not as mcpkit measured them.
-// A provider that reports no usage yields a nil *Usage rather than a zero one,
-// so the caller can tell "not reported" from "reported as zero". The Runner
-// treats a missing report as zero when summing, which means a provider that
-// under-reports produces an undercount rather than an error.
+// The provider reported both counts. mcpkit did not measure them. When a
+// provider reports no usage, the result is a nil *Usage rather than a zero
+// one, so the caller can tell "not reported" from "reported as zero". The
+// Runner treats a missing report as zero when summing. So when a provider
+// under-reports, the total is an undercount rather than an error.
 type Usage struct {
-	// InputTokens is the whole prompt side of the call: instructions,
-	// history, and tool definitions as the provider counted them, including
-	// any part a prompt cache served or wrote. OpenAI-wire servers already
-	// count it that way. AnthropicProvider adds Anthropic's separately
-	// reported cache reads and writes back in, so the figure means the same
-	// thing on every provider.
+	// InputTokens is the whole prompt side of the call. It counts
+	// instructions, history, and tool definitions as the provider counted
+	// them. It includes any part that a prompt cache served or wrote.
+	// OpenAI-wire servers already count it that way. Anthropic reports cache
+	// reads and writes separately, and AnthropicProvider adds them back in.
+	// So the figure means the same thing on every provider.
 	InputTokens int `json:"inputTokens"`
 
 	// OutputTokens is the completion side, including tokens spent on tool
@@ -397,25 +399,25 @@ type Usage struct {
 	// reasoning never reached Delta.Text.
 	OutputTokens int `json:"outputTokens"`
 
-	// CachedInputTokens is the part of InputTokens the provider's prompt
-	// cache served, so it never exceeds InputTokens. Zero means the cache
-	// served nothing or the provider didn't say; the two can't be told
-	// apart. OpenAIProvider reads usage.prompt_tokens_details.cached_tokens
-	// (OpenAI, current llama.cpp), falling back to llama.cpp's
-	// timings.cache_n. AnthropicProvider reads cache_read_input_tokens.
-	// Whether a cache is used at all is the server's or the caller's choice
-	// (OpenAIConfig.ExtraBody for llama.cpp's cache_prompt); this field only
-	// reports what happened.
+	// CachedInputTokens counts the part of InputTokens that the provider's
+	// prompt cache served, so it never exceeds InputTokens. Zero means the
+	// cache served nothing or the provider didn't say, and the two can't be
+	// told apart. OpenAIProvider reads usage.prompt_tokens_details.cached_tokens,
+	// which OpenAI and current llama.cpp send. It falls back to llama.cpp's
+	// timings.cache_n. AnthropicProvider reads cache_read_input_tokens. The
+	// server or the caller decides whether to use a cache at all. For
+	// llama.cpp, the caller sets cache_prompt through OpenAIConfig.ExtraBody.
+	// This field only reports what happened.
 	CachedInputTokens int `json:"cachedInputTokens,omitempty"`
 }
 
 // DeltaKind discriminates Delta payloads.
 type DeltaKind string
 
-// Delta kinds. Tool calls stream as one DeltaToolCallStart (carrying ID and
-// Name) followed by any number of DeltaToolCallArgs fragments for the same
-// Index; there is no explicit end marker, the next start or the finish delta
-// closes the call (fold with DeltaAccumulator).
+// Delta kinds. A tool call streams as one DeltaToolCallStart with ID and
+// Name, followed by any number of DeltaToolCallArgs fragments for the same
+// Index. There is no explicit end marker. The next start or the finish delta
+// closes the call. Fold the stream with DeltaAccumulator.
 const (
 	DeltaText          DeltaKind = "text"
 	DeltaReasoning     DeltaKind = "reasoning"
@@ -459,23 +461,23 @@ type Stream interface {
 	Close() error
 }
 
-// ProviderResponse is a completed model call: the fold of a delta stream, or
-// the direct result of Generate. One response is one call, never a whole turn;
-// the Runner makes as many of these as the step loop needs.
+// ProviderResponse is a completed model call. It is either the fold of a
+// delta stream or the direct result of Generate. One response is one call,
+// never a whole turn. The Runner makes as many calls as the step loop needs.
 type ProviderResponse struct {
-	// Text is the assistant's message content. Empty is normal and not an
-	// error: a call that only requested tools produces no text.
+	// Text is the assistant's message content. A call that only requested
+	// tools produces no text, so empty Text is normal and not an error.
 	Text string `json:"text,omitempty"`
 
 	// Reasoning is provider-exposed reasoning text, folded from
-	// DeltaReasoning. Empty for providers that expose none, which is most of
-	// them. This is plain text for display and never carries provider-opaque
-	// state such as signed thinking blocks, which constraint A9 keeps off the
+	// DeltaReasoning. Most providers expose none, and for them it is empty.
+	// This is plain text for display. It never holds provider-opaque state
+	// such as signed thinking blocks. Constraint A9 keeps that state off the
 	// neutral types entirely.
 	Reasoning string `json:"reasoning,omitempty"`
 
-	// ToolCalls holds the calls the model requested, in the order the
-	// provider emitted them. Parallel calls all appear here; the Runner
+	// ToolCalls holds each call that the model requested, in the order that
+	// the provider emitted them. Parallel calls all appear here. The Runner
 	// dispatches them and feeds one RoleTool message back per call.
 	ToolCalls []ToolCall `json:"toolCalls,omitempty"`
 
@@ -572,10 +574,10 @@ func toolCallArgsFromJSON(raw json.RawMessage) core.RawJSON {
 	return core.NewRawJSON(wrapped)
 }
 
-// decodeToolArgs binds a call's Args into the map a ToolSource.Call receives.
-// A repaired object (see toolCallArgsFromJSON) carries the invalid original,
-// so the error names what the model got wrong instead of only that the bytes
-// do not parse.
+// decodeToolArgs binds a call's Args into the map that ToolSource.Call
+// receives. toolCallArgsFromJSON may have repaired the object, and then it
+// holds the invalid original. In that case the error names what the model got
+// wrong, instead of only saying that the bytes do not parse.
 func decodeToolArgs(raw core.RawJSON) (map[string]any, error) {
 	args := map[string]any{}
 	if raw.Len() == 0 {

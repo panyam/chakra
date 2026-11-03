@@ -9,10 +9,10 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// FuncSource serves host-local Go functions as tools, so an agent can carry
-// small utilities (dates, math, environment lookups) without running an MCP
-// server for them. Registration is typed via AddFunc; schemas come from
-// core.GenerateSchema on the input struct.
+// FuncSource serves host-local Go functions as tools. So an agent can offer
+// small utilities, such as dates, math or environment lookups, without running
+// an MCP server for them. AddFunc registers them with types, and
+// core.GenerateSchema builds each schema from the input struct.
 type FuncSource struct {
 	mu       sync.RWMutex
 	defs     []core.ToolDef
@@ -27,13 +27,13 @@ func NewFuncSource() *FuncSource {
 	}
 }
 
-// FuncOption adjusts the tool definition AddFunc or AddAsyncFunc builds.
+// FuncOption adjusts the tool definition that AddFunc or AddAsyncFunc builds.
 type FuncOption func(*core.ToolDef)
 
 // ReadOnly sets readOnlyHint on the tool. An approval policy such as
 // TieredApproval in ModeReadOnlyAuto or ModeReversibleAuto then runs it without
 // asking, and the Runner treats it as non-destructive and idempotent. Leave it
-// off for anything that writes, sends, or starts work: the spec's default for
+// off for anything that writes, sends, or starts work. The spec's default for
 // an unannotated tool is the cautious one.
 func ReadOnly() FuncOption {
 	return func(d *core.ToolDef) {
@@ -57,9 +57,10 @@ func funcToolDef[In any](name, description string, opts []FuncOption) (core.Tool
 }
 
 // AddFunc registers a typed function as a tool. Arguments are decoded into
-// In via JSON round-trip and validated only by that decoding; the returned
-// string becomes a single text content item. A handler error becomes an
-// IsError tool result (the model sees the failure), not a dispatch error.
+// In via JSON round-trip, and that decoding is the only validation. The
+// returned string becomes a single text content item. A handler error becomes
+// an IsError tool result, so the model sees the failure. It is not a dispatch
+// error.
 // Registering a duplicate name returns an error. Options adjust the
 // definition, for instance ReadOnly for a tool that changes nothing.
 func AddFunc[In any](s *FuncSource, name, description string, fn func(ctx context.Context, in In) (string, error), opts ...FuncOption) error {
@@ -109,7 +110,8 @@ func (s *FuncSource) Tools(ctx context.Context) ([]core.ToolDef, error) {
 }
 
 // Call dispatches to the registered handler. Unknown names are dispatch
-// errors; handler failures registered via AddFunc surface as IsError results.
+// errors. When a handler registered via AddFunc fails, Call returns an
+// IsError result.
 func (s *FuncSource) Call(ctx context.Context, name string, args map[string]any) (*core.ToolResult, error) {
 	s.mu.RLock()
 	fn, ok := s.handlers[name]
@@ -127,26 +129,26 @@ func errorToolResult(msg string) *core.ToolResult {
 	}
 }
 
-// AsyncResult is what an AddAsyncFunc handler returns: an immediate
-// acknowledgment (shown to the model as the tool result now), plus an
-// optional completion whose event is injected when the background work
-// finishes.
+// AsyncResult is what an AddAsyncFunc handler returns. It holds an immediate
+// acknowledgment, and the model sees that now as the tool result. It may also
+// hold a completion. When the background work finishes, the completion's
+// event is injected.
 type AsyncResult struct {
 	// Ack is the model-facing text returned immediately (e.g. "job started").
 	Ack string
-	// Await, when non-nil, runs in a goroutine; its returned event is
-	// handed to onComplete when it finishes. Nil means fire-and-forget.
+	// Await runs in a goroutine when non-nil. When it finishes, its
+	// returned event goes to onComplete. Nil means fire-and-forget.
 	Await func(ctx context.Context) (IncomingEvent, error)
 }
 
 // AddAsyncFunc registers a host-local tool that does background work without
-// a server-side task: the handler returns an ack immediately (satisfying the
-// tool-call contract — every call needs one response), and if it supplies an
-// Await, that runs on a goroutine and its completion event is delivered to
-// onComplete (a host wires onComplete to its injection policy, so the result
-// reaches the model on a later turn — the same shape as a task.completed
-// event, without a task runtime). For model-visible poll/cancel on local
-// work, use a real server-side task instead.
+// a server-side task. Every tool call needs one response, so the handler
+// returns an ack immediately. The handler may also supply an Await. That runs
+// on a goroutine, and its completion event goes to onComplete. A host wires
+// onComplete to its injection policy, so the result reaches the model on a
+// later turn. That matches the shape of a task.completed event, without a task
+// runtime. For model-visible poll/cancel on local work, use a real server-side
+// task instead.
 func AddAsyncFunc[In any](s *FuncSource, name, description string,
 	fn func(ctx context.Context, in In) (AsyncResult, error),
 	onComplete func(IncomingEvent, error), opts ...FuncOption) error {

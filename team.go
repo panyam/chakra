@@ -10,23 +10,24 @@ import (
 )
 
 // DefaultMaxHandoffs bounds how many times a Team may transfer control before
-// giving up — the ping-pong backstop (two agents that keep handing the
-// conversation back and forth).
+// giving up. It is the ping-pong backstop for two agents that keep handing the
+// conversation back and forth.
 const DefaultMaxHandoffs = 8
 
 // ErrMaxHandoffs is returned by Team.Run when the handoff cap is exceeded.
 var ErrMaxHandoffs = errors.New("agent: max handoffs exceeded")
 
-// Team runs a set of named agents that transfer control to one another —
-// handoff, the one composition mode that does NOT fit agent-as-tool
-// (AgentSource). Where a sub-agent is called and returns an answer, a handoff
-// transfers the whole conversation to a specialist and does not come back: the
-// active agent runs, and if it calls a transfer_to_<name> tool, the Team swaps
-// the active agent and continues over the SAME (carried-forward) history. The
-// Runner is unaware it was swapped — the transfer is a tool it happened to
-// call, intercepted above it.
+// Team runs a set of named agents that transfer control to one another. This
+// is handoff. Of the composition modes, only handoff does NOT fit
+// agent-as-tool (AgentSource). A sub-agent is called and returns an answer. A
+// handoff instead transfers the whole conversation to a specialist and does
+// not come back. The active agent runs. If it calls a transfer_to_<name> tool,
+// the Team swaps the active agent and continues over the SAME carried-forward
+// history. The Runner is unaware of the swap. To the Runner, the transfer is a
+// tool it happened to call, and the Team intercepts that call above it.
 //
-// A6: model-facing (agents + transfer tools), so it lives in agent/.
+// A Team holds agents and transfer tools, so it is model-facing. Under A6 it
+// lives here rather than in mcpkit's client/.
 type Team struct {
 	members     map[string]*teamMember
 	order       []string
@@ -72,16 +73,16 @@ type TeamConfig struct {
 	// Zero uses DefaultMaxHandoffs.
 	MaxHandoffs int
 
-	// OnHandoff, when set, is called on each transfer (from, to) — the seam a
-	// surface renders "→ handed off to X" through.
+	// OnHandoff, when set, is called on each transfer (from, to). A surface
+	// renders "→ handed off to X" through it.
 	OnHandoff func(from, to string)
 
 	// OnEvent, when set, receives every member's events tagged with the active
 	// agent's name (SubAgentEvent{Scope: name, Depth: 1, Event}), so a surface
-	// attributes team activity to the agent that produced it without inferring
-	// from OnHandoff. It REPLACES the raw emit passed to Run/RunTurn for member
-	// events (the tagged envelope carries the same Event); leave it nil to use
-	// the untagged emit. Mirrors AgentSourceConfig.OnEvent.
+	// can attribute team activity to the agent that produced it without
+	// inferring from OnHandoff. For member events it REPLACES the raw emit
+	// passed to Run/RunTurn, and the tagged envelope holds the same Event.
+	// Leave it nil to use the untagged emit. Mirrors AgentSourceConfig.OnEvent.
 	OnEvent func(SubAgentEvent)
 }
 
@@ -171,7 +172,7 @@ func buildTransferSource(from string, targets []string, members map[string]bool)
 	return fs, nil
 }
 
-// StartAgent is the member that receives the first turn — the seam a host uses
+// StartAgent returns the member that receives the first turn. A host uses it
 // to initialize its persisted active agent before the first RunTurn.
 func (t *Team) StartAgent() string { return t.start }
 
@@ -184,21 +185,23 @@ func (t *Team) Run(ctx context.Context, input string, emit func(Event)) (*TurnRe
 	return result, err
 }
 
-// RunTurn drives one user turn over the carried history: the active agent (or
-// Start when active is "") runs, and each transfer swaps the active agent and
-// continues over the SAME history, until an agent answers without transferring
-// or the handoff cap is hit (ErrMaxHandoffs). All agents share the history
-// (handoff transfers context); each brings its own instructions.
+// RunTurn drives one user turn over the carried history. The active agent runs
+// first, or Start when active is "". Each transfer swaps the active agent and
+// continues over the SAME history. This repeats until an agent answers without
+// transferring or the handoff cap is hit (ErrMaxHandoffs). All agents share the
+// history, because a handoff transfers context, and each brings its own
+// instructions.
 //
-// It returns the final result whose Messages hold EVERY message appended across
-// all hops this turn (so a caller threads them into its own history as one
-// turn), plus the agent active at the end. Persist that name and pass it back
-// as active next turn so control stays where it was transferred, rather than
-// re-starting from Start — the transfer-control (not re-route) semantic.
+// It returns the final result and the agent active at the end. The result's
+// Messages hold EVERY message appended across all hops this turn, so a caller
+// threads them into its own history as one turn. Persist the returned name and
+// pass it back as active next turn. Control then remains where it was
+// transferred instead of restarting from Start. A handoff transfers control. It
+// does not re-route a single turn.
 //
-// emit receives every agent's events; OnHandoff marks the transitions. An
-// unknown active name is treated as Start (the caller's persisted value can lag
-// a config change without erroring).
+// emit receives every agent's events, and OnHandoff marks the transitions. An
+// unknown active name is treated as Start, so the caller's persisted value can
+// lag a config change without erroring.
 func (t *Team) RunTurn(ctx context.Context, history []Message, active string, emit func(Event)) (*TurnResult, string, error) {
 	if emit == nil {
 		emit = func(Event) {}

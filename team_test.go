@@ -44,7 +44,7 @@ func TestTeam_Handoff(t *testing.T) {
 	if len(handoffs) != 1 || handoffs[0] != [2]string{"triage", "specialist"} {
 		t.Fatalf("handoffs = %v, want [triage->specialist]", handoffs)
 	}
-	// context carried across: the specialist saw the original user message + triage's turn
+	// the specialist saw the original user message + triage's turn
 	sawUser := false
 	for _, m := range specialist.Requests()[0].Messages {
 		if m.Role == RoleUser && m.Text == "help me" {
@@ -141,9 +141,10 @@ func TestTeam_Validation(t *testing.T) {
 	}
 }
 
-// TestTeam_RunTurnPersistsActiveAgent covers the host-facing entry point: after
-// a handoff on turn 1 (triage -> specialist), turn 2 starts from the PERSISTED
-// specialist (not Start), and the returned Messages hold every hop this turn.
+// TestTeam_RunTurnPersistsActiveAgent covers the host-facing entry point.
+// Turn 1 hands off from triage to specialist. Turn 2 then starts from the
+// PERSISTED specialist, not from Start, and the returned Messages hold every
+// hop of the turn.
 func TestTeam_RunTurnPersistsActiveAgent(t *testing.T) {
 	// triage: turn 1 transfers; it must NOT be asked again on turn 2.
 	triage := NewStubProvider(transferCall("c1", "specialist"), StubTurn{Text: "connecting"})
@@ -162,7 +163,7 @@ func TestTeam_RunTurnPersistsActiveAgent(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	// turn 1: from Start; triage hands to specialist which answers.
+	// turn 1: from Start. triage hands off to specialist, and specialist answers.
 	history := []Message{{Role: RoleUser, Text: "help"}}
 	res1, active1, err := team.RunTurn(ctx, history, "", nil)
 	if err != nil {
@@ -171,15 +172,16 @@ func TestTeam_RunTurnPersistsActiveAgent(t *testing.T) {
 	if active1 != "specialist" || res1.Text != "answer one" {
 		t.Fatalf("turn 1: active=%q text=%q, want specialist/answer one", active1, res1.Text)
 	}
-	// all hops appended: triage's transfer turn (assistant + tool msg) AND the
-	// specialist's answer — more than just the specialist's own messages.
+	// every hop is appended. That means triage's transfer turn (assistant +
+	// tool msg) AND the specialist's answer, so there are more messages than
+	// the specialist's own.
 	if len(res1.Messages) < 3 {
 		t.Fatalf("turn 1 messages should span both agents' hops, got %d: %+v", len(res1.Messages), res1.Messages)
 	}
 	history = append(history, res1.Messages...)
 	triageBefore := len(triage.Requests())
 
-	// turn 2: from the persisted specialist — triage is not consulted again.
+	// turn 2: from the persisted specialist. triage is not consulted again.
 	history = append(history, Message{Role: RoleUser, Text: "follow up"})
 	res2, active2, err := team.RunTurn(ctx, history, active1, nil)
 	if err != nil {
@@ -193,9 +195,9 @@ func TestTeam_RunTurnPersistsActiveAgent(t *testing.T) {
 	}
 }
 
-// TestTeam_OnEventTagsByActiveAgent covers per-agent event tagging (1033): each
+// TestTeam_OnEventTagsByActiveAgent covers per-agent event tagging (1033). Each
 // member's events are forwarded tagged with the active agent's name, so a
-// surface attributes them without inferring from OnHandoff.
+// surface can attribute them without inferring from OnHandoff.
 func TestTeam_OnEventTagsByActiveAgent(t *testing.T) {
 	triage := NewStubProvider(transferCall("c1", "specialist"), StubTurn{Text: "connecting"})
 	specialist := NewStubProvider(StubTurn{Text: "the answer"})

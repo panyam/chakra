@@ -13,34 +13,35 @@ import (
 
 // InMemorySemanticStore is a MemoryStore that recalls by embedding similarity
 // instead of substring match. It composes an Embedder (text -> vector) with
-// an in-process brute-force cosine index: PutMemory embeds the note and keeps
-// its vector; ListMemories embeds the query and returns items ranked by
-// cosine similarity, each carrying its Score. It implements the same
-// MemoryStore interface as the substring default, so swapping it in makes the
-// recall tool (and the summary) semantic with no change to the model-facing
-// surface — the "how" of retrieval stays behind the interface.
+// an in-process brute-force cosine index. PutMemory embeds the note and keeps
+// its vector. ListMemories embeds the query and returns items ranked by
+// cosine similarity, each with its Score. It implements the same MemoryStore
+// interface as the substring default. So swapping it in makes the recall
+// tool and the summary semantic, with no change to the model-facing surface.
+// The interface hides how retrieval works.
 //
-// The index is exact and O(n) per query, which is the right trade for a
-// working-memory-sized scratchpad (tens to hundreds of notes). Approximate
-// nearest-neighbor at scale is a durable-backend concern (a pgvector sibling
-// MemoryStore), not something to build into the in-process default.
+// The index is exact and O(n) per query. That is the right trade for a
+// working-memory-sized scratchpad of tens to hundreds of notes. Approximate
+// nearest-neighbor at scale belongs in a durable backend, such as a pgvector
+// sibling MemoryStore. It does not belong in the in-process default.
 //
-// Concurrency: safe for concurrent use. Embedding happens outside the lock
-// (a network call for a hosted Embedder), so Put/List never hold the mutex
-// across I/O.
+// It is safe for concurrent use. For a hosted Embedder, embedding is a network
+// call. It happens outside the lock, so Put/List never hold the mutex across
+// I/O.
 type InMemorySemanticStore struct {
 	embedder Embedder
 	tp       core.TracerProvider
 
 	mu sync.Mutex
-	// ns partitions the store by namespace (req.Namespace; "" = default), so
+	// ns partitions the store by req.Namespace, where "" is the default. So
 	// recall never crosses namespaces. maxEntries caps each namespace.
 	ns         map[string]*nsSemantic
 	maxEntries int
 }
 
-// nsSemantic is one namespace's semantic scratchpad: items + their vectors, with
-// insertion order for the empty-query listing and the cap (front is oldest).
+// nsSemantic is one namespace's semantic scratchpad. It holds items and their
+// vectors. It also keeps insertion order, with the oldest at the front, for the
+// empty-query listing and the cap.
 type nsSemantic struct {
 	items map[string]MemoryItem
 	vecs  map[string]Embedding
@@ -63,7 +64,7 @@ func (s *InMemorySemanticStore) bucket(ns string) *nsSemantic {
 	return m
 }
 
-// InMemorySemanticStoreOption configures a InMemorySemanticStore.
+// InMemorySemanticStoreOption configures an InMemorySemanticStore.
 type InMemorySemanticStoreOption func(*InMemorySemanticStore)
 
 // WithSemanticMaxMemories caps the store at n items, evicting the oldest when
@@ -87,8 +88,8 @@ func WithSemanticTracerProvider(tp core.TracerProvider) InMemorySemanticStoreOpt
 }
 
 // NewInMemorySemanticStore builds a semantic store over embedder. The embedder
-// is required; every note and query is embedded with it, so a store must be
-// queried with the same Embedder it was built with.
+// is required. Every note and query is embedded with it, so query a store with
+// the same Embedder that built it.
 func NewInMemorySemanticStore(embedder Embedder, opts ...InMemorySemanticStoreOption) (*InMemorySemanticStore, error) {
 	if embedder == nil {
 		return nil, fmt.Errorf("agent: InMemorySemanticStore needs an Embedder")
@@ -104,10 +105,10 @@ func NewInMemorySemanticStore(embedder Embedder, opts ...InMemorySemanticStoreOp
 	return s, nil
 }
 
-// PutMemory embeds the note (key + value, so a recall query matches either)
-// and upserts it. Embedding is synchronous — a just-remembered fact is
-// immediately recallable; background/batch indexing of a distillation write
-// path is a separate concern.
+// PutMemory embeds the note and upserts it. It embeds key + value, so a recall
+// query matches either. Embedding is synchronous, so a just-remembered fact is
+// immediately recallable. Background or batch indexing for a distillation
+// write path is a separate concern.
 func (s *InMemorySemanticStore) PutMemory(ctx context.Context, req PutMemoryRequest) (PutMemoryResponse, error) {
 	item := req.Item
 	if item.CreatedAt.IsZero() {
@@ -142,8 +143,9 @@ func (s *InMemorySemanticStore) PutMemory(ctx context.Context, req PutMemoryRequ
 }
 
 // ListMemories ranks items by cosine similarity to the query. An empty Query
-// returns all items oldest-first with Score 0 (the "list everything" path the
-// summary uses — there is no query to score against). Limit caps the result.
+// returns all items oldest-first with Score 0. The summary uses that "list
+// everything" path, and it has no query to score against. Limit caps the
+// result.
 func (s *InMemorySemanticStore) ListMemories(ctx context.Context, req ListMemoriesRequest) (ListMemoriesResponse, error) {
 	if req.Query == "" {
 		return s.listAll(req.Namespace, req.Limit), nil
@@ -196,8 +198,8 @@ func (s *InMemorySemanticStore) listAll(ns string, limit int) ListMemoriesRespon
 	return ListMemoriesResponse{Items: out}
 }
 
-// DeleteMemory removes an item and its vector. An unknown key is
-// Deleted=false, not an error (same contract as the substring store).
+// DeleteMemory removes an item and its vector. An unknown key gives
+// Deleted=false, not an error, as in the substring store.
 func (s *InMemorySemanticStore) DeleteMemory(ctx context.Context, req DeleteMemoryRequest) (DeleteMemoryResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

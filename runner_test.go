@@ -34,9 +34,10 @@ func newRunner(t *testing.T, p Provider, src ToolSource) *Runner {
 	return r
 }
 
-// TestRunnerInstructionsFuncPerTurn verifies InstructionsFunc overrides the
-// static Instructions and is recomputed each turn (the dynamic system prompt
-// that lets late-connecting servers' eager skills appear on the next turn).
+// TestRunnerInstructionsFuncPerTurn verifies that InstructionsFunc overrides
+// the static Instructions and is recomputed each turn. That dynamic system
+// prompt lets eager skills from late-connecting servers appear on the next
+// turn.
 func TestRunnerInstructionsFuncPerTurn(t *testing.T) {
 	stub := NewStubProvider(StubTurn{Text: "a"}, StubTurn{Text: "b"})
 	turn := 0
@@ -250,9 +251,9 @@ func TestRunnerIsErrorResultIsToolEndNotToolError(t *testing.T) {
 	}
 }
 
-// unavailableSource returns ErrNotAvailableNow from Call — a server that's
-// unreachable right now (distinct from a tool that ran and failed, which
-// reports via IsError, and which FuncSource would convert to a result).
+// unavailableSource returns ErrNotAvailableNow from Call, like a server that's
+// unreachable right now. A tool that ran and failed is different. It reports
+// via IsError, and FuncSource would convert it to a result.
 type unavailableSource struct{}
 
 func (unavailableSource) Tools(context.Context) ([]core.ToolDef, error) {
@@ -301,11 +302,11 @@ func TestRunnerToolUnavailableIsNonFatal(t *testing.T) {
 	}
 }
 
-// TestRunnerStepCap pins the step-cap contract: the turn fails with
-// ErrMaxSteps AND returns the partial result it built, so a caller can keep
+// TestRunnerStepCap pins the step-cap contract. The turn fails with
+// ErrMaxSteps AND returns the partial result it built. So a caller can keep
 // what the turn got through instead of starting the next turn blind (issue
 // 109). The partial result is a prefix of the conversation, not a completed
-// turn: Text is empty and only Messages/Usage/Steps are meaningful.
+// turn. Text is empty and only Messages/Usage/Steps are meaningful.
 func TestRunnerStepCap(t *testing.T) {
 	loop := StubTurn{ToolCalls: []ToolCall{{ID: "c", Name: "spin", Args: core.NewRawJSON(json.RawMessage(`{}`))}}}
 	stub := NewStubProvider(loop, loop, loop)
@@ -326,8 +327,8 @@ func TestRunnerStepCap(t *testing.T) {
 		t.Fatalf("last event = %+v", last)
 	}
 
-	// The cap fired after step 3's tool results landed, so the turn keeps
-	// three paired (assistant tool call, tool result) rounds.
+	// The cap fired after step 3's tool results arrived. So the turn keeps
+	// three paired rounds of assistant tool call and tool result.
 	if res == nil {
 		t.Fatal("step-capped turn returned no result; its messages are lost")
 	}
@@ -351,11 +352,11 @@ func TestRunnerStepCap(t *testing.T) {
 	}
 }
 
-// TestRunnerStepCapDropsUnpairedToolCall covers the other side of the cap: a
-// turn killed mid-dispatch ends on an assistant message whose tool calls have
-// no tool results yet. A provider rejects that shape, so the partial result
-// must be cut back to the last complete round before a caller threads it into
-// history.
+// TestRunnerStepCapDropsUnpairedToolCall covers the other side of the cap.
+// Imagine a turn killed mid-dispatch. It ends on an assistant message, and
+// that message's tool calls have no tool results yet. A provider rejects that
+// shape. So the partial result must be cut back to the last complete round
+// before a caller threads it into history.
 func TestRunnerStepCapDropsUnpairedToolCall(t *testing.T) {
 	loop := StubTurn{ToolCalls: []ToolCall{{ID: "c", Name: "spin", Args: core.NewRawJSON(json.RawMessage(`{}`))}}}
 	stub := NewStubProvider(loop, loop, loop)
@@ -370,8 +371,8 @@ func TestRunnerStepCapDropsUnpairedToolCall(t *testing.T) {
 	if !errors.Is(err, ErrMaxSteps) || res == nil {
 		t.Fatalf("setup: Run = (%+v, %v)", res, err)
 	}
-	// Simulate a turn cancelled while step N's calls were still in flight:
-	// the accumulated messages end on the assistant that requested them.
+	// Simulate a turn cancelled while step N's calls were still in flight.
+	// The accumulated messages end on the assistant that requested them.
 	tail := res.Messages[:len(res.Messages)-1]
 	if got := DropUnansweredToolCalls(tail); len(got) != len(tail)-1 {
 		t.Fatalf("dropped to %d messages, want %d (only the trailing tool result): %+v", len(got), len(tail)-1, got)
@@ -385,10 +386,10 @@ func TestRunnerStepCapDropsUnpairedToolCall(t *testing.T) {
 	}
 }
 
-// TestRunnerProviderFailureReturnsNoResult is the scope guard for issue 109:
-// only the step cap keeps its messages. A provider failure has no coherent
-// prefix to thread, so it still returns a nil result and the host still rolls
-// the turn back.
+// TestRunnerProviderFailureReturnsNoResult is the scope guard for issue 109.
+// Only the step cap keeps its messages. A provider failure has no coherent
+// prefix to thread. So it still returns a nil result, and the host still
+// rolls the turn back.
 func TestRunnerProviderFailureReturnsNoResult(t *testing.T) {
 	stub := NewStubProvider(StubTurn{Err: errors.New("model down")})
 	r := newRunner(t, stub, NewFuncSource())
@@ -402,7 +403,7 @@ func TestRunnerProviderFailureReturnsNoResult(t *testing.T) {
 }
 
 // TestRunnerTreeBudgetReturnsNoResult keeps ErrTreeBudget out of the issue-109
-// change: an aggregate budget failure still reports no result.
+// change. An aggregate budget failure still reports no result.
 func TestRunnerTreeBudgetReturnsNoResult(t *testing.T) {
 	loop := StubTurn{ToolCalls: []ToolCall{{ID: "c", Name: "spin", Args: core.NewRawJSON(json.RawMessage(`{}`))}}}
 	stub := NewStubProvider(loop, loop, loop)
@@ -569,7 +570,7 @@ func TestRunnerApprovalDeniedFeedsBackAndContinues(t *testing.T) {
 		t.Fatalf("turn should continue past the denial: %+v", res)
 	}
 
-	// The denial surfaces as a distinct event and as model-visible tool text.
+	// The denial shows up as a distinct event and as model-visible tool text.
 	want := []EventKind{EventTurnBegin, EventToolBegin, EventToolDenied, EventTextDelta, EventTurnEnd}
 	if fmt.Sprint(kinds(*events)) != fmt.Sprint(want) {
 		t.Fatalf("events = %v, want %v", kinds(*events), want)
@@ -646,7 +647,7 @@ func TestRunnerStructuredFinalizesAfterTerminalText(t *testing.T) {
 	if len(stub.Requests()) != 2 {
 		t.Fatalf("want 2 provider calls (stream + finalize), got %d", len(stub.Requests()))
 	}
-	// The finalizing request carries the schema and offers no tools.
+	// The finalizing request includes the schema and offers no tools.
 	fin := stub.Requests()[1]
 	if fin.ResponseSchema.Len() == 0 || len(fin.Tools) != 0 {
 		t.Fatalf("finalize request should set schema and no tools: %+v", fin)

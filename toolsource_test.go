@@ -516,10 +516,10 @@ func TestMultiSourceOwnerOf(t *testing.T) {
 	}
 }
 
-// TestMultiSourceOwnerOfMatchesCall pins that OwnerOf answers with the source
-// Call would actually reach, including through a Resolver that inspects args.
-// Two copies of resolution that disagree is the failure this shares one path
-// to avoid.
+// TestMultiSourceOwnerOfMatchesCall checks that OwnerOf and Call pick the same
+// source, including through a Resolver that inspects args. They share one
+// resolution path. Two separate copies could disagree, and then a policy would
+// judge a different source from the one Call reaches.
 func TestMultiSourceOwnerOfMatchesCall(t *testing.T) {
 	alpha := &fakeSource{defs: defsNamed("shared")}
 	beta := &fakeSource{defs: defsNamed("shared")}

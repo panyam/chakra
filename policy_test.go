@@ -261,8 +261,9 @@ func TestTriggerConsentGate(t *testing.T) {
 }
 
 func TestGenericWindowIsPromotable(t *testing.T) {
-	// The stages are generic machinery: prove they work on a non-event
-	// type (the promotability contract from the design discussion).
+	// The stages are generic machinery. Prove they work on a non-event
+	// type, as the promotability contract from the design discussion
+	// requires.
 	clock := newClock()
 	w := newWindowStage[int](time.Second, WindowMerge, func(int) string { return "k" }, func(a, b int) int { return a + b })
 	w.Push(clock.t, 1)
@@ -306,7 +307,7 @@ func TestTriggerRuntimeAddRemove(t *testing.T) {
 	clock := newClock()
 	tp := NewTriggerPolicy(TriggerPolicyConfig{now: clock.now})
 
-	// Nothing bound yet: no firing.
+	// Nothing is bound yet, so nothing fires.
 	if tp.OnEvent(evt("s", "user.created", `{}`)) != nil {
 		t.Fatal("no binding should fire before Add")
 	}
@@ -337,7 +338,7 @@ func TestTriggerRuntimeAddRemove(t *testing.T) {
 	}
 }
 
-// A server can revise the hint it advertised (events/list_changed), and host
+// A server can revise its advertised hint through events/list_changed. Host
 // config still beats whatever the server says.
 func TestSetHintReplacesButConfigWins(t *testing.T) {
 	p := NewEventInjectionPolicy(EventInjectionConfig{Hints: map[string]ContextHint{"pinned": {Template: "config {{n}}"}}})

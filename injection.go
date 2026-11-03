@@ -9,10 +9,10 @@ import (
 	"time"
 )
 
-// MetaKeyContextHint is the vendor _meta key on an events/list EventDef that
-// carries a ContextHint (see docs/AGENT_DESIGN.md, vendor prefix section).
-// Advisory per the context-hints SEP draft: hosts MAY ignore it, and host
-// configuration overrides it.
+// MetaKeyContextHint is the vendor _meta key that holds a ContextHint on an
+// events/list EventDef. docs/AGENT_DESIGN.md covers it in the vendor prefix
+// section. The context-hints SEP draft makes it advisory. Hosts MAY ignore
+// it, and host configuration overrides it.
 const MetaKeyContextHint = "io.github.panyam.mcpkit/context-hint"
 
 // ContextHint declares how an event's occurrences should reach the model.
@@ -25,58 +25,60 @@ type ContextHint struct {
 	// Aggregate coalesces bursts before injection.
 	Aggregate *AggregateHint `json:"aggregate,omitempty"`
 
-	// Template renders the payload as context: {{field}} substitutes
-	// top-level payload fields (deliberately no logic; hosts wanting
-	// more render themselves). Empty uses the default rendering.
+	// Template renders the payload as context. {{field}} substitutes a
+	// top-level payload field. There is deliberately no logic, and a host
+	// that wants more renders the payload itself. Empty uses the default
+	// rendering.
 	Template string `json:"template,omitempty"`
 
-	// Retention: "turn" (default; injected once) or "session" (the
-	// latest occurrence re-injects every turn until superseded).
+	// Retention is "turn" or "session". "turn" is the default and injects
+	// once. With "session", the latest occurrence re-injects every turn
+	// until a newer one supersedes it.
 	Retention string `json:"retention,omitempty"`
 
-	// Sensitivity: "public" (default), "personal", "restricted".
+	// Sensitivity is "public" (the default), "personal" or "restricted".
 	// Restricted events are dropped unless the consent gate approves.
 	Sensitivity string `json:"sensitivity,omitempty"`
 }
 
-// AggregateHint is ContextHint's coalescing sub-shape: how to fold a burst of
-// one event name into fewer entries before the model sees them. It is part of
-// the wire shape a server may publish under the context-hint _meta key, so
-// treat both fields as an external contract rather than internal tuning.
+// AggregateHint is ContextHint's coalescing sub-shape. It says how to fold a
+// burst of one event name into fewer entries before the model sees them. A
+// server may publish it as part of the wire shape under the context-hint
+// _meta key. So treat both fields as an external contract rather than
+// internal tuning.
 //
 // Coalescing is keyed by server plus event name, so two servers emitting the
 // same event name aggregate independently.
 type AggregateHint struct {
 	// WindowMs is the coalescing window in milliseconds. Zero or negative
-	// disables aggregation entirely and every event buffers individually,
-	// which is also what a missing AggregateHint means.
+	// disables aggregation entirely, and every event buffers individually.
+	// A missing AggregateHint means the same thing.
 	//
-	// The window's start depends on Strategy: last-wins and merge open it at
-	// the first event of a burst, giving bounded latency, while debounce
-	// restarts it on every event and so can defer release indefinitely under
-	// a sustained stream.
+	// The window's start depends on Strategy. Last-wins and merge open it at
+	// the first event of a burst, so latency is bounded. Debounce restarts it
+	// on every event. So under a sustained stream, debounce can defer release
+	// indefinitely.
 	WindowMs int `json:"windowMs"`
 
-	// Strategy selects the fold: WindowLastWins keeps only the newest event
-	// per key, WindowMerge combines payloads through the policy's Merge func
-	// (ShallowMergeJSON by default), and WindowDebounce releases only after
+	// Strategy selects the fold. WindowLastWins keeps only the newest event
+	// per key. WindowMerge combines payloads through the policy's Merge func,
+	// which defaults to ShallowMergeJSON. WindowDebounce releases only after
 	// the key has been quiet for the window.
 	//
-	// The value is not validated. It is taken verbatim from the server's
-	// JSON, and anything other than the three constants above behaves as
-	// last-wins rather than erroring, so a typo degrades quietly.
+	// The value is not validated. It comes verbatim from the server's JSON.
+	// Any value other than the three constants above behaves as last-wins
+	// rather than erroring, so a typo degrades quietly.
 	Strategy WindowStrategy `json:"strategy,omitempty"`
 }
 
 // EventInjectionConfig assembles an EventInjectionPolicy.
 type EventInjectionConfig struct {
 	// Hints maps event name to its ContextHint. Entries here override
-	// server-advertised hints (host config wins over vendor _meta).
+	// server-advertised hints, so host config wins over vendor _meta.
 	Hints map[string]ContextHint
 
-	// Filters and Transforms run before buffering, in order: the
-	// developer seam for dropping or rewriting events regardless of
-	// hints.
+	// Filters and Transforms run in order before buffering. A developer
+	// uses them to drop or rewrite events regardless of hints.
 	Filters    []func(IncomingEvent) bool
 	Transforms []func(IncomingEvent) (IncomingEvent, bool)
 
@@ -89,8 +91,8 @@ type EventInjectionConfig struct {
 	MaxPerDrain int
 
 	// Consent gates sensitive events. Nil allows public and personal
-	// and drops restricted; a non-nil gate decides everything except
-	// public, which always passes.
+	// events and drops restricted ones. A non-nil gate decides everything
+	// except public events, which always pass.
 	Consent func(hint ContextHint, ev IncomingEvent) bool
 
 	// now is injectable for tests; nil means time.Now.
@@ -100,10 +102,10 @@ type EventInjectionConfig struct {
 // DefaultMaxPerDrain bounds injected entries per turn when unconfigured.
 const DefaultMaxPerDrain = 16
 
-// InjectedContext is one rendered entry ready to join the model's context,
-// as returned by a Drain. Entries arrive in priority order, already filtered,
-// transformed, coalesced, and budgeted; a caller renders them into the turn
-// and does not re-apply policy.
+// InjectedContext is one rendered entry that a Drain returns, ready to join
+// the model's context. Entries arrive in priority order. They are already
+// filtered, transformed, coalesced, and budgeted. A caller renders them into
+// the turn and does not re-apply policy.
 type InjectedContext struct {
 	// Event is the event this entry came from, after any Transforms ran.
 	// For a coalesced burst it is the single surviving event, so the
@@ -113,25 +115,25 @@ type InjectedContext struct {
 	// Text is the rendered form the model reads.
 	Text string
 
-	// Priority is the originating ContextHint's priority, carried through
-	// so a caller can group or style entries. It is the hint's vocabulary
-	// verbatim and is not normalized, so an unrecognized value reaches the
+	// Priority is the originating ContextHint's priority, copied through so
+	// a caller can group or style entries. It uses the hint's vocabulary
+	// verbatim and is not normalized. So an unrecognized value reaches the
 	// caller unchanged rather than being defaulted.
 	Priority string
 }
 
-// EventInjectionPolicy is the host half of the context-hints SEP draft: it
-// buffers incoming events (per-event aggregation windows), renders them, and
-// releases them in priority order under a budget when the host drains before
-// a turn. Safe for concurrent Ingest against one Drain (the wiring's event
-// goroutine vs the turn path).
+// EventInjectionPolicy is the host half of the context-hints SEP draft. It
+// buffers incoming events in per-event aggregation windows and renders them.
+// When the host drains before a turn, it releases them in priority order
+// under a budget. The wiring's event goroutine calls Ingest while the turn
+// path calls Drain, and that concurrent use is safe.
 type EventInjectionPolicy struct {
 	cfg EventInjectionConfig
 
 	mu sync.Mutex
-	// discovered holds hints servers advertised (SetHint), apart from the
-	// host-config ones in cfg.Hints, so a server can revise its own hint
-	// while config still wins.
+	// discovered holds the hints that servers advertised through SetHint.
+	// cfg.Hints holds the host-config ones separately. So a server can
+	// revise its own hint while config still wins.
 	discovered map[string]ContextHint
 	windows    map[string]stage[IncomingEvent]
 	pending    []IncomingEvent
@@ -155,8 +157,8 @@ func NewEventInjectionPolicy(cfg EventInjectionConfig) *EventInjectionPolicy {
 }
 
 // HintFromMeta extracts a server-advertised ContextHint from an events/list
-// EventDef _meta map. Second return reports presence. Malformed hints are
-// ignored (advisory data never breaks the host).
+// EventDef _meta map. The second return reports presence. Malformed hints are
+// ignored, because advisory data never breaks the host.
 func HintFromMeta(meta map[string]any) (ContextHint, bool) {
 	raw, ok := meta[MetaKeyContextHint]
 	if !ok {
@@ -192,10 +194,10 @@ func HintFromMeta(meta map[string]any) (ContextHint, bool) {
 	return h, true
 }
 
-// SetHint installs (or replaces) a server-advertised hint for an event name,
-// e.g. from events/list discovery. A later call for the same name replaces it,
-// so a server's revised hint takes effect after list_changed.
-// Host-config entries passed at construction still win over any of these.
+// SetHint installs a server-advertised hint for an event name, for example
+// from events/list discovery. A later call for the same name replaces it, so
+// a server's revised hint takes effect after list_changed. Host-config
+// entries passed at construction still win over any of these.
 func (p *EventInjectionPolicy) SetHint(name string, h ContextHint) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -215,7 +217,8 @@ func (p *EventInjectionPolicy) hint(name string) ContextHint {
 }
 
 // Ingest feeds one event through the developer stages and into its
-// aggregation window (or straight to pending when the hint has none).
+// aggregation window. When the hint has no window, the event goes straight
+// to pending.
 func (p *EventInjectionPolicy) Ingest(ev IncomingEvent) {
 	for _, f := range p.cfg.Filters {
 		if !f(ev) {
@@ -262,10 +265,10 @@ func (p *EventInjectionPolicy) buffer(ev IncomingEvent, h ContextHint) {
 }
 
 // Drain flushes expired windows and returns rendered entries in priority
-// order under the budget. Turn-retention entries leave the buffer;
-// session-retention entries re-drain every call until superseded. Entries
-// beyond the budget stay buffered for the next drain; restricted events
-// denied by the consent gate are counted and dropped.
+// order under the budget. Turn-retention entries leave the buffer.
+// Session-retention entries re-drain every call until a newer one supersedes
+// them. Entries beyond the budget remain buffered for the next drain. When
+// the consent gate denies a restricted event, Drain counts it and drops it.
 func (p *EventInjectionPolicy) Drain() []InjectedContext {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -289,8 +292,8 @@ func (p *EventInjectionPolicy) Drain() []InjectedContext {
 		cands = append(cands, cand{ev: ev})
 	}
 
-	// Consent-gate first, then order by priority, THEN apply the budget:
-	// the budget must never be consumed by low-priority arrivals while
+	// Consent-gate first, then order by priority, THEN apply the budget.
+	// Low-priority arrivals must never use up the budget while
 	// higher-priority entries wait.
 	type ranked struct {
 		cand
@@ -363,9 +366,9 @@ func priorityRank(p string) int {
 
 var templateField = regexp.MustCompile(`\{\{([a-zA-Z0-9_.-]+)\}\}`)
 
-// renderEvent renders one event as context text: the hint template with
-// {{field}} substitution from top-level payload fields, or the default
-// "event <name> from <server>: <payload>" line.
+// renderEvent renders one event as context text. With a hint template, it
+// substitutes {{field}} from top-level payload fields. Without one, it writes
+// the default "event <name> from <server>: <payload>" line.
 func renderEvent(ev IncomingEvent, h ContextHint) string {
 	if h.Template == "" {
 		return fmt.Sprintf("event %s from %s: %s", ev.Name, ev.Server, strings.TrimSpace(string(ev.Data.Raw())))

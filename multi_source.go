@@ -21,22 +21,23 @@ type ToolOwner struct {
 }
 
 // Resolver picks which source handles an ambiguous bare-name call. Returning
-// an empty string (or an error) fails the call; the caller can always reach a
-// specific candidate via the qualified "sourceID/name" form instead.
+// an empty string or an error fails the call. The caller can always reach a
+// specific candidate through the qualified "sourceID/name" form instead.
 type Resolver func(name string, candidates []ToolOwner, args map[string]any) (sourceID string, err error)
 
-// MultiSource aggregates ToolSources under stable source IDs, mirroring the
-// collision semantics of ext/ui's ServerRegistry in ToolSource form:
+// MultiSource aggregates ToolSources under stable source IDs. It copies the
+// collision semantics of ext/ui's ServerRegistry, in ToolSource form.
 //
 //   - Unique names are exposed and callable as-is.
-//   - Colliding names are exposed to the model ONLY in qualified form
-//     ("sourceID/name" for every claimant), so the model-facing list never
-//     contains duplicates and every tool stays reachable.
-//   - A bare-name Call that hits a collision consults the Resolver if one is
-//     configured, else fails with an error naming the qualified forms.
+//   - Colliding names are exposed to the model ONLY in qualified form, as
+//     "sourceID/name" for every claimant. So the model-facing list never
+//     contains duplicates, and every tool is still reachable.
+//   - A bare-name Call can hit a collision. It then consults the Resolver
+//     if one is configured. Otherwise it fails with an error that names the
+//     qualified forms.
 //
-// Qualification is deterministic: it depends only on the set of source IDs
-// claiming the name, not on registration order.
+// Qualification is deterministic. It depends only on the set of source IDs
+// that claim the name, not on registration order.
 type MultiSource struct {
 	mu          sync.RWMutex
 	order       []string
@@ -44,8 +45,8 @@ type MultiSource struct {
 	resolver    Resolver
 	onCollision func(name string, sourceIDs []string)
 
-	// index memoizes the gathered claims. Invalidated by Add, Remove, and
-	// Invalidate; refreshed lazily by Tools and by Call on a name miss.
+	// index memoizes the gathered claims. Add, Remove, and Invalidate clear
+	// it. Tools refreshes it lazily, and so does Call on a name miss.
 	index      map[string][]ToolOwner
 	indexOrder []string
 }
@@ -59,9 +60,10 @@ func WithResolver(r Resolver) MultiOption {
 	return func(m *MultiSource) { m.resolver = r }
 }
 
-// WithCollisionNotify installs a hook invoked (synchronously, under the
-// source lock) whenever Tools discovers a name claimed by multiple sources.
-// Intended for logging/metrics, not control flow.
+// WithCollisionNotify installs a hook for name collisions. Tools invokes it
+// whenever it finds a name claimed by multiple sources. The call is
+// synchronous and runs under the source lock. The hook is meant for logging
+// and metrics, not control flow.
 func WithCollisionNotify(fn func(name string, sourceIDs []string)) MultiOption {
 	return func(m *MultiSource) { m.onCollision = fn }
 }
@@ -75,10 +77,10 @@ func NewMultiSource(opts ...MultiOption) *MultiSource {
 	return m
 }
 
-// Add registers a source under id. IDs must be unique and must not contain
-// "/", which is reserved as the qualified-name separator; rejecting it keeps
-// "sourceID/name" parsing unambiguous. Underscores are fine — id namespaces are
-// commonly snake_case (e.g. "subagent:deep_researcher").
+// Add registers a source under id. IDs must be unique. They must not contain
+// "/", because "/" is reserved as the qualified-name separator. Rejecting it
+// keeps "sourceID/name" parsing unambiguous. Underscores are fine, since id
+// namespaces are commonly snake_case (e.g. "subagent:deep_researcher").
 func (m *MultiSource) Add(id string, src ToolSource) error {
 	if strings.Contains(id, "/") {
 		return fmt.Errorf("agent: source id %q must not contain %q", id, "/")
@@ -94,7 +96,7 @@ func (m *MultiSource) Add(id string, src ToolSource) error {
 	return nil
 }
 
-// Invalidate drops the memoized tool index; the next Tools or Call gathers
+// Invalidate drops the memoized tool index. The next Tools or Call gathers
 // fresh lists from every source. Wire this to tools/list_changed
 // notifications when the embedding host tracks them.
 func (m *MultiSource) Invalidate() {
@@ -120,9 +122,9 @@ func (m *MultiSource) Remove(id string) {
 	m.index = nil
 }
 
-// Tools returns the merged, deduplicated model-facing list: unique names
-// as-is (source order preserved), collisions replaced by qualified names for
-// every claimant.
+// Tools returns the merged, deduplicated model-facing list. Unique names
+// appear as-is, in source order. A colliding name is replaced by a qualified
+// name for every claimant.
 func (m *MultiSource) Tools(ctx context.Context) ([]core.ToolDef, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -155,11 +157,11 @@ func (m *MultiSource) Tools(ctx context.Context) ([]core.ToolDef, error) {
 	return out, nil
 }
 
-// SourceTools returns the tools of the single source registered under id, in
-// that source's own (unqualified) naming — the per-source view a caller uses to
-// show "what does server X expose", distinct from the merged Tools list where
-// colliding names are qualified. found is false for an unknown id (app state,
-// not an error); err is only a real listing failure from that source.
+// SourceTools returns the tools of the single source registered under id. The
+// names are that source's own, unqualified. A caller uses this per-source view
+// to show "what does server X expose". The merged Tools list differs, because
+// it qualifies colliding names. found is false for an unknown id, which is app
+// state and not an error. err is only a real listing failure from that source.
 func (m *MultiSource) SourceTools(ctx context.Context, id string) (defs []core.ToolDef, found bool, err error) {
 	m.mu.RLock()
 	src, ok := m.sources[id]
@@ -171,10 +173,11 @@ func (m *MultiSource) SourceTools(ctx context.Context, id string) (defs []core.T
 	return defs, true, err
 }
 
-// Call dispatches by bare or qualified name. Resolution order: exact unique
-// bare name; qualified "sourceID/name"; ambiguous bare name via Resolver.
-// A name miss against the memoized index triggers exactly one fresh gather
-// before failing, so tools registered after the last listing stay reachable.
+// Call dispatches by bare or qualified name. It tries an exact unique bare
+// name first. An ambiguous bare name goes through the Resolver. Then it tries
+// the qualified "sourceID/name" form. A name miss against the memoized index
+// triggers exactly one fresh gather before the call fails. So tools
+// registered after the last listing are still reachable.
 func (m *MultiSource) Call(ctx context.Context, name string, args map[string]any) (*core.ToolResult, error) {
 	m.mu.Lock()
 	claims, _, err := m.indexLocked(ctx)
@@ -199,16 +202,17 @@ func (m *MultiSource) Call(ctx context.Context, name string, args map[string]any
 
 // OwnerOf reports which source would handle a call to name, without making it.
 //
-// It exists so a caller can key policy on where a tool came from — the host
-// derives spotlight provenance this way — and it takes args because resolution
-// does: an ambiguous bare name goes through the Resolver, which may inspect
-// them. Given the same name and args Call would receive, OwnerOf names the
-// source Call would act on, rather than a plausible guess at it.
+// It lets a caller key policy on where a tool came from. The host derives
+// spotlight provenance this way. It takes args because resolution takes them.
+// An ambiguous bare name goes through the Resolver, and the Resolver may
+// inspect the args. Pass OwnerOf the same name and args that Call would get.
+// It then names the exact source that Call would act on, not a plausible
+// guess.
 //
-// found is false for an unknown tool, for an ambiguity no Resolver settled,
-// and for a listing error. Callers get a single "no answer" signal because
-// every one of those means the same thing to a policy: do not claim to know
-// where this came from.
+// found is false for an unknown tool, for an ambiguity that no Resolver
+// settled, and for a listing error. Callers get a single "no answer" signal,
+// because each of those means the same thing to a policy. The policy must not
+// claim to know where the tool came from.
 func (m *MultiSource) OwnerOf(ctx context.Context, name string, args map[string]any) (sourceID string, found bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -245,9 +249,9 @@ func (m *MultiSource) indexLocked(ctx context.Context) (map[string][]ToolOwner, 
 }
 
 // resolveLocked maps a called name to the source id that owns it and the bare
-// name to dispatch. It returns the id rather than the source so callers that
-// need to know WHERE a tool came from (OwnerOf) share one resolution path with
-// the caller that only needs to dispatch (Call).
+// name to dispatch. It returns the id instead of the source. OwnerOf needs to
+// know WHERE a tool came from, and Call only needs to dispatch. Returning the
+// id lets both share one resolution path.
 func (m *MultiSource) resolveLocked(claims map[string][]ToolOwner, name string, args map[string]any) (sourceID, bare string, err error) {
 	if owners, ok := claims[name]; ok {
 		if len(owners) == 1 {
@@ -292,8 +296,8 @@ func (m *MultiSource) gatherLocked(ctx context.Context) (map[string][]ToolOwner,
 		}
 	defs:
 		for _, def := range defs {
-			// A source repeating a name is a source bug; keep the first
-			// definition so qualification never emits duplicate names.
+			// A source that repeats a name has a bug. Keep the first
+			// definition, so qualification never emits duplicate names.
 			for _, o := range claims[def.Name] {
 				if o.SourceID == id {
 					continue defs
@@ -311,13 +315,13 @@ func (m *MultiSource) gatherLocked(ctx context.Context) (map[string][]ToolOwner,
 	return claims, orderNames, nil
 }
 
-// qualifiedName joins a source id and a tool name into the disambiguated form
-// used when multiple sources claim the same name. "/" is the separator because
-// it appears in neither source ids (Add forbids it) nor conventional MCP tool
-// names, so splitQualified recovers the pair unambiguously. The separator need
-// not be wire-legal: providers sanitize it for the request and restore the real
-// name from a full-string bijection before dispatch, so the split always runs
-// on this real name, never the sanitized wire form.
+// qualifiedName joins a source id and a tool name into the disambiguated form.
+// MultiSource uses that form when multiple sources claim the same name. "/" is
+// the separator. Add forbids it in source ids, and conventional MCP tool names
+// don't use it. So splitQualified recovers the pair unambiguously. The
+// separator need not be wire-legal. Providers sanitize it for the request and
+// restore the real name from a full-string bijection before dispatch. So the
+// split always runs on the real name, never on the sanitized wire form.
 func qualifiedName(sourceID, name string) string {
 	return sourceID + "/" + name
 }

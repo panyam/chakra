@@ -223,8 +223,8 @@ func TestInMemoryRunStore_LoadReturnsCopies(t *testing.T) {
 	}
 }
 
-// TestRun_JSONRoundTrip pins the property durable backends rely on: a Run
-// (messages and events included) survives encoding/json unchanged, per
+// TestRun_JSONRoundTrip pins a property that durable backends rely on. A Run,
+// with its messages and events, survives encoding/json unchanged, per
 // constraint A2.
 func TestRun_JSONRoundTrip(t *testing.T) {
 	run := Run{
@@ -279,8 +279,8 @@ func TestInMemoryRunStore_StampsTimestamps(t *testing.T) {
 	}
 }
 
-// TestMessageTimestampOmittedWhenZero pins wire cleanliness: unstamped
-// messages (the shape providers see mid-turn) carry no timestamp key.
+// TestMessageTimestampOmittedWhenZero pins wire cleanliness. Providers see
+// unstamped messages mid-turn, and those messages have no timestamp key.
 func TestMessageTimestampOmittedWhenZero(t *testing.T) {
 	raw, err := json.Marshal(Message{Role: RoleUser, Text: "hi"})
 	if err != nil {
@@ -298,8 +298,8 @@ func TestMessageTimestampOmittedWhenZero(t *testing.T) {
 	}
 }
 
-// stripStamps asserts every message got stamped, then zeroes the field
-// so structural comparisons stay exact on everything else.
+// stripStamps asserts every message got stamped, then zeroes the field.
+// So structural comparisons are still exact on everything else.
 func stripStamps(t *testing.T, msgs []Message) []Message {
 	t.Helper()
 	out := slices.Clone(msgs)

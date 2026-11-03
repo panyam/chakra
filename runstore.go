@@ -10,12 +10,12 @@ import (
 	"time"
 )
 
-// RunStore is the persistence seam for runs: append-only logs of the
-// messages (and optionally events) a session accumulates across turns.
-// Surfaces persist TurnResult.Messages after each turn; resume is
-// LoadRun followed by Run over the loaded messages, and fork is ForkRun
-// followed by divergence — both cheap because the Runner is stateless
-// over history. The Runner itself never touches a RunStore.
+// RunStore is the persistence seam for runs. A session accumulates messages
+// across turns, and optionally events. A run is an append-only log of them.
+// Surfaces persist TurnResult.Messages after each turn. Resume is LoadRun
+// followed by Run over the loaded messages. Fork is ForkRun followed by
+// divergence. Both are cheap because the Runner is stateless over history.
+// The Runner itself never touches a RunStore.
 //
 // API shape follows the gRPC-style convention pinned in
 // stores/STORAGE_SEAMS.md:
@@ -23,27 +23,27 @@ import (
 //	Method(ctx context.Context, req XRequest) (XResponse, error)
 //
 // ctx threads cancellation, deadlines, and trace context.
-// Application-level state (Found, Created) lives on the response; error
-// is reserved for storage-layer failures (connection drops, corrupt
-// records). In particular, an unknown RunID is app-state (Found=false),
-// never an error.
+// Application-level state (Found, Created) lives on the response. error
+// is reserved for storage-layer failures, such as connection drops and
+// corrupt records. In particular, an unknown RunID is app-state
+// (Found=false), never an error.
 //
-// The interface and its in-memory default live in agent/ because every
-// method traffics in agent.Message / agent.Event: hosting them in the
-// root stores/ package would force a root→agent dependency (constraint
-// A6 corollary). Durable backends are sibling modules (agent/store/...)
-// so their dependencies stay out of this module.
+// The interface and its in-memory default live here. Every method takes or
+// returns agent.Message / agent.Event. So hosting them in mcpkit's stores/
+// package would make mcpkit depend on this module, which the A6 corollary
+// forbids. Durable backends are satellite modules (store/redis, store/gorm),
+// so their dependencies are kept out of this module.
 //
-// Atomicity contract: CreateRun with an explicit RunID and ForkRun are
-// all-or-nothing. On error, no run observable at the requested ID came
-// into existence; a run exists at that ID only because some create or
-// fork fully committed. Imagine a client calls ForkRun with ID r2 and the
-// call times out. It can't tell whether the fork happened, so it retries
-// with r2. If a run exists at r2, the first call committed in full and the
-// retry can use it. If none exists, the first call left nothing behind and
-// the retry starts clean (see ForkRunRequest). Implementers
-// must uphold it — a partially-forked run that reports Created=false
-// to a retry is a contract violation, not a quirk.
+// CreateRun with an explicit RunID and ForkRun are all-or-nothing. On
+// error, no run observable at the requested ID came into existence. A
+// run exists at that ID only because some create or fork fully
+// committed. Imagine a client calls ForkRun with ID r2 and the call
+// times out. It can't tell whether the fork happened, so it retries
+// with r2. If a run exists at r2, the first call committed in full and
+// the retry can use it. If none exists, the first call left nothing
+// behind and the retry starts clean (see ForkRunRequest). Implementers
+// must uphold this contract. Suppose a partially-forked run reports
+// Created=false to a retry. That is a contract violation, not a quirk.
 type RunStore interface {
 	CreateRun(ctx context.Context, req CreateRunRequest) (CreateRunResponse, error)
 	AppendMessages(ctx context.Context, req AppendMessagesRequest) (AppendMessagesResponse, error)
@@ -53,23 +53,23 @@ type RunStore interface {
 
 	// ListRuns enumerates stored runs as lightweight RunInfo (no message
 	// bodies), for a session picker or a dashboard. Paged via an opaque
-	// cursor; NextCursor is empty when the last page was returned. A
+	// cursor. NextCursor is empty when the last page was returned. A
 	// non-agent consumer (a poller, a UI) wants this too, so it returns
 	// protocol/data objects, not model-facing ones.
 	ListRuns(ctx context.Context, req ListRunsRequest) (ListRunsResponse, error)
 }
 
-// RunInfo is the header of a run — identity, lineage, and counts — without
-// the message or event bodies, so a listing stays cheap. MessageCount is
-// the current length of the message log; the fork lineage (ParentID,
-// ForkPoint) is the session tree a picker renders.
+// RunInfo is the header of a run. It has identity, lineage, and counts, but
+// not the message or event bodies, so a listing is cheap. MessageCount is
+// the current length of the message log. A picker renders the fork lineage
+// (ParentID, ForkPoint) as the session tree.
 type RunInfo struct {
 	ID       string `json:"id"`
 	ParentID string `json:"parentId,omitempty"`
 
-	// ForkPoint is the number of ParentID's messages this run was forked
-	// with, and zero for runs created directly. It is a message count, never
-	// a timestamp or a storage sequence value; see Run.ForkPoint for why.
+	// ForkPoint is the number of ParentID's messages copied into this run at
+	// the fork, and zero for runs created directly. It is a message count,
+	// never a timestamp or a storage sequence value. See Run.ForkPoint for why.
 	// Comparing it against MessageCount tells a picker how far this run has
 	// diverged from its parent.
 	ForkPoint int `json:"forkPoint,omitempty"`
@@ -82,7 +82,7 @@ type RunInfo struct {
 }
 
 // ListRunsRequest pages the run listing. Cursor is empty for the first
-// page and echoes a prior response's NextCursor thereafter; its content is
+// page and echoes a prior response's NextCursor thereafter. Its content is
 // backend-defined and opaque. Limit caps the page (zero means the
 // backend's default).
 type ListRunsRequest struct {
@@ -91,9 +91,9 @@ type ListRunsRequest struct {
 }
 
 // ListRunsResponse carries one page. NextCursor is empty on the last page.
-// Ordering is best-effort newest-first where the backend can (in-memory,
-// gorm); the Redis backend lists in scan order (unordered) — documented on
-// its implementation.
+// Ordering is best-effort newest-first where the backend supports it, as the
+// in-memory and gorm backends do. The Redis backend lists in scan order,
+// which is unordered, and its implementation documents this.
 type ListRunsResponse struct {
 	Runs       []RunInfo
 	NextCursor string
@@ -102,25 +102,27 @@ type ListRunsResponse struct {
 // DefaultListRunsLimit bounds a page when ListRunsRequest.Limit is zero.
 const DefaultListRunsLimit = 50
 
-// Run is one persisted run: identity, fork lineage, and the append-only
-// logs. Messages is the conversation history a resume feeds back into
-// Runner.Run; Events is the optional replay/audit stream. Both element
-// types are wire-serializable by constraint A2, so Run itself marshals
-// cleanly through encoding/json — the property durable backends rely on.
+// Run is one persisted run, with identity, fork lineage, and the
+// append-only logs. Messages is the conversation history, and a resume
+// feeds it back into Runner.Run. Events is the optional replay/audit
+// stream. Both element types are wire-serializable by constraint A2, so
+// Run itself marshals cleanly through encoding/json. Durable backends
+// depend on that.
 type Run struct {
 	ID string `json:"id"`
 
-	// ParentID is the run this one was forked from; empty for runs
+	// ParentID is the run this one was forked from. Empty for runs
 	// created directly.
 	ParentID string `json:"parentId,omitempty"`
 
-	// ForkPoint is the number of ParentID's messages this run was
-	// forked with — the fork position as a backend-neutral message
-	// count (never a timestamp: the fork's wall-clock moment is this
-	// run's CreatedAt; never a storage sequence value either). Zero for
-	// runs created directly. Lineage metadata for surfaces (rewind
-	// pickers, history UIs): nothing reconstructs history from it,
-	// since every run owns its full copy.
+	// ForkPoint is the number of ParentID's messages copied into this
+	// run at the fork. It gives the fork position as a backend-neutral
+	// message count. It is never a timestamp, because this run's
+	// CreatedAt records the fork's wall-clock moment. It is never a
+	// storage sequence value either. Zero for runs created directly.
+	// Surfaces such as rewind pickers and history UIs read it as lineage
+	// metadata. Nothing reconstructs history from it, since every run
+	// owns its full copy.
 	ForkPoint int `json:"forkPoint,omitempty"`
 
 	CreatedAt time.Time `json:"createdAt"`
@@ -129,32 +131,32 @@ type Run struct {
 	Events   []Event   `json:"events,omitempty"`
 }
 
-// CreateRunRequest starts a new empty run. RunID is optional: empty asks
-// the store to generate a unique ID; non-empty claims a caller-chosen
-// name (a session name, a ticket ID). Claiming an ID that already exists
-// is not an overwrite — the store leaves the existing run intact and
-// reports Created=false.
+// CreateRunRequest starts a new empty run. RunID is optional. Empty asks
+// the store to generate a unique ID. Non-empty claims a caller-chosen
+// name, such as a session name or a ticket ID. Claiming an ID that
+// already exists is not an overwrite. The store leaves the existing run
+// intact and reports Created=false.
 type CreateRunRequest struct {
 	RunID string
 }
 
 // CreateRunResponse carries the run's identity. Created is false when
-// the requested RunID already existed (the existing run is untouched);
-// stores always report Created=true for generated IDs.
+// the requested RunID already existed (the existing run is untouched).
+// Stores always report Created=true for generated IDs.
 type CreateRunResponse struct {
 	RunID   string
 	Created bool
 }
 
 // AppendMessagesRequest appends messages to a run's log in order.
-// Callers pass exactly the entries a turn added (the user message plus
-// TurnResult.Messages) so the stored log threads the same way in-process
-// history does.
+// Callers pass exactly the entries that a turn added, the user message
+// plus TurnResult.Messages. The stored log then threads the same way as
+// in-process history.
 //
-// Stamping rule: implementations set Message.Timestamp to their own
-// clock for every appended message whose Timestamp is zero, and
-// preserve non-zero values verbatim (caller wins — a surface can stamp
-// the user message at keypress). One boundary, one rule: code that
+// Implementations set Message.Timestamp to their own clock for every
+// appended message whose Timestamp is zero. They preserve non-zero
+// values verbatim, so the caller wins, and a surface can stamp the user
+// message at keypress. One boundary has one rule, so code that
 // constructs messages never needs to remember to stamp.
 type AppendMessagesRequest struct {
 	RunID    string
@@ -162,15 +164,15 @@ type AppendMessagesRequest struct {
 }
 
 // AppendMessagesResponse reports whether the run existed. Found=false
-// means nothing was written — the caller appended to a run it never
-// created (or one that was pruned), which is a caller bug to surface,
+// means nothing was written. The caller appended to a run it never
+// created, or to one that was pruned. That is a caller bug to surface,
 // not a storage fault.
 type AppendMessagesResponse struct {
 	Found bool
 }
 
 // AppendEventsRequest appends events to a run's audit/replay log. The
-// event log is optional and independent of the message log: a store
+// event log is optional and independent of the message log. A store
 // accepts events for any existing run whether or not the surface also
 // persists messages.
 type AppendEventsRequest struct {
@@ -178,7 +180,7 @@ type AppendEventsRequest struct {
 	Events []Event
 }
 
-// AppendEventsResponse reports whether the run existed; Found=false
+// AppendEventsResponse reports whether the run existed. Found=false
 // means nothing was written (see AppendMessagesResponse).
 type AppendEventsResponse struct {
 	Found bool
@@ -190,7 +192,7 @@ type LoadRunRequest struct {
 }
 
 // LoadRunResponse carries the run when Found. The returned Run is the
-// caller's to keep: implementations return copies (or freshly decoded
+// caller's to keep. Implementations return copies (or freshly decoded
 // values), never aliases into store-internal state, so mutating
 // Run.Messages cannot corrupt the log.
 type LoadRunResponse struct {
@@ -199,40 +201,41 @@ type LoadRunResponse struct {
 }
 
 // ForkRunRequest copies an existing run's logs into a new run so the
-// copy can diverge. NewRunID follows CreateRunRequest.RunID semantics:
-// empty generates a unique ID, non-empty claims a caller-chosen one.
+// copy can diverge. NewRunID follows CreateRunRequest.RunID semantics.
+// Empty generates a unique ID, and non-empty claims a caller-chosen one.
 //
 // A non-empty NewRunID is also the fork's idempotency key. Forks are
-// all-or-nothing (see RunStore), so a retry loop that mints one
-// deterministic ID (a session-scoped name, a ULID) and reuses it
-// across attempts converges: retry after a failure finds nothing at
-// the ID and forks clean; retry after an unobserved success gets
-// Created=false against a complete fork, confirmable by loading it and
-// checking ParentID.
+// all-or-nothing (see RunStore). Imagine a retry loop mints one
+// deterministic ID, such as a session-scoped name or a ULID, and reuses
+// it across attempts. The loop converges. A retry after a failure finds
+// nothing at the ID and forks clean. A retry after an unobserved
+// success gets Created=false against a complete fork. The caller can
+// confirm that fork by loading it and checking ParentID.
 type ForkRunRequest struct {
 	RunID    string
 	NewRunID string
 
-	// AtMessage forks from an earlier point: a positive value copies
-	// only the first AtMessage messages (checkpoint/rewind semantics);
-	// zero or negative copies everything, today's behavior. A value at
-	// or beyond the source's length clamps to a full copy. The source's
-	// length is observed when the fork starts; appends racing the fork
-	// land after the cut.
+	// AtMessage forks from an earlier point. A positive value copies
+	// only the first AtMessage messages (checkpoint/rewind semantics).
+	// Zero or negative copies everything, today's behavior. A value at
+	// or beyond the source's length clamps to a full copy. The fork
+	// reads the source's length when it starts, so appends racing the
+	// fork come after the cut.
 	//
-	// Event-log handling: the audit stream is not sliceable by message
-	// index, so a partial fork copies NO events — only a full copy
-	// carries the event log across. The fork's message log is complete
-	// either way, which is all resume needs.
+	// The audit stream is not sliceable by message index, so a partial
+	// fork copies NO events. Only a full copy brings the event log
+	// across. The fork's message log is complete either way, and resume
+	// needs only that.
 	AtMessage int
 }
 
 // ForkRunResponse identifies the fork. Found is false when the source
-// run does not exist; Created is false when NewRunID was claimed and
-// already existed (no copy happens). On success both are true, RunID
-// names the new run (ParentID records the lineage), and ForkPoint is
-// the message count actually copied — the resolved fork position after
-// clamping, also persisted on the fork's Run.
+// run does not exist. Created is false when NewRunID was claimed and
+// already existed, and then no copy happens. On success both are true.
+// RunID names the new run, and its ParentID records the lineage.
+// ForkPoint is the message count actually copied. That count is the
+// resolved fork position after clamping, and the fork's Run persists it
+// too.
 type ForkRunResponse struct {
 	RunID     string
 	Found     bool
@@ -243,7 +246,7 @@ type ForkRunResponse struct {
 // InMemoryRunStore is the default RunStore: a mutex-guarded map, useful
 // for tests and single-process sessions that only need in-lifetime
 // resume/fork. It is safe for concurrent use. Nothing survives process
-// exit — durable deployments swap in a sibling backend behind the same
+// exit. Durable deployments swap in a sibling backend behind the same
 // interface.
 type InMemoryRunStore struct {
 	mu   sync.Mutex
@@ -267,8 +270,8 @@ func NewInMemoryRunStore() *InMemoryRunStore {
 }
 
 // CreateRun implements RunStore. Generated IDs are sequential
-// ("run-1", "run-2", ...) — deterministic on purpose, since an in-memory
-// store never shares an ID space across processes.
+// ("run-1", "run-2", ...). They are deterministic on purpose, since an
+// in-memory store never shares an ID space across processes.
 func (s *InMemoryRunStore) CreateRun(ctx context.Context, req CreateRunRequest) (CreateRunResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -338,8 +341,8 @@ func (s *InMemoryRunStore) LoadRun(ctx context.Context, req LoadRunRequest) (Loa
 }
 
 // ListRuns implements RunStore, newest-first. The cursor is a decimal
-// offset into the ordered set — fine for an in-memory store whose set is
-// stable within a process.
+// offset into the ordered set. That works for an in-memory store, because
+// its set is stable within a process.
 func (s *InMemoryRunStore) ListRuns(ctx context.Context, req ListRunsRequest) (ListRunsResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -385,7 +388,7 @@ func (s *InMemoryRunStore) ListRuns(ctx context.Context, req ListRunsRequest) (L
 }
 
 // ForkRun implements RunStore. The fork gets cloned logs, so parent and
-// fork diverge independently after the copy; see ForkRunRequest for the
+// fork diverge independently after the copy. See ForkRunRequest for the
 // AtMessage cut and event-log semantics.
 func (s *InMemoryRunStore) ForkRun(ctx context.Context, req ForkRunRequest) (ForkRunResponse, error) {
 	s.mu.Lock()

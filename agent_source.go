@@ -11,21 +11,21 @@ import (
 )
 
 // DefaultMaxAgentDepth bounds how deep a sub-agent call tree may nest when an
-// AgentSource is constructed without a MaxDepth — the runaway-recursion
-// backstop (an agent that keeps delegating to itself).
+// AgentSource is constructed without a MaxDepth. It is the runaway-recursion
+// backstop for an agent that keeps delegating to itself.
 const DefaultMaxAgentDepth = 3
 
-// AgentSource exposes a child Runner to a parent agent as a single tool: the
-// agent-as-tool pattern. Calling the tool runs the child over its OWN
-// isolated conversation (a fresh slice seeded with the task) and returns the
-// child's final text. Isolation is structural — a separate []Message — so the
-// Runner never changes; supervision falls out for free by putting several
-// AgentSources in a MultiSource (the existing aggregation, collision, and
-// Selector routing all apply).
+// AgentSource exposes a child Runner to a parent agent as a single tool. This
+// is the agent-as-tool pattern. Calling the tool runs the child over its OWN
+// isolated conversation, a fresh slice seeded with the task, and returns the
+// child's final text. Isolation is structural, since the child gets a separate
+// []Message, so the Runner never changes. Supervision needs no new code. Put
+// several AgentSources in a MultiSource, and the existing aggregation,
+// collision, and Selector routing all apply.
 //
-// It implements ToolSource, so it drops into a RunnerConfig.Tools (directly or
-// via MultiSource) like any other source. A6: it is model-facing (a tool the
-// parent model calls), so it lives in agent/.
+// It implements ToolSource, so RunnerConfig.Tools takes it like any other
+// source, directly or via MultiSource. The parent model calls it as a tool, so
+// it is model-facing. Under A6 it lives here rather than in mcpkit's client/.
 type AgentSource struct {
 	cfg      AgentSourceConfig
 	def      core.ToolDef
@@ -42,36 +42,36 @@ type AgentSourceConfig struct {
 	Description string
 
 	// Runner is the child agent. Required. One Runner instance serves
-	// concurrent calls — Run is stateless over the history it is handed, so
+	// concurrent calls. Run is stateless over the history it is handed, so
 	// each call gets its own isolated slice without a per-call Runner.
 	Runner *Runner
 
-	// MaxDepth caps sub-agent nesting depth (this source's calls plus any
-	// deeper sub-agent calls the child makes). Zero uses DefaultMaxAgentDepth.
+	// MaxDepth caps sub-agent nesting depth. The depth counts this source's
+	// calls and any deeper sub-agent calls by the child. Zero uses
+	// DefaultMaxAgentDepth.
 	MaxDepth int
 
 	// OnEvent, when set, receives the child's event stream wrapped in a
 	// SubAgentEvent envelope (scope + depth + the flat Event), so a surface
 	// can render the sub-agent's turn nested under the parent's. Nil drops
 	// the child's events (the sub-agent runs invisibly). Wire OnEvent on
-	// every AgentSource in a tree to the same sink and the scope/depth
-	// disambiguate nested runs.
+	// every AgentSource in a tree to the same sink, and scope and depth tell
+	// the nested runs apart.
 	OnEvent func(SubAgentEvent)
 
-	// InputSchema, when set, replaces the default {task} schema the tool
-	// advertises, so a parent delegates a TYPED subtask. The child is seeded
-	// with the raw arguments JSON as its user turn (the schema shapes what the
-	// parent model must pass; the child reads it as its instruction). Nil keeps
-	// the {task: string} shape. Structured OUTPUT is orthogonal: build the child
-	// Runner with a ResponseSchema and Call returns its coerced JSON.
+	// InputSchema, when set, replaces the tool's default {task} schema, so a
+	// parent delegates a TYPED subtask. The child is seeded with the raw
+	// arguments JSON as its user turn. The schema shapes what the parent model
+	// must pass, and the child reads those arguments as its instruction. Nil
+	// keeps the {task: string} shape. Structured OUTPUT is orthogonal. Build
+	// the child Runner with a ResponseSchema, and Call returns its coerced JSON.
 	InputSchema core.RawJSON
 }
 
-// SubAgentEvent is the envelope that carries a sub-agent's event to the
-// parent surface. The scope and depth live on the envelope, NOT on Event, so
-// Event stays flat and wire-serializable (constraint A2): a surface adds
-// sub-agent framing without the core event vocabulary growing a nesting
-// field.
+// SubAgentEvent is the envelope for a sub-agent's event on its way to the
+// parent surface. The scope and depth live on the envelope, NOT on Event. So
+// Event is still flat and wire-serializable (constraint A2). A surface adds
+// sub-agent framing, and the core event vocabulary needs no nesting field.
 type SubAgentEvent struct {
 	// Scope is the slash-joined sub-agent path, e.g. "researcher" at the top
 	// level or "researcher/summarizer" one level deeper.
@@ -122,22 +122,23 @@ func (s *AgentSource) Tools(ctx context.Context) ([]core.ToolDef, error) {
 }
 
 // Call runs the child over an isolated conversation seeded with the task and
-// returns its final text. A child that errors or is refused by a guard
-// surfaces as an IsError result (fed back to the parent model, which can
-// react), not a dispatch error — only an unknown name is a dispatch error, so
-// the parent's turn never aborts on a sub-agent problem.
+// returns its final text. Suppose the child errors or a guard refuses it. Call
+// then returns an IsError result, not a dispatch error. The result goes back
+// to the parent model, which can react. Only an unknown name is a dispatch
+// error, so the parent's turn never aborts on a sub-agent problem.
 func (s *AgentSource) Call(ctx context.Context, name string, args map[string]any) (*core.ToolResult, error) {
 	if name != s.cfg.Name {
 		return nil, fmt.Errorf("%w: %q", ErrUnknownTool, name)
 	}
 
-	// Depth guard: refuse before running when the tree is already too deep.
+	// Depth guard. Refuse before running when the tree is already too deep.
 	depth := agentDepth(ctx)
 	if depth >= s.maxDepth {
 		return errorToolResult(fmt.Sprintf("sub-agent %q refused: max depth %d reached", s.cfg.Name, s.maxDepth)), nil
 	}
-	// Aggregate call budget (optional, ctx-threaded, shared across the whole
-	// tree): bounds total sub-agent invocations regardless of shape.
+	// The aggregate call budget is optional, ctx-threaded, and shared across
+	// the whole tree. It bounds total sub-agent invocations regardless of
+	// shape.
 	if b := agentCallBudget(ctx); b != nil && b.Add(-1) < 0 {
 		return errorToolResult(fmt.Sprintf("sub-agent %q refused: call budget exhausted", s.cfg.Name)), nil
 	}
@@ -146,8 +147,8 @@ func (s *AgentSource) Call(ctx context.Context, name string, args map[string]any
 	if err != nil {
 		return nil, fmt.Errorf("agent: encode args for sub-agent %q: %w", s.cfg.Name, err)
 	}
-	// seed is the child's user turn: the raw typed arguments when InputSchema is
-	// set (a typed subtask), else the required {task} string.
+	// seed is the child's user turn. It holds the raw typed arguments when
+	// InputSchema is set (a typed subtask), else the required {task} string.
 	seed := string(raw)
 	if s.cfg.InputSchema.Len() == 0 {
 		var in agentTaskArgs
@@ -157,13 +158,14 @@ func (s *AgentSource) Call(ctx context.Context, name string, args map[string]any
 		seed = in.Task
 	}
 
-	// Extend both ctx threads for the child: depth (guards) and scope (the
-	// path this sub-agent's events are tagged with).
+	// Extend both ctx threads for the child. The guards read depth, and scope
+	// is the path that tags this sub-agent's events.
 	childScope := agentScope(ctx).Child(s.cfg.Name)
 	childCtx := withAgentScope(withAgentDepth(ctx, depth+1), childScope)
 	// Hand the child the sink of the dispatch that spawned it (issue 1165), so
-	// the child's signal_parent raises to THIS parent — the child's own dispatch
-	// would otherwise shadow it. nil at the top level (no parent to signal).
+	// the child's signal_parent raises to THIS parent. Otherwise the child's
+	// own dispatch would shadow it. nil at the top level, where there is no
+	// parent to signal.
 	if ps := dispatchSinkFrom(ctx); ps != nil {
 		childCtx = withParentSink(childCtx, ps)
 	}
@@ -177,8 +179,8 @@ func (s *AgentSource) Call(ctx context.Context, name string, args map[string]any
 	if err != nil {
 		return errorToolResult(fmt.Sprintf("sub-agent %q failed: %v", s.cfg.Name, err)), nil
 	}
-	// Structured output when the child ran with a ResponseSchema (its coerced
-	// JSON), else the final text — so a parent gets typed output back.
+	// Return the coerced JSON when the child ran with a ResponseSchema, else
+	// the final text. So a parent gets typed output back.
 	out := result.Text
 	if result.Structured.Len() > 0 {
 		out = string(result.Structured.Raw())
@@ -193,10 +195,10 @@ type agentScopeKey struct{}
 // withAgentScope stamps the sub-agent ancestry on ctx so a nested source can
 // extend it and tag its child's events with the full path.
 //
-// Stored structurally rather than slash-joined because RunScope exports it:
-// a joined string cannot answer "am I under X" without substring traps, and
-// cannot be split back safely when a name contains the separator. String() is
-// the display form, applied at the point of display.
+// The ancestry is stored structurally, not slash-joined, because RunScope
+// exports it. A joined string cannot answer "am I under X" without substring
+// traps. It also cannot be split back safely when a name contains the
+// separator. String() is the display form, applied at the point of display.
 func withAgentScope(ctx context.Context, path AgentPath) context.Context {
 	return context.WithValue(ctx, agentScopeKey{}, path)
 }
@@ -220,10 +222,10 @@ func agentDepth(ctx context.Context) int {
 }
 
 // WithAgentCallBudget caps the TOTAL number of sub-agent invocations allowed
-// under ctx, shared across the whole call tree (a shape-independent cost
-// guard, complementary to the per-source depth cap). Each AgentSource call
-// consumes one; when the budget is exhausted, further calls are refused with
-// an IsError result. Absent, only the depth cap applies.
+// under ctx, shared across the whole call tree. It guards cost independent of
+// the tree's shape and complements the per-source depth cap. Each AgentSource
+// call consumes one. When the budget is exhausted, further calls are refused
+// with an IsError result. Absent, only the depth cap applies.
 func WithAgentCallBudget(ctx context.Context, n int) context.Context {
 	var b atomic.Int64
 	b.Store(int64(n))

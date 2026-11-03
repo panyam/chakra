@@ -8,9 +8,9 @@ import (
 )
 
 // StubTurn scripts one model call for StubProvider. Set Deltas to play a
-// stream verbatim, or set Text/ToolCalls/FinishReason and the turn is
-// composed into the canonical delta sequence (text, then
-// tool-call-start+args per call, then finish).
+// stream verbatim. Or set Text, ToolCalls and FinishReason, and the turn is
+// composed into the canonical delta sequence. That sequence is the text,
+// then a tool-call start and args for each call, then the finish.
 type StubTurn struct {
 	Deltas       []Delta
 	Text         string
@@ -20,9 +20,9 @@ type StubTurn struct {
 	Err error
 }
 
-// StubProvider is the deterministic Provider used by tests: it plays scripted
-// turns in order and records every request it receives. Safe for concurrent
-// use; turns are consumed in call order.
+// StubProvider is the deterministic Provider used by tests. It plays scripted
+// turns in order and records every request it receives. It is safe for
+// concurrent use, and turns are consumed in call order.
 type StubProvider struct {
 	mu       sync.Mutex
 	turns    []StubTurn

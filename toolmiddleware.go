@@ -9,22 +9,22 @@ import (
 )
 
 // ToolMiddleware wraps the dispatch of one tool call. It is the single
-// interception seam: permission gates, argument redaction, rate and budget
+// interception seam. Permission gates, argument redaction, rate and budget
 // limits, blocklists, result caching, retries, audit trails, and marking
 // untrusted tool output are all middleware rather than separate mechanisms.
 //
 // This is deliberately not a lifecycle hook, and mcpkit does not have those.
-// Watching what a turn does is the event stream's job: the Runner already
-// emits EventToolBegin, EventToolEnd, EventToolError, EventToolDenied,
-// EventToolCancelled, and EventToolUnavailable, so every outcome shape is
+// The event stream reports what a turn does. The Runner already emits
+// EventToolBegin, EventToolEnd, EventToolError, EventToolDenied,
+// EventToolCancelled, and EventToolUnavailable. So every outcome shape is
 // observable without registering anything here. Reach for middleware only to
-// *change* behaviour — to alter what runs, what comes back, or whether the
-// call happens at all. A middleware that merely observes should be an event
+// *change* behaviour. It can alter what runs, what comes back, or whether the
+// call happens at all. A middleware that only observes should be an event
 // subscriber instead.
 //
-// The shape is the familiar wrapping one, matching client.Client's own call
-// middleware: receive the call, do work, and invoke next to continue.
-// Everything a middleware does happens around that invocation.
+// The shape is the familiar wrapping one, and it matches client.Client's own
+// call middleware. A middleware receives the call, does work, and invokes
+// next to continue. Everything it does happens around that invocation.
 //
 //   - Rewrite arguments: edit info.Call.Args, then call next.
 //   - Transform the result: call next, then edit what it returned.
@@ -32,42 +32,43 @@ import (
 //   - Serve from cache: return a result without calling next.
 //   - Retry or time the call: invoke next more than once, or measure around it.
 //
-// Order is RunnerConfig.ToolMiddleware order, outermost first: the first entry
-// wraps the second, and the last entry wraps the real dispatch. A permission
-// gate therefore belongs *last*, where it sees the arguments every earlier
-// entry has already rewritten and nothing can edit them behind its back.
-// agent/host appends TieredApproval last for exactly that reason.
+// Order is RunnerConfig.ToolMiddleware order, outermost first. The first entry
+// wraps the second, and the last entry wraps the real dispatch. So a
+// permission gate belongs *last*. There it sees the arguments after every
+// earlier entry has rewritten them, and nothing can edit them behind its
+// back. agent/host appends TieredApproval last for exactly that reason.
 //
 // A middleware that does not call next has decided the call, and nothing
 // further down the chain runs. Implementations must be safe for concurrent
 // use, because a turn dispatches parallel tool calls through the same chain.
 type ToolMiddleware func(ctx context.Context, info ToolCallInfo, next ToolCallFunc) (*core.ToolResult, error)
 
-// ToolCallFunc dispatches a tool call. Middleware receives one as next: the
-// rest of the chain, ending in the real ToolSource.Call.
+// ToolCallFunc dispatches a tool call. Middleware receives one as next. It
+// runs the rest of the chain, which ends in the real ToolSource.Call.
 type ToolCallFunc func(ctx context.Context, info ToolCallInfo) (*core.ToolResult, error)
 
 // ToolCallInfo is the call travelling down the chain. Middleware may modify
-// it before passing it on; the copy that reaches the innermost dispatch is
-// what actually executes.
+// it before passing it on. The innermost dispatch executes the copy that
+// reaches it.
 type ToolCallInfo struct {
-	// Step is the turn's model-call number this dispatch belongs to,
-	// counting from one.
+	// Step is the number of the model call that requested this dispatch,
+	// counting from one within the turn.
 	Step int
 
-	// Call is the tool invocation: name, provider-assigned ID, and the
-	// arguments as rewritten by any earlier middleware rather than as the
-	// model produced them. Args is core.RawJSON per A5, so a middleware can
-	// Bind for typed inspection without a second parse.
+	// Call is the tool invocation. It has the name, the provider-assigned ID,
+	// and the arguments. Earlier middleware may have rewritten the arguments,
+	// so they can differ from what the model produced. Args is core.RawJSON
+	// per A5, so a middleware can Bind for typed inspection without a second
+	// parse.
 	Call ToolCall
 
-	// Scope is where in the run this call sits: the agent ancestry, the
-	// remaining sub-agent call budget, and the turn tree's usage against its
-	// caps. Populated by the Runner at dispatch; see RunScope.
+	// Scope says where in the run this call sits. It has the agent ancestry,
+	// the remaining sub-agent call budget, and the turn tree's usage against
+	// its caps. The Runner fills it in at dispatch. See RunScope.
 	//
-	// A middleware needs it to behave correctly at depth — a checkpoint that
-	// ignores it snapshots once per nested call, and a budget-aware one
-	// cannot back off before exhaustion.
+	// A middleware needs it to behave correctly at depth. A checkpoint that
+	// ignores it snapshots once per nested call. A budget-aware middleware
+	// that ignores it can't back off before exhaustion.
 	Scope RunScope
 
 	// ReadOnly reflects the tool's readOnlyHint annotation, false when the
@@ -79,11 +80,11 @@ type ToolCallInfo struct {
 	// to undo, from the tool's destructiveHint annotation. It is a hint from
 	// the server, not a guarantee.
 	//
-	// True when the tool declares nothing, because the spec's default for an
-	// absent destructiveHint on a writing tool is destructive. That inverts
-	// the Go zero value, so a hand-built ToolCallInfo{} reads as
-	// non-destructive: only a value the Runner populated carries a meaningful
-	// answer. Normalized against ReadOnly, which the spec says wins — a
+	// It is true when the tool declares nothing, because the spec's default
+	// for an absent destructiveHint on a writing tool is destructive. That is
+	// the opposite of the Go zero value. So a hand-built ToolCallInfo{} reads
+	// as non-destructive, and only a value from the Runner gives a meaningful
+	// answer. It is normalized against ReadOnly, which the spec says wins. A
 	// read-only tool reports false whatever it annotated.
 	Destructive bool
 
@@ -91,21 +92,21 @@ type ToolCallInfo struct {
 	// has no additional effect, from the tool's idempotentHint annotation. It
 	// is a hint from the server, not a guarantee.
 	//
-	// False when the tool declares nothing, matching the spec default, so the
-	// zero value is the conservative reading here rather than the inverted
-	// one. Read-only tools report true.
+	// It is false when the tool declares nothing, which matches the spec
+	// default. So here the zero value is the conservative reading. Read-only
+	// tools report true.
 	Idempotent bool
 
-	// Class is the gate's classifier verdict on this call, nil when no
-	// classifier claimed it. The gate sets it before deciding, so the ask and
-	// its renderer see why a call is being asked about; ReadOnly, Destructive
-	// and Idempotent already reflect it by then. Middleware before the gate
-	// always sees nil.
+	// Class is the gate's classifier verdict on this call. It is nil when no
+	// classifier claimed the call. The gate sets it before deciding, so the
+	// ask and its renderer see why the gate is asking about a call. By then
+	// ReadOnly, Destructive and Idempotent already reflect it. Middleware
+	// before the gate always sees nil.
 	Class *CallClass
 }
 
-// classified returns info with c applied: Class set and, unless c has no
-// opinion, the safety hints replaced by c's disposition.
+// classified returns info with c applied. It sets Class. Unless c has no
+// opinion, it also replaces the safety hints with c's disposition.
 func (info ToolCallInfo) classified(c CallClass) ToolCallInfo {
 	info.Class = &c
 	switch c.Disposition {
@@ -120,27 +121,27 @@ func (info ToolCallInfo) classified(c CallClass) ToolCallInfo {
 }
 
 // ToolDeniedError is how a middleware refuses a call. The Runner unwraps it
-// specially: the model is told the call was not permitted, surfaces get
+// specially. The model is told the call was not permitted, surfaces get
 // EventToolDenied, and the turn continues. It is not a turn abort and not a
-// tool failure, so the model can choose differently rather than seeing an
-// error it cannot act on.
+// tool failure. So the model can choose differently, and it doesn't see an
+// error it can't act on.
 type ToolDeniedError struct {
 	// Reason is the short explanation surfaces show. Keep it to one legible
-	// line: agent/host renders it inline against the denied call and
+	// line, because agent/host renders it inline against the denied call and
 	// truncates what does not fit.
 	Reason string
 
 	// ModelReason is what the model is told, when that has to differ from
-	// what the surface shows. Empty means the model is told Reason, which is
-	// the right answer for a middleware whose reason is its own prose.
+	// what the surface shows. Empty means the model is told Reason. That is
+	// right for a middleware that writes its reason in its own prose.
 	//
-	// The two diverge when the reason quotes something that read
-	// attacker-controlled input. Such text needs a fence before the model
-	// reads it, because a denial reaches the model in the policy layer's
-	// voice and would lend a quoted attacker more authority than the tool
-	// result the text came from. A fence is also several lines, which is
-	// exactly what a one-line surface render cannot carry. NewCritiqueGate,
-	// which quotes a critic model, is the case this exists for.
+	// Imagine a reason that quotes something which read attacker-controlled
+	// input. A denial reaches the model in the policy layer's voice. That
+	// voice would give the quoted attacker more authority than the tool
+	// result the text came from. So the text needs a fence before the model
+	// reads it. A fence is several lines, and a one-line surface render
+	// can't hold it. So the two reasons differ. NewCritiqueGate quotes a
+	// critic model, and this field exists for that case.
 	ModelReason string
 }
 
@@ -154,8 +155,8 @@ func (e *ToolDeniedError) Error() string {
 // DenyTool builds the error a middleware returns to refuse a call. Return it
 // without calling next; an empty reason gets a default.
 //
-// Middleware that needs the model to see something other than the surfaced
-// reason builds a ToolDeniedError directly and sets ModelReason.
+// Sometimes the model needs to see something other than the surfaced reason.
+// Then the middleware builds a ToolDeniedError directly and sets ModelReason.
 func DenyTool(reason string) error { return &ToolDeniedError{Reason: reason} }
 
 // deniedReason reports whether err is a denial and the reason to surface.
@@ -170,9 +171,9 @@ func deniedReason(err error) (string, bool) {
 	return d.Reason, true
 }
 
-// deniedModelReason is what the model is told about a denial: ModelReason when
-// the middleware distinguished the two audiences, otherwise the surfaced
-// reason. See ToolDeniedError.
+// deniedModelReason returns what the model is told about a denial. That is
+// ModelReason when the middleware set one for the model, and otherwise the
+// surfaced reason. See ToolDeniedError.
 func deniedModelReason(err error, surfaced string) string {
 	var d *ToolDeniedError
 	if errors.As(err, &d) && d.ModelReason != "" {
@@ -195,7 +196,7 @@ func chainToolMiddleware(mw []ToolMiddleware, base ToolCallFunc) ToolCallFunc {
 
 // BeforeToolCall adapts a plain inspect-or-rewrite function into middleware,
 // for the common case that does not need to see the result. Returning an
-// error refuses the call (use DenyTool for an intentional refusal); returning
+// error refuses the call. Use DenyTool for an intentional refusal. Returning
 // nil continues with whatever the function left in info.
 func BeforeToolCall(fn func(ctx context.Context, info *ToolCallInfo) error) ToolMiddleware {
 	return func(ctx context.Context, info ToolCallInfo, next ToolCallFunc) (*core.ToolResult, error) {
@@ -206,10 +207,10 @@ func BeforeToolCall(fn func(ctx context.Context, info *ToolCallInfo) error) Tool
 	}
 }
 
-// AfterToolCall adapts a plain result-transforming function into middleware,
-// the shape a redaction or untrusted-output marker takes. fn runs only when
-// the call succeeded; a failed or denied call has no result to transform and
-// its error passes straight through.
+// AfterToolCall adapts a plain result-transforming function into middleware.
+// A redaction or an untrusted-output marker takes this shape. fn runs only
+// when the call succeeded. A failed or denied call has no result to
+// transform, and its error passes straight through.
 func AfterToolCall(fn func(ctx context.Context, info ToolCallInfo, res *core.ToolResult) (*core.ToolResult, error)) ToolMiddleware {
 	return func(ctx context.Context, info ToolCallInfo, next ToolCallFunc) (*core.ToolResult, error) {
 		res, err := next(ctx, info)

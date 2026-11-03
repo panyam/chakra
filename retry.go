@@ -11,12 +11,12 @@ import (
 )
 
 // Transient HTTP failures from a model endpoint are retried before they
-// become a turn error: a 429 from a tokens-per-minute limit, an overloaded or
-// briefly unavailable server. The endpoint usually says how long to wait, and
-// every vendor's own client waits that long, so a turn doesn't end over a
-// five-second limit window (#203).
+// become a turn error. Examples are a 429 from a tokens-per-minute limit, or a
+// server that is overloaded or briefly unavailable. The endpoint usually says
+// how long to wait, and every vendor's own client waits that long. So a turn
+// doesn't end over a five-second limit window (#203).
 const (
-	// maxSendAttempts bounds one request: the first try plus five retries.
+	// maxSendAttempts bounds one request to the first try plus five retries.
 	maxSendAttempts = 6
 	// maxRetryWait caps a single wait, whatever the endpoint asks for.
 	maxRetryWait = 60 * time.Second
@@ -34,13 +34,14 @@ var retrySleep = func(ctx context.Context, d time.Duration) error {
 	}
 }
 
-// sendWithRetry sends the request newReq builds, building a fresh one per
-// attempt so the body can be read again. A 2xx response is returned open for
-// the caller to read. A retryable status (429 other than an exhausted quota,
-// 500, 502, 503, 504, 529) is retried after the wait the endpoint asks for,
-// or an exponential backoff when it doesn't say; any other status, or the
-// last attempt's, comes back as a *ProviderError. A transport error is
-// returned as is, since the request may have reached the server.
+// sendWithRetry calls newReq for a fresh request on each attempt, so the body
+// can be read again, and sends it. A 2xx response is returned open for the
+// caller to read. The retryable statuses are 429 (other than an exhausted
+// quota), 500, 502, 503, 504 and 529. sendWithRetry retries them after the
+// wait that the endpoint asks for. If the endpoint doesn't say, it uses an
+// exponential backoff. Any other status, and the status on the last attempt,
+// comes back as a *ProviderError. A transport error is returned as is, since
+// the request may have reached the server.
 func sendWithRetry(ctx context.Context, client *http.Client, newReq func() (*http.Request, error)) (*http.Response, error) {
 	for attempt := 1; ; attempt++ {
 		req, err := newReq()
@@ -81,9 +82,10 @@ func retryable(status int, body string) bool {
 // as "Please try again in 5.482s" or "in 820ms".
 var tryAgainIn = regexp.MustCompile(`(?i)try again in ([0-9.]+)\s*(ms|s)\b`)
 
-// retryWait is how long to wait before attempt+1: the Retry-After or
-// retry-after-ms header, then a wait named in the body, then 1s, 2s, 4s and so
-// on, capped at maxRetryWait.
+// retryWait returns how long to wait before attempt+1. It checks the
+// Retry-After or retry-after-ms header first, then a wait named in the body.
+// Otherwise it backs off 1s, 2s, 4s and so on. Every wait is capped at
+// maxRetryWait.
 func retryWait(h http.Header, body string, attempt int) time.Duration {
 	wait := time.Duration(0)
 	if ms, err := strconv.ParseFloat(h.Get("retry-after-ms"), 64); err == nil && ms > 0 {

@@ -65,14 +65,14 @@ func TestRunner_ShouldBreakOn(t *testing.T) {
 	pre := Signal{Kind: SignalPreempt}
 	cus := Signal{Kind: SignalCustom}
 
-	// Escalate always breaks; custom never — regardless of the grant.
+	// Escalate always breaks and custom never does, whatever the grant says.
 	if !mk(nil).shouldBreakOn(esc) {
 		t.Error("escalate should always break the barrier")
 	}
 	if mk(func(Signal) bool { return true }).shouldBreakOn(cus) {
 		t.Error("custom must never break the barrier")
 	}
-	// Preempt is gated by PreemptGrant: nil or false => no break, true => break.
+	// PreemptGrant gates preempt. Nil or false means no break, and true breaks.
 	if mk(nil).shouldBreakOn(pre) {
 		t.Error("preempt must not break without a grant (safe default)")
 	}
@@ -107,8 +107,8 @@ func TestSignalSource_AcceptsPreempt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// No parent sink here, so it reports "no parent" — but crucially NOT an
-	// error, which proves "preempt" is an accepted kind (it passed validation).
+	// There is no parent sink here, so it reports "no parent". It does NOT
+	// report an error. So "preempt" passed validation as an accepted kind.
 	if res.IsError {
 		t.Fatalf("preempt kind rejected: %+v", res)
 	}
@@ -128,9 +128,9 @@ func TestSignalSource_RejectsUnknownKind(t *testing.T) {
 	}
 }
 
-// signalingChild builds an AgentSource whose child raises signal_parent(kind,
-// note) on its first turn, then answers. It is the reusable "a sub-agent that
-// signals up" fixture.
+// signalingChild builds an AgentSource with a child that raises
+// signal_parent(kind, note) on its first turn, then answers. It is the
+// reusable "a sub-agent that signals up" fixture.
 func signalingChild(t *testing.T, name, kind, note string) *AgentSource {
 	t.Helper()
 	child, err := NewRunner(RunnerConfig{
@@ -169,9 +169,9 @@ func parentOver(t *testing.T, child *AgentSource, policy SignalPolicy) (*Runner,
 	return r, stub
 }
 
-// TestUpwardSignal_ReachesParentAndInjects: with no policy, a child's escalate
-// reaches the parent, emits EventSignal, and is injected into the parent's next
-// step as a RoleSystem note the parent model sees.
+// TestUpwardSignal_ReachesParentAndInjects sets no policy. A child's escalate
+// reaches the parent and emits EventSignal. It is injected into the parent's
+// next step as a RoleSystem note, and the parent model sees it.
 func TestUpwardSignal_ReachesParentAndInjects(t *testing.T) {
 	child := signalingChild(t, "worker", "escalate", "found it")
 	parent, stub := parentOver(t, child, nil)
@@ -207,8 +207,8 @@ func TestUpwardSignal_ReachesParentAndInjects(t *testing.T) {
 	}
 }
 
-// TestUpwardSignal_AbortOnEscalate: the built-in policy ends the parent turn
-// when a child escalates, folding the note into ErrSignalAbort.
+// TestUpwardSignal_AbortOnEscalate checks that the built-in policy ends the
+// parent turn when a child escalates. The note goes into ErrSignalAbort.
 func TestUpwardSignal_AbortOnEscalate(t *testing.T) {
 	child := signalingChild(t, "worker", "escalate", "found it")
 	parent, stub := parentOver(t, child, AbortOnEscalate)
@@ -220,14 +220,14 @@ func TestUpwardSignal_AbortOnEscalate(t *testing.T) {
 	if !strings.Contains(err.Error(), "found it") {
 		t.Fatalf("abort reason = %v, want the child's note", err)
 	}
-	// The parent never reached its second turn (it aborted after the signal).
+	// The parent aborted after the signal and never reached its second turn.
 	if n := len(stub.Requests()); n != 1 {
 		t.Fatalf("parent made %d model calls, want 1 (aborted before continuing)", n)
 	}
 }
 
-// TestUpwardSignal_NoSignalUnchanged: a sub-agent call with no signal leaves
-// the parent's next step free of any injected note and emits no EventSignal.
+// TestUpwardSignal_NoSignalUnchanged makes a sub-agent call with no signal.
+// The parent's next step gets no injected note, and no EventSignal is emitted.
 func TestUpwardSignal_NoSignalUnchanged(t *testing.T) {
 	quietChild, _ := NewRunner(RunnerConfig{Provider: NewStubProvider(StubTurn{Text: "quiet"})})
 	as, _ := NewAgentSource(AgentSourceConfig{Name: "worker", Description: "d", Runner: quietChild})
@@ -251,9 +251,9 @@ func TestUpwardSignal_NoSignalUnchanged(t *testing.T) {
 	}
 }
 
-// TestUpwardSignal_NestedReachesImmediateParent: a grandchild's signal reaches
-// its immediate parent (the middle agent), NOT the top — proving the sink is
-// scoped to the spawner, not shared across the tree.
+// TestUpwardSignal_NestedReachesImmediateParent checks that a grandchild's
+// signal reaches its immediate parent, the middle agent, and NOT the top. So
+// the sink is scoped to the spawner and not shared across the tree.
 func TestUpwardSignal_NestedReachesImmediateParent(t *testing.T) {
 	var topRec, midRec recorder
 

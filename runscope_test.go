@@ -32,9 +32,9 @@ func TestAgentPathBasics(t *testing.T) {
 	}
 }
 
-// TestAgentPathContainsIsExact is why hops are a list rather than a joined
-// string: substring matching answers yes for a name that merely shares a
-// prefix, which would silently mis-scope a middleware.
+// TestAgentPathContainsIsExact shows why hops are a list rather than a joined
+// string. Substring matching answers yes for a name that merely shares a
+// prefix. That would silently mis-scope a middleware.
 func TestAgentPathContainsIsExact(t *testing.T) {
 	p := AgentPath{}.Child("researcher")
 	if p.Contains("research") {
@@ -45,8 +45,8 @@ func TestAgentPathContainsIsExact(t *testing.T) {
 	}
 }
 
-// TestAgentPathToleratesSeparatorInName pins the other half: a name carrying a
-// slash cannot forge an extra level, which splitting a joined path would.
+// TestAgentPathToleratesSeparatorInName pins the other half. A name with a
+// slash cannot forge an extra level. Splitting a joined path would let it.
 func TestAgentPathToleratesSeparatorInName(t *testing.T) {
 	p := AgentPath{}.Child("a/b").Child("c")
 	if p.Depth() != 2 {
@@ -60,8 +60,8 @@ func TestAgentPathToleratesSeparatorInName(t *testing.T) {
 	}
 }
 
-// TestRunScopeRoundTrip is the A2 obligation: a scope may cross a parent/child
-// boundary, so it has to survive encoding/json unchanged.
+// TestRunScopeRoundTrip covers the A2 obligation. A scope may cross a
+// parent/child boundary, so it has to survive encoding/json unchanged.
 func TestRunScopeRoundTrip(t *testing.T) {
 	want := RunScope{
 		Path:       AgentPath{}.Child("researcher").Child("summarizer"),
@@ -81,8 +81,8 @@ func TestRunScopeRoundTrip(t *testing.T) {
 	}
 }
 
-// TestScopeFromBareContext pins the outside-a-run reading: top level, nothing
-// bounded. CallBudget must be -1 rather than 0, which would read as exhausted.
+// TestScopeFromBareContext pins the outside-a-run reading. It is top level, and
+// nothing is bounded. CallBudget must be -1, because 0 would read as exhausted.
 func TestScopeFromBareContext(t *testing.T) {
 	s := ScopeFrom(context.Background())
 	if s.Depth() != 0 || len(s.Path) != 0 {
@@ -117,9 +117,10 @@ func (p *scopeProbe) get(tool string) RunScope {
 	return p.seen[tool]
 }
 
-// TestScopeDepthInsideSubAgent is the ticket's named acceptance: a middleware
-// running inside a sub-agent reads a non-empty path while the parent's reads
-// empty. Without it a checkpoint extension snapshots on every nested call.
+// TestScopeDepthInsideSubAgent is the ticket's named acceptance test. A
+// middleware running inside a sub-agent reads a non-empty path, and the
+// parent's middleware reads an empty one. Without that, a checkpoint
+// extension snapshots on every nested call.
 func TestScopeDepthInsideSubAgent(t *testing.T) {
 	probe := newScopeProbe()
 
@@ -219,7 +220,7 @@ func TestScopeCallBudgetVisible(t *testing.T) {
 	}
 }
 
-// TestScopeTreeUsageVisible pins the other half of budget awareness: caps and
+// TestScopeTreeUsageVisible pins the other half of budget awareness. Caps and
 // consumption both reach the middleware.
 func TestScopeTreeUsageVisible(t *testing.T) {
 	probe := newScopeProbe()
@@ -252,7 +253,8 @@ func TestScopeTreeUsageVisible(t *testing.T) {
 }
 
 // TestScopeUnbudgetedReadsUnbounded pins that a turn with no TreeBudget
-// reports zero caps rather than a false limit an extension might respect.
+// reports zero caps rather than a false limit. An extension might respect a
+// false limit.
 func TestScopeUnbudgetedReadsUnbounded(t *testing.T) {
 	probe := newScopeProbe()
 	src := NewFuncSource()
@@ -282,10 +284,10 @@ func TestScopeUnbudgetedReadsUnbounded(t *testing.T) {
 	}
 }
 
-// TestScopeFanOutMembersAreIndependent is the aliasing check that AgentPath.Child
-// exists for. Fan-out members run concurrently off one parent context; if Child
-// appended into a shared backing array, two members would see each other's hop
-// or race on the same slice. Run under -race.
+// TestScopeFanOutMembersAreIndependent checks aliasing, and AgentPath.Child
+// exists to prevent it. Fan-out members run concurrently off one parent
+// context. Imagine Child appended into a shared backing array. Two members
+// would see each other's hop or race on the same slice. Run under -race.
 func TestScopeFanOutMembersAreIndependent(t *testing.T) {
 	probe := newScopeProbe()
 

@@ -10,54 +10,58 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// SignalKind classifies an upward signal a child agent raises to its parent
-// Runner — the control-axis complement to the downward Control (issue 936).
+// SignalKind classifies an upward signal from a child agent to its parent
+// Runner. On the control axis, signals complement the downward Control (issue
+// 936).
 type SignalKind string
 
 const (
 	// SignalEscalate asks the parent to stop and handle the child's finding
 	// ("decisive result" / "an error you must deal with"). With the
-	// AbortOnEscalate policy the parent turn ends; otherwise the signal is
+	// AbortOnEscalate policy the parent turn ends. Otherwise the signal is
 	// injected and the parent model decides.
 	SignalEscalate SignalKind = "escalate"
 
-	// SignalCustom carries an application-defined signal (named by Name, with an
-	// optional Data payload) for a SignalPolicy or the parent model to interpret.
-	// It is FYI-only: it is collected and injected into the parent's next step,
-	// but does NOT break an interruptible dispatch's join barrier (see interrupts).
+	// SignalCustom is an application-defined signal for a SignalPolicy or the
+	// parent model to interpret. Name names it, and Data is an optional payload.
+	// It is FYI-only. It is collected and injected into the parent's next step,
+	// but it does NOT break an interruptible dispatch's join barrier (see
+	// interrupts).
 	SignalCustom SignalKind = "custom"
 
 	// SignalPreempt is a child's *advisory* claim that its result may make the
-	// parallel work unnecessary. It is deliberately NOT authoritative: a child
-	// under A7 isolation cannot know the parent's global goal or what its
-	// siblings are doing, so "the parallel work is moot" is its assertion, never
-	// ground truth. A preempt therefore breaks the interruptible join barrier
-	// (cancelling the other in-flight calls) ONLY when the parent grants it via
-	// RunnerConfig.PreemptGrant; with no grant (the default) a preempt is merely
-	// collected and injected like any signal, and the parent model decides on
-	// re-plan — so a rogue or prompt-injected child cannot unilaterally kill its
-	// siblings. It stays non-referential either way: the child names no sibling;
-	// the parent, which alone holds the fan-out inventory, decides.
+	// parallel work unnecessary. It is deliberately NOT authoritative. Under A7
+	// isolation, a child cannot know the parent's global goal or what its
+	// siblings are doing. So "the parallel work is moot" is the child's
+	// assertion, never ground truth. A preempt breaks the interruptible join
+	// barrier ONLY when the parent grants it via RunnerConfig.PreemptGrant.
+	// Breaking the barrier cancels the other in-flight calls. With no grant,
+	// which is the default, a preempt is only collected and injected like any
+	// signal, and the parent model decides whether to re-plan. So a rogue or
+	// prompt-injected child cannot kill its siblings on its own authority. The
+	// signal is non-referential either way. The child names no sibling. Only
+	// the parent holds the fan-out inventory, and the parent decides.
 	SignalPreempt SignalKind = "preempt"
 )
 
 // interrupts reports whether a signal of this kind is a *candidate* to break an
 // interruptible dispatch's join barrier (issue 1167, piece C). SignalEscalate
-// ("stop and handle my finding") and SignalPreempt qualify; SignalCustom is
-// FYI-only and never breaks. Being a candidate is necessary but not sufficient
-// for preempt: whether a preempt actually breaks is the parent's call
-// (RunnerConfig.PreemptGrant) — see Runner.shouldBreakOn. Escalate breaks
-// unconditionally (its must-handle contract). No effect in a non-interruptible
-// turn, where every signal is read only at the join.
+// ("stop and handle my finding") and SignalPreempt qualify. SignalCustom is
+// FYI-only and never breaks. For a preempt, being a candidate is necessary but
+// not sufficient. The parent decides whether a preempt actually breaks,
+// through RunnerConfig.PreemptGrant (see Runner.shouldBreakOn). Escalate
+// breaks unconditionally, because the parent must handle it. In a
+// non-interruptible turn this has no effect, since every signal is read only
+// at the join.
 func (k SignalKind) interrupts() bool {
 	return k == SignalPreempt || k == SignalEscalate
 }
 
 // Signal is an upward message from a child agent to its parent Runner. It is
-// wire-serializable (constraint A2) so a remote child raises it identically to
-// a co-located one: RaiseSignal writes it into the ctx-threaded sink the parent
-// installs around the dispatch that spawned the child, and the parent reads the
-// drained signals at the join.
+// wire-serializable (constraint A2), so a remote child raises it the same way
+// as a co-located one. The parent installs a ctx-threaded sink around the
+// dispatch that spawned the child. RaiseSignal writes the signal into that
+// sink, and the parent reads the drained signals at the join.
 type Signal struct {
 	// Kind classifies the signal; a SignalPolicy switches on it.
 	Kind SignalKind `json:"kind"`
@@ -77,7 +81,7 @@ type Signal struct {
 // SignalAction is a SignalPolicy's verdict over the signals drained at one
 // dispatch join. The zero value continues the turn (inject-and-proceed).
 type SignalAction struct {
-	// AbortTurn ends the parent turn immediately with ErrSignalAbort; Reason is
+	// AbortTurn ends the parent turn immediately with ErrSignalAbort. Reason is
 	// folded into the error. Use it for an escalation that should stop the parent.
 	AbortTurn bool
 	// Reason is the abort reason (and the turn error message). Ignored unless
@@ -85,12 +89,12 @@ type SignalAction struct {
 	Reason string
 }
 
-// SignalPolicy decides how a parent Runner reacts to the signals its children
-// raised during one dispatch, read at the join. It runs after the fan-out has
-// joined (issue 1165 is non-interruptible), so it chooses only whether to abort
-// the parent turn; the signals are injected into the next step regardless. Nil
-// means inject-and-continue. A policy must be a pure function of the drained
-// signals.
+// SignalPolicy decides how a parent Runner reacts to its children's signals
+// from one dispatch. It reads them at the join. It runs after the fan-out has
+// joined (issue 1165 is non-interruptible), so it chooses only whether to
+// abort the parent turn. The signals are injected into the next step
+// regardless. Nil means inject-and-continue. A policy must be a pure function
+// of the drained signals.
 type SignalPolicy func(signals []Signal) SignalAction
 
 // AbortOnEscalate is a built-in SignalPolicy that aborts the parent turn as
@@ -110,43 +114,44 @@ func AbortOnEscalate(signals []Signal) SignalAction {
 	return SignalAction{}
 }
 
-// ErrSignalAbort is returned (wrapped) by a turn a SignalPolicy aborted via
-// SignalAction.AbortTurn — a child escalated and the parent chose to stop.
-// Check with errors.Is; the wrapped message carries the policy's Reason.
+// ErrSignalAbort is returned (wrapped) when a SignalPolicy aborts a turn via
+// SignalAction.AbortTurn. A child escalated, and the parent chose to stop.
+// Check with errors.Is. The wrapped message includes the policy's Reason.
 var ErrSignalAbort = errors.New("agent: turn aborted by child signal")
 
 // GrantAllPreempts is a built-in RunnerConfig.PreemptGrant that honors every
-// child's preempt — appropriate when the parent trusts all its sub-agents
-// equally. For a finer policy (honor a preempt only from a given Source, or
-// carrying a given Note), pass your own predicate instead. Nil PreemptGrant
-// (the default) honors none.
+// child's preempt. It suits a parent that trusts all its sub-agents equally.
+// For a finer policy, pass your own predicate instead. It could honor a
+// preempt only from a given Source, or only with a given Note. Nil
+// PreemptGrant (the default) honors none.
 func GrantAllPreempts(Signal) bool { return true }
 
-// signalSink collects the signals raised by the sub-agents one dispatch
-// spawned. Two ctx keys keep the direction right (the subtle part): a dispatch
-// installs its sink under dispatchSinkKey (where it collects its OWN children's
-// signals), and when an AgentSource spawns a child it snapshots that sink under
-// parentSinkKey in the child's ctx (where the child's signal_parent writes).
-// RaiseSignal reads parentSinkKey. So a child raises to its SPAWNER's sink, not
-// to its own dispatch sink — which the child's own dispatch would otherwise
-// shadow — and a grandchild raises to the child, never skipping a level.
+// signalSink collects the signals from the sub-agents that one dispatch
+// spawned. Two ctx keys keep the direction right, and this is the subtle part.
+// A dispatch installs its sink under dispatchSinkKey, and the sink collects
+// the dispatch's OWN children's signals. When an AgentSource spawns a child,
+// it snapshots that sink under parentSinkKey in the child's ctx. The child's
+// signal_parent writes there, because RaiseSignal reads parentSinkKey. So a
+// child raises to its SPAWNER's sink, not to its own dispatch sink. With one
+// key, the child's own dispatch would shadow the spawner's sink. A grandchild
+// raises to the child, never skipping a level.
 type signalSink struct {
 	mu      sync.Mutex
 	signals []Signal
 
 	// notify, when non-nil, is closed exactly once on the first raise that
-	// breakOn admits, so an interruptible dispatch (issue 1167) can break its
-	// join barrier the moment a child raises a barrier-breaking signal. Nil in
-	// the default (non-interruptible) path — signals are then only read at the
-	// join.
+	// breakOn admits. An interruptible dispatch (issue 1167) uses it to break
+	// its join barrier the moment a child raises a barrier-breaking signal. It
+	// is nil in the default non-interruptible path, where signals are only read
+	// at the join.
 	notify chan struct{}
 	once   sync.Once
 
-	// breakOn decides whether a given raised signal breaks the barrier. Set by
-	// an interruptible dispatch (Runner.shouldBreakOn: escalate always, preempt
-	// only when granted, custom never); nil otherwise. Keeping the decision here
-	// rather than in raise lets the parent Runner, not the child's kind alone,
-	// gate a preemption.
+	// breakOn decides whether a given raised signal breaks the barrier. An
+	// interruptible dispatch sets it to Runner.shouldBreakOn, which breaks on
+	// escalate always, on preempt only when granted, and on custom never. It
+	// is nil otherwise. The decision lives here rather than in raise, so the
+	// parent Runner gates a preemption, not the child's kind alone.
 	breakOn func(Signal) bool
 }
 
@@ -173,9 +178,9 @@ func (s *signalSink) drain() []Signal {
 type dispatchSinkKey struct{}
 type parentSinkKey struct{}
 
-// withDispatchSink stamps the sink a dispatch collects its children's signals
-// into. AgentSource reads it (via dispatchSinkFrom) to hand the spawned child
-// its parent sink.
+// withDispatchSink stamps a dispatch's sink on ctx. The dispatch collects its
+// children's signals into that sink. AgentSource reads it via dispatchSinkFrom
+// and hands it to the spawned child as the child's parent sink.
 func withDispatchSink(ctx context.Context, s *signalSink) context.Context {
 	return context.WithValue(ctx, dispatchSinkKey{}, s)
 }
@@ -185,9 +190,9 @@ func dispatchSinkFrom(ctx context.Context) *signalSink {
 	return s
 }
 
-// withParentSink stamps the sink a running child raises TO — snapshotted by the
-// spawning AgentSource from the spawner's dispatch sink, so the child's own
-// dispatch cannot shadow it.
+// withParentSink stamps a running child's parent sink on ctx. The child raises
+// signals TO that sink. The spawning AgentSource snapshots it from the
+// spawner's dispatch sink, so the child's own dispatch cannot shadow it.
 func withParentSink(ctx context.Context, s *signalSink) context.Context {
 	return context.WithValue(ctx, parentSinkKey{}, s)
 }
@@ -197,12 +202,12 @@ func parentSinkFrom(ctx context.Context) *signalSink {
 	return s
 }
 
-// RaiseSignal delivers sig to the parent Runner's signal sink — the
-// control-axis "up" primitive a child's control tool calls. It stamps
-// sig.Source with the child's scope when unset. It returns false when ctx
-// carries no parent sink (a top-level agent has no parent to signal), so a
-// control tool can tell the model there is nothing to signal instead of
-// silently dropping it.
+// RaiseSignal delivers sig to the parent Runner's signal sink. It is the
+// control-axis "up" primitive, and a child's control tool calls it. It stamps
+// sig.Source with the child's scope when unset. It returns false when ctx has
+// no parent sink, as for a top-level agent with no parent to signal. A control
+// tool can then tell the model there is nothing to signal instead of silently
+// dropping it.
 func RaiseSignal(ctx context.Context, sig Signal) bool {
 	sink := parentSinkFrom(ctx)
 	if sink == nil {
@@ -215,8 +220,9 @@ func RaiseSignal(ctx context.Context, sig Signal) bool {
 	return true
 }
 
-// SignalParentToolName is the fixed name of the control tool a child agent calls
-// to raise a Signal to its parent (kept fixed, like the memory/meta-tool names).
+// SignalParentToolName is the name of the control tool that raises a Signal to
+// the parent. A child agent calls it. The name is fixed, like the
+// memory/meta-tool names.
 const SignalParentToolName = "signal_parent"
 
 type signalParentArgs struct {
@@ -230,8 +236,9 @@ type signalParentArgs struct {
 
 // NewSignalSource returns a leaf ToolSource exposing the signal_parent control
 // tool so a child agent can raise an upward Signal (issue 1165). Add it to a
-// sub-agent's tool set; a top-level agent that has no parent gets a graceful
-// "no parent to signal" result. Model-facing, so it lives in agent/ (A6).
+// sub-agent's tool set. A top-level agent has no parent, so it gets a graceful
+// "no parent to signal" result. It is model-facing, so under A6 it lives here
+// rather than in mcpkit's client/.
 func NewSignalSource() *FuncSource {
 	fs := NewFuncSource()
 	_ = AddFunc(fs, SignalParentToolName,

@@ -13,15 +13,16 @@ import (
 )
 
 // twoChildParent builds a parent Runner that calls sub-agents A and B in one
-// turn, then answers "re-planned". A is the signalling child; B is supplied by
-// the caller (blocking or normal). interruptible toggles the gate.
+// turn, then answers "re-planned". A is the signalling child. The caller
+// supplies B, either blocking or normal. interruptible toggles the gate.
 func twoChildParent(t *testing.T, a, b *AgentSource, interruptible bool) (*Runner, *StubProvider) {
 	t.Helper()
 	return twoChildParentCfg(t, a, b, RunnerConfig{Interruptible: interruptible})
 }
 
-// twoChildParentGranting builds an interruptible parent whose PreemptGrant
-// honors preempts per grant — the "parent authorises the preemption" fixture.
+// twoChildParentGranting builds an interruptible parent with a PreemptGrant
+// that honors preempts per grant. It is the "parent authorises the
+// preemption" fixture.
 func twoChildParentGranting(t *testing.T, a, b *AgentSource, grant func(Signal) bool) (*Runner, *StubProvider) {
 	t.Helper()
 	return twoChildParentCfg(t, a, b, RunnerConfig{Interruptible: true, PreemptGrant: grant})
@@ -84,10 +85,10 @@ func containsSubstr(ss []string, sub string) bool {
 	return false
 }
 
-// TestInterruptibleTurn_SignalBreaksBarrier: child A signals mid-fan-out while
-// child B blocks forever. In an interruptible turn A's signal cancels B, the
-// dispatch returns partial results, and the parent re-plans — so the turn
-// completes instead of hanging on B.
+// TestInterruptibleTurn_SignalBreaksBarrier has child A signal mid-fan-out
+// while child B blocks forever. In an interruptible turn, A's signal cancels
+// B, the dispatch returns partial results, and the parent re-plans. So the
+// turn completes instead of hanging on B.
 func TestInterruptibleTurn_SignalBreaksBarrier(t *testing.T) {
 	a := signalingChild(t, "A", "escalate", "found it")
 	b := blockingChild(t, "B")
@@ -117,8 +118,8 @@ func TestInterruptibleTurn_SignalBreaksBarrier(t *testing.T) {
 	}
 }
 
-// TestInterruptibleTurn_NoSignalWaitsForAll: with the gate on but no signal,
-// the dispatch still waits for every call — identical to the default barrier.
+// TestInterruptibleTurn_NoSignalWaitsForAll turns the gate on and sends no
+// signal. The dispatch still waits for every call, as the default barrier does.
 func TestInterruptibleTurn_NoSignalWaitsForAll(t *testing.T) {
 	a, _ := NewAgentSource(AgentSourceConfig{Name: "A", Description: "d", Runner: childRunner(t, StubTurn{Text: "A done"})})
 	b, _ := NewAgentSource(AgentSourceConfig{Name: "B", Description: "d", Runner: childRunner(t, StubTurn{Text: "B done"})})
@@ -137,10 +138,11 @@ func TestInterruptibleTurn_NoSignalWaitsForAll(t *testing.T) {
 	}
 }
 
-// TestInterruptibleOff_IgnoresSignalForBarrier: with the gate OFF, a child's
-// signal does not break the barrier — every call still completes (the signal is
-// only recorded/injected). B is a normal child (a blocking one would hang, which
-// is exactly the barrier the gate opts out of).
+// TestInterruptibleOff_IgnoresSignalForBarrier turns the gate OFF. A child's
+// signal then doesn't break the barrier, and every call still completes. The
+// signal is only recorded and injected. B is a normal child. A blocking child
+// would hang, because the barrier waits for it, and the gate is what opts out
+// of that wait.
 func TestInterruptibleOff_IgnoresSignalForBarrier(t *testing.T) {
 	a := signalingChild(t, "A", "escalate", "found it")
 	b, _ := NewAgentSource(AgentSourceConfig{Name: "B", Description: "d", Runner: childRunner(t, StubTurn{Text: "B done"})})
@@ -166,9 +168,10 @@ func TestInterruptibleOff_IgnoresSignalForBarrier(t *testing.T) {
 	}
 }
 
-// TestInterruptibleTurn_PreemptGrantedBreaksBarrier: when the parent grants
-// preemption (PreemptGrant returns true), a child's preempt breaks the barrier
-// like escalate — the blocking child B is cancelled and the parent re-plans.
+// TestInterruptibleTurn_PreemptGrantedBreaksBarrier has the parent grant
+// preemption, with PreemptGrant returning true. A child's preempt then breaks
+// the barrier like escalate. The blocking child B is cancelled, and the parent
+// re-plans.
 func TestInterruptibleTurn_PreemptGrantedBreaksBarrier(t *testing.T) {
 	a := signalingChild(t, "A", "preempt", "enough")
 	b := blockingChild(t, "B")
@@ -198,10 +201,11 @@ func TestInterruptibleTurn_PreemptGrantedBreaksBarrier(t *testing.T) {
 	}
 }
 
-// TestInterruptibleTurn_PreemptNotGrantedDoesNotBreak: with no PreemptGrant (the
-// default), a child's preempt is advisory only — it must NOT break the barrier
-// or cancel siblings. B runs to completion; the preempt is still injected. This
-// is the safe-by-default guard: a child cannot unilaterally kill its siblings.
+// TestInterruptibleTurn_PreemptNotGrantedDoesNotBreak sets no PreemptGrant,
+// which is the default. A child's preempt is then advisory only. It must NOT
+// break the barrier or cancel siblings. B runs to completion, and the preempt
+// is still injected. This is the safe-by-default guard, so a child can't kill
+// its siblings on its own.
 func TestInterruptibleTurn_PreemptNotGrantedDoesNotBreak(t *testing.T) {
 	release := make(chan struct{})
 	a := signalingChild(t, "A", "preempt", "enough")
@@ -238,12 +242,13 @@ func TestInterruptibleTurn_PreemptNotGrantedDoesNotBreak(t *testing.T) {
 	}
 }
 
-// TestInterruptibleTurn_CustomDoesNotBreakBarrier: a custom (FYI) signal is
-// collected and injected but must NOT break the interruptible barrier — the
-// other in-flight sibling runs to completion, never cancelled. B is released
-// deterministically once A's call has ended (its parent-level tool-end), so the
-// only way B shows "cancelled by user" is a wrongful barrier break. Fails before
-// kind-aware breaking (custom used to cancel B), passes after.
+// TestInterruptibleTurn_CustomDoesNotBreakBarrier sends a custom (FYI) signal.
+// The signal is collected and injected, but it must NOT break the
+// interruptible barrier. The other in-flight sibling runs to completion and is
+// never cancelled. B is released deterministically once A's call has ended,
+// at A's parent-level tool-end. So B can show "cancelled by user" only after a
+// wrongful barrier break. Custom used to cancel B, so this test fails before
+// kind-aware breaking and passes after.
 func TestInterruptibleTurn_CustomDoesNotBreakBarrier(t *testing.T) {
 	release := make(chan struct{})
 	a := signalingChild(t, "A", "custom", "fyi")
@@ -260,7 +265,7 @@ func TestInterruptibleTurn_CustomDoesNotBreakBarrier(t *testing.T) {
 			mu.Unlock()
 		}
 		// A's call ("ca") has ended, so under the fix dispatch is now waiting on
-		// B. Release B so the turn finishes; if custom had wrongly broken the
+		// B. Release B so the turn finishes. If custom had wrongly broken the
 		// barrier, B was already cancelled before this fired.
 		if e.Kind == EventToolEnd && e.ToolCall != nil && e.ToolCall.ID == "ca" {
 			once.Do(func() { close(release) })
@@ -283,10 +288,10 @@ func TestInterruptibleTurn_CustomDoesNotBreakBarrier(t *testing.T) {
 	}
 }
 
-// releasableChild is a sub-agent whose single turn blocks until release is
-// closed (then it answers "<name> done") or its ctx is cancelled (then it
-// errors) — the test controls whether it finishes or is cancelled, so a barrier
-// break is observable without a timed sleep.
+// releasableChild is a sub-agent with a single turn that blocks. When release
+// is closed, it answers "<name> done". When its ctx is cancelled, it errors.
+// The test controls whether it finishes or is cancelled, so a barrier break is
+// observable without a timed sleep.
 func releasableChild(t *testing.T, name string, release <-chan struct{}) *AgentSource {
 	t.Helper()
 	r, err := NewRunner(RunnerConfig{Provider: releasableProvider{release: release, text: name + " done"}})

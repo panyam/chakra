@@ -11,16 +11,16 @@ import (
 )
 
 // ErrInputRequired is returned by ClientSource.Call when the server asks for
-// SEP-2322 mid-call input and no InputHandler was configured. The elicitation
-// seam (agent epic milestone 2) replaces the default handler; until then,
-// callers can detect the condition with errors.Is.
+// SEP-2322 mid-call input and no InputHandler was configured. Install one with
+// WithInputHandler, as the ElicitationCoordinator example in elicitation.go
+// shows. Callers can detect the condition with errors.Is.
 var ErrInputRequired = errors.New("agent: tool requires mid-call input and no InputHandler is configured")
 
 // ClientSource adapts one connected client.Client into a ToolSource.
 //
-// Calls go through the client's MRTR-aware path so ctx cancellation reaches
-// the wire and mid-call input requests surface deterministically: with the
-// default configuration an input-required round fails with ErrInputRequired
+// Calls go through the client's MRTR-aware path. So ctx cancellation reaches
+// the wire, and mid-call input requests surface deterministically. With the
+// default configuration, an input-required round fails with ErrInputRequired
 // instead of hanging or guessing.
 type ClientSource struct {
 	c            *client.Client
@@ -43,35 +43,35 @@ func WithInputHandler(h client.InputHandler) ClientSourceOption {
 }
 
 // WithTaskStatusHook observes every polled task snapshot during task-backed
-// tool calls: the client-level WaitOptions.OnStatus threaded through, so
-// surfaces can render progress between tool-begin and tool-end.
+// tool calls. It is passed through to the client-level WaitOptions.OnStatus,
+// so surfaces can render progress between tool-begin and tool-end.
 func WithTaskStatusHook(fn func(*core.DetailedTask)) ClientSourceOption {
 	return func(s *ClientSource) { s.onTaskStatus = fn }
 }
 
-// WithTaskGrace opts task-backed calls into background detach: a call still
-// working when the window expires returns immediately with a model-visible
-// "running in the background" result while the client's poll continues on a
-// detached goroutine. The window holds while an input pause is active, so
-// interactive tasks that park in input_required within the grace stay
-// inline. Zero or unset keeps the synchronous wait-to-terminal contract.
+// WithTaskGrace opts task-backed calls into background detach. Imagine a call
+// is still working when the window expires. It returns immediately with a
+// model-visible "running in the background" result, and the client's poll
+// continues on a detached goroutine. The window holds while an input pause is
+// active. So an interactive task that parks in input_required within the grace
+// does not detach. Zero or unset keeps the synchronous wait-to-terminal
+// contract.
 // The detach mechanism itself lives in client.WaitForTaskOrBackground.
 func WithTaskGrace(d time.Duration) ClientSourceOption {
 	return func(s *ClientSource) { s.taskGrace = d }
 }
 
-// WithTaskDetachHook observes each detach, delivering the
-// client.BackgroundTask handle (registries, transcript lines, cancellation
-// surfaces hang off it).
+// WithTaskDetachHook observes each detach and delivers the
+// client.BackgroundTask handle. Registries, transcript lines, and cancellation
+// surfaces use that handle.
 func WithTaskDetachHook(fn func(*client.BackgroundTask)) ClientSourceOption {
 	return func(s *ClientSource) { s.onDetach = fn }
 }
 
 // WithTaskCompletionHook fires when a DETACHED task reaches its terminal
-// state (inline completions return through Call as usual). The agent
-// watches the handle's Done channel and invokes this from a watcher
-// goroutine; hosts turning completions into events or proactive turns do
-// it here.
+// state. Inline completions return through Call as usual. The agent watches
+// the handle's Done channel and invokes this from a watcher goroutine. A host
+// that turns completions into events or proactive turns does that here.
 func WithTaskCompletionHook(fn func(*client.BackgroundTask)) ClientSourceOption {
 	return func(s *ClientSource) { s.onComplete = fn }
 }
@@ -98,12 +98,12 @@ func (s *ClientSource) Tools(ctx context.Context) ([]core.ToolDef, error) {
 }
 
 // Call dispatches tools/call with automatic MRTR rounds via the configured
-// InputHandler. A task-creating response is waited to a terminal state:
-// polling honors the server's interval hints, input_required pauses resolve
-// through the SAME InputHandler (so task input reaches the elicitation seam
-// with no extra wiring), and the terminal snapshot maps back onto the sync
-// contract (completed carries the ToolResult, including tool-side IsError;
-// failed and cancelled are dispatch errors).
+// InputHandler. Call waits for a task-creating response to reach a terminal
+// state. Polling honors the server's interval hints. input_required pauses
+// resolve through the SAME InputHandler, so task input reaches the elicitation
+// seam with no extra wiring. The terminal snapshot maps back onto the sync
+// contract. A completed task returns its ToolResult, including tool-side
+// IsError, and a failed or cancelled task is a dispatch error.
 func (s *ClientSource) Call(ctx context.Context, name string, args map[string]any) (*core.ToolResult, error) {
 	res, err := client.CallToolWithInputs(ctx, s.c, name, args, s.handler)
 	if err != nil {
@@ -126,9 +126,9 @@ func (s *ClientSource) waitTask(ctx context.Context, name, taskID string) (*core
 		return nil, err
 	}
 	if bt != nil {
-		// Detached: hand the client-owned handle to the host, watch its
-		// Done for the completion hook (naturally only for detached
-		// tasks), and give the model a result so the turn finishes.
+		// Detached. Hand the client-owned handle to the host, and watch its
+		// Done for the completion hook. Only detached tasks get that hook.
+		// Then give the model a result so the turn finishes.
 		if s.onDetach != nil {
 			s.onDetach(bt)
 		}

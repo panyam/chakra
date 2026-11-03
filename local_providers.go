@@ -12,7 +12,7 @@ type LlamaCppConfig struct {
 	// Empty means DefaultLlamaCppBaseURL.
 	BaseURL string
 
-	// Model is sent as the request's model. Empty means "llama.cpp": a
+	// Model is sent as the request's model. Empty means "llama.cpp". A
 	// llama-server serving one model ignores the name, but chakra always
 	// sends one. A server routing between several models reads it.
 	Model string
@@ -29,12 +29,13 @@ type LlamaCppConfig struct {
 const DefaultLlamaCppBaseURL = "http://localhost:8080/v1"
 
 // NewLlamaCppProvider returns an OpenAIProvider set up for llama-server
-// (#180): guided decoding in the llama.cpp dialect, so a grammar or a JSON
-// schema constrains the reply, and "cache_prompt": true, so a prompt prefix
-// shared across requests is processed once and its tokens come back as
-// Usage.CachedInputTokens. Seeds are sent as given.
+// (#180). It uses guided decoding in the llama.cpp dialect, so a grammar or a
+// JSON schema constrains the reply. It also sends "cache_prompt": true. Then
+// llama-server processes a prompt prefix shared across requests once, and the
+// prefix's tokens come back as Usage.CachedInputTokens. Seeds are sent as
+// given.
 //
-// Temperature stays the caller's: a request with none leaves llama-server
+// The caller sets Temperature. A request with none leaves llama-server
 // sampling at its own default, 0.8. A caller wanting greedy, repeatable
 // decoding sets 0.
 func NewLlamaCppProvider(cfg LlamaCppConfig) (*OpenAIProvider, error) {
@@ -76,10 +77,11 @@ type OllamaConfig struct {
 const DefaultOllamaBaseURL = "http://localhost:11434/v1"
 
 // NewOllamaProvider returns an OpenAIProvider for Ollama's /v1 endpoint
-// (#180), in the Ollama guided dialect: a GuidedDecoding.JSONSchema holds the
-// reply to that schema (sent as response_format, which Ollama decodes under).
-// Ollama takes no grammar or regex, so a request carrying either is refused
-// with ErrUnsupportedParam before anything is sent. Seeds are sent as given.
+// (#180), in the Ollama guided dialect. A GuidedDecoding.JSONSchema holds the
+// reply to that schema. The schema is sent as response_format, and Ollama
+// decodes under it. Ollama takes no grammar or regex, so a request with either
+// is refused with ErrUnsupportedParam before anything is sent. Seeds are sent
+// as given.
 func NewOllamaProvider(cfg OllamaConfig) (*OpenAIProvider, error) {
 	if cfg.Model == "" {
 		return nil, fmt.Errorf("agent: OllamaConfig requires Model")

@@ -153,8 +153,8 @@ func TestResponsesFailedEventIsAnError(t *testing.T) {
 	}
 }
 
-// A three-step tool turn through a real Runner: the second and third model
-// calls chain from the previous response and carry only the tool output.
+// A three-step tool turn runs through a real Runner. The second and third
+// model calls chain from the previous response and send only the tool output.
 func TestResponsesRunnerChainsToolSteps(t *testing.T) {
 	f := &rsFake{reply: func(n int, _ map[string]any) (int, string) {
 		if n < 3 {
@@ -199,7 +199,7 @@ func TestResponsesRunnerChainsToolSteps(t *testing.T) {
 		t.Fatalf("OnFullHistory fired on a chained turn: %v", notes)
 	}
 
-	// The next turn chains too: the user message follows the turn's last
+	// The next turn chains too. The user message follows the turn's last
 	// assistant message.
 	history = append(history, res.Messages...)
 	history = append(history, Message{Role: RoleUser, Text: "again"})
@@ -212,9 +212,9 @@ func TestResponsesRunnerChainsToolSteps(t *testing.T) {
 	}
 }
 
-// The ticket's acceptance case: once compaction replaces the history's head,
-// no stored response matches it, so the request carries the full compacted
-// history, chains from nothing, and OnFullHistory says why.
+// This is the ticket's acceptance case. Compaction replaces the history's head.
+// After that, no stored response matches the history. So the request sends the
+// full compacted history and chains from nothing, and OnFullHistory says why.
 func TestResponsesCompactedHistoryDropsCursor(t *testing.T) {
 	f := &rsFake{reply: func(n int, _ map[string]any) (int, string) { return 0, rsReplyText(n, "ok") }}
 	ts := f.serve(t)
@@ -422,8 +422,8 @@ func TestCursorKeyIgnoresTimestampOnly(t *testing.T) {
 	}
 }
 
-// The Responses API nests an error event's details under "error", as a
-// quota failure shows: the code and message must reach the caller.
+// The Responses API nests an error event's details under "error", and a quota
+// failure shows that. The code and message must reach the caller.
 func TestResponsesErrorEventCarriesTheServerMessage(t *testing.T) {
 	ts := rawServer(t, nil, "text/event-stream", rsData(
 		`{"type":"error","error":{"type":"insufficient_quota","code":"credit_balance_exhausted","message":"You have no credits remaining.","param":null},"sequence_number":2}`))

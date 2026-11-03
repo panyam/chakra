@@ -56,8 +56,9 @@ func TestAgentPool_UnknownHandle(t *testing.T) {
 }
 
 func TestAgentPool_Cancel(t *testing.T) {
-	// blockingProvider's stream blocks until ctx is cancelled, so the spawned
-	// child cannot finish before Cancel — the status transition is deterministic.
+	// blockingProvider's stream blocks until ctx is cancelled. So the spawned
+	// child can't finish before Cancel, and the status transition is
+	// deterministic.
 	r, _ := NewRunner(RunnerConfig{Provider: blockingProvider{}})
 	pool := NewAgentPool(nil)
 	if err := pool.Register("slow", "blocks", r, 0); err != nil {
@@ -95,8 +96,8 @@ func TestAgentPool_Statuses(t *testing.T) {
 	}
 }
 
-// TestSpawnSource_Tools drives the meta-tools end to end: spawn_agent returns a
-// handle, await_agent returns the child's text.
+// TestSpawnSource_Tools drives the meta-tools end to end. spawn_agent returns a
+// handle, and await_agent returns the child's text.
 func TestSpawnSource_Tools(t *testing.T) {
 	pool := NewAgentPool(nil)
 	_ = pool.Register("worker", "does work", poolRunner(t, StubTurn{Text: "tool answer"}), 0)

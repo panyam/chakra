@@ -45,7 +45,7 @@ func guidedRun(t *testing.T, cfg RunnerConfig, req TurnRequest) (*TurnResult, er
 	return r.RunTurn(context.Background(), req)
 }
 
-// With no tools offered the grammar rides on every model call, and the turn
+// With no tools offered, every model call sends the grammar, and the turn
 // makes no extra call.
 func TestResponseGuidedWithoutToolsGuidesEveryStep(t *testing.T) {
 	stub := grammarStub{NewStubProvider(StubTurn{Text: "ans(x)"})}
@@ -59,8 +59,8 @@ func TestResponseGuidedWithoutToolsGuidesEveryStep(t *testing.T) {
 	}
 }
 
-// With tools offered, tool steps go unguided, and once the model answers
-// without a tool one guided call with no tools writes the answer. The guided
+// With tools offered, tool steps go unguided. When the model answers without a
+// tool, one guided call with no tools writes the answer. The guided
 // text replaces the free draft as the turn's answer and in its record.
 func TestResponseGuidedWithToolsFinalizesTheAnswer(t *testing.T) {
 	stub := grammarStub{NewStubProvider(callLook("c1"), StubTurn{Text: "the answer is x"}, StubTurn{Text: "ans(x)"})}
@@ -99,7 +99,7 @@ func TestResponseGuidedWithToolsFinalizesTheAnswer(t *testing.T) {
 	}
 }
 
-// A TurnEnd hook judges the guided answer and sees the draft beside it; a
+// A TurnEnd hook judges the guided answer and sees the draft beside it. A
 // refusal sends the model back, and its next answer is guided again.
 func TestResponseGuidedTurnEndJudgesTheGuidedAnswer(t *testing.T) {
 	stub := grammarStub{NewStubProvider(

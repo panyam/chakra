@@ -10,14 +10,14 @@ import (
 
 // Consensus runs one turn several times and votes on the answers
 // (self-consistency). Each draw is an independent RunTurn over the same
-// request, seeded by its index so a rerun repeats it; Key groups the answers,
-// and the most common key wins. The caller threads Winner.Messages into its
-// history; Consensus appends nothing.
+// request. It is seeded by its index, so a rerun repeats it. Key groups the
+// answers, and the most common key wins. The caller threads Winner.Messages
+// into its history. Consensus appends nothing.
 //
-// It is a bounded loop over one turn rather than orchestration (A8): every
-// draw is the same turn, and nothing is decided between draws. What to do
-// with a split vote (escalate to a bigger model, ask the user) is left to the
-// caller through ConsensusResult.Split.
+// It is a bounded loop over one turn, not orchestration (A8). Every draw is
+// the same turn, and nothing is decided between draws. A split vote might
+// call for escalating to a bigger model or asking the user. The caller
+// decides that through ConsensusResult.Split.
 type Consensus struct {
 	// Runner runs every draw. Required. Its provider decides whether draws
 	// are seeded (see ConsensusResult.Seeded), and its TreeBudget, when set,
@@ -28,36 +28,37 @@ type Consensus struct {
 	// answers don't count toward it.
 	Draws int
 
-	// Prior holds answers the caller already has, such as the one a turn
-	// already accepted, so the vote counts them without paying to redraw
-	// them. Each is keyed and counted like a draw that ran before draw 0:
-	// priors come first in ConsensusResult.Draws, unseeded, and win ties
-	// against fresh draws. Fresh draws keep seeds 0..Draws-1, so adding a
-	// prior doesn't change what they sample. A nil entry is a misconfigured
-	// Consensus.
+	// Prior holds answers the caller already has, such as an answer that a
+	// turn already accepted. The vote counts them without the cost of
+	// redrawing them. Each is keyed and counted like a draw that ran before
+	// draw 0. Priors come first in ConsensusResult.Draws, are unseeded, and
+	// win ties against fresh draws. Fresh draws keep seeds 0..Draws-1, so
+	// adding a prior doesn't change what they sample. A nil entry is a
+	// misconfigured Consensus.
 	Prior []*TurnResult
 
 	// Parallel bounds how many draws run at once. Values below 1 mean 1, so
-	// draws run in order by default. Running draws at once is faster but can
-	// cost reproducibility: on llama-server a seed only repeats its draw when
-	// the server has one slot and draws run one at a time, since a draw that
-	// lands on another slot's cache samples differently.
+	// draws run in order by default. Running draws at once is faster, but it
+	// can break reproducibility. Imagine llama-server with several slots. A
+	// draw that runs on another slot's cache samples differently. So a seed
+	// repeats its draw only when the server has one slot and draws run one
+	// at a time.
 	Parallel int
 
 	// Key groups a draw's answer with the others. ok=false refuses the
-	// answer (it didn't parse, it answered nothing), and a refused draw
-	// agrees with nothing. Required. Called once per finished draw, possibly
-	// from several goroutines when Parallel > 1.
+	// answer, for example because it didn't parse or answered nothing. A
+	// refused draw agrees with nothing. Required. It is called once per
+	// finished draw, possibly from several goroutines when Parallel > 1.
 	Key func(res *TurnResult) (key string, ok bool)
 
 	// Emit, when set, receives every draw's events wrapped with the draw's
-	// index. It is called from the draw's goroutine; with Parallel > 1 calls
+	// index. It is called from the draw's goroutine. With Parallel > 1, calls
 	// for different draws interleave but are never concurrent.
 	Emit func(DrawEvent)
 }
 
-// DrawEvent is one Runner event from one draw. The draw index travels on the
-// envelope rather than inside Event, which stays wire-serializable as is (A2).
+// DrawEvent is one Runner event from one draw. The draw index goes on the
+// envelope, not inside Event, so Event is still wire-serializable as is (A2).
 type DrawEvent struct {
 	// Draw is the draw's index, 0-based, which is also its seed when the
 	// draws are seeded.
@@ -78,7 +79,7 @@ type DrawResult struct {
 	// not OK agrees with nothing.
 	OK bool `json:"ok"`
 	// Err is why the draw failed, empty when it finished. A draw that never
-	// started because the vote stopped carries the stopping error.
+	// started because the vote stopped has the stopping error here.
 	Err string `json:"err,omitempty"`
 	// Prior says the answer came from Consensus.Prior rather than a draw
 	// this vote ran.
@@ -90,9 +91,9 @@ type ConsensusResult struct {
 	// Winner is the earliest draw with the winning key, nil when no draw was
 	// accepted.
 	Winner *TurnResult `json:"winner,omitempty"`
-	// WinnerKey is the key most accepted draws share. A tie goes to the key
-	// whose first draw came earliest, so a rerun with the same seeds picks
-	// the same winner.
+	// WinnerKey is the key shared by the most accepted draws. On a tie, the
+	// key with the earliest first draw wins. So a rerun with the same seeds
+	// picks the same winner.
 	WinnerKey string `json:"winnerKey,omitempty"`
 	// Agree is how many draws share WinnerKey.
 	Agree int `json:"agree"`
@@ -108,9 +109,9 @@ type ConsensusResult struct {
 	// draw was accepted.
 	Split bool `json:"split"`
 	// Seeded says each draw ran with its own seed. It is false when the
-	// provider takes no seed (CapabilitiesOf(provider).Seed), in which case
-	// agreement may only mean the draws were identical: at temperature 0
-	// unseeded draws agree by construction, so Agree is not a confidence.
+	// provider takes no seed (CapabilitiesOf(provider).Seed). Then agreement
+	// may only mean the draws were identical. At temperature 0, unseeded
+	// draws agree by construction, so Agree is not a confidence.
 	Seeded bool `json:"seeded"`
 	// Stopped is why the vote ended before every draw ran, nil when all of
 	// them ran. Today that is the tree budget (errors.Is ErrTreeBudget) or
@@ -122,11 +123,12 @@ type ConsensusResult struct {
 // draw, except that Generation.Seed is set to the draw's index when the
 // provider takes a seed, and Emit is replaced by c.Emit's envelope.
 //
-// A draw that fails with an ordinary error is recorded on its DrawResult and
-// the vote goes on. That includes a draw a turn-end hook stopped
-// (ErrTurnStopped): its refused answer is not a vote. A draw that hits the tree budget, or a cancelled ctx,
-// stops further draws, and Run returns the draws so far with Stopped set and
-// a nil error. Run returns an error only for a misconfigured Consensus.
+// A draw can fail with an ordinary error. Run records the error on its
+// DrawResult, and the vote goes on. A turn-end hook can also stop a draw
+// with ErrTurnStopped, and that counts as an ordinary error. Its refused
+// answer is not a vote. A draw that hits the tree budget or a cancelled ctx
+// stops further draws. Run then returns the draws so far, with Stopped set
+// and a nil error. Run returns an error only for a misconfigured Consensus.
 func (c *Consensus) Run(ctx context.Context, req TurnRequest) (*ConsensusResult, error) {
 	if c.Runner == nil || c.Key == nil {
 		return nil, fmt.Errorf("agent: Consensus requires Runner and Key")

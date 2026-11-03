@@ -6,9 +6,9 @@ import (
 )
 
 // TestMemoryStore_NamespaceIsolation runs the per-request Namespace contract
-// (issue 1003) against every in-process backend through the interface: a
-// namespace sees only its own notes, the default ("") namespace is separate, and
-// a delete never crosses namespaces.
+// (issue 1003) against every in-process backend through the interface. A
+// namespace sees only its own notes. The default ("") namespace is separate.
+// A delete never crosses namespaces.
 func TestMemoryStore_NamespaceIsolation(t *testing.T) {
 	sem, err := NewInMemorySemanticStore(StubEmbedder{})
 	if err != nil {

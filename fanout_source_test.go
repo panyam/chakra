@@ -9,9 +9,9 @@ import (
 	"time"
 )
 
-// fanBarrier releases all waiters only once n of them have arrived, so a test
-// can prove N members ran concurrently: if the fan-out were sequential, the
-// first member would block here forever and the test would time out.
+// fanBarrier releases all waiters only once n of them have arrived. So a test
+// can prove that N members ran concurrently. If the fan-out were sequential,
+// the first member would block here forever and the test would time out.
 type fanBarrier struct {
 	mu    sync.Mutex
 	count int
@@ -69,10 +69,10 @@ func mustMember(t *testing.T, name string, p Provider) *AgentSource {
 	return s
 }
 
-// TestFanOutRunsMembersConcurrently is the core guarantee: a fan-out dispatches
-// to all members at once. Each member blocks on a shared 3-way barrier, so the
-// call returns only if all three ran concurrently; a sequential implementation
-// would deadlock here.
+// TestFanOutRunsMembersConcurrently covers the core guarantee. A fan-out
+// dispatches to all members at once. Each member blocks on a shared 3-way
+// barrier, so the call returns only if all three ran concurrently. A
+// sequential implementation would deadlock here.
 func TestFanOutRunsMembersConcurrently(t *testing.T) {
 	bar := newFanBarrier(3)
 	members := []*AgentSource{
@@ -102,8 +102,8 @@ func TestFanOutRunsMembersConcurrently(t *testing.T) {
 	}
 }
 
-// TestFanOutAggregatesInMemberOrder asserts the combined result is ordered by
-// member config order even though members run concurrently.
+// TestFanOutAggregatesInMemberOrder asserts that member config order decides
+// the order of the combined result, even though members run concurrently.
 func TestFanOutAggregatesInMemberOrder(t *testing.T) {
 	bar := newFanBarrier(3)
 	fo, err := NewFanOutSource(FanOutConfig{Name: "team", Members: []*AgentSource{
@@ -125,7 +125,7 @@ func TestFanOutAggregatesInMemberOrder(t *testing.T) {
 	}
 }
 
-// errProvider fails every call, so its AgentSource surfaces an IsError result.
+// errProvider fails every call, so its AgentSource returns an IsError result.
 type errProvider struct{}
 
 func (errProvider) Stream(context.Context, ProviderRequest) (Stream, error) {
@@ -135,9 +135,9 @@ func (errProvider) Generate(context.Context, ProviderRequest) (*ProviderResponse
 	return nil, errors.New("boom")
 }
 
-// TestFanOutIsolatesMemberFailure asserts one member failing does not abort the
-// others: the fan-out returns, the failed member's section is marked, and the
-// healthy members' answers are present.
+// TestFanOutIsolatesMemberFailure asserts that when one member fails, the
+// others still run. The fan-out returns, the failed member's section is
+// marked, and the healthy members' answers are present.
 func TestFanOutIsolatesMemberFailure(t *testing.T) {
 	fo, err := NewFanOutSource(FanOutConfig{Name: "team", Members: []*AgentSource{
 		mustMember(t, "ok1", NewStubProvider(StubTurn{Text: "one"})),
@@ -163,8 +163,9 @@ func TestFanOutIsolatesMemberFailure(t *testing.T) {
 	}
 }
 
-// TestFanOutRespectsCallBudget asserts the shared ctx-threaded budget bounds the
-// fan-out: with a budget of 2 and 3 members, exactly two run and one is refused.
+// TestFanOutRespectsCallBudget asserts that the shared ctx-threaded budget
+// bounds the fan-out. With a budget of 2 and 3 members, exactly two run and
+// one is refused.
 func TestFanOutRespectsCallBudget(t *testing.T) {
 	fo, err := NewFanOutSource(FanOutConfig{Name: "team", Members: []*AgentSource{
 		mustMember(t, "a", NewStubProvider(StubTurn{Text: "ra"})),

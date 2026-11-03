@@ -12,11 +12,11 @@ import (
 )
 
 // TestLlamaCppServerHonorsSeedAndGuided runs NewLlamaCppProvider against a real
-// llama-server, which is the only way to see a grammar actually constrain a
-// model. Any model works since the constraint is what's tested; jaala keeps a
-// 1 MB one. Start it with one slot (-np 1): with several, the same seed can
-// draw differently from run to run (see NOTES.md on Consensus), which would
-// make the seed check below flaky.
+// llama-server. Only a real server shows a grammar actually constraining a
+// model. Any model works, since the test checks the constraint, and jaala
+// keeps a 1 MB one. Start the server with one slot (-np 1). With several
+// slots, the same seed can draw differently from run to run (see NOTES.md on
+// Consensus), and the seed check below would be flaky.
 //
 //	llama-server -m stories260K.gguf --port 18089 --chat-template chatml -np 1
 //	CHAKRA_LLAMACPP_URL=http://127.0.0.1:18089/v1 go test -run LlamaCppServer -v .
@@ -129,11 +129,12 @@ func TestLlamaCppServerHonorsSeedAndGuided(t *testing.T) {
 	})
 }
 
-// TestLlamaCppRunnerGuidedAnswerWithTools runs a Runner turn that offers a
-// tool and holds its answer to a GBNF grammar against a real llama-server,
-// the shape jaala's translator needs: tools while the model works, the
-// grammar on the answer. The control runs the same turns without the grammar
-// and shows the model leaving it, so the grammar keeps the answer in.
+// TestLlamaCppRunnerGuidedAnswerWithTools runs a Runner turn against a real
+// llama-server. The turn offers a tool and holds its answer to a GBNF
+// grammar. jaala's translator needs this shape, with tools while the model
+// works and the grammar on the answer. The control runs the same turns
+// without the grammar, and the model's answer leaves the grammar. So the
+// grammar keeps the answer inside it.
 func TestLlamaCppRunnerGuidedAnswerWithTools(t *testing.T) {
 	url := os.Getenv("CHAKRA_LLAMACPP_URL")
 	if url == "" {
@@ -192,8 +193,8 @@ func TestLlamaCppRunnerGuidedAnswerWithTools(t *testing.T) {
 	}
 }
 
-// recordingProvider passes calls through to Provider and keeps each request,
-// reporting the wrapped provider's capabilities.
+// recordingProvider passes calls through to Provider and keeps each request.
+// It reports the wrapped provider's capabilities.
 type recordingProvider struct {
 	Provider
 	seen *[]ProviderRequest

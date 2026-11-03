@@ -23,7 +23,7 @@ func TestSanitizeToolName(t *testing.T) {
 			t.Errorf("sanitizeToolName(%q) = %q, want %q", in, got, want)
 		}
 	}
-	// over-length names are capped at 64 and stay valid
+	// over-length names are capped at 64 and are still valid
 	if got := sanitizeToolName(strings.Repeat("a", 80)); len(got) != 64 || !validProviderToolName.MatchString(got) {
 		t.Errorf("long name = %q (len %d), want 64 valid chars", got, len(got))
 	}
@@ -56,8 +56,9 @@ func TestToolNameMaps_RoundTripAndCollisions(t *testing.T) {
 
 func TestRealAndSafeToolNameFallbacks(t *testing.T) {
 	realToSafe, safeToReal := toolNameMaps([]core.ToolDef{{Name: "foo.bar"}})
-	// a name not in the current tool set (history for a dropped tool) still
-	// serializes to a valid name, though it will not reverse
+	// history can name a dropped tool that is missing from the current tool
+	// set. That name still serializes to a valid name, though it will not
+	// reverse
 	if got := safeToolName(realToSafe, "gone.tool"); got != "gone_tool" {
 		t.Errorf("fallback safe name = %q, want gone_tool", got)
 	}

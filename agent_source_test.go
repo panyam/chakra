@@ -42,7 +42,7 @@ func TestAgentSource_DelegatesAndIsolates(t *testing.T) {
 		t.Fatalf("call = %+v, want the child's final text", res)
 	}
 
-	// isolation: the child saw ONLY the task, not any parent history
+	// the child is isolated and saw ONLY the task, not any parent history
 	got := childStub.Requests()[0].Messages
 	if len(got) != 1 || got[0].Role != RoleUser || got[0].Text != "find the answer" {
 		t.Fatalf("child history = %+v, want just the task (isolated)", got)
@@ -50,8 +50,8 @@ func TestAgentSource_DelegatesAndIsolates(t *testing.T) {
 }
 
 // TestAgentSource_Supervision drives a coordinator Runner whose tools are a
-// MultiSource of two AgentSources — the "supervision falls out for free"
-// claim, no new code.
+// MultiSource of two AgentSources. It checks the claim that supervision comes
+// for free, with no new code.
 func TestAgentSource_Supervision(t *testing.T) {
 	ctx := context.Background()
 	calc, _ := NewAgentSource(AgentSourceConfig{
@@ -135,7 +135,7 @@ func TestAgentSource_EventNesting(t *testing.T) {
 	if len(got) == 0 {
 		t.Fatal("no sub-agent events forwarded")
 	}
-	// every forwarded event carries scope + depth on the envelope (Event stays flat)
+	// every forwarded event has scope + depth on the envelope, and Event itself is still flat
 	for _, ev := range got {
 		if ev.Scope != "worker" || ev.Depth != 1 {
 			t.Fatalf("envelope scope/depth = %q/%d, want worker/1", ev.Scope, ev.Depth)
@@ -146,9 +146,9 @@ func TestAgentSource_EventNesting(t *testing.T) {
 	}
 }
 
-// TestAgentSource_NestedEventScope proves scopes compose down a tree: a
-// sub-agent that spawns another sub-agent yields depth-2 events tagged with
-// the joined path, all reaching one shared sink.
+// TestAgentSource_NestedEventScope proves scopes compose down a tree. A
+// sub-agent spawns another sub-agent. That yields depth-2 events tagged with
+// the joined path, and all the events reach one shared sink.
 func TestAgentSource_NestedEventScope(t *testing.T) {
 	var mu sync.Mutex
 	var got []SubAgentEvent
@@ -203,9 +203,9 @@ func TestAgentSource_MissingTaskAndValidation(t *testing.T) {
 	}
 }
 
-// TestAgentSource_TypedInput covers structured input (1033): with an InputSchema
-// set, the tool advertises that schema and the child is seeded with the raw
-// typed arguments JSON as its user turn, not the {task} string.
+// TestAgentSource_TypedInput covers structured input (1033). With an
+// InputSchema set, the tool advertises that schema. The child is seeded with
+// the raw typed arguments JSON as its user turn, not the {task} string.
 func TestAgentSource_TypedInput(t *testing.T) {
 	ctx := context.Background()
 	childStub := NewStubProvider(StubTurn{Text: "done"})
@@ -235,11 +235,11 @@ func TestAgentSource_TypedInput(t *testing.T) {
 	}
 }
 
-// TestAgentSource_ZeroInputSchemaIsAbsent pins the boundary the core.RawJSON
-// change moved (#35). Presence used to be `InputSchema == nil`; on a struct
-// type that test cannot be written, so it is now Len() == 0. An unset field
-// must still mean the default {task} schema rather than an empty typed one,
-// which would advertise a schema no caller can satisfy.
+// TestAgentSource_ZeroInputSchemaIsAbsent pins a boundary that moved in the
+// core.RawJSON change (#35). Presence used to be `InputSchema == nil`. A struct
+// type can't be tested that way, so presence is now Len() == 0. An unset field
+// must still mean the default {task} schema. An empty typed schema would
+// advertise a schema that no caller can satisfy.
 func TestAgentSource_ZeroInputSchemaIsAbsent(t *testing.T) {
 	ctx := context.Background()
 	child, _ := NewRunner(RunnerConfig{Provider: NewStubProvider(StubTurn{Text: "done"})})
@@ -256,8 +256,9 @@ func TestAgentSource_ZeroInputSchemaIsAbsent(t *testing.T) {
 	}
 }
 
-// TestAgentSource_StructuredOutput covers structured output (1033): a child whose
-// Runner has a ResponseSchema returns its coerced JSON from Call, not the text.
+// TestAgentSource_StructuredOutput covers structured output (1033). When a
+// child's Runner has a ResponseSchema, Call returns the child's coerced JSON
+// instead of the text.
 func TestAgentSource_StructuredOutput(t *testing.T) {
 	ctx := context.Background()
 	schema := core.NewRawJSON(json.RawMessage(`{"type":"object","properties":{"score":{"type":"integer"}},"required":["score"]}`))
