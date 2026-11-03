@@ -52,6 +52,14 @@ type OpenAIConfig struct {
 	// Capabilities.Temperature to false so a caller holding only the Provider
 	// knows not to send one. A Temperature on the request is still forwarded.
 	NoTemperature bool
+
+	// NoResponseSchema says the endpoint refuses response_format json_schema
+	// but takes json_object, as DeepSeek does (#215). A ResponseSchema then
+	// goes out as json_object, and the schema itself is appended to the system
+	// message, since json_object carries none. The endpoint no longer enforces
+	// the schema, so the Runner's validate-and-retry in the structured
+	// finalize is what holds the reply to it.
+	NoResponseSchema bool
 }
 
 // GuidedDialect selects how OpenAIProvider encodes ProviderRequest.Guided.
@@ -284,8 +292,17 @@ func (p *OpenAIProvider) post(ctx context.Context, body map[string]any) (*http.R
 func (p *OpenAIProvider) buildBody(req ProviderRequest, stream bool) map[string]any {
 	realToSafe, _ := toolNameMaps(req.Tools)
 	msgs := make([]map[string]any, 0, len(req.Messages)+1)
-	if req.Instructions != "" {
-		msgs = append(msgs, map[string]any{"role": "system", "content": req.Instructions})
+	instructions := req.Instructions
+	jsonObject := !stream && p.cfg.NoResponseSchema && req.ResponseSchema.Len() > 0
+	if jsonObject {
+		note := "Reply with only a JSON document that matches this JSON schema:\n" + string(req.ResponseSchema.Raw())
+		if instructions != "" {
+			note = instructions + "\n\n" + note
+		}
+		instructions = note
+	}
+	if instructions != "" {
+		msgs = append(msgs, map[string]any{"role": "system", "content": instructions})
 	}
 	for _, m := range req.Messages {
 		entry := map[string]any{"role": string(m.Role)}
@@ -359,6 +376,8 @@ func (p *OpenAIProvider) buildBody(req ProviderRequest, stream bool) map[string]
 	if stream {
 		body["stream"] = true
 		body["stream_options"] = map[string]any{"include_usage": true}
+	} else if jsonObject {
+		body["response_format"] = map[string]any{"type": "json_object"}
 	} else if req.ResponseSchema.Len() > 0 {
 		var schema any
 		if req.ResponseSchema.Bind(&schema) == nil {

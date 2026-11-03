@@ -385,3 +385,43 @@ func TestOpenAIStreamSpecConformantSSE(t *testing.T) {
 		t.Fatalf("res = %+v", res)
 	}
 }
+
+// DeepSeek refuses response_format json_schema with a 400 but takes
+// json_object, which carries no schema, so the schema rides in the
+// instructions instead (#215).
+func TestOpenAIGenerateStructuredNoResponseSchema(t *testing.T) {
+	var captured []byte
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		captured, _ = io.ReadAll(r.Body)
+		fmt.Fprint(w, `{"choices":[{"message":{"content":"{\"name\":\"trip\"}"},"finish_reason":"stop"}]}`)
+	}))
+	defer ts.Close()
+
+	p, err := NewOpenAIProvider(OpenAIConfig{BaseURL: ts.URL, Model: "m", NoResponseSchema: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema := `{"type":"object","properties":{"name":{"type":"string"}}}`
+	if _, err := p.Generate(context.Background(), ProviderRequest{
+		Instructions:   "be brief",
+		Messages:       []Message{{Role: RoleUser, Text: "name it"}},
+		ResponseSchema: core.NewRawJSON(json.RawMessage(schema)),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var req struct {
+		ResponseFormat map[string]any   `json:"response_format"`
+		Messages       []map[string]any `json:"messages"`
+	}
+	json.Unmarshal(captured, &req)
+	if len(req.ResponseFormat) != 1 || req.ResponseFormat["type"] != "json_object" {
+		t.Fatalf("response_format = %v, want only type json_object", req.ResponseFormat)
+	}
+	sys, _ := req.Messages[0]["content"].(string)
+	if req.Messages[0]["role"] != "system" || !strings.HasPrefix(sys, "be brief") || !strings.Contains(sys, schema) || !strings.Contains(sys, "JSON") {
+		t.Fatalf("system message = %q, want the instructions followed by the schema", sys)
+	}
+	if len(req.Messages) != 2 {
+		t.Fatalf("messages = %v, want the system message and the user's", req.Messages)
+	}
+}

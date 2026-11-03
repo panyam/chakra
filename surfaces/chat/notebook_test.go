@@ -529,3 +529,29 @@ func TestNotebookEnterDuringATurnSteersIt(t *testing.T) {
 		t.Errorf("last cell = %+v", last)
 	}
 }
+
+// A routed step's line is its own collapsed verbatim cell, so the dim ANSI
+// never reaches the glamoured prose before it (#215).
+func TestNBObserver_StepLineIsCollapsedVerbatimCell(t *testing.T) {
+	cells := nbCollectCells(
+		runnerEv(agent.Event{Kind: agent.EventTextDelta, Text: "first look"}),
+		runnerEv(agent.Event{Kind: agent.EventStep, Step: 1, Model: "mini"}),
+		runnerEv(agent.Event{Kind: agent.EventTextDelta, Text: "the answer"}),
+		turnDoneEv(),
+	)
+	var step *nbCell
+	for i := range cells {
+		if cells[i].label == "step" {
+			step = &cells[i]
+		}
+		if cells[i].label == "assistant" && strings.Contains(cells[i].body, "step 1") {
+			t.Fatalf("step line leaked into an assistant cell: %q", cells[i].body)
+		}
+	}
+	if step == nil || !strings.Contains(step.body, "↳ step 1 on mini") || step.rendered != "" || !step.collapsed {
+		t.Fatalf("want a collapsed verbatim step cell, got %+v in %+v", step, cells)
+	}
+	if cells[0].label != "assistant" || !strings.Contains(cells[0].body, "first look") {
+		t.Fatalf("the prose before the step should close as its own cell first, got %+v", cells)
+	}
+}

@@ -138,6 +138,14 @@ type ConnectionConfig struct {
 	// answer doesn't vary by model. It changes what the provider reports, not
 	// what it sends.
 	Temperature *bool `json:"temperature,omitempty"`
+
+	// ResponseSchema overrides whether this connection's endpoint takes
+	// response_format json_schema, which a ResponseSchema (the structured
+	// finalize) sends. Nil means it does. Set false for DeepSeek, which
+	// answers 400 to json_schema: the schema then goes in the system message
+	// and the request asks for json_object (agent.OpenAIConfig.NoResponseSchema).
+	// Read only by the OpenAI-wire types other than "llamacpp" and "ollama".
+	ResponseSchema *bool `json:"responseSchema,omitempty"`
 }
 
 // ThinkingHint delimits a model's inline reasoning. An empty OpenTag
@@ -219,10 +227,11 @@ func buildProvider(conn ConnectionConfig, onFullHistory func(reason string)) (ag
 		p, err = agent.NewOllamaProvider(agent.OllamaConfig{BaseURL: base, Model: conn.Model, APIKey: key})
 	default:
 		p, err = agent.NewOpenAIProvider(agent.OpenAIConfig{
-			BaseURL:       base,
-			Model:         conn.Model,
-			APIKey:        key,
-			NoTemperature: conn.Temperature != nil && !*conn.Temperature,
+			BaseURL:          base,
+			Model:            conn.Model,
+			APIKey:           key,
+			NoTemperature:    conn.Temperature != nil && !*conn.Temperature,
+			NoResponseSchema: conn.ResponseSchema != nil && !*conn.ResponseSchema,
 		})
 	}
 	if err != nil {

@@ -98,6 +98,11 @@ func (r *renderer) handle(e agent.Event) {
 		for _, l := range strings.Split(strings.TrimRight(e.Plan.String(), "\n"), "\n") {
 			fmt.Fprintf(r.out, "%s\n", r.dim("  "+l))
 		}
+	case agent.EventStep:
+		// Sent only when a step route labelled the call, so an unrouted turn
+		// prints none of these.
+		r.breakLine()
+		fmt.Fprintf(r.out, "%s\n", r.dim(fmt.Sprintf("↳ step %d on %s", e.Step, e.Model)))
 	case agent.EventTurnContinued:
 		r.breakLine()
 		fmt.Fprintf(r.out, "%s\n", r.dim("  ↻ not done yet: "+snippet(e.Reason, 120)))

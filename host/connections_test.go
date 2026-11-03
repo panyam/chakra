@@ -3,10 +3,14 @@ package host
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/panyam/chakra"
+	"github.com/panyam/mcpkit/core"
 )
 
 func twoConn() *ConnectionsConfig {
@@ -378,5 +382,48 @@ func TestLocalConnectionsReportWhatTheyCanSend(t *testing.T) {
 	c.Connections["bare"] = ConnectionConfig{Type: "openai"}
 	if _, err := NewConnectionRegistry(&c, nil); err == nil || !strings.Contains(err.Error(), "has no model") {
 		t.Errorf("control: an openai connection without a model: %v", err)
+	}
+}
+
+// "responseSchema": false on a connection is what lets the structured
+// finalize run on DeepSeek (#215): the built provider asks for json_object
+// rather than json_schema. control: a connection without it still sends
+// json_schema.
+func TestConnectionResponseSchemaFalseSendsJSONObject(t *testing.T) {
+	var format string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			ResponseFormat struct {
+				Type string `json:"type"`
+			} `json:"response_format"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		format = body.ResponseFormat.Type
+		fmt.Fprint(w, `{"choices":[{"message":{"content":"{}"},"finish_reason":"stop"}]}`)
+	}))
+	defer ts.Close()
+
+	for _, tc := range []struct{ conn, want string }{
+		{`{"baseUrl": "` + ts.URL + `", "model": "deepseek-chat", "responseSchema": false}`, "json_object"},
+		{`{"baseUrl": "` + ts.URL + `", "model": "gpt-4.1-mini"}`, "json_schema"},
+	} {
+		var conn ConnectionConfig
+		if err := json.Unmarshal([]byte(tc.conn), &conn); err != nil {
+			t.Fatal(err)
+		}
+		p, err := DefaultProviderBuilder(conn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		format = ""
+		if _, err := p.Generate(context.Background(), agent.ProviderRequest{
+			Messages:       []agent.Message{{Role: agent.RoleUser, Text: "hi"}},
+			ResponseSchema: core.NewRawJSON(json.RawMessage(`{"type":"object"}`)),
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if format != tc.want {
+			t.Errorf("%s sent response_format %q, want %q", tc.conn, format, tc.want)
+		}
 	}
 }
