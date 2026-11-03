@@ -295,7 +295,9 @@ type TurnResult struct {
 	// steps a StepStage named or routed (#185). Nil when no stage named any
 	// step, so a single-provider turn reads exactly as before. Steps no stage
 	// named are counted under "". The finalizing call of a structured or
-	// guided turn runs on RunnerConfig.Provider and is counted under "" too.
+	// guided turn runs on RunnerConfig.Provider, so it is counted under the
+	// name a stage last gave a step it left on that provider (a route's
+	// default label, #225), or under "" when no stage named one.
 	// Like Usage, it leaves out sub-agents.
 	UsageByModel map[string]Usage `json:"usageByModel,omitempty"`
 
@@ -498,6 +500,10 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 	var added []Message
 	var usage Usage
 	byModel := usageByModel{}
+	// defaultName is the name a stage last gave a step it left on
+	// RunnerConfig.Provider. The finalizing calls run there, so they count
+	// under it.
+	defaultName := ""
 
 	for step := 1; step <= r.cfg.MaxSteps; step++ {
 		// Aggregate tree budget: charge one step (and reject if prior steps
@@ -541,6 +547,9 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 			stepReq.Guided = guided
 		}
 		prov := r.cfg.Provider
+		if view.Provider == nil && view.ProviderName != "" {
+			defaultName = view.ProviderName
+		}
 		if view.Provider != nil {
 			prov = view.Provider
 			if stepGuided && !CapabilitiesOf(prov).CanGuide(guided) {
@@ -586,7 +595,7 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 				// what came before it.
 				before := usage
 				text, err := r.finalizeGuided(ctx, turnInstructions, msgs[:len(msgs)-1], &usage, gen, guided)
-				byModel.addDelta(before, usage)
+				byModel.addDelta(defaultName, before, usage)
 				if err != nil {
 					stepSpan.RecordError(err)
 					stepSpan.End()
@@ -602,7 +611,7 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 			if compiled != nil {
 				before := usage
 				s, invalid, err := r.finalizeStructured(ctx, turnInstructions, msgs, &usage, gen, schema, compiled)
-				byModel.addDelta(before, usage)
+				byModel.addDelta(defaultName, before, usage)
 				if err != nil {
 					stepSpan.RecordError(err)
 					stepSpan.End()
@@ -750,10 +759,10 @@ func (m usageByModel) add(name string, u *Usage) {
 	m[name] = t
 }
 
-// addDelta credits what a finalizing call added to the turn's usage to the
-// configured provider, since that provider makes the call.
-func (m usageByModel) addDelta(before, after Usage) {
-	m.add("", &Usage{
+// addDelta credits what a finalizing call added to the turn's usage to name,
+// the configured provider's label, since that provider makes the call.
+func (m usageByModel) addDelta(name string, before, after Usage) {
+	m.add(name, &Usage{
 		InputTokens:       after.InputTokens - before.InputTokens,
 		OutputTokens:      after.OutputTokens - before.OutputTokens,
 		CachedInputTokens: after.CachedInputTokens - before.CachedInputTokens,
