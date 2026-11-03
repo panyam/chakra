@@ -11,7 +11,7 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// TestLlamaCppServerHonorsSeedAndGuided runs OpenAIProvider against a real
+// TestLlamaCppServerHonorsSeedAndGuided runs NewLlamaCppProvider against a real
 // llama-server, which is the only way to see a grammar actually constrain a
 // model. Any model works since the constraint is what's tested; jaala keeps a
 // 1 MB one:
@@ -23,14 +23,12 @@ func TestLlamaCppServerHonorsSeedAndGuided(t *testing.T) {
 	if url == "" {
 		t.Skip("CHAKRA_LLAMACPP_URL is not set")
 	}
-	p, err := NewOpenAIProvider(OpenAIConfig{
-		BaseURL:       url,
-		Model:         "any",
-		GuidedDialect: GuidedDialectLlamaCpp,
-		ExtraBody:     map[string]any{"cache_prompt": true},
-	})
+	p, err := NewLlamaCppProvider(LlamaCppConfig{BaseURL: url})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if c := CapabilitiesOf(p); !c.Seed || !c.CanGuide(&GuidedDecoding{Grammar: "g"}) {
+		t.Fatalf("the preset reports %+v, want grammar and seed", c)
 	}
 	ctx := context.Background()
 	ask := func(seed int, g GuidedDecoding) (string, error) {
