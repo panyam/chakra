@@ -113,7 +113,8 @@ func (t *PlanTool) Tools(context.Context) ([]core.ToolDef, error) {
 		Name:        PlanToolName,
 		Title:       "Update the plan",
 		Annotations: map[string]any{"readOnlyHint": true},
-		Description: "Publish your plan for a task with several steps, as a short checklist the user can follow, and update it as you go: mark a step in_progress when you start it and completed when it's done, with at most one in_progress. Send the whole plan each time. Skip it for a task you can finish in one or two steps.",
+		Description: "Publish a short checklist of your plan, for the user to follow, when a task has several distinct steps. Skip it when the task is a quick fix or you can see the whole job from where you are. " +
+			"Update it only when a step's status changes, not after each action. Send the whole plan each time, with at most one step in_progress.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{

@@ -269,7 +269,6 @@ func (r *runResult) writeJSONL(w io.Writer) error {
 	return nil
 }
 
-// copyTree copies the fixture into dst.
 // commitFixture makes the copied fixture a git repository with everything
 // committed, as a real checkout would be, so ext/git can run and the agent's
 // fix is the uncommitted change /review looks at.
@@ -286,6 +285,7 @@ func commitFixture(root string) error {
 	return nil
 }
 
+// copyTree copies the fixture into dst.
 func copyTree(src, dst string) error {
 	return filepath.WalkDir(src, func(path string, d os.DirEntry, err error) error {
 		if err != nil {

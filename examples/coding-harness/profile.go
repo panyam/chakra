@@ -154,10 +154,15 @@ type recordedRequest struct {
 	SystemTexts []string
 	// UserTexts is every user message in the request, in order.
 	UserTexts []string
+	// Tools names the tools the request offered.
+	Tools []string
 }
 
 func (r *recorder) add(req agent.ProviderRequest) {
 	rr := recordedRequest{Instructions: req.Instructions}
+	for _, d := range req.Tools {
+		rr.Tools = append(rr.Tools, d.Name)
+	}
 	for _, m := range req.Messages {
 		switch m.Role {
 		case agent.RoleUser:
