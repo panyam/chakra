@@ -107,6 +107,15 @@ type WorkspaceConfig struct {
 
 	// NoInstructions skips the instruction files altogether.
 	NoInstructions bool
+
+	// SkillDirs are the folders local skills come from (see
+	// WorkspaceSkillDirs). Nil uses SkillsPreset's list; an empty, non-nil
+	// list reads none.
+	SkillDirs []string
+
+	// SkillsPreset names the starting list when SkillDirs is nil: "chakra"
+	// (the default), "codex" or "claude". See SkillPresets.
+	SkillsPreset string
 }
 
 // WorkspaceExtensions builds the file and checkpoint extensions for cfg, plus

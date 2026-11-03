@@ -147,6 +147,30 @@ re-reads its skills, and the next load asks again. A skill whose files are
 `"dynamic"` is asked about every time. See the `SkillsMode` godoc in
 `config.go`.
 
+### Skills from local folders
+
+`Config.SkillDirs` (or `WithSkillDirs`) adds folders of skills, each in
+`<folder>/<name>/SKILL.md`, to the same catalog. Each folder has a label that
+plays the part of a server id: it names the source in the catalog, it is what
+`load_skill`'s `server` argument takes when two sources share a skill name, and
+it can't equal a configured server's id.
+
+- A skill whose frontmatter is malformed (no description, a name that isn't
+  hyphen-case or doesn't match its folder) is skipped with a `skill-skipped`
+  event, and the rest of the folder loads. A folder that doesn't exist is
+  skipped quietly.
+- Every file in a skill is listed with a `sha256:` digest, as a server would
+  list it, so a remembered approval covers exactly those files. An edited
+  SKILL.md is refused when loaded, the folder is re-read, and the next load
+  asks again.
+- A folder marked `Own` is introduced as the user's own. Any other folder is
+  repository content, followed for work there and ranked below the host's
+  instructions.
+- `allowed-tools` frontmatter is shown in the catalog and grants nothing yet
+  (#187).
+
+Surfaces fill these in from the workspace; see `surfaces.WorkspaceSkillDirs`.
+
 A server's own `instructions` (from its initialize result) go into the system
 prompt too, in their own section between `Config.Instructions` and the skill
 blocks, in config order. Each carries the same untrusted-origin header as a

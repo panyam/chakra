@@ -139,6 +139,22 @@ Unknown fields are an error, so a misspelt `readOnly` fails at startup instead
 of quietly making a command ask (or not ask). `examples/dogfood/workspace.json`
 is a working file for this repo.
 
+### Skills from the workspace
+
+With `--workspace`, skills in `<folder>/<name>/SKILL.md` join the skill catalog
+beside any MCP server's. By default the folders are `.agents/skills` and
+`.claude/skills` in each workspace root, plus `~/.agents/skills`. The workspace
+file changes that:
+
+```json
+{"skills": {"dirs": [".agents/skills", "~/my-skills"]}}
+```
+
+`dirs` replaces the defaults (an empty list reads none). `preset` picks a
+different starting list instead: `codex` (`.agents/skills`, `~/.agents/skills`)
+or `claude` (`.claude/skills`, `~/.claude/skills`). A relative folder is read
+under every workspace root.
+
 ## Headless runs (`agentchat exec`)
 
 `exec` runs one task without a terminal UI and exits, for CI jobs and scripts. It takes every

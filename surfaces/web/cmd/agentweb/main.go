@@ -233,10 +233,15 @@ func buildApp(o appOptions) (*host.App, error) {
 		if err != nil {
 			return nil, err
 		}
-		if len(wsExts) > 0 {
-			return append(storeOpt, host.WithExtension(wsExts...)), nil
+		skillDirs, err := agentsurfaces.WorkspaceSkillDirs(wsCfg)
+		if err != nil {
+			return nil, err
 		}
-		return storeOpt, nil
+		opts := append(storeOpt, host.WithSkillDirs(skillDirs...))
+		if len(wsExts) > 0 {
+			opts = append(opts, host.WithExtension(wsExts...))
+		}
+		return opts, nil
 	}
 	if o.demo {
 		// Wire two delegate personas + a low offload threshold so a demo turn

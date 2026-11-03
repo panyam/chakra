@@ -36,6 +36,18 @@ type WorkspaceFile struct {
 	//
 	//	"instructions": {"preset": "codex", "maxBytes": 65536}
 	Instructions json.RawMessage `json:"instructions,omitempty"`
+
+	// Skills picks the folders local skills come from: a preset ("chakra",
+	// "codex" or "claude") and/or a dirs list, which replaces the preset's.
+	//
+	//	"skills": {"dirs": [".agents/skills", "~/my-skills"]}
+	Skills *SkillsFile `json:"skills,omitempty"`
+}
+
+// SkillsFile is the workspace file's skills section.
+type SkillsFile struct {
+	Preset string   `json:"preset,omitempty"`
+	Dirs   []string `json:"dirs,omitempty"`
 }
 
 // instructionsFile is the decoded form of WorkspaceFile.Instructions.
@@ -213,6 +225,15 @@ func (f *WorkspaceFile) Apply(cfg *WorkspaceConfig) error {
 			return err
 		}
 		cfg.Instructions, cfg.NoInstructions = p, off
+	}
+	if f.Skills != nil {
+		if _, err := SkillFolders(f.Skills.Preset, f.Skills.Dirs); err != nil {
+			return err
+		}
+		cfg.SkillsPreset = f.Skills.Preset
+		if f.Skills.Dirs != nil {
+			cfg.SkillDirs = f.Skills.Dirs
+		}
 	}
 	for _, ls := range f.LanguageServers {
 		cfg.LanguageServers = append(cfg.LanguageServers, lsp.ServerSpec{
