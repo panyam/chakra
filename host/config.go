@@ -604,8 +604,45 @@ type ServerConfig struct {
 	// names). Must not contain underscores.
 	ID string `json:"id"`
 
-	// URL is the MCP endpoint (streamable HTTP).
-	URL string `json:"url"`
+	// URL is the MCP endpoint (streamable HTTP). Set exactly one of URL and
+	// Command.
+	URL string `json:"url,omitempty"`
+
+	// Command launches the server as a subprocess that speaks MCP on stdin
+	// and stdout, the shape .mcp.json files use. The client's stdio transport
+	// owns the process (A12's sanctioned exception): it starts when the server
+	// connects, is replaced by a fresh one on the call after a crash, and ends
+	// when the App closes. The name resolves against the agent's PATH. Set
+	// exactly one of URL and Command.
+	Command string `json:"command,omitempty"`
+
+	// Args are Command's arguments.
+	Args []string `json:"args,omitempty"`
+
+	// Dir is Command's working directory, relative to the agent's own when
+	// not absolute. Empty means the agent's.
+	Dir string `json:"dir,omitempty"`
+
+	// Env sets variables for Command. The child starts from an empty
+	// environment rather than the agent's, so it sees only PATH and HOME
+	// (copied from the agent, since launchers like npx and uvx need them),
+	// the names in EnvPass, and these. A key here wins over a passed one.
+	Env map[string]string `json:"env,omitempty"`
+
+	// EnvPass names variables copied from the agent's environment into
+	// Command's, for a server that needs a key the agent already holds. A name
+	// the agent doesn't have is skipped.
+	EnvPass []string `json:"envPass,omitempty"`
+
+	// StartupTimeoutSec bounds how long Command gets to start and answer
+	// initialize, after which the server is failed and retried in the
+	// background like an unreachable URL. Zero means the client's default
+	// (30 seconds for a command).
+	StartupTimeoutSec int `json:"startupTimeoutSec,omitempty"`
+
+	// CallTimeoutSec, when positive, ends any one tool call on this server
+	// after that many seconds with an error. It applies to URL servers too.
+	CallTimeoutSec int `json:"callTimeoutSec,omitempty"`
 
 	// Auth configures how to authenticate to this server. Nil means
 	// unauthenticated.
@@ -836,8 +873,18 @@ func (c *Config) Validate() error {
 	}
 	seen := map[string]bool{}
 	for i, s := range c.Servers {
-		if s.ID == "" || s.URL == "" {
-			return fmt.Errorf("servers[%d]: id and url are required", i)
+		if s.ID == "" {
+			return fmt.Errorf("servers[%d]: id is required", i)
+		}
+		switch {
+		case s.URL == "" && s.Command == "":
+			return fmt.Errorf("servers[%d] (%s): set url or command", i, s.ID)
+		case s.URL != "" && s.Command != "":
+			return fmt.Errorf("servers[%d] (%s): set url or command, not both", i, s.ID)
+		case s.Command != "" && s.Auth != nil:
+			return fmt.Errorf("servers[%d] (%s): auth applies to a url server, not a command", i, s.ID)
+		case s.URL != "" && (len(s.Args) > 0 || s.Dir != "" || len(s.Env) > 0 || len(s.EnvPass) > 0 || s.StartupTimeoutSec > 0):
+			return fmt.Errorf("servers[%d] (%s): args, dir, env, envPass and startupTimeoutSec apply to a command server", i, s.ID)
 		}
 		if seen[s.ID] {
 			return fmt.Errorf("servers[%d]: duplicate id %q", i, s.ID)

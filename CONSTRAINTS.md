@@ -137,7 +137,7 @@ The rule prevents two failure modes:
 
 The reference decoupling is mcpkit's `examples/agents/kitchen-sink`, which stayed there when this tree was extracted: `servers.sh` (`just servers-up` / `servers-down` / `servers`) owns the server processes; `run.sh` only *checks* the ports and points at `servers-up` if any are down — it never boots or kills them.
 
-Sanctioned exception: the client's stdio transport (`client.CommandTransport`) owns the subprocess it speaks to — that is the standard, opt-in, per-connection ownership every MCP client has for `command`-style servers (the `.mcp.json` shape). It lives in mcpkit's `client/`, is chosen explicitly, and is not the host spawning servers behind the user's back. The host wiring for it (a `ServerConfig.command` surface) is a deferred follow-up, not a violation.
+Sanctioned exception: the client's stdio transport (`client.CommandTransport`) owns the subprocess it speaks to — that is the standard, opt-in, per-connection ownership every MCP client has for `command`-style servers (the `.mcp.json` shape). It lives in mcpkit's `client/`, is chosen explicitly, and is not the host spawning servers behind the user's back. The host wiring for it is `ServerConfig.Command` (#161): the client's transport starts and ends the process, the host only configures it, and the command comes from operator configuration, never from a tool argument.
 
 Second sanctioned exception, on the same reasoning: **an extension may spawn the subprocess it
 owns.** `ext/lsp` starts a language server from `ServerSpec.Command`, and `agent/ext/exec` runs

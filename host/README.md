@@ -219,6 +219,35 @@ none, the capability isn't advertised at all.
 - agentchat, agentweb and the coding harness pass the same roots they confine
   `ext/files` and `ext/exec` to.
 
+### Servers over stdio
+
+A server that ships only as a stdio binary is a `command` instead of a `url`,
+in the `.mcp.json` shape:
+
+```json
+{"id": "repo", "command": "npx", "args": ["-y", "some-mcp-server"],
+ "envPass": ["GITHUB_TOKEN"], "env": {"LOG_LEVEL": "warn"},
+ "startupTimeoutSec": 20, "callTimeoutSec": 60}
+```
+
+It gets everything a URL server does (state in `/servers`, tools, skills,
+instructions, events, roots), with a few differences.
+
+- The process starts with an empty environment rather than the agent's. It
+  gets `PATH` and `HOME`, the names in `envPass` that the agent has, and `env`,
+  so a server sees no credential it wasn't given.
+- mcpkit's stdio transport owns the process (A12's sanctioned exception). It
+  starts on connect and ends when the App closes, with SIGTERM and then SIGKILL.
+- If the server crashes, the call in flight fails as not available now, and the
+  model can retry or route around it. That call isn't re-sent, since it may
+  have run already. The next call starts a fresh process.
+- `startupTimeoutSec` bounds the start and `initialize`, so a server that never
+  answers fails and retries in the background instead of holding up boot.
+  `callTimeoutSec` works on URL servers too.
+- Its stderr goes to the host logger a line at a time, tagged with the id.
+- A crash shows up in `/servers` only once a reconnect fails. mcpkit's
+  connection group doesn't notice a live drop yet.
+
 A server's own `instructions` (from its initialize result) go into the system
 prompt too, in their own section between `Config.Instructions` and the skill
 blocks, in config order. Each carries the same untrusted-origin header as a
