@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	osexec "os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -54,6 +55,16 @@ type ProcessConfig struct {
 	// streamed output in its event log, and host.Config.MaxEventLogRetention
 	// bounds that log by count.
 	StreamBudget int
+	// AllowDetach offers exec_command's detach argument (#228). A detached
+	// command keeps running after the session closes, for tasks that leave a
+	// server up for whatever checks the work afterwards. It starts in its own
+	// session, reads stdin from /dev/null and writes its output to a log file
+	// in the system temp dir, outside the workspace. Close leaves it running,
+	// and the log file stays behind. It still runs under the sandbox. The
+	// network proxy closes with the session, so a detached command that needs
+	// the network through it loses that when the session ends. Every detached
+	// call asks for approval unless the shell rules forbid the command.
+	AllowDetach bool
 }
 
 const (
@@ -104,6 +115,9 @@ type proc struct {
 	stdin   io.Writer
 	closeIn func()
 	tty     bool
+	// log is where a detached process writes its output. It is empty for
+	// a process attached to the session.
+	log     string
 	out     *tailBuffer
 	started time.Time
 
@@ -166,6 +180,18 @@ func (p *proc) running() bool {
 }
 
 func (s *Source) procDefs() []core.ToolDef {
+	props := map[string]any{
+		"cmd":      map[string]any{"type": "string", "description": "The command line."},
+		"workdir":  map[string]any{"type": "string", "description": "Directory to run in, relative to the workspace root. Defaults to the root."},
+		"yield_ms": map[string]any{"type": "integer", "description": "How long to wait for output before returning. Defaults to 10000."},
+		"tty":      map[string]any{"type": "boolean", "description": "Run in a pseudo-terminal."},
+	}
+	lifetime := " The command is stopped when this session ends."
+	if s.procs.cfg.AllowDetach {
+		props["detach"] = map[string]any{"type": "boolean", "description": "Keep the command running after this session ends, " +
+			"for a server the task says to leave running. Its output goes to a log file named in the result, and it takes no input."}
+		lifetime = " The command is stopped when this session ends, unless detach is set."
+	}
 	confinement := fmt.Sprintf("It runs inside the %s sandbox, under the same rules as shell.", s.sandbox.Name())
 	if !s.sandboxed() {
 		confinement = "It runs without a sandbox, under the same rules as shell."
@@ -176,16 +202,11 @@ func (s *Source) procDefs() []core.ToolDef {
 			Title: "Start a command",
 			Description: "Run a shell command (through bash -lc) that may keep running, such as a dev server, a watcher or a program waiting " +
 				"for input. Returns what it printed within yield_ms; if it is still running, the result names a session_id to use " +
-				"with write_stdin. Set tty for programs that need a terminal. " + confinement,
+				"with write_stdin. Set tty for programs that need a terminal." + lifetime + " " + confinement,
 			InputSchema: map[string]any{
-				"type":     "object",
-				"required": []string{"cmd"},
-				"properties": map[string]any{
-					"cmd":      map[string]any{"type": "string", "description": "The command line."},
-					"workdir":  map[string]any{"type": "string", "description": "Directory to run in, relative to the workspace root. Defaults to the root."},
-					"yield_ms": map[string]any{"type": "integer", "description": "How long to wait for output before returning. Defaults to 10000."},
-					"tty":      map[string]any{"type": "boolean", "description": "Run in a pseudo-terminal."},
-				},
+				"type":       "object",
+				"required":   []string{"cmd"},
+				"properties": props,
 			},
 		},
 		{
@@ -228,6 +249,7 @@ type execCommandArgs struct {
 	Workdir string `json:"workdir"`
 	YieldMS int    `json:"yield_ms"`
 	TTY     bool   `json:"tty"`
+	Detach  bool   `json:"detach"`
 }
 
 type writeStdinArgs struct {
@@ -268,6 +290,12 @@ func (s *Source) execCommand(args map[string]any) *core.ToolResult {
 		return toolError("exec_command needs cmd, the command line to run")
 	}
 	m := s.procs
+	if a.Detach && !m.cfg.AllowDetach {
+		return toolError("exec_command: detach is not allowed in this workspace")
+	}
+	if a.Detach && a.TTY {
+		return toolError("exec_command: a detached command can't have a tty")
+	}
 	m.mu.Lock()
 	running := 0
 	for _, p := range m.procs {
@@ -309,7 +337,11 @@ func (s *Source) execCommand(args map[string]any) *core.ToolResult {
 	}
 
 	policy := Policy{Write: s.write, DenyRead: s.denyRead, Dir: dir, AllowNetwork: s.shell.allowNetwork}
-	if a.TTY {
+	if a.Detach {
+		if err := startDetached(p, s.sandbox, policy); err != nil {
+			return toolError("exec_command: " + err.Error())
+		}
+	} else if a.TTY {
 		if err := startTTY(p, s.sandbox, policy); err != nil {
 			return toolError("exec_command: " + err.Error())
 		}
@@ -369,6 +401,9 @@ func (m *procManager) collect(p *proc, d time.Duration, header string) *core.Too
 	}
 	p.readMu.Lock()
 	text, pos, dropped := p.out.since(p.read)
+	if p.log != "" {
+		text, pos, dropped = readLogSince(p.log, p.read, m.cfg.MaxOutput)
+	}
 	p.read = pos
 	p.readMu.Unlock()
 	var b strings.Builder
@@ -384,7 +419,14 @@ func (m *procManager) collect(p *proc, d time.Duration, header string) *core.Too
 	b.WriteString(text)
 	sc := map[string]any{"session_id": p.id, "dropped": dropped}
 	elapsed := time.Since(p.started).Round(time.Millisecond)
-	if p.running() {
+	if p.log != "" {
+		sc["detached"], sc["pid"], sc["log"] = true, p.cmd.Process.Pid, p.log
+	}
+	if p.running() && p.log != "" {
+		fmt.Fprintf(&b, "\n[still running as %s (pid %d) after %s, detached: it keeps running after this session ends, "+
+			"with its output in %s; kill_process stops it while the session lasts]", p.id, p.cmd.Process.Pid, elapsed, p.log)
+		sc["running"] = true
+	} else if p.running() {
 		fmt.Fprintf(&b, "\n[still running as %s after %s; call write_stdin to send input or collect output, kill_process to stop it]", p.id, elapsed)
 		sc["running"] = true
 	} else {
@@ -419,6 +461,9 @@ func (s *Source) writeStdin(args map[string]any) *core.ToolResult {
 	if a.Chars != "" {
 		if !p.running() {
 			return s.procs.collect(p, 0, "write_stdin: the process has already exited, so nothing was written")
+		}
+		if p.log != "" {
+			return toolError("write_stdin: " + p.id + " is detached and reads no input; send empty chars to collect its output")
 		}
 		if _, err := io.WriteString(p.stdin, a.Chars); err != nil {
 			return toolError("write_stdin: " + err.Error())
@@ -465,12 +510,15 @@ func (s *Source) killProcess(args map[string]any) *core.ToolResult {
 	return s.procs.collect(p, 5*time.Second, "")
 }
 
-// killAll stops every process, for the end of a session.
+// killAll stops every process, for the end of a session, except the
+// detached ones, which are left running.
 func (m *procManager) killAll() {
 	m.mu.Lock()
 	ps := make([]*proc, 0, len(m.procs))
 	for _, p := range m.procs {
-		ps = append(ps, p)
+		if p.log == "" {
+			ps = append(ps, p)
+		}
 	}
 	m.procs = map[string]*proc{}
 	m.mu.Unlock()
@@ -500,7 +548,11 @@ func (s *Source) classifyProcs(_ context.Context, info agent.ToolCallInfo) (agen
 		if err := json.Unmarshal(info.Call.Args.Raw(), &a); err != nil || a.Cmd == "" {
 			return agent.CallClass{}, true
 		}
-		return s.shell.classify(shellArgv(a.Cmd)), true
+		class := s.shell.classify(shellArgv(a.Cmd))
+		if a.Detach && class.Disposition != agent.DispositionForbidden {
+			class = agent.CallClass{Disposition: agent.DispositionDestructive, Key: "detach " + a.Cmd, Reason: "keeps running after this session ends"}
+		}
+		return class, true
 	case WriteStdinTool:
 		var a writeStdinArgs
 		if err := json.Unmarshal(info.Call.Args.Raw(), &a); err != nil {
@@ -531,6 +583,9 @@ func (s *Source) renderProcApproval(info agent.ToolCallInfo) (string, bool) {
 		if !s.sandboxed() {
 			where = "without a sandbox"
 		}
+		if a.Detach {
+			return fmt.Sprintf("Start, %s, and leave running after this session ends:\n  %s", where, a.Cmd), true
+		}
 		return fmt.Sprintf("Start, %s, and leave running:\n  %s", where, a.Cmd), true
 	case WriteStdinTool:
 		var a writeStdinArgs
@@ -559,3 +614,52 @@ func (s *Source) Close() error {
 
 // errNoTTY is returned where pseudo-terminals aren't supported.
 var errNoTTY = errors.New("tty is not supported on this platform")
+
+// startDetached starts p in its own session with its output in a log file.
+// The process holds the file itself, so its writes don't go through a pipe
+// that closes when agentchat exits.
+func startDetached(p *proc, sb Sandbox, policy Policy) error {
+	dir := filepath.Join(os.TempDir(), "chakra-detached")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	f, err := os.CreateTemp(dir, "proc-*.log")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	setDetached(p.cmd)
+	if err := sb.Confine(p.cmd, policy); err != nil {
+		os.Remove(f.Name())
+		return fmt.Errorf("sandbox: %w", err)
+	}
+	p.cmd.Stdin, p.cmd.Stdout, p.cmd.Stderr = nil, f, f
+	if err := p.cmd.Start(); err != nil {
+		os.Remove(f.Name())
+		return err
+	}
+	p.log = f.Name()
+	return nil
+}
+
+// readLogSince returns what a detached process wrote to its log after from,
+// keeping the last max bytes when there is more.
+func readLogSince(path string, from int64, max int) (string, int64, int64) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", from, 0
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil || info.Size() <= from {
+		return "", from, 0
+	}
+	size, start, dropped := info.Size(), from, int64(0)
+	if size-start > int64(max) {
+		dropped = size - int64(max) - start
+		start = size - int64(max)
+	}
+	b := make([]byte, size-start)
+	n, _ := f.ReadAt(b, start)
+	return string(b[:n]), start + int64(n), dropped
+}

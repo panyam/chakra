@@ -107,7 +107,7 @@ on Codex calls them without being taught:
 
 | Tool | Does | Judged as |
 |---|---|---|
-| `exec_command {cmd, workdir, yield_ms, tty}` | runs `cmd` through `bash -lc`; returns what it printed within `yield_ms`, or a `session_id` if it's still running | the shell's prefix rules, script by script |
+| `exec_command {cmd, workdir, yield_ms, tty, detach}` | runs `cmd` through `bash -lc`; returns what it printed within `yield_ms`, or a `session_id` if it's still running | the shell's prefix rules, script by script |
 | `write_stdin {session_id, chars, yield_ms}` | types `chars`, or with none just collects new output | read-only when polling; otherwise asks (it types into a running program), remembered per process |
 | `list_processes` | what is running, and what finished but hasn't been read | read-only |
 | `kill_process {session_id}` | stops it and everything it started | reversible |
@@ -128,8 +128,20 @@ because the host keeps every event in its log and a server left running would gr
 `MaxEventLogRetention` bounds the log by count across all kinds, so it can't protect a session's
 turns from a noisy process the way a per-process budget does.
 
+Some tasks want a server left running after the agent finishes, such as a check that
+connects to it later. A process killed by `Close` can't do that. So `AllowDetach` adds a
+`detach` argument to `exec_command` (#228). A detached command starts in its own session and
+reads stdin from `/dev/null`. It writes its output to a log file in the system temp dir under
+`chakra-detached/`, and the log stays out of the workspace so it doesn't appear among the
+task's files. `Close` leaves the command running. It still runs under the sandbox. While the
+session lasts, `write_stdin` with no chars reads the log, and `kill_process` stops it. It
+doesn't stream to the surfaces. Every detached call asks for approval, whatever the prefix
+rules say, unless the rules forbid the command outright. The ask says the command keeps
+running after the session ends. The network proxy closes with the session, so a detached
+command loses network access through it at that point.
+
 In a workspace file: `"exec": {"shell": {"processes": true}}`, or an object with `max`,
-`maxOutput`, `defaultYield`, `maxYield` and `streamBudget`.
+`maxOutput`, `defaultYield`, `maxYield`, `streamBudget` and `detach`.
 
 ## Network by host, through a local proxy (#158)
 

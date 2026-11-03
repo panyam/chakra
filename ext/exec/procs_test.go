@@ -3,6 +3,7 @@ package exec
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"strings"
 	"syscall"
 	"testing"
@@ -205,5 +206,64 @@ func TestParallelPollsShareOutputWithoutRepeating(t *testing.T) {
 		if n > 1 {
 			t.Errorf("%q returned %d times", line, n)
 		}
+	}
+}
+
+func TestExecCommandDetachSurvivesClose(t *testing.T) {
+	src := procSource(t, ProcessConfig{AllowDetach: true})
+	root := src.roots[0]
+	out, sc := callProc(t, src, ExecCommandTool, map[string]any{"cmd": helperCmd(t, "tick"), "detach": true, "yield_ms": 300})
+	pid, _ := sc["pid"].(int)
+	if pid == 0 || sc["detached"] != true {
+		t.Fatalf("detached start: %q %v", out, sc)
+	}
+	t.Cleanup(func() { syscall.Kill(-pid, syscall.SIGKILL) })
+	logPath, _ := sc["log"].(string)
+	if logPath == "" || strings.HasPrefix(logPath, root) {
+		t.Errorf("log %q should be outside the workspace %q, so it doesn't show up in the task's files", logPath, root)
+	}
+	if _, sc := callProc(t, src, WriteStdinTool, map[string]any{"session_id": sc["session_id"], "chars": "x\n"}); sc["error"] != true {
+		t.Error("write_stdin typed into a detached process")
+	}
+	src.Close()
+	time.Sleep(200 * time.Millisecond)
+	if err := syscall.Kill(pid, 0); err != nil {
+		t.Fatalf("the detached process died with the session: %v", err)
+	}
+	b, err := os.ReadFile(logPath)
+	if err != nil || !strings.Contains(string(b), "tick") {
+		t.Errorf("log %s: %q %v", logPath, b, err)
+	}
+}
+
+func TestDetachNeedsAllowDetach(t *testing.T) {
+	src := procSource(t, ProcessConfig{})
+	defs, _ := src.Tools(context.Background())
+	for _, d := range defs {
+		if d.Name != ExecCommandTool {
+			continue
+		}
+		if _, ok := d.InputSchema.(map[string]any)["properties"].(map[string]any)["detach"]; ok {
+			t.Error("exec_command offered detach without AllowDetach")
+		}
+	}
+	if _, sc := callProc(t, src, ExecCommandTool, map[string]any{"cmd": helperCmd(t, "tick"), "detach": true}); sc["error"] != true {
+		t.Error("a detached start went through without AllowDetach")
+	}
+}
+
+func TestDetachedCallAlwaysAsks(t *testing.T) {
+	src := procSource(t, ProcessConfig{AllowDetach: true})
+	got, ok := src.classifyProcs(context.Background(), procCall(ExecCommandTool, map[string]any{"cmd": "go test ./...", "detach": true}))
+	if !ok || got.Disposition != agent.DispositionDestructive {
+		t.Errorf("detached read-only command: got %+v, want destructive", got)
+	}
+	got, _ = src.classifyProcs(context.Background(), procCall(ExecCommandTool, map[string]any{"cmd": "git push --force", "detach": true}))
+	if got.Disposition != agent.DispositionForbidden {
+		t.Errorf("detach turned a forbidden command into an ask: %+v", got)
+	}
+	q, _ := src.renderProcApproval(procCall(ExecCommandTool, map[string]any{"cmd": "python3 server.py", "detach": true}))
+	if !strings.Contains(q, "after this session ends") {
+		t.Errorf("ask doesn't say the process outlives the session: %q", q)
 	}
 }

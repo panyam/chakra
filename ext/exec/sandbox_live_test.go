@@ -9,6 +9,7 @@ import (
 	osexec "os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -299,5 +300,32 @@ func TestLiveSandboxedCurlGoesThroughTheAllowlist(t *testing.T) {
 	}
 	if got := call(t, src, "run_get_blocked", nil); !strings.Contains(got, "allowlist") || strings.Contains(got, "reached the allowed host") {
 		t.Errorf("blocked host: %q", got)
+	}
+}
+
+// TestLiveDetachedProcessStaysConfined checks that a detached command (#228)
+// still runs under the profile and outlives Close.
+func TestLiveDetachedProcessStaysConfined(t *testing.T) {
+	root := t.TempDir()
+	src, err := NewSource(Config{Roots: []string{root}, WritePaths: []string{}, Shell: &ShellConfig{Processes: &ProcessConfig{DefaultYield: 2 * time.Second, AllowDetach: true}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(workspace(t), "escaped")
+	_, sc := callProc(t, src, ExecCommandTool, map[string]any{"cmd": "touch inside; touch " + outside + "; sleep 30", "detach": true, "yield_ms": 1000})
+	pid, _ := sc["pid"].(int)
+	if pid == 0 {
+		t.Fatalf("detached start: %v", sc)
+	}
+	t.Cleanup(func() { syscall.Kill(-pid, syscall.SIGKILL) })
+	src.Close()
+	if err := syscall.Kill(pid, 0); err != nil {
+		t.Errorf("the detached process died with the session: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "inside")); err != nil {
+		t.Errorf("write inside the root failed: %v", err)
+	}
+	if _, err := os.Stat(outside); err == nil {
+		t.Error("a detached process wrote outside every root")
 	}
 }

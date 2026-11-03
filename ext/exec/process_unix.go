@@ -28,3 +28,11 @@ func killProcessGroup(cmd *osexec.Cmd) {
 		_ = cmd.Process.Kill()
 	}
 }
+
+// setDetached starts the command in a new session, so it has no controlling
+// terminal and is not in agentchat's process group. A detached process keeps
+// running after agentchat exits. killProcessGroup still reaches it while the
+// session lasts, since a session leader also leads its own group.
+func setDetached(cmd *osexec.Cmd) {
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+}
