@@ -49,9 +49,14 @@ const (
 	// raised signal. It is the observability projection of the control-axis "up"
 	// channel — a surface renders "child escalated"; the signal's effect on the
 	// turn (inject / abort) is the SignalPolicy's job, not this event's.
-	EventSignal  EventKind = "signal"
-	EventTurnEnd EventKind = "turn-end"
-	EventError   EventKind = "error"
+	EventSignal EventKind = "signal"
+	// EventTurnContinued marks that a TurnEndHook refused the model's final
+	// answer (#150). Step is the step that answered, and Reason the message
+	// the turn continues with, which also joins the record as a RoleSystem
+	// note. Another step follows unless the turn is at MaxSteps.
+	EventTurnContinued EventKind = "turn-continued"
+	EventTurnEnd       EventKind = "turn-end"
+	EventError         EventKind = "error"
 )
 
 // Event is one increment of a running turn, the payload surfaces consume
@@ -83,9 +88,10 @@ type Event struct {
 	Error string `json:"error,omitempty"`
 
 	// Reason is the human-readable justification on tool-denied (why the
-	// approval policy refused the call) and tool-cancelled (the user
-	// stopped the call). Distinct from Error because both are outcomes
-	// of someone's decision, not dispatch failures; neither carries a
+	// approval policy refused the call), tool-cancelled (the user
+	// stopped the call) and turn-continued (the message a TurnEndHook
+	// refused the answer with). Distinct from Error because all three are
+	// outcomes of someone's decision, not failures; none carries a
 	// ToolResult.
 	Reason string `json:"reason,omitempty"`
 

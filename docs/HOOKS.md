@@ -1,7 +1,7 @@
 # Where behavior hooks in
 
 This is the map we use to decide where a new behavior goes: compaction, an
-injection, a tool rewrite, a new approval rule. A turn passes through four hook
+injection, a tool rewrite, a new approval rule. A turn passes through five hook
 points, in order, and each one has its own shape. Most "where should this go"
 questions come down to which point the behavior needs, and whether what it
 produces is part of the record or only part of the model's view.
@@ -10,13 +10,14 @@ Every PR says at the top which hook it uses and why (see `CLAUDE.md`). When a
 change needs a hook point this page doesn't list, that is the decision to call
 out, and this page gets updated in the same PR.
 
-## The four hook points
+## The five hook points
 
 | Point | Runs | What hooks in today | Shape | Code |
 |---|---|---|---|---|
 | **Turn start** (host) | once per turn, before the Runner | `Extension.TurnStart`, `InputTransform`s, durable `ContextStage`s (event injection), the user message, transient `ContextStage`s (memory summary, recall), `PromptSection`s | one ordered pipeline with two phases | `host/app.go` `RunTurn`, `host/contextpipeline.go` |
 | **Before each model call** (Runner) | every step | the step chain: `Compactor` (turn scope), `Selector` (request scope), then `StepStages` such as the host's step-budget note, then extensions' `StepStages` (agentsmd's instruction files found mid-session); also the tree budget | one ordered chain, run by scope: session, turn, request | `stepstage.go`, `runner.go` `Run` |
 | **Around each tool call** (Runner) | every tool call, in parallel | `ToolMiddleware`: spotlight, extension middleware, critique, the permission gate (with `ApprovalClassifier`s, `ApprovalRenderer`s and `ApprovalChooser`s); offloading wraps the tool source the chain ends in | one ordered chain, gate last | `toolmiddleware.go`, `approval.go`, `host/app.go` |
+| **Turn end** (Runner) | each time the model answers without calling a tool, before the answer is accepted | `RunnerConfig.TurnEnd` hooks (#150): accept, or refuse with a message so the loop takes another step | an ordered list, first refusal wins; runs before `ResponseSchema`'s finalize | `turnend.go`, `runner.go` `Run` |
 | **Signals and events** | between steps (signals), and between turns (events) | `SignalPolicy`, `Interruptible`, `PreemptGrant`; the host's injection and trigger policies; an extension that implements `Announcer` posts `HostMessage` lines to every surface | separate fields | `signal.go`, `injection.go`, `triggers.go`, `host/events.go` |
 
 Two things are deliberately not hooks. Forking and delegation are tools (a
@@ -44,7 +45,9 @@ flowchart TD
       S4 --> S5["request stages: Selector, step-budget note"]
       S5 --> S6["Provider.Stream: events out"]
     end
-    S6 -->|"no tool calls"| F1["structured finalize, if ResponseSchema"]
+    S6 -->|"no tool calls"| E1["turn-end hooks: accept or refuse"]
+    E1 -->|"accepted"| F1["structured finalize, if ResponseSchema"]
+    E1 -->|"refused: system note, next step"| S1
     S6 -->|"tool calls"| T1
     subgraph TOOL["each tool call, in parallel"]
       T1["spotlight"] --> T2["extension middleware"]
@@ -114,6 +117,12 @@ written next to the code.
   not the full text.
 - **Signals:** tool results are appended before any signal note, because
   providers pair a tool result with the assistant call right before it.
+- **Turn end:** hooks run before `ResponseSchema`'s finalizing call, so a
+  structured answer is only made from an accepted one. A refusal's message is
+  record (a `RoleSystem` note in `TurnResult.Messages`), because the reason
+  the model kept going has to survive the turn. The extra step it causes counts
+  against `MaxSteps` and the tree budget, so a hook that never accepts ends the
+  turn with `ErrMaxSteps` instead of looping.
 
 ## Choosing a hook
 
@@ -131,7 +140,10 @@ Ask these in order.
    human makes goes through the gate (`ApprovalClassifier` to judge a call from
    its arguments, `ApprovalRenderer` for the question, `ApprovalChooser` to
    approve part of a call), not through new middleware.
-5. **Does it react to something outside the turn** (a server event, a child
+5. **Does it judge whether the turn is finished** (tests still red, a
+   required artifact missing)? A `TurnEndHook`, which can send the model back
+   with a message.
+6. **Does it react to something outside the turn** (a server event, a child
    agent)? Signals and events.
 
 ## How this point got its chain

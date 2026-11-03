@@ -196,6 +196,16 @@ type RunnerConfig struct {
 	// separate finalizing call rather than a field on the loop's requests.
 	// Empty means no structured coercion.
 	ResponseSchema core.RawJSON
+
+	// TurnEnd runs, in order, each time the model answers without calling a
+	// tool, before the answer is accepted and before ResponseSchema's
+	// finalizing call, so a structured answer is only ever made from an
+	// accepted one (#150). The first hook to refuse wins: its message joins
+	// the turn as a RoleSystem note, an EventTurnContinued is emitted, and the
+	// loop takes another step. That step counts against MaxSteps and the tree
+	// budget like any other, so a hook that never accepts ends the turn with
+	// ErrMaxSteps rather than looping.
+	TurnEnd []TurnEndHook
 }
 
 // ToolSelector narrows the model-facing tool set for one step. It runs as the
@@ -465,6 +475,21 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 		added = append(added, assistant)
 
 		if len(resp.ToolCalls) == 0 {
+			note, err := r.turnEnd(stepCtx, TurnEndInfo{Step: step, MaxSteps: r.cfg.MaxSteps, Text: resp.Text, Messages: added, Usage: usage})
+			if err != nil {
+				stepSpan.RecordError(err)
+				stepSpan.End()
+				return nil, r.failSpan(emit, turnSpan, fmt.Errorf("agent: turn-end hook: %w", err))
+			}
+			if note != "" {
+				stepSpan.SetAttribute("agent.turn_end", "continued")
+				stepSpan.End()
+				cont := Message{Role: RoleSystem, Text: note}
+				msgs = append(msgs, cont)
+				added = append(added, cont)
+				emit(Event{Kind: EventTurnContinued, Step: step, Reason: note})
+				continue
+			}
 			stepSpan.End()
 			var structured core.RawJSON
 			if r.cfg.ResponseSchema.Len() > 0 {
