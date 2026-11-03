@@ -770,6 +770,32 @@ answer on `TurnEndInfo.Draft`. The cost is that a refused answer has already pai
 finalizing call. Nothing in the repo set `TurnEnd` together with a schema when this changed, so
 only outside callers were affected.
 
+### Routing one step to another provider (#185)
+
+A request-scoped `StepStage` picks the provider for one call by setting `StepView.Provider`, and
+the next step starts back on `RunnerConfig.Provider`. We kept it to request scope for the same
+reason the tool set is: a routing choice is about one call, and letting a turn stage make it
+sticky would hide who answered what. The host's `stepRoutes` is that stage driven by step ranges,
+and `/provider` still decides every step no route covers. Richer rules (last call was a tool
+result, tokens so far) are easy as custom stages, but we stopped short of putting them in config,
+since a config rule language starts to look like the workflow engine A8 rules out.
+
+A few things fell out of it that are easy to trip over:
+
+- The structured or guided finalize stays on `RunnerConfig.Provider`, and its tokens land under
+  `""` in `TurnResult.UsageByModel`. With a host route configured, unrouted steps are named after
+  the active connection, so the same provider can show up under two keys. The totals still add up.
+- `EventStep` only fires for steps a stage named. The runner tests pin exact event sequences
+  (`TestRunnerSingleStepText` and four more), so an event emitted on every step breaks all of
+  them, and it would add an event per step to every surface for nothing. Any new per-step event
+  kind runs into the same thing.
+- Switching makes the next call cold. A prompt cache misses on the provider switched to, and the
+  Responses cursor (#157) misses on the way back, because the history now holds a step its server
+  never saw, so it resends in full (`TestRoutedStepMakesTheNextResponsesCallResendInFull`).
+  A few long ranges cost less than alternating.
+- A routed step gets that connection's capabilities. Only the guided constraint is re-checked;
+  vision and tools are whatever the routed model does.
+
 ### Generation parameters: how they reach a turn (#1239)
 
 `GenerationParams` (`agent/provider.go`) carries `Temperature`, `MaxTokens`, and `ToolChoice`.
