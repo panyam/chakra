@@ -5,6 +5,17 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
+## [v0.2.1] - 2026-11-02
+
+### Added
+- `Usage.CachedInputTokens`, the part of `InputTokens` a server's prompt cache served. Read from `prompt_tokens_details.cached_tokens` (OpenAI, llama.cpp), llama.cpp's `timings.cache_n` on older builds, and Anthropic's `cache_read_input_tokens`. The Runner sums it per turn (PR 176).
+
+### Changed
+- On AnthropicProvider, `Usage.InputTokens` now includes cache reads and writes, so it means the whole prompt on both providers. Nothing changes today, since chakra sends no `cache_control` (PR 176).
+
+### Fixed
+- The v0.2.0 commit tracked a built `examples/coding-harness` binary, which failed the CI gates. It is untracked and ignored. Module zips were unaffected (PR 177).
+
 ## [v0.2.0] - 2026-11-02
 
 Full notes in [docs/releases/v0.2.0.md](docs/releases/v0.2.0.md).
