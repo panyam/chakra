@@ -151,6 +151,13 @@ func (f *FailoverProvider) Stream(ctx context.Context, req ProviderRequest) (Str
 	return &failoverStream{f: f, inner: s}, nil
 }
 
+// ProviderCapabilities reports what both Primary and Backup can send, since
+// either may serve a call and a parameter only one of them takes would be
+// refused when the other does.
+func (f *FailoverProvider) ProviderCapabilities() Capabilities {
+	return CapabilitiesOf(f.cfg.Primary).intersect(CapabilitiesOf(f.cfg.Backup))
+}
+
 // Generate implements Provider with the same clean-failure retry.
 func (f *FailoverProvider) Generate(ctx context.Context, req ProviderRequest) (*ProviderResponse, error) {
 	if f.primaryBenched() {

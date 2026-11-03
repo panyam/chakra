@@ -90,6 +90,20 @@ func NewOpenAIProvider(cfg OpenAIConfig) (*OpenAIProvider, error) {
 	return &OpenAIProvider{cfg: cfg, http: hc}, nil
 }
 
+// ProviderCapabilities reports a seed always, since the provider sends one
+// whenever it's set, and the guided kinds its GuidedDialect encodes: grammar
+// and JSON schema for llama.cpp, all three for vLLM, none without a dialect.
+func (p *OpenAIProvider) ProviderCapabilities() Capabilities {
+	c := Capabilities{Seed: true}
+	switch p.cfg.GuidedDialect {
+	case GuidedDialectLlamaCpp:
+		c.Guided = []string{GuidedGrammar, GuidedJSONSchema}
+	case GuidedDialectVLLM:
+		c.Guided = []string{GuidedGrammar, GuidedRegex, GuidedJSONSchema}
+	}
+	return c
+}
+
 // check refuses, before anything is sent, a request this endpoint cannot
 // honor as asked.
 func (p *OpenAIProvider) check(req ProviderRequest) error {
@@ -103,7 +117,7 @@ func (p *OpenAIProvider) check(req ProviderRequest) error {
 	switch {
 	case p.cfg.GuidedDialect == "":
 		return fmt.Errorf("%w: Guided (OpenAIConfig.GuidedDialect is not set)", ErrUnsupportedParam)
-	case p.cfg.GuidedDialect == GuidedDialectLlamaCpp && kind == "regex":
+	case p.cfg.GuidedDialect == GuidedDialectLlamaCpp && kind == GuidedRegex:
 		return fmt.Errorf("%w: Guided.Regex (llama.cpp has no regex constraint)", ErrUnsupportedParam)
 	}
 	return nil

@@ -315,3 +315,52 @@ func TestApp_NoConnectionsProvidersEmpty(t *testing.T) {
 		t.Fatal("SwitchProvider without registry succeeded, want error")
 	}
 }
+
+// A llamacpp connection needs no model and builds a provider that takes a
+// grammar and a seed; an anthropic one reports neither; ollama a seed only.
+// The runtime switch reports whichever is active.
+func TestLocalConnectionsReportWhatTheyCanSend(t *testing.T) {
+	var c ConnectionsConfig
+	if err := json.Unmarshal([]byte(`{
+      "active": "local",
+      "connections": {
+        "local":  {"type": "llamacpp"},
+        "ollama": {"type": "ollama", "model": "qwen2.5-coder:7b"},
+        "claude": {"type": "anthropic", "model": "claude-sonnet-5", "apiKeyEnv": "X"}
+      }
+    }`), &c); err != nil {
+		t.Fatal(err)
+	}
+	r, err := NewConnectionRegistry(&c, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]agent.Capabilities{
+		"local":  {Guided: []string{agent.GuidedGrammar, agent.GuidedJSONSchema}, Seed: true},
+		"ollama": {Seed: true},
+		"claude": {},
+	} {
+		p, err := r.Provider(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := agent.CapabilitiesOf(p)
+		if strings.Join(got.Guided, ",") != strings.Join(want.Guided, ",") || got.Seed != want.Seed {
+			t.Errorf("%s: %+v, want %+v", name, got, want)
+		}
+	}
+	local, _ := r.Provider("local")
+	claude, _ := r.Provider("claude")
+	sw := newProviderSwitch(local)
+	if !agent.CapabilitiesOf(sw).Seed {
+		t.Errorf("switch on llamacpp reports no seed")
+	}
+	sw.set(claude)
+	if agent.CapabilitiesOf(sw).Seed {
+		t.Errorf("switch on anthropic still reports a seed")
+	}
+	c.Connections["bare"] = ConnectionConfig{Type: "openai"}
+	if _, err := NewConnectionRegistry(&c, nil); err == nil || !strings.Contains(err.Error(), "has no model") {
+		t.Errorf("control: an openai connection without a model: %v", err)
+	}
+}

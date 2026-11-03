@@ -44,6 +44,10 @@ func (t *thinkingProvider) Stream(ctx context.Context, req ProviderRequest) (Str
 	return &thinkingStream{inner: s, p: newThinkParser(t.open, t.close)}, nil
 }
 
+// ProviderCapabilities reports the wrapped provider's: re-tagging reasoning
+// changes nothing that is sent.
+func (t *thinkingProvider) ProviderCapabilities() Capabilities { return CapabilitiesOf(t.inner) }
+
 // Generate splits inline reasoning out of the completed Text into Reasoning,
 // so the non-streaming path stays consistent with Stream.
 func (t *thinkingProvider) Generate(ctx context.Context, req ProviderRequest) (*ProviderResponse, error) {

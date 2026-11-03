@@ -65,8 +65,11 @@ func (c *ConnectionsConfig) EmbedderConnection() (ConnectionConfig, bool) {
 // for anything else. Exactly one of a known Type or a BaseURL must
 // resolve, or construction fails.
 type ConnectionConfig struct {
-	// Type names a built-in endpoint profile ("lmstudio", "openai",
-	// "ollama", "gemini", "anthropic", "openrouter", "litellm"). All but
+	// Type names a built-in endpoint profile ("lmstudio", "llamacpp",
+	// "openai", "ollama", "gemini", "anthropic", "openrouter", "litellm").
+	// "llamacpp" and "ollama" build through agent.NewLlamaCppProvider and
+	// agent.NewOllamaProvider, so a llama-server connection takes a grammar
+	// and caches its prompt with no further settings. All but
 	// "anthropic" speak the OpenAI wire; "anthropic" uses the native
 	// Messages-API provider (x-api-key auth, /v1/messages). "openrouter" and
 	// "litellm" are model-router gateways (set BaseURL to override the
@@ -77,7 +80,8 @@ type ConnectionConfig struct {
 	// "http://localhost:1234/v1". Overrides Type's default.
 	BaseURL string `json:"baseUrl,omitempty"`
 
-	// Model is the model identifier sent on every request. Required.
+	// Model is the model identifier sent on every request. Required, except
+	// for "llamacpp", where a llama-server serving one model ignores it.
 	Model string `json:"model"`
 
 	// APIKeyEnv names the environment variable holding the bearer key.
@@ -128,8 +132,9 @@ type ThinkingHint struct {
 // typically overridden with BaseURL for a hosted deployment.
 var connectionBaseURLs = map[string]string{
 	"lmstudio":   "http://localhost:1234/v1",
+	"llamacpp":   agent.DefaultLlamaCppBaseURL,
 	"openai":     "https://api.openai.com/v1",
-	"ollama":     "http://localhost:11434/v1",
+	"ollama":     agent.DefaultOllamaBaseURL,
 	"gemini":     "https://generativelanguage.googleapis.com/v1beta/openai",
 	"anthropic":  "https://api.anthropic.com",
 	"openrouter": "https://openrouter.ai/api/v1",
@@ -142,8 +147,9 @@ var connectionBaseURLs = map[string]string{
 type ProviderBuilder func(ConnectionConfig) (agent.Provider, error)
 
 // DefaultProviderBuilder builds the provider for a connection: the native
-// Anthropic Messages-API provider when Type is "anthropic", otherwise an
-// OpenAI-wire provider (lmstudio / openai / ollama / gemini / any BaseURL).
+// Anthropic Messages-API provider when Type is "anthropic", the llama.cpp or
+// Ollama preset for "llamacpp" and "ollama", otherwise a plain OpenAI-wire
+// provider (lmstudio / openai / gemini / any BaseURL).
 // The base URL resolves from BaseURL or the Type table and the key from
 // APIKey, else APIKeyEnv.
 func DefaultProviderBuilder(conn ConnectionConfig) (agent.Provider, error) {
@@ -156,13 +162,18 @@ func DefaultProviderBuilder(conn ConnectionConfig) (agent.Provider, error) {
 		key = os.Getenv(conn.APIKeyEnv)
 	}
 	var p agent.Provider
-	if conn.Type == "anthropic" {
+	switch conn.Type {
+	case "anthropic":
 		p, err = agent.NewAnthropicProvider(agent.AnthropicConfig{
 			BaseURL: base,
 			Model:   conn.Model,
 			APIKey:  key,
 		})
-	} else {
+	case "llamacpp":
+		p, err = agent.NewLlamaCppProvider(agent.LlamaCppConfig{BaseURL: base, Model: conn.Model, APIKey: key})
+	case "ollama":
+		p, err = agent.NewOllamaProvider(agent.OllamaConfig{BaseURL: base, Model: conn.Model, APIKey: key})
+	default:
 		p, err = agent.NewOpenAIProvider(agent.OpenAIConfig{
 			BaseURL: base,
 			Model:   conn.Model,
@@ -270,7 +281,7 @@ func NewConnectionRegistry(cfg *ConnectionsConfig, build ProviderBuilder) (*Conn
 	}
 	names := make([]string, 0, len(cfg.Connections))
 	for name, conn := range cfg.Connections {
-		if conn.Model == "" {
+		if conn.Model == "" && conn.Type != "llamacpp" {
 			return nil, fmt.Errorf("host: connection %q has no model", name)
 		}
 		if _, err := resolveBaseURL(conn); err != nil {
@@ -405,6 +416,12 @@ func (s *providerSwitch) current() agent.Provider {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.p
+}
+
+// ProviderCapabilities reports the current provider's. A switch changes
+// them, so a caller asks again per call rather than caching the answer.
+func (s *providerSwitch) ProviderCapabilities() agent.Capabilities {
+	return agent.CapabilitiesOf(s.current())
 }
 
 func (s *providerSwitch) Stream(ctx context.Context, req agent.ProviderRequest) (agent.Stream, error) {

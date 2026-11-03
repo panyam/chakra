@@ -465,6 +465,10 @@ func (s *anthropicStream) eventDeltas(msg anthropicSSE) ([]Delta, bool, error) {
 	return nil, false, nil
 }
 
+// ProviderCapabilities reports nothing: the Messages API takes neither a
+// seed nor a grammar, and a request carrying one is refused.
+func (p *AnthropicProvider) ProviderCapabilities() Capabilities { return Capabilities{} }
+
 // anthropicCheck refuses the ProviderRequest fields the Messages API has no
 // counterpart for, so they fail loudly instead of being dropped.
 func anthropicCheck(req ProviderRequest) error {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -248,18 +249,77 @@ var ErrUnsupportedParam = errors.New("agent: provider does not support request p
 func (g *GuidedDecoding) kind() (string, error) {
 	var kinds []string
 	if g.Grammar != "" {
-		kinds = append(kinds, "grammar")
+		kinds = append(kinds, GuidedGrammar)
 	}
 	if g.Regex != "" {
-		kinds = append(kinds, "regex")
+		kinds = append(kinds, GuidedRegex)
 	}
 	if g.JSONSchema.Len() > 0 {
-		kinds = append(kinds, "jsonSchema")
+		kinds = append(kinds, GuidedJSONSchema)
 	}
 	if len(kinds) != 1 {
 		return "", fmt.Errorf("%w: Guided needs exactly one of Grammar, Regex or JSONSchema, got %v", ErrUnsupportedParam, kinds)
 	}
 	return kinds[0], nil
+}
+
+// The kinds of GuidedDecoding, as Capabilities.Guided lists them.
+const (
+	GuidedGrammar    = "grammar"
+	GuidedRegex      = "regex"
+	GuidedJSONSchema = "jsonSchema"
+)
+
+// Capabilities says which loop-visible request parameters a provider can
+// send (#180), so a caller holding only a Provider knows whether to ask for a
+// grammar or a seed rather than being refused with ErrUnsupportedParam. It
+// describes what the provider puts on the wire, not whether the model behind
+// it honors it well.
+type Capabilities struct {
+	// Guided lists the GuidedDecoding kinds the provider can send:
+	// GuidedGrammar, GuidedRegex, GuidedJSONSchema.
+	Guided []string
+	// Seed says ProviderRequest.Seed is sent.
+	Seed bool
+}
+
+// CanGuide reports whether g, a single constraint, is one of c.Guided. A nil
+// g needs nothing and is always true; a g setting none or several kinds is
+// false, since every provider refuses it.
+func (c Capabilities) CanGuide(g *GuidedDecoding) bool {
+	if g == nil {
+		return true
+	}
+	kind, err := g.kind()
+	return err == nil && slices.Contains(c.Guided, kind)
+}
+
+// intersect is what both a and b can send.
+func (c Capabilities) intersect(o Capabilities) Capabilities {
+	var both []string
+	for _, k := range c.Guided {
+		if slices.Contains(o.Guided, k) {
+			both = append(both, k)
+		}
+	}
+	return Capabilities{Guided: both, Seed: c.Seed && o.Seed}
+}
+
+// CapabilityReporter is implemented by a Provider that can say what it
+// sends. It is separate from Provider so that implementing Provider stays
+// two methods; a wrapper that delegates to another provider implements it by
+// asking the one it wraps.
+type CapabilityReporter interface {
+	ProviderCapabilities() Capabilities
+}
+
+// CapabilitiesOf asks p what it can send. A provider that doesn't implement
+// CapabilityReporter reports nothing, so a caller sends it no grammar or seed.
+func CapabilitiesOf(p Provider) Capabilities {
+	if r, ok := p.(CapabilityReporter); ok {
+		return r.ProviderCapabilities()
+	}
+	return Capabilities{}
 }
 
 // ToolChoice is the request-level tool-calling bias. The zero value ("")
