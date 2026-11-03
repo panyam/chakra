@@ -17,7 +17,7 @@ out, and this page gets updated in the same PR.
 | **Turn start** (host) | once per turn, before the Runner | `Extension.TurnStart`, `InputTransform`s, durable `ContextStage`s (event injection), the user message, transient `ContextStage`s (memory summary, recall), `PromptSection`s | one ordered pipeline with two phases | `host/app.go` `RunTurn`, `host/contextpipeline.go` |
 | **Before each model call** (Runner) | every step | the step chain: `Compactor` (turn scope), `Selector` (request scope), then `StepStages` such as the host's step-budget note and its step routes (`connections.stepRoutes`), then extensions' `StepStages` (agentsmd's instruction files found mid-session); also the tree budget | one ordered chain, run by scope: session, turn, request | `stepstage.go`, `runner.go` `Run` |
 | **Around each tool call** (Runner) | every tool call, in parallel | `ToolMiddleware`: spotlight, extension middleware, critique, the permission gate (with `ApprovalClassifier`s, `ApprovalRenderer`s and `ApprovalChooser`s); offloading wraps the tool source the chain ends in | one ordered chain, gate last | `toolmiddleware.go`, `approval.go`, `host/app.go` |
-| **Turn end** (Runner) | each time the model answers without calling a tool, before the answer is accepted | `RunnerConfig.TurnEnd` hooks (#150): accept, or refuse with a message so the loop takes another step | an ordered list, first refusal wins; runs before `ResponseSchema`'s finalize | `turnend.go`, `runner.go` `Run` |
+| **Turn end** (Runner) | each time the model answers without calling a tool, before the answer is accepted | `RunnerConfig.TurnEnd` hooks (#150): accept, refuse with a message (a system note, or a user message with `AsUser`) so the loop takes another step, or stop the turn on the refused answer with `ErrTurnStopped` (#222) | an ordered list, first refusal wins; runs before `ResponseSchema`'s finalize | `turnend.go`, `runner.go` `Run` |
 | **Signals and events** | between steps (signals), and between turns (events) | `SignalPolicy`, `Interruptible`, `PreemptGrant`; the host's injection and trigger policies; an extension that implements `Announcer` posts `HostMessage` lines to every surface, one that implements `ProcessReporter` streams a running process's output as `HostProcessOutput` (surfaces only, never the model), and one that implements `TurnEnder` hears that a turn ended (finished, partial or failed) before the surfaces do | separate fields | `signal.go`, `injection.go`, `triggers.go`, `host/events.go` |
 
 Two things are deliberately not hooks. Forking and delegation are tools (a
@@ -145,7 +145,7 @@ Ask these in order.
    approve part of a call), not through new middleware.
 5. **Does it judge whether the turn is finished** (tests still red, a
    required artifact missing)? A `TurnEndHook`, which can send the model back
-   with a message.
+   with a message, or stop the turn when asking again won't help.
 6. **Does it react to something outside the turn** (a server event, a child
    agent)? Signals and events.
 

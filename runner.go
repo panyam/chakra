@@ -221,11 +221,13 @@ type RunnerConfig struct {
 	// would return: with ResponseSchema set, the finalized JSON document and
 	// whether it validates; with ResponseGuided set, the constrained answer.
 	// The model's free answer is on TurnEndInfo.Draft. A refused answer has
-	// already cost its finalizing call. The first hook to refuse wins: its message joins
-	// the turn as a RoleSystem note, an EventTurnContinued is emitted, and the
-	// loop takes another step. That step counts against MaxSteps and the tree
-	// budget like any other, so a hook that never accepts ends the turn with
-	// ErrMaxSteps rather than looping.
+	// already cost its finalizing call. The first hook that doesn't accept
+	// wins. A Continue joins the turn as a RoleSystem note (RoleUser with
+	// AsUser), an EventTurnContinued is emitted, and the loop takes another
+	// step. That step counts against MaxSteps and the tree budget like any
+	// other, so a hook that never accepts ends the turn with ErrMaxSteps
+	// rather than looping. A Stop ends the turn at once with ErrTurnStopped
+	// and a partial result holding the refused answer.
 	TurnEnd []TurnEndHook
 }
 
@@ -401,8 +403,10 @@ type TurnRequest struct {
 // allowed); emit is never called concurrently. Tool failures of every kind
 // (unknown tool, transport, bad args) are fed back to the model as
 // error-marked tool results and the loop continues; only ctx cancellation,
-// provider failure, or the step cap abort the turn. The returned error wraps
-// ErrMaxSteps when the cap was hit. Run is shorthand for RunTurn without
+// provider failure, the step cap, or a turn-end hook's Stop abort the turn.
+// The returned error wraps ErrMaxSteps when the cap was hit, and
+// ErrTurnStopped when a hook stopped the turn; both come with a partial
+// result. Run is shorthand for RunTurn without
 // mid-turn controls.
 func (r *Runner) Run(ctx context.Context, history []Message, emit func(Event)) (*TurnResult, error) {
 	return r.RunTurn(ctx, TurnRequest{History: history, Emit: emit})
@@ -608,19 +612,28 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 				info.Draft, info.Text, info.StructuredError, info.Usage = resp.Text, string(s.Raw()), invalid, usage
 			}
 			info.Messages = added
-			note, err := r.turnEnd(stepCtx, info)
+			verdict, err := r.turnEnd(stepCtx, info)
 			if err != nil {
 				stepSpan.RecordError(err)
 				stepSpan.End()
 				return nil, r.failSpan(emit, turnSpan, fmt.Errorf("agent: turn-end hook: %w", err))
 			}
-			if note != "" {
+			if verdict.Stop != "" {
+				stepSpan.SetAttribute("agent.turn_end", "stopped")
+				stepSpan.End()
+				return r.partialResult(added, usage, byModel, step, fmt.Errorf("%w: %s", ErrTurnStopped, verdict.Stop), "stopped", emit, turnSpan)
+			}
+			if verdict.Continue != "" {
 				stepSpan.SetAttribute("agent.turn_end", "continued")
 				stepSpan.End()
-				cont := Message{Role: RoleSystem, Text: note}
+				role := RoleSystem
+				if verdict.AsUser {
+					role = RoleUser
+				}
+				cont := Message{Role: role, Text: verdict.Continue}
 				msgs = append(msgs, cont)
 				added = append(added, cont)
-				emit(Event{Kind: EventTurnContinued, Step: step, Reason: note})
+				emit(Event{Kind: EventTurnContinued, Step: step, Reason: verdict.Continue})
 				continue
 			}
 			stepSpan.End()
@@ -680,7 +693,8 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 }
 
 // partialResult builds the partial turn a turn that ran out of budget reports
-// alongside its error (ErrMaxSteps, or ErrContextBudget from compaction): the
+// alongside its error (ErrMaxSteps, ErrContextBudget from compaction, or
+// ErrTurnStopped from a turn-end hook): the
 // messages the turn got through, so a caller keeps them in
 // history instead of starting the next turn blind (issue 109). The prefix is
 // trimmed of a trailing assistant message whose tool calls were never
