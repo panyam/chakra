@@ -119,8 +119,8 @@ func TestGormToolResultStore_CustomTableName(t *testing.T) {
 		if _, err := s.PutToolResult(ctx, agent.PutToolResultRequest{Ref: "res:c", Result: trText("in custom table")}); err != nil {
 			t.Fatalf("PutToolResult: %v", err)
 		}
-		// the default-table store must NOT see it — proves the row landed
-		// in the custom table
+		// the default-table store must NOT see it, which proves the row
+		// went into the custom table
 		def := newTRStore(t, db)
 		if resp, _ := def.GetToolResult(ctx, agent.GetToolResultRequest{Ref: "res:c"}); resp.Found {
 			t.Fatal("row written to custom table was visible in the default table")

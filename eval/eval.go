@@ -1,18 +1,19 @@
-// Package eval is a deterministic eval / scorer harness for agent turns. A
-// Case names one input; a Scorer grades what a Run produced (the TurnResult
-// plus the captured event stream); a Suite runs a set of Cases against a set
+// Package eval is a deterministic eval and scorer harness for agent turns. A
+// Case names one input. A Run produces a TurnResult and the captured event
+// stream, and a Scorer grades them. A Suite runs a set of Cases against a set
 // of Scorers and returns a structured report.
 //
-// The harness is model-and-turn-facing, so it lives in agent/ (constraint
-// A6): scorers read a *agent.TurnResult and an []agent.Event, both meaningless
-// without a Runner turn. It depends only on core/ and agent/, adds no
-// third-party dependency, and never prints (constraint A4) — a Suite returns a
-// SuiteReport that a test or CLI renders.
+// The harness needs a model and a turn, so it belongs in chakra and not in
+// mcpkit's client (constraint A6). Scorers read a *agent.TurnResult and an
+// []agent.Event, and both are meaningless without a Runner turn. The package
+// depends only on mcpkit's core and chakra's root package, and adds no
+// third-party dependency. It never prints (constraint A4). A Suite returns a
+// SuiteReport, and a test or CLI renders it.
 //
 // The deterministic scorers (ExactMatch, Contains, ToolCalled, MaxSteps,
-// StepCount, NoError) need no network or live model: drive a Case with
+// StepCount, NoError) need no network or live model. Drive a Case with
 // agent.NewStubProvider for reproducible evals in CI. The LLM-as-judge scorer
-// lives behind the eval_llm build tag so the default build and CI path carry
+// sits behind the eval_llm build tag, so the default build and CI path have
 // no model requirement.
 package eval
 
@@ -63,10 +64,9 @@ func (c Case) history() []agent.Message {
 	return nil
 }
 
-// Result is one scored run's transcript: the completed turn (nil when the run
-// failed before producing one), the captured event stream, and the run error
-// (nil on success). Scorers read these fields; NoError inspects Err and the
-// event stream, the text scorers read Turn.Text.
+// Result is one scored run's transcript. It holds the completed turn, the
+// captured event stream, and the run error. Scorers read these fields. NoError
+// inspects Err and the event stream, and the text scorers read Turn.Text.
 type Result struct {
 	// Case is the input that produced this result.
 	Case Case
@@ -79,17 +79,17 @@ type Result struct {
 	Events []agent.Event
 
 	// Err is the run error: ctx cancellation, provider failure, or the step
-	// cap (wrapping agent.ErrMaxSteps). Tool failures do not appear here —
-	// the Runner feeds those back to the model, so they surface as
-	// tool-error / tool-end(IsError) events instead.
+	// cap (wrapping agent.ErrMaxSteps). Tool failures do not appear here.
+	// The Runner feeds those back to the model, so they show up as
+	// tool-error or tool-end(IsError) events instead.
 	Err error
 }
 
-// Run executes one Case against a copy of cfg with the Case's overrides
-// applied, wiring an event collector, and packages the transcript into a
-// Result. The returned error is a harness-level failure (an invalid
-// RunnerConfig that NewRunner rejects); a turn that runs and fails carries its
-// error in Result.Err, not the returned error, so scorers can grade it.
+// Run applies the Case's overrides to a copy of cfg, wires an event
+// collector, runs the Case, and packages the transcript into a Result. The
+// returned error means a harness-level failure, such as an invalid
+// RunnerConfig that NewRunner rejects. When a turn runs and fails, its error
+// goes in Result.Err instead, so scorers can grade it.
 func Run(ctx context.Context, cfg agent.RunnerConfig, c Case) (Result, error) {
 	if c.Tools != nil {
 		cfg.Tools = c.Tools
@@ -114,9 +114,9 @@ func Run(ctx context.Context, cfg agent.RunnerConfig, c Case) (Result, error) {
 }
 
 // Transcript renders a Result as human-readable text: the final answer, the
-// step count, and the tool calls the turn made with their results. The
-// LLM-as-judge scorer feeds this to a model; it is also useful for logging a
-// failed case. Rendering only, no printing (constraint A4).
+// step count, and each tool call with its result. The LLM-as-judge scorer
+// feeds this to a model, and it is also useful for logging a failed case. It
+// only renders and never prints (constraint A4).
 func Transcript(r Result) string {
 	var b strings.Builder
 	if r.Turn != nil {

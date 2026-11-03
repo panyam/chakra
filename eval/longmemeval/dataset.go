@@ -14,11 +14,11 @@ import (
 
 // DataPathEnv names the environment variable holding the downloaded dataset.
 //
-// The corpus is not vendored: it is ~115k tokens of history per question
-// across 500 questions, separately licensed (MIT, released at
-// huggingface.co/datasets/xiaowu0162/longmemeval-cleaned), and the repo's
-// convention for external test data is an env path, the same way the
-// conformance suites point at a checkout via MCPCONFORMANCE_*_PATH.
+// The corpus is not vendored. It holds ~115k tokens of history per question
+// across 500 questions. It is separately licensed (MIT, released at
+// huggingface.co/datasets/xiaowu0162/longmemeval-cleaned). This repo reads
+// external test data from an env path, the same way mcpkit's conformance
+// suites point at a checkout via MCPCONFORMANCE_*_PATH.
 const DataPathEnv = "LONGMEMEVAL_DATA_PATH"
 
 // LimitEnv caps how many instances are loaded, for an affordable run.
@@ -32,14 +32,14 @@ const LimitEnv = "LONGMEMEVAL_LIMIT"
 type Turn struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
-	// HasAnswer marks a turn carrying the evidence the question needs. The
+	// HasAnswer marks a turn that holds evidence for the question. The
 	// dataset sets it only on evidence turns, so absent means "not evidence"
 	// rather than "unknown".
 	HasAnswer bool `json:"has_answer,omitempty"`
 }
 
-// Instance is one LongMemEval evaluation instance, as the released JSON files
-// carry it.
+// Instance is one LongMemEval evaluation instance, in the shape of the
+// released JSON files.
 //
 // Field names follow the upstream schema exactly. A question_id ending in
 // "_abs" marks an abstention question, where the correct behaviour is to
@@ -79,23 +79,23 @@ type DatasetAdapter struct {
 	// into a memory store.
 	//
 	// The two modes measure different systems and are not comparable to each
-	// other. Long context is what published baselines mostly report: the
-	// model receives every session and the benchmark grades its attention
+	// other. Published baselines mostly report long context. In that mode the
+	// model receives every session, and the benchmark grades its attention
 	// over ~115k tokens. Memory mode (the default) puts the sessions in a
-	// MemoryStore and grades whether the agent retrieves the right one, which
-	// is the stack this repo actually ships and the only mode where a
-	// small-context model can compete.
+	// MemoryStore and grades whether the agent retrieves the right one. This
+	// repo actually ships that stack, and only that mode lets a small-context
+	// model compete.
 	//
-	// Long context also fails rather than scores when a haystack exceeds the
-	// model's window, which is a property of the benchmark, not a bug here.
+	// In long-context mode, a haystack larger than the model's window fails
+	// rather than scores. The benchmark causes that, not a bug here.
 	LongContext bool
 
 	// NewStore builds the MemoryStore each scenario is graded against, in
 	// memory mode. Nil uses the in-memory substring store.
 	//
-	// It is the point of the mode: the same 500 questions graded through a
-	// substring store, an embedding store, and a pgvector store measure the
-	// retrieval stack rather than the model.
+	// Memory mode exists for this field. Grade the same 500 questions through
+	// a substring store, an embedding store, and a pgvector store, and the
+	// scores measure the retrieval stack rather than the model.
 	NewStore func() (agent.MemoryStore, error)
 
 	// Types selects which question types to load, by the dataset's
@@ -109,16 +109,16 @@ func (DatasetAdapter) Name() string { return "longmemeval" }
 // Load reads the dataset and maps each instance onto a graded case.
 //
 // It returns zero cases with a nil error when the dataset path is not
-// configured, which eval.LoadSuite turns into a skip. A configured path that
-// cannot be read, or a file whose shape does not match the documented schema,
-// is an error.
+// configured, and eval.LoadSuite turns that into a skip. It returns an error
+// when a configured path cannot be read or the file does not match the
+// documented schema.
 //
-// Parsing is deliberately strict. This loader is written against the upstream
-// schema documentation rather than against the corpus, which is not in this
-// repo and cannot be, so a field this code has wrong would otherwise surface
-// as scenarios that run and grade nothing. Failing loudly on the first
-// malformed instance turns a silent scoring bug into a startup error naming
-// the field.
+// Parsing is deliberately strict. The corpus is not in this repo and cannot
+// be, so this loader follows the upstream schema documentation instead.
+// Suppose this code gets a field wrong. Lenient parsing would hide that as
+// scenarios that run and grade nothing. Strict parsing fails loudly on the
+// first malformed instance, so the silent scoring bug becomes a startup error
+// naming the field.
 func (a DatasetAdapter) Load() ([]eval.SuiteCase, error) {
 	path := a.Path
 	if path == "" {
@@ -136,9 +136,9 @@ func (a DatasetAdapter) Load() ([]eval.SuiteCase, error) {
 
 	var instances []Instance
 	dec := json.NewDecoder(strings.NewReader(string(raw)))
-	// Unknown fields are tolerated: upstream adds columns between releases and
-	// a new one is not a reason to refuse a corpus. Missing or malformed
-	// REQUIRED fields are what this loader refuses, in validate.
+	// Unknown fields are tolerated. Upstream adds columns between releases,
+	// and a new one is not a reason to refuse a corpus. validate refuses
+	// missing or malformed REQUIRED fields.
 	if err := dec.Decode(&instances); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w; expected a JSON array of LongMemEval instances", path, err)
 	}
@@ -175,10 +175,10 @@ func (a DatasetAdapter) Load() ([]eval.SuiteCase, error) {
 
 // validate enforces the parts of the schema this loader depends on.
 //
-// Each check corresponds to something that would otherwise produce a scenario
-// that runs and grades nothing: no question means no graded turn, no sessions
-// means an empty haystack, and an unknown role means a message the Runner
-// cannot place.
+// Each check catches a shape that would otherwise produce a scenario that
+// runs and grades nothing. No question means no graded turn. No sessions
+// means an empty haystack. With an unknown role, the Runner cannot place the
+// message.
 func (i Instance) validate() error {
 	if i.QuestionID == "" {
 		return fmt.Errorf("missing question_id")
@@ -235,11 +235,11 @@ func (a DatasetAdapter) caseFor(inst Instance) eval.SuiteCase {
 	return eval.SuiteCase{
 		Scenario: s,
 		Scorers: func(p agent.Provider) []eval.Scorer {
-			// No deterministic scorer: the expected answers are free-form
+			// No deterministic scorer here. The expected answers are free-form
 			// prose, so a substring check would fail correct paraphrases and
-			// pass answers that merely quote the question. Grading is the
-			// rubric's job, which means these cases report Ungradeable
-			// without the eval_llm tag rather than passing vacuously.
+			// pass answers that merely quote the question. The rubric does the
+			// grading. So without the eval_llm tag these cases report
+			// Ungradeable rather than passing vacuously.
 			return appendRubric(nil, p, rubric)
 		},
 	}
@@ -269,10 +269,10 @@ func (i Instance) history() []agent.Message {
 // storeFor returns the factory that pre-loads the haystack into a memory
 // store, one item per session.
 //
-// Per session rather than per turn: a session is the coherent unit the
-// benchmark's evidence is scoped to (answer_session_ids names sessions), and
-// splitting a two-turn exchange into two items strands the assistant's reply
-// away from the question it answers.
+// It stores one item per session rather than per turn. The benchmark scopes
+// its evidence to sessions (answer_session_ids names sessions). Splitting a
+// two-turn exchange into two items would separate the assistant's reply from
+// the question it answers.
 //
 // The factory runs per scenario, so each question is graded against its own
 // store and nothing leaks between them.
@@ -333,9 +333,9 @@ func instructionsFor(inst Instance) string {
 // rubricFor builds the judge rubric for an instance.
 //
 // Abstention instances are graded on the opposite property from every other
-// type: the failure is answering at all. Grading them against a reference
-// answer would score a confident fabrication as correct whenever it happened
-// to match.
+// type. For them, answering at all is the failure. Grading them against a
+// reference answer would score a confident fabrication as correct whenever it
+// happened to match.
 func rubricFor(inst Instance) string {
 	if inst.Abstention() {
 		return "The user never provided the information this question asks for. " +

@@ -10,7 +10,8 @@ import (
 // Score is one scorer's verdict on a Result. Value is a normalized score in
 // [0,1] where 1.0 is a full pass; the deterministic scorers emit 1.0 or 0.0,
 // while a graded scorer (the LLM judge) may report an intermediate value. Pass
-// is the boolean the Suite aggregates. Detail is the human-readable specifics.
+// is a boolean, and the Suite aggregates it. Detail holds the human-readable
+// specifics.
 type Score struct {
 	Name   string  `json:"name"`
 	Pass   bool    `json:"pass"`
@@ -62,10 +63,10 @@ func Contains(substr string) Scorer {
 }
 
 // NotContains passes when the final turn text does NOT contain substr. It is
-// the abstention / knowledge-supersede check: a memory eval asserts the model
-// did not surface a stale fact (the old value after an update) or did not
-// hallucinate a specific it was never told. A failed run (no turn) fails the
-// scorer — there is no answer to trust.
+// the abstention and knowledge-supersede check. A memory eval uses it to
+// assert the model did not surface a stale fact (the old value after an
+// update), or did not hallucinate a specific it was never told. A failed run
+// has no turn and so no answer to trust, and it fails the scorer.
 func NotContains(substr string) Scorer {
 	return scorerFunc(func(r Result) Score {
 		if r.Turn == nil {
@@ -78,9 +79,9 @@ func NotContains(substr string) Scorer {
 }
 
 // ToolCalled passes when the turn requested the named tool at least once. It
-// scans the event stream for tool-begin (emitted for every dispatched call,
-// including ones that later error or are denied), so it reports intent to call
-// regardless of the call's outcome.
+// scans the event stream for tool-begin. The Runner emits tool-begin for every
+// dispatched call, including ones that later error or are denied. So the
+// scorer reports intent to call regardless of the call's outcome.
 func ToolCalled(name string) Scorer {
 	return scorerFunc(func(r Result) Score {
 		count := 0
@@ -118,8 +119,9 @@ func StepCount(n int) Scorer {
 
 // NoError passes when the run itself succeeded and no tool failed: no run
 // error, no error event, no tool dispatch error, and no tool result marked
-// IsError. It catches the failure shapes the Runner folds back into the
-// conversation (which never abort the turn) as well as a hard run error.
+// IsError. The Runner folds some failures back into the conversation, and
+// those never abort the turn. NoError catches them as well as a hard run
+// error.
 func NoError() Scorer {
 	return scorerFunc(func(r Result) Score {
 		if r.Err != nil {
@@ -146,10 +148,10 @@ func NoError() Scorer {
 }
 
 // NotDenied passes when no tool call was blocked by an approval policy. A
-// denial is deliberately not an error (the Runner emits a distinct tool-denied
-// event, not tool-error), so NoError ignores it; this scorer is the separate
-// check for evals that assert the model never attempted a gated tool. Compose
-// with NoError when a case must be both clean and unblocked.
+// denial is deliberately not an error. The Runner emits a distinct
+// tool-denied event, not tool-error, so NoError ignores it. NotDenied is the
+// separate check for evals that assert the model never attempted a gated
+// tool. Compose it with NoError when a case must be both clean and unblocked.
 func NotDenied() Scorer {
 	return scorerFunc(func(r Result) Score {
 		for _, e := range r.Events {
@@ -169,10 +171,10 @@ func NotDenied() Scorer {
 // Ungradeable returns a Scorer that always fails, naming why the grade could
 // not be computed here.
 //
-// It exists so "we could not grade this" is reported as a failure rather than
-// as a pass. The alternative shapes are both worse: dropping the scorer leaves
-// the case graded by whatever remains, which for a rubric-graded case can be
-// nothing that discriminates; and skipping the case hides it from the totals.
+// It exists so "we could not grade this" is reported as a failure, not as a
+// pass. The two alternatives are both worse. Dropping the scorer leaves the
+// case graded by whatever remains, and for a rubric-graded case nothing that
+// remains may discriminate. Skipping the case hides it from the totals.
 func Ungradeable(name, reason string) Scorer {
 	return scorerFunc(func(Result) Score {
 		return Score{Name: name, Pass: false, Value: 0, Detail: reason}

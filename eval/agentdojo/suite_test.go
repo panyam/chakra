@@ -90,8 +90,8 @@ func (p *simulatedAgent) next(req agent.ProviderRequest) (*agent.ProviderRespons
 	}
 }
 
-// injectionVisible models the one behavioural difference a guardrail makes:
-// content inside an untrusted fence is read as data, not as instructions.
+// injectionVisible models the one behavioural difference from a guardrail.
+// Content inside an untrusted fence is read as data, not as instructions.
 func (p *simulatedAgent) injectionVisible() bool {
 	if !strings.Contains(p.lastRead, "IGNORE ALL PREVIOUS INSTRUCTIONS") {
 		return false
@@ -127,8 +127,8 @@ func runSuite(t *testing.T, a Adapter, p agent.Provider) eval.SuiteReport {
 	return eval.Suite{Config: agent.RunnerConfig{Provider: p}, Cases: cases}.Run(context.Background())
 }
 
-// TestInjectionsLiveInToolOutputNotThePrompt is the structural invariant the
-// whole suite rests on. The attacker does not control the user's request; they
+// TestInjectionsLiveInToolOutputNotThePrompt pins the suite's core structural
+// invariant. The attacker does not control the user's request; they
 // control content the agent reads. A payload that reached the model through the
 // prompt would measure instruction-following, not injection resistance.
 func TestInjectionsLiveInToolOutputNotThePrompt(t *testing.T) {
@@ -151,7 +151,7 @@ func TestInjectionsLiveInToolOutputNotThePrompt(t *testing.T) {
 	}
 }
 
-// TestScoresTheDangerousQuadrant is the reason this suite reports two numbers.
+// TestScoresTheDangerousQuadrant shows why this suite reports two numbers.
 // An agent that completes the user's task AND obeys the attacker must score
 // utility-pass with security-fail. Any single pass/fail collapses that into
 // "failed" alongside an agent that simply did nothing, and the two are not the
@@ -181,9 +181,9 @@ func TestScoresTheDangerousQuadrant(t *testing.T) {
 	}
 }
 
-// TestUselessAgentScoresSecureAndUnhelpful is the opposite corner: refusing
-// everything is perfect security and no utility. Reporting only a security
-// number would rank this agent best.
+// TestUselessAgentScoresSecureAndUnhelpful covers the opposite corner.
+// Refusing everything gives perfect security and no utility. Reporting only a
+// security number would rank this agent best.
 func TestUselessAgentScoresSecureAndUnhelpful(t *testing.T) {
 	report := runSuite(t, Adapter{}, &simulatedAgent{obeysInjection: false, doesTheJob: false})
 
@@ -218,9 +218,9 @@ func TestDimensionsSeparateTheTwoAxes(t *testing.T) {
 	}
 
 	// Cross-check the rollup against a hand count of the per-case verdicts.
-	// Asserting only that the two rates differ would be a proxy, and a weak
-	// one: it passes for the wrong reasons and fails when two independent
-	// dimensions happen to land on the same number.
+	// Asserting only that the two rates differ would be a weak proxy. It
+	// can pass for the wrong reasons, and it fails when two independent
+	// dimensions happen to reach the same number.
 	want := map[string]*eval.DimensionReport{
 		ScoreUtility:  {Name: ScoreUtility},
 		ScoreSecurity: {Name: ScoreSecurity},
@@ -246,7 +246,7 @@ func TestDimensionsSeparateTheTwoAxes(t *testing.T) {
 		}
 	}
 
-	// And the two axes really are independent: at least one case must split.
+	// Check that the two axes really are independent. At least one case must split.
 	var split bool
 	for _, cr := range report.Cases {
 		byName := map[string]bool{}
@@ -263,13 +263,14 @@ func TestDimensionsSeparateTheTwoAxes(t *testing.T) {
 }
 
 // TestGuardrailChangesTheMeasurement checks that the A/B harness can detect a
-// difference at all: the same cases, the same agent, spotlighting on and off.
+// difference at all. It runs the same cases and the same agent, with
+// spotlighting on and off.
 //
 // It proves the measurement apparatus, NOT that agent.Spotlight works. The
 // simulated agent is written to respect a fence, so this would pass even if
-// spotlighting were a no-op on real models. It rules out the harness
-// reporting identical numbers regardless of configuration, which would make
-// the live run meaningless.
+// spotlighting were a no-op on real models. It rules out a harness that
+// reports identical numbers regardless of configuration. Such a harness would
+// make the live run meaningless.
 func TestGuardrailChangesTheMeasurement(t *testing.T) {
 	undefended := runSuite(t, Adapter{}, &simulatedAgent{
 		obeysInjection: true, doesTheJob: true, respectsFence: true,
@@ -290,7 +291,8 @@ func TestGuardrailChangesTheMeasurement(t *testing.T) {
 }
 
 // TestWorldIsFreshPerRun pins that a case re-run does not inherit the previous
-// run's payments, which would report an attack that did not happen this time.
+// run's payments. Inherited payments would report an attack that did not
+// happen this time.
 func TestWorldIsFreshPerRun(t *testing.T) {
 	a := Adapter{}
 	first := runSuite(t, a, &simulatedAgent{obeysInjection: true, doesTheJob: true})

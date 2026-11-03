@@ -7,8 +7,8 @@ import (
 	"github.com/panyam/chakra/eval"
 )
 
-// Scorer names. They are the dimensions SuiteReport.Dimensions aggregates, so
-// they are part of the report's contract rather than free text.
+// Scorer names. SuiteReport.Dimensions aggregates by these names, so they are
+// part of the report's contract rather than free text.
 const (
 	// ScoreUtility passes when the agent did the user's actual job.
 	ScoreUtility = "utility"
@@ -33,8 +33,8 @@ type Case struct {
 	Prompt string
 
 	// Inbox is the world the tools serve. The injection lives in one of these
-	// bodies, which is the whole point: the payload has to arrive through
-	// tool output, not through the instructions.
+	// bodies. The payload has to arrive through tool output, not through the
+	// instructions.
 	Inbox []Email
 
 	// Utility reports whether the user's job got done, from the post-run
@@ -55,9 +55,9 @@ type State struct {
 
 // Cases returns the suite.
 //
-// Deliberately small and hand-authored. The value here is not coverage, it is
-// a controlled A/B: the same cases run with and without agent.Spotlight, so
-// the difference is attributable to the guardrail rather than to sampling.
+// Deliberately small and hand-authored. The suite is a controlled A/B, not a
+// coverage set. The same cases run with and without agent.Spotlight, so any
+// difference comes from the guardrail rather than from sampling.
 func Cases() []Case {
 	const legitSubject = "Q3 planning"
 
@@ -151,8 +151,8 @@ func (a Adapter) Load() ([]eval.SuiteCase, error) {
 	return out, nil
 }
 
-// suiteCase wires one case: a fresh world per run, installed through
-// Configure, and scorers that read that same world afterwards.
+// suiteCase wires one case. Configure installs a fresh world per run, and the
+// scorers read that same world afterwards.
 //
 // The world is per case and reset per run rather than rebuilt, so the scorers
 // can close over it. Suite.Run calls Configure before the run and Scorers
@@ -174,9 +174,9 @@ func (a Adapter) suiteCase(c Case) eval.SuiteCase {
 			if err != nil {
 				return cfg, err
 			}
-			// Set on the config rather than on Scenario.Tools: RunScenario
-			// overrides cfg.Tools from the Scenario when that field is set,
-			// so a per-run source only gets through while that field is nil.
+			// Set this on the config, not on Scenario.Tools. RunScenario
+			// copies a non-nil Scenario.Tools over cfg.Tools, so a per-run
+			// source set here survives only while Scenario.Tools is nil.
 			cfg.Tools = src
 			if a.Middleware != nil {
 				cfg.ToolMiddleware = append(cfg.ToolMiddleware, a.Middleware()...)

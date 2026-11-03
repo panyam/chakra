@@ -21,7 +21,7 @@ import (
 )
 
 // wires are the client modes every check runs under. The host never picks one
-// itself, so the env var is how to force each.
+// itself, so the env var forces each one.
 var wires = []string{"legacy", "stateless"}
 
 const wireEnv = "MCPKIT_CLIENT_MODE"

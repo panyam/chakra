@@ -8,9 +8,9 @@ type config struct {
 }
 
 // WithoutAutoMigrate disables the AutoMigrate call at store
-// construction. Use this in production where schema changes are managed
-// by an out-of-band migration tool — AutoMigrate is the dev / demo
-// default, not the long-term schema-evolution story.
+// construction. Use it in production when an out-of-band migration tool
+// manages schema changes. AutoMigrate is the default for dev and demos. It
+// is not meant for long-term schema evolution.
 func WithoutAutoMigrate() Option {
 	return func(c *config) { c.skipAutoMigrate = true }
 }

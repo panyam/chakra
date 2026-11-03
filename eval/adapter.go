@@ -9,25 +9,25 @@ import (
 
 // Adapter turns an external benchmark into cases this harness can run.
 //
-// The harness is the constant and the suites vary: LongMemEval, LoCoMo, BFCL,
+// The suites vary and the harness doesn't. LongMemEval, LoCoMo, BFCL,
 // tau-bench and our own fixtures differ in where the tasks come from and how
-// they are graded, not in how a turn is executed or how a report is tallied.
-// An adapter is therefore a data source, and adding one must not touch the
-// Runner, the scorers, or Suite.
+// they are graded. They don't differ in how a turn is executed or how a report
+// is tallied. So an adapter is a data source, and adding one must not touch
+// the Runner, the scorers, or Suite.
 //
 // # Conventions an adapter follows
 //
 //   - **Data lives outside the repo.** Benchmark corpora are large and
 //     separately licensed, so an adapter reads a path from the environment and
-//     skips cleanly when it is unset, mirroring the MCPCONFORMANCE_*_PATH
-//     convention in conformance/. Nothing is vendored.
-//   - **Adapters live in sibling packages.** agent/eval must not grow a
-//     dependency because one benchmark ships parquet or needs a tokenizer.
-//   - **Per-case ground truth goes in the case.** SuiteCase.Scorers is where a
-//     suite's expected answers live; the adapter maps its format onto them.
+//     skips cleanly when it is unset. mcpkit's conformance/ follows the same
+//     convention with its MCPCONFORMANCE_*_PATH variables. Nothing is vendored.
+//   - **Adapters live in sibling packages.** This package (eval/) must not grow
+//     a dependency because one benchmark ships parquet or needs a tokenizer.
+//   - **Per-case ground truth goes in the case.** A suite's expected answers
+//     go in SuiteCase.Scorers, and the adapter maps its format onto them.
 //
-// An adapter that yields zero cases and a nil error means "this suite is not
-// configured here", which a caller reports as a skip rather than a pass.
+// Zero cases with a nil error means "this suite is not configured here". A
+// caller reports that as a skip, not a pass.
 type Adapter interface {
 	// Name identifies the suite in reports and skip messages.
 	Name() string
@@ -41,12 +41,11 @@ type Adapter interface {
 // SuitePath resolves a benchmark's data location from an environment
 // variable, and reports whether it is usable.
 //
-// Adapters call this instead of reading os.Getenv directly so the three
-// outcomes stay distinct: configured and present, not configured, and
-// configured but wrong. The third is the one worth an error — an operator who
-// set the variable meant to run the suite, and silently reporting "not
-// configured" for a typo would show up as a suite that mysteriously never
-// runs.
+// Adapters call this instead of reading os.Getenv directly, so they can tell
+// three outcomes apart: configured and present, not configured, and configured
+// but wrong. Only the third returns an error. Imagine an operator sets the
+// variable with a typo in the path. They meant to run the suite. If SuitePath
+// reported "not configured", the suite would silently never run.
 func SuitePath(envVar string) (path string, ok bool, err error) {
 	p := os.Getenv(envVar)
 	if p == "" {

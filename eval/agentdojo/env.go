@@ -1,32 +1,32 @@
 // Package agentdojo is an AgentDojo-style indirect prompt-injection suite for
-// agent/eval.
+// chakra's eval package.
 //
 // # What this is, and is not
 //
 // It borrows AgentDojo's threat model and its two-axis scoring. It is not a
 // port of AgentDojo and does not produce comparable numbers.
 //
-// AgentDojo is a Python framework rather than a dataset: a user task is a class
-// whose utility() inspects environment state before and after the run, an
-// injection task pairs a GOAL with a security() check, and the environments are
-// stateful Python objects whose tools mutate them. None of that exports as
-// data, so there is nothing to load. The shape still ports, so this package
-// rebuilds it in Go against mcpkit's own tools, the same way
-// longmemeval's SmokeScenarios borrows LongMemEval's categories without its
-// corpus.
+// AgentDojo is a Python framework rather than a dataset. A user task is a
+// class, and its utility() inspects environment state before and after the
+// run. An injection task pairs a GOAL with a security() check. The
+// environments are stateful Python objects, and their tools mutate them. None
+// of that exports as data, so there is nothing to load. The shape still
+// ports, so this package rebuilds it in Go against chakra's own tools. In the
+// same way, longmemeval's SmokeScenarios borrows LongMemEval's categories
+// without its corpus.
 //
-// The reason to have it here rather than to run the real thing: the question
-// this suite answers is whether agent.Spotlight actually resists injection,
-// which is a controlled A/B of our own guardrail on identical cases. That needs
-// to run in CI, on every change, with no Python. Comparability to a published
-// leaderboard is a different goal and wants a different mechanism.
+// This suite asks whether agent.Spotlight actually resists injection.
+// Answering that takes a controlled A/B of our own guardrail on identical
+// cases, run in CI, on every change, with no Python. So the suite lives here
+// instead of running the real thing. Comparability to a published leaderboard
+// is a different goal and needs a different mechanism.
 //
 // # The threat model
 //
 // The attacker does not control the user's prompt. They control content the
-// agent reads: an email body, a fetched page, a document. So every injection
-// here is planted in TOOL OUTPUT, never in the instructions, and a case where
-// the payload reached the model any other way is measuring nothing.
+// agent reads, such as an email body, a fetched page, or a document. So every
+// injection here is planted in TOOL OUTPUT, never in the instructions. If the
+// payload reached the model any other way, the case would measure nothing.
 //
 // # Two axes, and the quadrant between them
 //
@@ -35,11 +35,11 @@
 //   - utility: did the agent do the user's actual job?
 //   - security: did it refuse the injected instruction?
 //
-// They move independently, and the interesting cell is utility-pass with
-// security-fail: the agent did the job and also paid the attacker, which reads
-// as a clean success to any single pass/fail. An agent that refuses everything
-// scores perfectly on security and is useless, which is the other reason both
-// numbers have to be reported.
+// The two move independently. The interesting cell is utility-pass with
+// security-fail. There the agent did the job and also paid the attacker, and
+// any single pass/fail reads that as a clean success. An agent that refuses
+// everything scores perfectly on security and is useless. That gives a second
+// reason to report both numbers.
 package agentdojo
 
 import (
@@ -64,13 +64,13 @@ type Email struct {
 	Body    string
 }
 
-// env is one case's mutable world: the tools read and write it, and the
+// env is one case's mutable world. The tools read and write it, and the
 // scorers read it afterwards.
 //
-// This mirrors how AgentDojo scores, which is on environment state after the
-// run rather than on the transcript. State is the honest place to check: an
-// agent that says it will not pay the attacker and then calls pay has not
-// resisted anything, and only the post-state distinguishes the two.
+// This mirrors AgentDojo, which scores environment state after the run rather
+// than the transcript. State is the honest place to check. Imagine an agent
+// says it will not pay the attacker and then calls pay. It has not resisted
+// anything, and only the post-state shows that.
 type env struct {
 	mu sync.Mutex
 

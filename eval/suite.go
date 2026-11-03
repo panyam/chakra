@@ -11,13 +11,13 @@ import (
 // SuiteCase is one graded unit: a scenario to run and the scorers that grade
 // it.
 //
-// Scorers are per-case rather than per-suite because an external benchmark
-// grades each case on its own. Every question in a memory benchmark has its own expected
-// answer, so a single scorer list shared across the suite can only express
-// properties that hold for every case ("did not error", "called a tool"),
-// never the ground truth that makes a benchmark a benchmark. The previous
-// shape had exactly that limitation, and longmemeval worked around it by
-// hand-rolling its own runner loop.
+// Scorers are per-case, not per-suite, because an external benchmark grades
+// each case on its own. Every question in a memory benchmark has its own
+// expected answer. A single scorer list shared across the suite can only
+// express properties that hold for every case ("did not error", "called a
+// tool"). It can never express the ground truth that makes a benchmark a
+// benchmark. The previous shape had exactly that limitation, and longmemeval
+// worked around it by hand-rolling its own runner loop.
 type SuiteCase struct {
 	// Scenario is the conversation to run. Its Name identifies the case in
 	// the report.
@@ -28,26 +28,26 @@ type SuiteCase struct {
 	// the provider; a case that only uses deterministic scorers ignores the
 	// argument.
 	//
-	// A case with no scorers fails, on the same reasoning as before: a case
-	// nothing grades is a case that silently passes forever.
+	// A case with no scorers fails, as it did under the old Suite. If
+	// nothing grades a case, it would silently pass forever.
 	Scorers func(agent.Provider) []Scorer
 
 	// Configure adapts the suite's base RunnerConfig for this case. Nil uses
 	// the base unchanged.
 	//
-	// It exists because some cases are about the harness rather than the
-	// model: a compaction case has to run under a Compactor, which needs the
-	// provider to build. Returning a config rather than mutating one keeps
-	// each case's changes from leaking into the next.
+	// It exists because some cases test the harness, not the model. A
+	// compaction case has to run under a Compactor, and building the
+	// Compactor needs the provider. Configure returns a config rather than
+	// mutating one, so each case's changes can't leak into the next.
 	Configure func(agent.RunnerConfig) (agent.RunnerConfig, error)
 }
 
 // Single wraps a single-turn Case with a fixed scorer list, for the
 // table-driven style that does not need per-case ground truth.
 //
-// It exists so the common shape stays one line after Suite moved to
-// scenarios. There is one graded unit, not two: this builds the same
-// SuiteCase an adapter yields.
+// It exists so the common shape is still one line after Suite moved to
+// scenarios. An adapter yields a SuiteCase, and Single builds the same type,
+// so there is one kind of graded unit, not two.
 func Single(c Case, scorers ...Scorer) SuiteCase {
 	return SuiteCase{
 		Scenario: Scenario{
@@ -86,13 +86,13 @@ type CaseReport struct {
 
 // SuiteReport is the aggregate: one CaseReport per case plus pass/fail counts.
 //
-// Passed and Failed count whole cases, where a case passes only if every one
-// of its scorers passed. That is the right aggregate for a benchmark asking
-// one question per case, and the wrong one for a benchmark reporting several
-// independent rates — a security suite wants utility and attack-success
-// counted separately, and one of them inverted. Per-scorer verdicts are kept
-// on each CaseReport with their names, so a per-dimension rollup is a pure
-// addition over data already here rather than a re-plumb. See issue 1060.
+// Passed and Failed count whole cases, and a case passes only if every one
+// of its scorers passed. That suits a benchmark that asks one question per
+// case. It doesn't suit a benchmark that reports several independent rates.
+// A security suite wants utility and attack-success counted separately, and
+// one of them inverted. Each CaseReport keeps its per-scorer verdicts with
+// their names, so a per-dimension rollup only adds code over data already
+// here and needs no re-plumbing. See issue 1060.
 type SuiteReport struct {
 	Cases  []CaseReport `json:"cases"`
 	Passed int          `json:"passed"`
@@ -104,10 +104,10 @@ type SuiteReport struct {
 func (r SuiteReport) Pass() bool { return r.Failed == 0 }
 
 // Run evaluates every case against its own scorers and returns the report. It
-// does not stop on a failing case; a per-case harness failure is recorded in
-// that case's RunErr and the suite continues. Ctx cancellation surfaces per
-// case via the Runner (recorded in scores through NoError, or in RunErr for a
-// build failure) rather than aborting the whole suite.
+// does not stop on a failing case. A per-case harness failure goes in that
+// case's RunErr, and the suite continues. Ctx cancellation does not abort the
+// whole suite either. It reaches each case through the Runner. NoError
+// records it in the scores, or RunErr records it for a build failure.
 func (s Suite) Run(ctx context.Context) SuiteReport {
 	report := SuiteReport{Total: len(s.Cases)}
 	for _, sc := range s.Cases {
@@ -135,10 +135,10 @@ func (s Suite) Run(ctx context.Context) SuiteReport {
 			fail("%v", err)
 			continue
 		}
-		// Final panics on an empty slice, and a case whose Scenario has no
-		// Turns produces one. That is a plausible adapter bug (History
-		// populated, the question forgotten), so it is reported as this
-		// case's failure rather than taking the suite down.
+		// Final panics on an empty slice. If a case's Scenario has no Turns,
+		// RunScenario returns one. That is a plausible adapter bug (History
+		// populated, the question forgotten), so we report it as this case's
+		// failure and the suite keeps going.
 		if len(results) == 0 {
 			fail("scenario %q ran no turns", sc.Scenario.Name)
 			continue
@@ -170,10 +170,10 @@ func (s Suite) Run(ctx context.Context) SuiteReport {
 	return report
 }
 
-// String renders the report as a plain-text table. It returns the string; it
-// does not print (constraint A4) — a test or CLI writes it. The format is
-// stable enough to eyeball, not a machine contract (marshal the report as JSON
-// for that).
+// String renders the report as a plain-text table. It returns the string and
+// does not print (constraint A4). A test or CLI writes it. The format is
+// stable enough to eyeball, but it is not a machine contract. Marshal the
+// report as JSON for that.
 func (r SuiteReport) String() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "eval suite: %d/%d cases passed\n", r.Passed, r.Total)
@@ -204,8 +204,8 @@ type DimensionReport struct {
 	Name string `json:"name"`
 
 	// Passed and Failed count the cases carrying a verdict under this name.
-	// Total is their sum, and is not necessarily the suite's case count: a
-	// dimension only some cases are graded on has a smaller Total.
+	// Total is their sum, and is not necessarily the suite's case count. A
+	// dimension has a smaller Total when only some cases are graded on it.
 	Passed int `json:"passed"`
 	Failed int `json:"failed"`
 	Total  int `json:"total"`
@@ -222,19 +222,19 @@ func (d DimensionReport) Rate() float64 {
 
 // Dimensions aggregates verdicts by scorer name, in first-seen order.
 //
-// Passed/Failed on SuiteReport count whole cases, where a case passes only if
-// every one of its scorers passed. That is the right aggregate for a benchmark
-// asking one question per case, and the wrong one for a suite reporting
-// several independent rates: a security suite measures whether the agent did
-// the user's job AND whether it resisted an injected instruction, and those
-// move independently. Collapsing them loses the quadrant that matters most,
-// the run that succeeded at the task while also obeying the attacker.
+// Passed/Failed on SuiteReport count whole cases, and a case passes only if
+// every one of its scorers passed. That suits a benchmark that asks one
+// question per case. It doesn't suit a suite that reports several independent
+// rates. A security suite measures whether the agent did the user's job AND
+// whether it resisted an injected instruction, and those move independently.
+// Imagine a run that succeeded at the task while also obeying the attacker.
+// That quadrant matters most, and collapsing the two rates loses it.
 //
-// This is deliberately a method over data CaseReport already carries rather
-// than new fields, so a suite that does not need it is unaffected and nothing
-// had to be re-plumbed to add it. Whether a dimension reads better inverted
-// (an attack-success rate is 1-Rate of a "resisted" dimension) is the caller's
-// presentation decision, not something encoded here.
+// Dimensions is deliberately a method, not new fields. CaseReport already
+// carries the data, so a suite that does not need Dimensions is unaffected,
+// and adding it needed no re-plumbing. The caller decides whether to present
+// a dimension inverted, and nothing here encodes that. For example, an
+// attack-success rate is 1-Rate of a "resisted" dimension.
 func (r SuiteReport) Dimensions() []DimensionReport {
 	var order []string
 	byName := map[string]*DimensionReport{}

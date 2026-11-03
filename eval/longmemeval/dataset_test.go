@@ -97,7 +97,7 @@ func TestDatasetMemoryModeSeedsTheStoreNotTheContext(t *testing.T) {
 
 // TestDatasetMemoryStoresAreNotShared pins that each scenario gets its own
 // store. A shared one would let an earlier question's haystack answer a later
-// one, which scores as memory working when it is leakage.
+// one, and that leakage would score as memory working.
 func TestDatasetMemoryStoresAreNotShared(t *testing.T) {
 	cases, err := DatasetAdapter{Path: samplePath}.Load()
 	if err != nil {
@@ -237,10 +237,10 @@ func TestDatasetTypeFilter(t *testing.T) {
 	}
 }
 
-// TestDatasetStrictValidation is the compensation for not being able to run
-// this against the real corpus. Every case here is a shape that would
-// otherwise produce a scenario that runs and grades nothing, so each must be a
-// named error rather than a skipped or empty case.
+// TestDatasetStrictValidation compensates for not being able to run this
+// against the real corpus. Every case here is a shape that would otherwise
+// produce a scenario that runs and grades nothing, so each must be a named
+// error rather than a skipped or empty case.
 func TestDatasetStrictValidation(t *testing.T) {
 	base := loadFixture(t)[0]
 
@@ -315,8 +315,8 @@ func TestDatasetRejectsNonArrayJSON(t *testing.T) {
 	}
 }
 
-// TestDatasetRunsThroughSuite is the end of the seam: the adapter's cases go
-// straight into eval.Suite with no glue.
+// TestDatasetRunsThroughSuite feeds the adapter's cases straight into
+// eval.Suite with no glue.
 func TestDatasetRunsThroughSuite(t *testing.T) {
 	cases, err := DatasetAdapter{Path: samplePath}.Load()
 	if err != nil {

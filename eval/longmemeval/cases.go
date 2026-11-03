@@ -1,26 +1,26 @@
 // Package longmemeval provides fast, self-contained SMOKE scenarios for the
-// Phase 2 memory work, shaped after the LongMemEval benchmark's skill
-// categories. These are NOT the LongMemEval benchmark: they are a handful of
-// short, hand-authored conversations (2–5 turns), not the dataset's long
-// (~100k-token) histories, so they exercise the memory plumbing end-to-end
-// with a real model and no download — a regression signal, not a
+// Phase 2 memory work. They follow the skill categories of the LongMemEval
+// benchmark. These are NOT the LongMemEval benchmark. Each is a short,
+// hand-authored conversation of 2–5 turns, while the dataset's histories run
+// to ~100k tokens. They exercise the memory plumbing end-to-end with a real
+// model and no download. The result is a regression signal, not a
 // published-comparable score.
 //
-// Why a smoke layer at all: memory fails silently (a missing or stale memory
-// yields a subtly worse answer, not an error), so even a coarse model-graded
-// check is worth having in a form that runs with zero external data.
+// Memory fails silently. A missing or stale memory yields a subtly worse
+// answer, not an error. So even a coarse model-graded check is worth having,
+// in a form that runs with zero external data.
 //
-// The rigorous bar — the actual LongMemEval dataset adapted through this same
-// agent/eval harness — is a follow-up loader that reads the downloaded
-// dataset from an env path (the dataset is NOT vendored; see ATTRIBUTION.md),
-// the same convention the conformance suites use for external test data. That
-// loader, plus a general eval/benchmark adapter seam so the harness can point
-// at many external suites, is where comparable numbers come from.
+// The rigorous bar is the actual LongMemEval dataset, adapted through this
+// same eval harness. DatasetAdapter in dataset.go reads the downloaded dataset
+// from an env path. The dataset is NOT vendored; see ATTRIBUTION.md. mcpkit's
+// conformance suites use the same convention for external test data.
+// Comparable numbers come from that loader and the general eval.Adapter seam,
+// and the seam lets the harness point at many external suites.
 //
 // The scenario table and its deterministic assertions live in the default
-// build so they are unit-testable for well-formedness; running them against a
-// live model (with an LLM judge for the fuzzy categories) is behind the
-// eval_llm build tag in live_test.go.
+// build, so unit tests can check that they are well-formed. live_test.go runs
+// them against a live model behind the eval_llm build tag, with an LLM judge
+// for the fuzzy categories.
 package longmemeval
 
 import (
@@ -42,21 +42,21 @@ const (
 	CatTemporal Category = "temporal"
 	// CatAbstention — a fact was never stated; the model must not invent one.
 	CatAbstention Category = "abstention"
-	// CatCompaction — an early fact must survive history compaction: the run
-	// uses a low compaction budget so the head is summarized, and the answer
+	// CatCompaction tests that an early fact survives history compaction. The
+	// run uses a low compaction budget, so the head is summarized. The answer
 	// still depends on a detail from the summarized region.
 	CatCompaction Category = "compaction"
 )
 
-// memoryInstructions steer the model to actually use its scratchpad — the
-// point of the benchmark is the memory tools, not the context window.
+// memoryInstructions steer the model to actually use its scratchpad. The
+// benchmark tests the memory tools, not the context window.
 const memoryInstructions = "You have a working memory with remember, recall, and forget tools. " +
 	"Save durable facts the user tells you, and recall them before answering questions about earlier turns. " +
 	"If you were never told something, say you do not know rather than guessing."
 
-// MemCase is one memory scenario plus how to grade its final answer:
-// deterministic substring checks (Must / MustNot) where the expected token
-// is unambiguous, and a Rubric for the LLM judge where it is not.
+// MemCase is one memory scenario plus how to grade its final answer.
+// Deterministic substring checks (Must / MustNot) grade it where the expected
+// token is unambiguous. A Rubric for the LLM judge grades it where it is not.
 type MemCase struct {
 	Category Category
 	Scenario eval.Scenario
@@ -65,25 +65,26 @@ type MemCase struct {
 	Rubric string
 	// Must requires each substring in the final answer (deterministic).
 	Must []string
-	// MustNot forbids each substring in the final answer (deterministic) —
-	// the supersede and abstention checks.
+	// MustNot forbids each substring in the final answer (deterministic). The
+	// supersede and abstention checks use it.
 	MustNot []string
 
-	// NewCompactor, when set, runs the scenario under the Compactor it builds
-	// (given the run's provider, since a SummarizingCompactor needs a model to
-	// summarize the head). Nil runs with no compaction. A CatCompaction case
-	// sets it to prove a fact survives the compaction boundary. It hands over a
-	// Compactor rather than a token budget, so a case can plug in ANY
-	// compaction strategy, SummarizingCompactor or another. The Compactor
-	// itself decides per turn whether to compact (Compact is a no-op under
-	// budget), so this only chooses the strategy, not the trigger.
+	// NewCompactor builds a Compactor from the run's provider, and the
+	// scenario runs under it. It takes the provider because a
+	// SummarizingCompactor needs a model to summarize the head. Nil runs with
+	// no compaction. A CatCompaction case sets it to prove a fact survives the
+	// compaction boundary. It returns a Compactor rather than a token budget,
+	// so a case can plug in ANY compaction strategy, SummarizingCompactor or
+	// another. The Compactor itself decides per turn whether to compact
+	// (Compact is a no-op under budget). So this field chooses the strategy,
+	// not the trigger.
 	NewCompactor func(provider agent.Provider) (agent.Compactor, error)
 }
 
 // SmokeScenarios returns the illustrative smoke set, one short scenario per
 // category. Each is memory-enabled so the model manages the fact through its
 // tools. These are a plumbing regression signal, not the LongMemEval
-// benchmark — see the package doc.
+// benchmark; see the package doc.
 func SmokeScenarios() []MemCase {
 	scenario := func(name string, turns ...string) eval.Scenario {
 		return eval.Scenario{Name: name, Turns: turns, Memory: true, Instructions: memoryInstructions}
@@ -139,9 +140,9 @@ func SmokeScenarios() []MemCase {
 			Scenario: eval.Scenario{
 				Name:         "compaction-employee-id",
 				Instructions: memoryInstructions,
-				// The ID is stated first, then buried under filler chatter so a
-				// low compaction budget summarizes it out of the raw transcript;
-				// the summarizer must carry it forward for the final answer.
+				// The first turn states the ID. Filler chatter then buries it, so
+				// a low compaction budget summarizes it out of the raw
+				// transcript. The summary must keep the ID for the final answer.
 				Turns: []string{
 					"Please note my employee ID is 4471 for anything work-related.",
 					"Also I like hiking on weekends and cold brew coffee.",
@@ -175,13 +176,13 @@ func (c MemCase) Deterministic() []eval.Scorer {
 
 // SuiteCase adapts a MemCase onto the harness's graded unit.
 //
-// It is the whole of what an adapter does: map this suite's shape (a
-// category, a rubric, substring requirements, an optional compaction
-// strategy) onto a Scenario plus the scorers that grade it. The Runner, the
-// scorers, and the report are untouched.
+// An adapter does only this. It maps the suite's shape onto a Scenario plus
+// the scorers that grade it. Here the shape is a category, a rubric,
+// substring requirements, and an optional compaction strategy. The Runner,
+// the scorers, and the report are untouched.
 //
-// The name carries the category so a report groups readably without the
-// harness needing to know what a category is.
+// The name includes the category. A report then groups readably, and the
+// harness never needs to know what a category is.
 func (c MemCase) SuiteCase() eval.SuiteCase {
 	s := c.Scenario
 	s.Name = string(c.Category) + "/" + s.Name
@@ -191,17 +192,19 @@ func (c MemCase) SuiteCase() eval.SuiteCase {
 	sc.Scorers = func(p agent.Provider) []eval.Scorer {
 		// The judge needs a model, so a rubric cannot be built until the
 		// suite's provider is known. Scorers takes the provider for that reason
-		// rather than being a plain slice. appendRubric is a no-op without the
-		// eval_llm build tag, where eval.Judge does not exist.
+		// rather than being a plain slice. Without the eval_llm build tag,
+		// eval.Judge does not exist, so appendRubric adds eval.Ungradeable for
+		// a rubric instead. The case then fails and names the tag to use.
 		return appendRubric(c.Deterministic(), p, c.Rubric)
 	}
 
 	if c.NewCompactor != nil {
-		// A compaction case is about the harness, not the model: it proves a
+		// A compaction case tests the harness, not the model. It proves a
 		// fact survives the compaction boundary, so it has to run under a
-		// Compactor. Building it needs the provider (a SummarizingCompactor
-		// summarizes with a model). Configure receives the config, which
-		// carries the provider, so it cannot be a static override.
+		// Compactor. Building the Compactor needs the provider, because a
+		// SummarizingCompactor summarizes with a model. Configure receives
+		// the config, and the config holds the provider. So this has to be
+		// a Configure func, not a static override.
 		sc.Configure = func(cfg agent.RunnerConfig) (agent.RunnerConfig, error) {
 			compactor, err := c.NewCompactor(cfg.Provider)
 			if err != nil {
@@ -218,9 +221,9 @@ func (c MemCase) SuiteCase() eval.SuiteCase {
 // SmokeAdapter yields the in-repo smoke set as an eval.Adapter.
 //
 // It needs no external data, so unlike a real corpus adapter it is always
-// configured. It exists to prove the seam with something that runs today; the
-// LongMemEval corpus loader (issue 1014) is the same interface over
-// LONGMEMEVAL_DATA_PATH and slots in beside it without touching the harness.
+// configured. It proves the seam with something that runs today. The
+// LongMemEval corpus loader (issue 1014) implements the same interface over
+// LONGMEMEVAL_DATA_PATH. It sits beside this one and needs no harness change.
 type SmokeAdapter struct{}
 
 // Name identifies the suite in reports.

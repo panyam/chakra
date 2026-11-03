@@ -2,7 +2,7 @@
 
 // This file is excluded from the default build and CI path: the LLM-as-judge
 // scorer needs a live Provider (a real model), so it sits behind the eval_llm
-// build tag alongside its test. The default deterministic scorers carry no
+// build tag alongside its test. The default deterministic scorers have no
 // model or network requirement. Build or test it with: go test -tags eval_llm ./...
 
 package eval
@@ -24,9 +24,9 @@ type judgeVerdict struct {
 }
 
 // Judge grades a Result by asking a model to evaluate the rendered transcript
-// against rubric. It is the LLM-as-judge scorer: non-deterministic, requiring
-// a live Provider, hence build-tagged off the default path. The model is asked
-// for a structured {pass, score, reason} verdict via ResponseSchema.
+// against rubric. It is the LLM-as-judge scorer. It is non-deterministic and
+// needs a live Provider, so a build tag keeps it off the default path. It asks
+// the model for a structured {pass, score, reason} verdict via ResponseSchema.
 //
 // The Scorer interface carries no context, so the judge grades under
 // context.Background(); wrap the provider with a timeout if you need to bound

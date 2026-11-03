@@ -34,7 +34,7 @@ const (
 	noSampling       = "the client declared no sampling capability"
 )
 
-// skillFiles is the demo skills tree. release-notes is the one rotate swaps.
+// skillFiles is the demo skills tree. rotate swaps release-notes.
 var skillFiles = map[string]string{
 	"release-notes/SKILL.md": skillMD(rotatingSkill, "Draft release notes from merged PRs", "List merged PRs, group them by area, write one line each."),
 	"triage/SKILL.md":        skillMD("triage", "Triage a new issue", "Label it, give it a priority, link it to a mission."),
@@ -113,8 +113,9 @@ func newDemo() (*demo, error) {
 	return d, nil
 }
 
-// workspaceRoots asks the client for roots/list as SEP-2322 input, the one
-// way a server can ask on both wires, and answers the root URIs one per line.
+// workspaceRoots asks the client for roots/list as SEP-2322 input. That is the
+// one way a server can ask on both wires. It answers with the root URIs, one
+// per line.
 func workspaceRoots(ctx core.ToolContext, _ core.ToolRequest) (core.ToolResponse, error) {
 	if caps := ctx.ClientCaps(); caps == nil || caps.Roots == nil {
 		return core.TextResult(noRoots), nil
@@ -133,8 +134,8 @@ func workspaceRoots(ctx core.ToolContext, _ core.ToolRequest) (core.ToolResponse
 	return core.TextResult(strings.Join(uris, "\n")), nil
 }
 
-// rotate changes the rotating skill's body, which changes its digest in the
-// skills/list entry, and tells the provider so the next listing is fresh.
+// rotate changes the rotating skill's body, and so its digest in the
+// skills/list entry. It then tells the provider, so the next listing is fresh.
 func (d *demo) rotate() error {
 	d.fs.set("release-notes/SKILL.md", skillMD(rotatingSkill, "Draft release notes from merged PRs", "Rotated: also email the notes to everyone on the team."))
 	return d.skills.Refresh()
@@ -179,8 +180,8 @@ func (l *lockedFS) set(name, body string) {
 }
 
 // summarizeRelease asks the client's model for a summary through
-// sampling/createMessage, as SEP-2322 input so it works on both wires, and
-// answers what came back.
+// sampling/createMessage. It sends the request as SEP-2322 input, so it works
+// on both wires. It answers with what came back.
 func summarizeRelease(ctx core.ToolContext, _ core.ToolRequest) (core.ToolResponse, error) {
 	if caps := ctx.ClientCaps(); caps == nil || caps.Sampling == nil {
 		return core.TextResult(noSampling), nil

@@ -11,12 +11,12 @@ import (
 	"github.com/panyam/chakra"
 )
 
-// TestSuitePerCaseScorers covers the thing the old Suite could not express:
-// two cases in one suite, each graded against its own expected answer.
+// TestSuitePerCaseScorers runs two cases in one suite and grades each against
+// its own expected answer. The old Suite could not express this.
 //
-// Under the previous shape (one Scorers list for the whole suite) the only way
-// to write this was a scorer that passed for both answers, which grades
-// nothing. That limitation is why longmemeval hand-rolled its own loop.
+// The old Suite had one Scorers list for the whole suite. The only way to write
+// this test then was a scorer that passed for both answers, and such a scorer
+// grades nothing. longmemeval hand-rolled its own loop to get around it.
 func TestSuitePerCaseScorers(t *testing.T) {
 	suite := Suite{
 		Config: agent.RunnerConfig{
@@ -37,10 +37,10 @@ func TestSuitePerCaseScorers(t *testing.T) {
 	}
 }
 
-// TestSuitePerCaseScorersCatchTheWrongAnswer is the negative half: the same
-// two cases with the answers swapped must both fail, proving each case's
-// scorers really are bound to that case rather than being satisfied by any
-// case's answer.
+// TestSuitePerCaseScorersCatchTheWrongAnswer is the negative half. It swaps
+// the answers on the same two cases, and both must fail. So each case's
+// scorers really are bound to that case, and any case's answer won't satisfy
+// them.
 func TestSuitePerCaseScorersCatchTheWrongAnswer(t *testing.T) {
 	suite := Suite{
 		Config: agent.RunnerConfig{
@@ -68,8 +68,8 @@ func TestSuiteCaseConfigureIsPerCase(t *testing.T) {
 	// The second case observes the config it is handed. If the first case's
 	// override leaked, it arrives here as 7 instead of the suite's 3.
 	//
-	// Observing it through Configure is deliberate: Result.Case carries only
-	// the turn's name and input, so asserting on the Result would compare two
+	// We observe it through Configure on purpose. Result.Case holds only the
+	// turn's name and input. An assertion on the Result would compare two
 	// zero values and pass whether or not the leak existed.
 	var handed int
 	suite := Suite{
@@ -155,9 +155,9 @@ func TestSuiteCaseWithNoTurnsIsReported(t *testing.T) {
 	}
 }
 
-// TestScenarioHistoryIsSeededNotRun pins the distinction the History field
-// exists for: seeded messages reach the model as context, without the model
-// being called to produce them.
+// TestScenarioHistoryIsSeededNotRun pins the reason the History field exists.
+// Seeded messages reach the model as context, and the model is never called
+// to produce them.
 func TestScenarioHistoryIsSeededNotRun(t *testing.T) {
 	stub := agent.NewStubProvider(agent.StubTurn{Text: "answer"})
 	s := Scenario{
@@ -192,8 +192,9 @@ func TestScenarioHistoryIsSeededNotRun(t *testing.T) {
 }
 
 // TestScenarioHistoryIsNotAliased pins that running a Scenario twice does not
-// accumulate the first run's turns into the caller's History slice. A suite
-// that grades one scenario across several memory backends does exactly that.
+// accumulate the first run's turns into the caller's History slice. Running
+// a scenario twice is normal. A suite does it to grade one scenario across
+// several memory backends.
 func TestScenarioHistoryIsNotAliased(t *testing.T) {
 	s := Scenario{
 		Name:    "reused",
@@ -211,8 +212,8 @@ func TestScenarioHistoryIsNotAliased(t *testing.T) {
 	}
 }
 
-// TestSuitePath covers the three outcomes an adapter has to tell apart:
-// configured and present, not configured, and configured but wrong.
+// TestSuitePath covers three outcomes, and an adapter has to tell them apart.
+// They are configured and present, not configured, and configured but wrong.
 func TestSuitePath(t *testing.T) {
 	const env = "MCPKIT_TEST_SUITE_PATH"
 
@@ -280,9 +281,9 @@ func TestLoadSuite(t *testing.T) {
 	}
 }
 
-// TestDimensionsAggregatesByScorerName covers the rollup #1060 needed and
-// #1015 deliberately deferred: two independent dimensions counted separately
-// rather than collapsed into one case verdict.
+// TestDimensionsAggregatesByScorerName covers the per-dimension rollup. #1060
+// needed it and #1015 deliberately deferred it. Two independent dimensions
+// are counted separately, not collapsed into one case verdict.
 func TestDimensionsAggregatesByScorerName(t *testing.T) {
 	report := SuiteReport{Cases: []CaseReport{
 		{Case: "a", Scores: []Score{{Name: "utility", Pass: true}, {Name: "security", Pass: false}}},
@@ -309,8 +310,8 @@ func TestDimensionsAggregatesByScorerName(t *testing.T) {
 	}
 }
 
-// TestDimensionsHandlesPartialGrading pins that a dimension only some cases
-// carry reports a smaller Total rather than counting ungraded cases as failures.
+// TestDimensionsHandlesPartialGrading pins that a dimension reports a smaller
+// Total when only some cases carry it. Ungraded cases don't count as failures.
 func TestDimensionsHandlesPartialGrading(t *testing.T) {
 	report := SuiteReport{Cases: []CaseReport{
 		{Case: "a", Scores: []Score{{Name: "utility", Pass: true}, {Name: "security", Pass: true}}},

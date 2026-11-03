@@ -101,9 +101,9 @@ func TestRedisRunStore_CreateAppendLoad(t *testing.T) {
 	}
 }
 
-// assertMessagesEqual compares through the JSON wire form: RawJSON
-// carries unexported lazy-parse state that reflect.DeepEqual would trip
-// on, and the wire form is the contract anyway.
+// assertMessagesEqual compares through the JSON wire form. RawJSON holds
+// unexported lazy-parse state, and reflect.DeepEqual would trip on it.
+// The wire form is the contract anyway.
 func assertMessagesEqual(t *testing.T, got, want []agent.Message) {
 	t.Helper()
 	g, err := json.Marshal(got)
@@ -318,9 +318,9 @@ func TestRedisRunStore_ForkRetryConverges(t *testing.T) {
 }
 
 // TestRedisRunStore_ForkDoesNotInheritPlantedGarbage pins the
-// all-or-nothing contract: leftover list entries at an unclaimed
-// NewRunID (what a crashed earlier fork attempt could leave behind)
-// must not leak into a subsequent fork of the same name.
+// all-or-nothing contract. A crashed earlier fork attempt could leave
+// list entries at an unclaimed NewRunID. Those entries must not leak
+// into a later fork of the same name.
 func TestRedisRunStore_ForkDoesNotInheritPlantedGarbage(t *testing.T) {
 	ctx := context.Background()
 	s := newTestStore(t)
@@ -385,7 +385,7 @@ func TestRedisRunStore_StampsTimestamps(t *testing.T) {
 }
 
 // stripStamps asserts every message got stamped, then zeroes the field
-// so the wire-form comparisons stay exact on everything else.
+// so the wire-form comparisons are exact on everything else.
 func stripStamps(t *testing.T, msgs []agent.Message) []agent.Message {
 	t.Helper()
 	out := slices.Clone(msgs)

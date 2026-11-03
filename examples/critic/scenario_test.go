@@ -7,9 +7,9 @@ import (
 	"github.com/panyam/chakra"
 )
 
-// TestCriticSteersAndSurfacesTheWall is the proof for issue 1148: it shows the
-// watch-and-steer critic composes from public primitives on top of host.App,
-// and it pins the one gap — delivery has no neutral injection seam.
+// TestCriticSteersAndSurfacesTheWall is the proof for issue 1148. It shows the
+// watch-and-steer critic composes from public primitives on top of host.App.
+// It also pins the one gap. Delivery has no neutral injection seam.
 func TestCriticSteersAndSurfacesTheWall(t *testing.T) {
 	out := &syncWriter{}
 	res, err := runScenario(out, nil, nil)

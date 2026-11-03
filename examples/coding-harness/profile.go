@@ -18,10 +18,10 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// profile is the coding agent: everything that makes it differ from
-// agentchat --workspace lives here, as a choice of config, extension, tool or
-// provider. Each mission ticket swaps a piece in as it lands, and nothing in
-// this file should ever need to change how a turn runs.
+// profile is the coding agent. It holds everything that makes the agent
+// differ from agentchat --workspace, as a choice of config, extension, tool
+// or provider. Each mission ticket swaps a piece in when it merges, and
+// nothing in this file should ever need to change how a turn runs.
 type profile struct {
 	// dir holds config.json and workspace.json.
 	dir string
@@ -35,8 +35,8 @@ type profile struct {
 	model string
 	// approval overrides the config's approval mode ("allow" when headless).
 	approval string
-	// unconfined is set on platforms with no sandbox backend (CI is Linux;
-	// the backend is darwin-only), where exec runs under standInSandbox.
+	// unconfined is set on platforms with no sandbox backend, where exec runs
+	// under standInSandbox. CI is Linux, and the backend is darwin-only.
 	unconfined bool
 	// checkpoints is where file snapshots go, outside root.
 	checkpoints string
@@ -195,8 +195,8 @@ type stageExtension struct {
 func (e stageExtension) Name() string                  { return "coding-harness.route" }
 func (e stageExtension) StepStages() []agent.StepStage { return []agent.StepStage{e.stage} }
 
-// awaitSurface leaves every ask to a surface's RespondToAsk, as agentweb does:
-// the App has no terminal to read an answer from.
+// awaitSurface leaves every ask to a surface's RespondToAsk, as agentweb does.
+// The App has no terminal to read an answer from.
 func awaitSurface(ctx context.Context, _ core.ElicitationRequest) (core.ElicitationResult, error) {
 	<-ctx.Done()
 	return core.ElicitationResult{}, ctx.Err()
@@ -260,11 +260,11 @@ func (p *recordingProvider) Generate(ctx context.Context, req agent.ProviderRequ
 }
 
 // standInSandbox stands in for a sandbox where the platform has no backend
-// (CI is Linux; exec's backend is darwin-only). It confines nothing, but
-// unlike exec.Unconfined() it counts as a sandbox, so the shell tool still
+// (CI is Linux; exec's backend is darwin-only). It confines nothing.
+// exec.Unconfined() doesn't count as a sandbox, and escalation is turned off
+// under it (#203). standInSandbox does count as one, so the shell tool still
 // offers escalation and an escalated call still goes to the approval ask.
-// That keeps the scripted run exercising the same wiring on every platform;
-// with exec.Unconfined() escalation is turned off (#203).
+// So the scripted run exercises the same wiring on every platform.
 type standInSandbox struct{}
 
 func (standInSandbox) Name() string                           { return "stand-in" }

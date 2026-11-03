@@ -1,12 +1,13 @@
-// Command multi-agent demonstrates mcpkit's Phase 3 multi-agent composition:
+// Command multi-agent demonstrates the agent SDK's Phase 3 multi-agent
+// composition (docs/AGENT_COMPOSITION.md) in two modes.
 //
 //   - Sub-agents as tools (AgentSource): a supervisor delegates a subtask to a
 //     child agent, which runs over its own isolated conversation and returns
-//     an answer. The child's event stream surfaces to the transcript nested
+//     an answer. The child's event stream appears in the transcript nested
 //     under the parent (SubAgentEvent scope/depth).
 //   - Handoff (Team/Orchestrator): a triage agent transfers control of the
-//     conversation to a specialist, who takes over the same thread — transfer,
-//     not call-and-return.
+//     conversation to a specialist, who takes over the same thread. Control
+//     transfers, and does not return to the triage agent.
 //
 // It runs deterministically against scripted StubProviders (no LLM, no
 // network), so it doubles as a golden-transcript test. Point a real model at
@@ -25,9 +26,10 @@ import (
 )
 
 // nestedRenderer writes a sub-agent's events into the transcript, indented by
-// nesting depth and tagged with the agent's scope — the SubAgentEvent envelope
-// (scope/depth on the wrapper, the Event itself flat) turned into readable
-// output. A real surface would render this in a TUI; here it is plain text.
+// nesting depth and tagged with the agent's scope. It turns the SubAgentEvent
+// envelope into readable output. The envelope holds scope and depth, and the
+// Event inside it is flat. A real surface would render this in a TUI, and
+// here it is plain text.
 func nestedRenderer(w io.Writer) func(agent.SubAgentEvent) {
 	return func(sa agent.SubAgentEvent) {
 		indent := strings.Repeat("  ", sa.Depth)
@@ -186,7 +188,7 @@ func runTeam(w io.Writer) error {
 }
 
 // runScenario runs both halves into w. A non-nil provider drives the
-// supervisor with a live model; the sub-agents and team stay scripted.
+// supervisor with a live model, and the sub-agents and team are still scripted.
 func runScenario(w io.Writer, provider agent.Provider) error {
 	if err := runSupervisor(w, provider); err != nil {
 		return err

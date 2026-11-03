@@ -16,10 +16,10 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// check is one host obligation from #88. run reports whether the host met it
-// and, either way, what it saw, so a FAIL line says what went wrong.
+// check is one host obligation from #88. run reports whether the host met it.
+// Either way it also reports what it saw, so a FAIL line says what went wrong.
 //
-// setup is the host config the obligation is checked under. The tests swap in
+// setup edits the host config for checking the obligation. The tests swap in
 // a config that should flip the result, to show each check can tell the two
 // apart.
 type check struct {
@@ -119,7 +119,8 @@ func checkNoPrefetch(ctx context.Context, d *demo, cfg *host.Config) (bool, stri
 
 // checkSkillRotation approves load_skill once with remember on, rotates the
 // skill, and loads it again. Content-bound approval says the second load must
-// ask again, because the skill the user approved is no longer the one served.
+// ask again, because the server now serves a different skill from the one the
+// user approved.
 func checkSkillRotation(ctx context.Context, d *demo, cfg *host.Config) (bool, string, error) {
 	var mu sync.Mutex
 	var prompts int
@@ -150,7 +151,8 @@ func checkSkillRotation(ctx context.Context, d *demo, cfg *host.Config) (bool, s
 	}
 	// The server announces the change with resources/list_changed, and the
 	// host re-reads its skills asynchronously, as the protocol has it. Wait
-	// for that, the second skills-loaded event, before the next load.
+	// for that re-read before the next load. It shows up as the second
+	// skills-loaded event.
 	if err := waitForNth(ctx, app, host.HostSkillsLoaded, 2); err != nil {
 		return false, "", err
 	}
@@ -347,8 +349,8 @@ func waitFor(ctx context.Context, app *host.App, kind host.HostEventKind) error 
 	return fmt.Errorf("no %v event within 5s", kind)
 }
 
-// waitForNth waits for the nth event of a kind, counting the replayed history
-// Subscribe starts with.
+// waitForNth waits for the nth event of a kind. Subscribe starts with replayed
+// history, and the count includes it.
 func waitForNth(ctx context.Context, app *host.App, kind host.HostEventKind, n int) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -367,8 +369,8 @@ func offers(req agent.ProviderRequest, tool string) bool {
 	return slices.ContainsFunc(req.Tools, func(t core.ToolDef) bool { return t.Name == tool })
 }
 
-// isChild tells the delegated agent's model calls from the main agent's: the
-// child runs on the server agent's instructions, not the host's.
+// isChild tells the delegated agent's model calls apart from the main agent's.
+// The child runs on the server agent's instructions, not the host's.
 func isChild(req agent.ProviderRequest) bool {
 	return strings.Contains(req.Instructions, "you research the release")
 }

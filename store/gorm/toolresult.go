@@ -18,22 +18,23 @@ import (
 // WithToolResultTableName is not set.
 const DefaultToolResultTable = "agent_tool_results"
 
-// toolResultRow is one offloaded result, JSON-encoded. StoredAt anchors
-// retention (see PruneExpired). The table name is resolved at runtime
-// via db.Table so a deployment can point the store at a table of its
-// choosing inside an existing database.
+// toolResultRow is one offloaded result, JSON-encoded. PruneExpired
+// measures retention from StoredAt. The store resolves the table name at
+// runtime via db.Table, so a deployment can point the store at a table of
+// its choosing inside an existing database.
 type toolResultRow struct {
 	Ref      string    `gorm:"primaryKey"`
 	Body     string    `gorm:"type:jsonb;not null"`
 	StoredAt time.Time `gorm:"not null;index"`
 }
 
-// ToolResultStore is the durable GORM backend for agent.ToolResultStore
-// (Postgres or SQLite). One row per ref in a configurable table, so it
-// drops into an already-running database alongside other tables or
-// stands alone. Retention is a caller-driven GC sweep (PruneExpired over
-// a WithToolResultRetention window); eviction is safe because the
-// interface's unknown-ref contract degrades gracefully at read time.
+// ToolResultStore is the durable GORM backend for agent.ToolResultStore,
+// on Postgres or SQLite. It keeps one row per ref in a configurable table.
+// So it can sit in an already-running database beside other tables, or
+// stand alone. The caller drives retention by calling PruneExpired, which
+// sweeps rows older than the WithToolResultRetention window. Eviction is
+// safe, because the interface reports an unknown ref as Found=false and
+// the read degrades gracefully.
 type ToolResultStore struct {
 	db        *gorm.DB
 	table     string

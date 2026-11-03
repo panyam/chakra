@@ -7,15 +7,15 @@ import (
 	"github.com/panyam/chakra"
 )
 
-// Scenario is a multi-turn eval input: a sequence of user turns that share
-// one conversation and (optionally) one working-memory scratchpad, run in
-// order. Memory evals (LongMemEval and kin) build up facts across turns and
-// sessions, then ask a question, so the thing under test is whether earlier
-// turns survive into a later answer. The single-turn Case cannot express that.
+// Scenario is a multi-turn eval input. It is a sequence of user turns. They
+// run in order and share one conversation, and optionally one working-memory
+// scratchpad. Memory evals (LongMemEval and kin) build up facts across turns
+// and sessions, then ask a question. They test whether earlier turns survive
+// into a later answer, and the single-turn Case cannot express that.
 //
 // RunScenario threads history across turns and keeps one MemorySource for
 // the whole run, so a fact remembered on turn 1 is recallable on turn 5.
-// The last turn is the one a Scorer grades; earlier turns are setup.
+// A Scorer grades the last turn, and earlier turns are setup.
 type Scenario struct {
 	// Name identifies the scenario in a report. Should be unique in a Suite.
 	Name string
@@ -26,10 +26,11 @@ type Scenario struct {
 	//
 	// Imagine a memory benchmark that supplies a long prior conversation and
 	// then asks one question about it. Replaying that conversation as Turns
-	// would call the model once per historical message, and would grade the
-	// model's own invented replies rather than the dataset's. History carries
-	// that conversation as data instead, which Turns cannot express. The distinction is
-	// "conversation the agent is told it had" versus "turns the agent takes".
+	// would call the model once per historical message. It would also grade
+	// the model's own invented replies, not the dataset's. History holds the
+	// conversation as data instead, and Turns cannot do that. History is the
+	// conversation the agent is told it had, and Turns are the turns the
+	// agent takes.
 	History []agent.Message
 
 	// Turns are the user inputs, oldest first. Each runs as one agent turn
@@ -37,20 +38,20 @@ type Scenario struct {
 	// one.
 	Turns []string
 
-	// Memory, when true, gives the run a working-memory scratchpad (a
-	// MemorySource) merged with any base Tools, so the model can
-	// remember/recall across the turns. The backing store is NewMemoryStore
-	// when set, else a fresh in-memory default. The store is built once per
-	// RunScenario call — scenarios never share memory.
+	// Memory gives the run a working-memory scratchpad when true. The
+	// scratchpad is a MemorySource merged with any base Tools, so the model
+	// can remember and recall across the turns. NewMemoryStore backs it when
+	// set, else a fresh in-memory default. RunScenario builds the store once
+	// per call, so scenarios never share memory.
 	Memory bool
 
-	// NewMemoryStore builds the MemoryStore backing this scenario's working
+	// NewMemoryStore builds the MemoryStore behind this scenario's working
 	// memory. Nil uses the in-memory default. Set it to grade a different
 	// backend (redis, gorm, a future semantic store) through the same
-	// scenarios — the whole point of an eval harness is comparing impls. It
-	// is a factory, not a value, so each RunScenario gets its own store and
-	// scenarios in a suite never cross-contaminate; a caller that WANTS
-	// shared state across scenarios can close over one store and return it.
+	// scenarios, since an eval harness exists to compare impls. It is a
+	// factory, not a value, so each RunScenario call gets its own store and
+	// scenarios in a suite never cross-contaminate. To share state across
+	// scenarios, a caller can close over one store and return it.
 	// A non-nil NewMemoryStore implies Memory.
 	NewMemoryStore func() (agent.MemoryStore, error)
 
@@ -67,16 +68,16 @@ type Scenario struct {
 	MaxSteps int
 }
 
-// RunScenario executes s against a copy of cfg with the scenario's overrides
-// applied, running each turn in order and threading history plus a shared
-// working-memory source across them. It returns one Result per turn (the
-// last is the graded turn); the returned error is a harness-level failure
-// (an invalid RunnerConfig), while a turn that runs and fails carries its
-// error in that turn's Result.Err.
+// RunScenario applies the scenario's overrides to a copy of cfg and runs
+// each turn in order. It threads history and one shared working-memory
+// source across the turns. It returns one Result per turn, and the last is
+// the graded turn. The returned error means a harness-level failure, such as
+// an invalid RunnerConfig. When a turn runs and fails, its error goes in that
+// turn's Result.Err.
 //
-// A single Runner is built and reused for every turn: the Runner is
-// stateless over the history it is handed, and reusing it lets the shared
-// MemorySource (held in cfg.Tools) persist across turns.
+// RunScenario builds one Runner and reuses it for every turn. The Runner
+// holds no state beyond the history it is handed. The shared MemorySource
+// sits in cfg.Tools, so reusing the Runner lets it persist across turns.
 func RunScenario(ctx context.Context, cfg agent.RunnerConfig, s Scenario) ([]Result, error) {
 	if s.Instructions != "" {
 		cfg.Instructions = s.Instructions
@@ -118,9 +119,9 @@ func RunScenario(ctx context.Context, cfg agent.RunnerConfig, s Scenario) ([]Res
 		return nil, fmt.Errorf("eval: build runner for scenario %q: %w", s.Name, err)
 	}
 
-	// Copied rather than aliased: the loop appends to history, and a Scenario
-	// is a value a caller may run more than once (across memory backends, for
-	// instance) or share across a suite.
+	// Copy History rather than alias it. The loop appends to history, and a
+	// caller may run one Scenario value more than once (across memory
+	// backends, for instance) or share it across a suite.
 	history := append([]agent.Message(nil), s.History...)
 	results := make([]Result, 0, len(s.Turns))
 	for i, input := range s.Turns {
@@ -141,9 +142,9 @@ func RunScenario(ctx context.Context, cfg agent.RunnerConfig, s Scenario) ([]Res
 	return results, nil
 }
 
-// Final returns the last turn's Result — the graded turn of a scenario. It
-// panics on an empty slice (a scenario always has at least one turn), so a
-// scorer can write Final(results) without a length dance.
+// Final returns the last turn's Result, the graded turn of a scenario. It
+// panics on an empty slice, since a scenario always has at least one turn.
+// So a scorer can write Final(results) without checking the length.
 func Final(results []Result) Result {
 	return results[len(results)-1]
 }

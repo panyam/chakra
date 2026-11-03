@@ -12,9 +12,9 @@ import (
 )
 
 // TestRunScenarioThreadsMemoryAcrossTurns is the deterministic plumbing
-// test for the multi-turn harness: a fact remembered on turn 1 is recalled
-// and answered on turn 2, proving history + the shared MemorySource thread
-// across turns without a live model.
+// test for the multi-turn harness. The model remembers a fact on turn 1, then
+// recalls it and answers on turn 2. That proves history and the shared
+// MemorySource thread across turns without a live model.
 func TestRunScenarioThreadsMemoryAcrossTurns(t *testing.T) {
 	stub := agent.NewStubProvider(
 		// scenario turn 1: remember
@@ -71,8 +71,8 @@ func TestRunScenarioUsesInjectedStore(t *testing.T) {
 		agent.StubTurn{Text: "saved"},
 	)
 
-	// hand RunScenario a store we hold a reference to (via the factory), then
-	// assert the remember landed in THAT store — not a hidden default.
+	// keep a reference to a store and hand it to RunScenario via the factory,
+	// assert the remember call wrote to THAT store, not a hidden default.
 	injected := agent.NewInMemoryMemoryStore()
 	built := 0
 	_, err := RunScenario(context.Background(), agent.RunnerConfig{Provider: stub},

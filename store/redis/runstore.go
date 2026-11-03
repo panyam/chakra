@@ -1,10 +1,10 @@
 // Package redisstore is the durable Redis backend for agent.RunStore.
 //
-// It is a sibling module (its own go.mod) so the go-redis dependency
-// stays out of agent/, mirroring the root stores/ + stores/redis split.
-// The wire format is encoding/json — agent messages and events are
-// wire-serializable by constraint A2, so a Run round-trips Redis
-// unchanged.
+// It is a sibling module with its own go.mod, so the go-redis dependency
+// is kept out of the root module. mcpkit splits its stores/ and
+// stores/redis the same way. The wire format is encoding/json. Constraint
+// A2 makes agent messages and events wire-serializable, so a Run
+// round-trips Redis unchanged.
 //
 // Key layout, all under a configurable prefix (default
 // DefaultKeyPrefix):
@@ -13,9 +13,9 @@
 //	<prefix>:<runID>:messages  list   — one JSON agent.Message per entry
 //	<prefix>:<runID>:events    list   — one JSON agent.Event per entry
 //
-// The meta key is the run's existence marker: CreateRun claims it with
-// SETNX (collision detection without data loss), and every other method
-// checks it before touching the lists.
+// The meta key marks that the run exists. CreateRun claims it with SETNX,
+// which detects a collision without losing data. Every other method
+// checks the meta key before it touches the lists.
 package redisstore
 
 import (
@@ -35,21 +35,21 @@ import (
 	"github.com/panyam/chakra"
 )
 
-// DefaultKeyPrefix namespaces every key this store writes. Deployments
-// sharing a Redis with other mcpkit primitives (which use the
-// "mcpkit."-prefixed channel namespace) stay collision-free by default.
+// DefaultKeyPrefix namespaces every key this store writes. Other mcpkit
+// primitives use the "mcpkit."-prefixed channel namespace. A deployment
+// can share one Redis with them, and by default no keys collide.
 const DefaultKeyPrefix = "mcpkit.agent.run"
 
-// RunStore implements agent.RunStore on Redis. Safe for concurrent use;
-// atomicity notes per method:
+// RunStore implements agent.RunStore on Redis. It is safe for concurrent
+// use. Each method handles atomicity as follows.
 //
 //   - CreateRun is atomic (SETNX on the meta key).
-//   - AppendMessages / AppendEvents check existence then push without a
-//     transaction: there is no delete API, so the window cannot orphan
-//     data.
-//   - ForkRun is atomic: the whole fork runs as one Lua script with the
-//     meta write as its last effect, so it is an exact cut of the
-//     source and a failed fork leaves no observable run (see ForkRun).
+//   - AppendMessages and AppendEvents check existence, then push without a
+//     transaction. There is no delete API, so the gap between the two
+//     steps cannot orphan data.
+//   - ForkRun is atomic. The whole fork runs as one Lua script, and the
+//     meta write is its last effect. So the fork is an exact cut of the
+//     source, and a failed fork leaves no observable run (see ForkRun).
 type RunStore struct {
 	client *redis.Client
 	prefix string
@@ -162,9 +162,10 @@ func appendJSON[T any](ctx context.Context, s *RunStore, id, part string, values
 	return true, nil
 }
 
-// AppendMessages implements agent.RunStore, stamping zero Timestamps
-// per the agent.AppendMessagesRequest rule before encoding, so the
-// stamp lives inside the stored JSON body and forks copy it for free.
+// AppendMessages implements agent.RunStore. Before encoding, it stamps
+// zero Timestamps per the agent.AppendMessagesRequest rule. So the stamp
+// is part of the stored JSON body, and a fork copies it with no extra
+// step.
 func (s *RunStore) AppendMessages(ctx context.Context, req agent.AppendMessagesRequest) (agent.AppendMessagesResponse, error) {
 	msgs := slices.Clone(req.Messages)
 	now := time.Now().UTC()
@@ -183,9 +184,9 @@ func (s *RunStore) AppendEvents(ctx context.Context, req agent.AppendEventsReque
 	return agent.AppendEventsResponse{Found: found}, err
 }
 
-// loadList reads and decodes a run's whole list. A corrupt entry is a
-// storage-layer failure (someone wrote a non-JSON body), surfaced as an
-// error rather than dropped.
+// loadList reads and decodes a run's whole list. A corrupt entry means
+// someone wrote a non-JSON body. That is a storage-layer failure, so
+// loadList returns an error instead of dropping the entry.
 func loadList[T any](ctx context.Context, s *RunStore, id, part string) ([]T, error) {
 	raw, err := s.client.LRange(ctx, s.key(id, part), 0, -1).Result()
 	if err != nil {
@@ -238,14 +239,15 @@ func (s *RunStore) LoadRun(ctx context.Context, req agent.LoadRunRequest) (agent
 	}, nil
 }
 
-// forkScript performs the whole fork — source check, target-claim
-// check, stale-garbage cleanup, both log copies, and the meta write
-// that commits the run into existence — as one atomic Lua execution.
-// Redis runs a script single-threaded, so no partially-forked run is
-// ever observable: the meta write is the commit point and it is the
-// script's last effect. The DEL first means list entries left at an
-// unclaimed target (a crashed pre-atomicity fork, or ad-hoc writes)
-// can never merge into the fork.
+// forkScript performs the whole fork as one atomic Lua execution. It
+// checks the source, checks the target claim, cleans up stale garbage,
+// copies both logs, and finally writes the meta key. That meta write
+// commits the run into existence. Redis runs a script single-threaded,
+// and the meta write is the script's last effect. So no partially-forked
+// run is ever observable. The script DELs the target lists first. List
+// entries can sit at an unclaimed target, left by a crashed
+// pre-atomicity fork or by ad-hoc writes. The DEL means they never merge
+// into the fork.
 //
 // KEYS: 1 srcMeta, 2 srcMessages, 3 srcEvents,
 //
@@ -253,9 +255,9 @@ func (s *RunStore) LoadRun(ctx context.Context, req agent.LoadRunRequest) (agent
 //
 // ARGV: 1 dst meta JSON, 2 message-copy bound (copy the first n
 // messages; 0 copies none), 3 copy-events flag ("1" copies the whole
-// event log, anything else skips it — partial forks carry no events,
-// see agent.ForkRunRequest). Returns 0 = source missing, 1 = target
-// already claimed, 2 = committed.
+// event log, and anything else skips it). A partial fork copies no
+// events (see agent.ForkRunRequest). Returns 0 = source missing,
+// 1 = target already claimed, 2 = committed.
 const forkScript = `
 if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
 if redis.call('EXISTS', KEYS[4]) == 1 then return 1 end
@@ -280,11 +282,11 @@ const (
 	forkCommitted     = 2
 )
 
-// ListRuns implements agent.RunStore by scanning the meta keys. Scan
-// order is unordered (Redis SCAN gives no ordering guarantee), so the
-// listing is not newest-first — the cursor is the raw SCAN cursor. A
-// session picker that needs ordering sorts client-side or uses the gorm
-// backend. MessageCount is an LLEN per run.
+// ListRuns implements agent.RunStore by scanning the meta keys. Redis
+// SCAN gives no ordering guarantee, so the listing is not newest-first.
+// The cursor is the raw SCAN cursor. A session picker that needs ordering
+// sorts client-side or uses the gorm backend. MessageCount is an LLEN per
+// run.
 func (s *RunStore) ListRuns(ctx context.Context, req agent.ListRunsRequest) (agent.ListRunsResponse, error) {
 	limit := req.Limit
 	if limit <= 0 {
@@ -331,32 +333,33 @@ func (s *RunStore) ListRuns(ctx context.Context, req agent.ListRunsRequest) (age
 	return agent.ListRunsResponse{Runs: infos, NextCursor: nextCursor}, nil
 }
 
-// ForkRun implements agent.RunStore. The fork is all-or-nothing (one
-// Lua script; see forkScript): on error no run exists at the new ID,
-// so NewRunID doubles as an idempotency key — retry a failed fork with
-// the same deterministic ID and it starts clean; retry one that
-// actually committed and Created=false reports the existing, complete
-// fork (confirm lineage via LoadRun ParentID).
+// ForkRun implements agent.RunStore. The fork is all-or-nothing, because
+// it runs as one Lua script (see forkScript). On error no run exists at
+// the new ID, so NewRunID doubles as an idempotency key. Imagine a fork
+// fails and the caller retries with the same deterministic ID. If the
+// first attempt never committed, the retry starts clean. If it did
+// commit, the retry gets Created=false for the existing, complete fork.
+// LoadRun's ParentID confirms the lineage.
 //
-// The script is Redis's native atomicity primitive, chosen over the
-// lock-free alternative (copy lists first, SETNX meta last, DEL stale
-// lists on retry) for the same reasons the gorm backend uses a
-// transaction: claim-last makes statement order a correctness
-// invariant, needs an extra cleanup step per retry, and lets two
-// concurrent forks of the same NewRunID interleave each other's
-// half-written copies. Unlike the gorm transaction (MVCC, non-
-// blocking), a Redis script does briefly serialize the server — the
-// price of Redis having only one atomicity primitive; fork frequency
-// and session-sized logs keep it negligible.
+// The script is Redis's native atomicity primitive. The lock-free
+// alternative copies the lists first, SETNXes the meta key last, and DELs
+// stale lists on retry. We chose the script for the same reasons the gorm
+// backend uses a transaction. Claiming last makes statement order a
+// correctness invariant. It needs an extra cleanup step per retry. And it
+// lets two concurrent forks of the same NewRunID interleave each other's
+// half-written copies. The gorm transaction uses MVCC and doesn't block.
+// A Redis script does briefly serialize the server, because Redis has
+// only one atomicity primitive. Forks are infrequent and logs are
+// session-sized, so the pause is negligible.
 //
-// Cluster caveat: the script touches both runs' keys, which a Redis
-// Cluster may place in different slots. A session store is assumed to
-// run against a single node or replicated setup; cluster deployments
-// need hash-tagged prefixes to co-locate keys.
+// The script touches both runs' keys, and a Redis Cluster may place them
+// in different slots. We assume a session store runs against a single
+// node or a replicated setup. A cluster deployment needs hash-tagged
+// prefixes to co-locate the keys.
 func (s *RunStore) ForkRun(ctx context.Context, req agent.ForkRunRequest) (agent.ForkRunResponse, error) {
-	// The cut point is resolved against the source length observed here;
-	// the script copies exactly the first n messages, so appends racing
-	// the fork land after the cut (agent.ForkRunRequest semantics).
+	// We resolve the cut point against the source length observed here.
+	// The script copies exactly the first n messages, so an append racing
+	// the fork goes after the cut (agent.ForkRunRequest semantics).
 	srcLen, err := s.client.LLen(ctx, s.key(req.RunID, "messages")).Result()
 	if err != nil {
 		return agent.ForkRunResponse{}, err

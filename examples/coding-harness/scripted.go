@@ -7,12 +7,12 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// scriptedProvider plays what a competent agent with today's tools does:
-// read the code, fix the loop, run the tests, answer. The steer the driver
-// sends after the first tool result joins the turn (#149), so the answer
-// covers it. As tickets land the script moves
-// to their tools (apply_patch, update_plan), so the scripted run keeps
-// exercising the wiring each check names.
+// scriptedProvider plays a competent agent with today's tools. It reads the
+// code, fixes the loop, runs the tests, and answers. The driver sends a steer
+// after the first tool result, and the steer joins the turn (#149), so the
+// answer covers it. As tickets merge, the script moves to their tools
+// (apply_patch, update_plan), so the scripted run keeps exercising the wiring
+// that each check names.
 func scriptedProvider(fixture string) (agent.Provider, error) {
 	call := func(id, name string, args any) agent.ToolCall {
 		raw, _ := json.Marshal(args)

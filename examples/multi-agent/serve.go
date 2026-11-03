@@ -16,12 +16,13 @@ type codeInput struct {
 	Code string `json:"code"`
 }
 
-// buildServer is the demo MCP server the config.json personas delegate over:
-// web_search (the researcher's `allow`) and run_code (the coder's). It backs
-// the live chat/web surfaces (just chat / just web against config.json). The
-// deterministic golden scenario does NOT use this server — it wires each
-// sub-agent's own FuncSource tools in code (see scenario.go); config.json is
-// the declarative host counterpart to that hand-wired composition.
+// buildServer builds the demo MCP server. The config.json personas delegate
+// over it. It serves web_search (the researcher's `allow`) and run_code (the
+// coder's). It backs the live chat/web surfaces (just chat / just web against
+// config.json). The deterministic golden scenario does NOT use this server.
+// That scenario wires each sub-agent's own FuncSource tools in code (see
+// scenario.go). config.json is the declarative host counterpart to that
+// hand-wired composition.
 func buildServer() *server.Server {
 	srv := server.NewServer(core.ServerInfo{Name: "multi-agent-demo", Version: "0.1.0"})
 	srv.Register(core.TextTool[searchInput]("web_search", "search the web for a query",

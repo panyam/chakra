@@ -22,7 +22,7 @@ import (
 	"github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect"
 )
 
-// prompt is the task, the same one the parity script gives codex exec.
+// prompt is the task. The parity script gives codex exec the same one.
 const prompt = "The tests in this repository fail. Make them pass."
 
 // steerText is sent while the first turn runs, after its first tool result.
@@ -30,13 +30,13 @@ const prompt = "The tests in this repository fail. Make them pass."
 // waits and runs as a second turn.
 const steerText = "Also: when you finish, say in one line which function you changed."
 
-// runResult is everything a check reads.
+// runResult holds the run's outcomes, and every check reads from it.
 type runResult struct {
 	// events are the Watch frames' HostEvents in arrival order.
 	events []host.HostEvent
 	// frames are the raw frames, for the JSONL file.
 	frames []*webv1.Frame
-	// requests are the model requests the recorder saw.
+	// requests are the model requests, as the recorder saw them.
 	requests []recordedRequest
 	// turn is the first turn's result, nil if it failed.
 	turn *agent.TurnResult
@@ -44,7 +44,8 @@ type runResult struct {
 	turnErr string
 	// steerTurnSeen reports whether the steer ran as a turn of its own.
 	steerTurnSeen bool
-	// testsPassed and testOutput are go test in the workspace after the run.
+	// testsPassed and testOutput come from go test in the workspace after the
+	// run.
 	testsPassed bool
 	testOutput  string
 	// testFilesChanged lists *_test.go files that differ from the fixture.
@@ -162,13 +163,14 @@ func drive(ctx context.Context, p profile) (*runResult, error) {
 	}
 	res.wall = time.Since(start)
 	// The checks read the main agent's requests, so take them before the
-	// review adds its sub-agent's, whose instructions are its rubric.
+	// review runs. The review adds its sub-agent's requests, and their
+	// instructions are its rubric.
 	if p.recorder != nil {
 		res.requests = p.recorder.requests()
 	}
 
-	// Then a review of what the turn left uncommitted, as a person would ask
-	// for one before committing (#152). It runs outside any turn, and its
+	// Then ask for a review of the uncommitted changes, as a person would
+	// before committing (#152). It runs outside any turn, and its
 	// sub-agent's events arrive on the same Watch.
 	review, err := client.Dispatch(ctx, connect.NewRequest(&webv1.DispatchRequest{Line: "/review", SessionId: sid}))
 	if err != nil {
@@ -270,8 +272,8 @@ func (r *runResult) writeJSONL(w io.Writer) error {
 }
 
 // commitFixture makes the copied fixture a git repository with everything
-// committed, as a real checkout would be, so ext/git can run and the agent's
-// fix is the uncommitted change /review looks at.
+// committed, as a real checkout would be, so ext/git can run. Then the
+// agent's fix shows up as an uncommitted change, and /review looks at that.
 func commitFixture(root string) error {
 	for _, args := range [][]string{
 		{"init", "-q", "-b", "main"},

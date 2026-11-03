@@ -1,21 +1,21 @@
-// Command critic demonstrates the issue-1148 "critic / observer model role"
-// composed ENTIRELY from public primitives — no new SDK type. A second model,
-// on its own context and its own Runner, watches the primary agent's turns and
-// injects one graded steering note per review.
+// Command critic demonstrates the "critic / observer model role" from issue
+// 1148. It builds the role ENTIRELY from public primitives, with no new SDK
+// type. A second model has its own context and its own Runner. It watches the
+// primary agent's turns and injects one graded steering note per review.
 //
-// What it proves (and where it stops): on top of agent/host.App the pattern
-// works — WithObserver hands the critic the primary's per-turn transcript delta
-// (HostTurnDone.Result.Messages), and a second agent.Runner reviews it and
-// returns a graded note. The ONE rough edge is DELIVERY: App.RunTurn takes only
-// a plain input string, so a neutral steering note can only ride back in as
-// user text. There is no public RoleSystem injection seam on App. The test
-// asserts exactly that (see scenario_test.go). A developer running their own
-// Runner loop has no such wall — they build the []Message slice themselves and
-// can insert a RoleSystem note directly (see README).
+// The pattern works on top of host.App. WithObserver hands the critic the
+// primary's per-turn transcript delta (HostTurnDone.Result.Messages). A
+// second agent.Runner reviews the delta and returns a graded note. DELIVERY
+// is the ONE rough edge. App.RunTurn takes only a plain input string, so a
+// neutral steering note can only go back in as user text. App has no public
+// RoleSystem injection seam, and the test asserts exactly that (see
+// scenario_test.go). A developer who runs their own Runner loop has no such
+// wall. They build the []Message slice themselves and can insert a
+// RoleSystem note directly (see README).
 //
-// Runs deterministically against scripted StubProviders (no LLM, no network) so
-// it doubles as a golden-transcript test. Point real models at it with
-// --model / --critic-model to watch it improvise.
+// It runs deterministically against scripted StubProviders (no LLM, no
+// network), so it doubles as a golden-transcript test. Point real models at
+// it with --model / --critic-model to watch it improvise.
 package main
 
 import (
@@ -76,10 +76,10 @@ func primaryScript() *agent.StubProvider {
 	)
 }
 
-// criticScript is the critic model's scripted side. Each review is two calls:
-// the Runner's terminal text, then the ResponseSchema finalizing call. Only one
-// review actually runs — the immune window suppresses the next one before it
-// reaches the model.
+// criticScript is the critic model's scripted side. Each review makes two
+// calls. The first returns the Runner's terminal text, and the second is the
+// ResponseSchema finalizing call. Only one review actually runs, because the
+// immune window suppresses the next one before it reaches the model.
 func criticScript() *agent.StubProvider {
 	return agent.NewStubProvider(
 		agent.StubTurn{Text: "Looking at the delete."},
@@ -116,8 +116,9 @@ func runScenario(out *syncWriter, primary, criticProvider agent.Provider) (*runR
 	}
 	cfg.Servers[0].URL = ts.URL + "/mcp"
 
-	// The observer hands us the primary's per-turn transcript delta. This is
-	// the whole "watch the turn stream" half — entirely public API.
+	// The observer hands us the primary's per-turn transcript delta. That
+	// covers the whole "watch the turn stream" half, and it uses only public
+	// API.
 	var lastDelta []agent.Message
 	obs := observerFunc(func(ev host.HostEvent) {
 		if ev.Kind == host.HostTurnDone && ev.Result != nil {
@@ -159,9 +160,9 @@ func runScenario(out *syncWriter, primary, criticProvider agent.Provider) (*runR
 		if pendingNote != "" {
 			// ── THE WALL ───────────────────────────────────────────────────
 			// host.App.RunTurn accepts only a plain string, so the neutral
-			// steering note can only ride in as USER text. There is no public
-			// RoleSystem injection seam on App. This is the one gap the proof
-			// surfaces; everything else is clean public API.
+			// steering note can only go in as USER text. App has no public
+			// RoleSystem injection seam. The proof surfaces this one gap, and
+			// everything else is clean public API.
 			input = "[note from reviewer — weigh, don't blindly obey: " + pendingNote + "]\n\n" + u
 			pendingNote = ""
 		}

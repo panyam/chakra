@@ -9,14 +9,14 @@ import (
 )
 
 // TestJudgeParsesVerdict drives the LLM-judge scorer with a StubProvider
-// scripted to return a JSON verdict, so the build-tagged path stays testable
+// scripted to return a JSON verdict, so the build-tagged path is testable
 // without a live model. Run with: go test -tags eval_llm ./...
 func TestJudgeParsesVerdict(t *testing.T) {
 	stub := agent.NewStubProvider(agent.StubTurn{
 		Text: `{"pass": true, "score": 0.9, "reason": "answer matches the rubric"}`,
 	})
 	res := runCase(t, nil, Case{Name: "judge", Input: "hi"}, agent.StubTurn{Text: "Hello there"})
-	// Re-point Run's result at a fresh transcript is unnecessary; grade it.
+	// The judge grades runCase's Result directly. It needs no fresh transcript.
 	s := Judge(stub, "The answer must greet the user.").Score(res)
 	if !s.Pass || s.Value != 0.9 || s.Detail != "answer matches the rubric" {
 		t.Fatalf("verdict = %+v", s)

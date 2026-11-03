@@ -19,10 +19,10 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// forEachBackend runs the assertion body against SQLite (always; no
-// Docker required) and Postgres (only when the MCPKIT_AGENT_TEST_PG*
-// env vars are set — `just testpg` in this directory boots a container
-// and exports them).
+// forEachBackend runs the assertion body against SQLite and Postgres.
+// SQLite always runs and needs no Docker. Postgres runs only when the
+// MCPKIT_AGENT_TEST_PG* env vars are set. `just testpg` in this directory
+// boots a container and exports them.
 func forEachBackend(t *testing.T, run func(t *testing.T, s *RunStore)) {
 	t.Helper()
 	t.Run("sqlite", func(t *testing.T) {
@@ -44,9 +44,10 @@ func newStoreFromDB(t *testing.T, db *gorm.DB) *RunStore {
 	return s
 }
 
-// openSQLite opens a private in-memory SQLite per call, capped to one
-// pooled connection so concurrent writers serialize instead of hitting
-// "database is locked" (the same rationale as the events gorm store).
+// openSQLite opens a private in-memory SQLite per call. It caps the pool
+// at one connection, so concurrent writers serialize instead of hitting
+// "database is locked". The tests of mcpkit's events gorm store do the
+// same for the same reason.
 func openSQLite(t *testing.T) *gorm.DB {
 	t.Helper()
 	return openSQLitePath(t, "file::memory:?_busy_timeout=5000")
@@ -138,8 +139,8 @@ func mustLoad(t *testing.T, s agent.RunStore, id string) agent.Run {
 	return resp.Run
 }
 
-// assertMessagesEqual compares through the JSON wire form (RawJSON
-// carries unexported lazy-parse state; the wire form is the contract).
+// assertMessagesEqual compares through the JSON wire form. RawJSON holds
+// unexported lazy-parse state, and the wire form is the contract.
 func assertMessagesEqual(t *testing.T, got, want []agent.Message) {
 	t.Helper()
 	g, err := json.Marshal(got)
@@ -394,7 +395,7 @@ func TestGormRunStore_StampsTimestamps(t *testing.T) {
 }
 
 // stripStamps asserts every message got stamped, then zeroes the field
-// so the wire-form comparisons stay exact on everything else.
+// so the wire-form comparisons are exact on everything else.
 func stripStamps(t *testing.T, msgs []agent.Message) []agent.Message {
 	t.Helper()
 	out := slices.Clone(msgs)
