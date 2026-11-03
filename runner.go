@@ -192,7 +192,9 @@ type RunnerConfig struct {
 	// structured output. After the tool loop reaches its terminal
 	// no-tool-call text, the Runner makes one additional Generate call with
 	// this schema (and no tools) and puts the JSON document on
-	// TurnResult.Structured. Tools and a response schema are never sent in
+	// TurnResult.Structured. It does so before the TurnEnd hooks, which judge
+	// the document, so a refusal re-runs the finalizing call on the next
+	// answer. Tools and a response schema are never sent in
 	// the same request (many endpoints forbid it), which is why this is a
 	// separate finalizing call rather than a field on the loop's requests.
 	// Empty means no structured coercion.
@@ -214,9 +216,11 @@ type RunnerConfig struct {
 	ResponseGuided *GuidedDecoding
 
 	// TurnEnd runs, in order, each time the model answers without calling a
-	// tool, before the answer is accepted and before ResponseSchema's
-	// finalizing call, so a structured answer is only ever made from an
-	// accepted one (#150). The first hook to refuse wins: its message joins
+	// tool, before the answer is accepted (#150). It judges what the turn
+	// would return: with ResponseSchema set, the finalized JSON document and
+	// whether it validates; with ResponseGuided set, the constrained answer.
+	// The model's free answer is on TurnEndInfo.Draft. A refused answer has
+	// already cost its finalizing call. The first hook to refuse wins: its message joins
 	// the turn as a RoleSystem note, an EventTurnContinued is emitted, and the
 	// loop takes another step. That step counts against MaxSteps and the tree
 	// budget like any other, so a hook that never accepts ends the turn with
@@ -562,6 +566,18 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 				msgs[len(msgs)-1].Text = text
 				added[len(added)-1].Text = text
 			}
+			var structured core.RawJSON
+			var structuredErr string
+			if compiled != nil {
+				s, invalid, err := r.finalizeStructured(ctx, turnInstructions, msgs, &usage, gen, schema, compiled)
+				if err != nil {
+					stepSpan.RecordError(err)
+					stepSpan.End()
+					return nil, r.failSpan(emit, turnSpan, fmt.Errorf("agent: structured finalize: %w", err))
+				}
+				structured, structuredErr = s, invalid
+				info.Draft, info.Text, info.StructuredError, info.Usage = resp.Text, string(s.Raw()), invalid, usage
+			}
 			info.Messages = added
 			note, err := r.turnEnd(stepCtx, info)
 			if err != nil {
@@ -579,15 +595,6 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 				continue
 			}
 			stepSpan.End()
-			var structured core.RawJSON
-			var structuredErr string
-			if compiled != nil {
-				s, invalid, err := r.finalizeStructured(ctx, turnInstructions, msgs, &usage, gen, schema, compiled)
-				if err != nil {
-					return nil, r.failSpan(emit, turnSpan, fmt.Errorf("agent: structured finalize: %w", err))
-				}
-				structured, structuredErr = s, invalid
-			}
 			result := &TurnResult{
 				Text:            resp.Text,
 				Messages:        added,

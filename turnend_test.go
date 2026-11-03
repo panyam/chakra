@@ -121,24 +121,53 @@ func TestTurnEndRefusalsCountAgainstTheTreeBudget(t *testing.T) {
 	}
 }
 
-// Turn-end hooks run before ResponseSchema's finalizing call, so a refused
-// answer is never coerced, and the structured answer comes from the
-// accepted one.
-func TestTurnEndRunsBeforeStructuredFinalize(t *testing.T) {
+// Turn-end hooks judge ResponseSchema's finalized document, with the prose it
+// came from as the draft, so a hook refuses what the turn would return. A
+// refusal re-runs the finalizing call on the next answer.
+func TestTurnEndJudgesTheStructuredAnswer(t *testing.T) {
 	var seen []TurnEndInfo
 	schema := core.NewRawJSON(json.RawMessage(`{"type":"object","properties":{"answer":{"type":"integer"}}}`))
 	stub := NewStubProvider(
 		StubTurn{Text: "41"},
+		StubTurn{Text: `{"answer":41}`},
 		StubTurn{Text: "42"},
 		StubTurn{Text: `{"answer":42}`},
 	)
 	res, _, err := runTurnEnd(t, RunnerConfig{Provider: stub, ResponseSchema: schema, TurnEnd: []TurnEndHook{refuseUntil(1, "check again", &seen)}})
-	if err != nil || string(res.Structured.Raw()) != `{"answer":42}` {
+	if err != nil || string(res.Structured.Raw()) != `{"answer":42}` || res.Text != "42" {
 		t.Fatalf("%+v %v", res, err)
 	}
+	if len(seen) != 2 || seen[0].Text != `{"answer":41}` || seen[0].Draft != "41" || seen[1].Text != `{"answer":42}` || seen[1].StructuredError != "" {
+		t.Fatalf("the hook saw %+v", seen)
+	}
 	reqs := stub.Requests()
-	if len(reqs) != 3 || reqs[0].ResponseSchema.Len() != 0 || reqs[1].ResponseSchema.Len() != 0 || reqs[2].ResponseSchema.Len() == 0 {
-		t.Errorf("only the third call should finalize: %d calls", len(reqs))
+	if len(reqs) != 4 || reqs[0].ResponseSchema.Len() != 0 || reqs[1].ResponseSchema.Len() == 0 || reqs[2].ResponseSchema.Len() != 0 || reqs[3].ResponseSchema.Len() == 0 {
+		t.Errorf("each answer should be finalized before it is judged: %d calls", len(reqs))
+	}
+}
+
+// A document that never validates reaches the hook with StructuredError set,
+// so the hook can send the model back rather than accept a broken result.
+func TestTurnEndCanRefuseAnInvalidStructuredAnswer(t *testing.T) {
+	schema := core.NewRawJSON(json.RawMessage(`{"type":"object","properties":{"answer":{"type":"integer"}},"required":["answer"]}`))
+	stub := NewStubProvider(
+		StubTurn{Text: "dunno"}, StubTurn{Text: `{}`}, StubTurn{Text: `{}`},
+		StubTurn{Text: "42"}, StubTurn{Text: `{"answer":42}`},
+	)
+	var seen []TurnEndInfo
+	hook := func(_ context.Context, info TurnEndInfo) (TurnEndVerdict, error) {
+		seen = append(seen, info)
+		if info.StructuredError != "" {
+			return TurnEndVerdict{Continue: "the result is missing answer"}, nil
+		}
+		return TurnEndVerdict{}, nil
+	}
+	res, _, err := runTurnEnd(t, RunnerConfig{Provider: stub, ResponseSchema: schema, TurnEnd: []TurnEndHook{hook}})
+	if err != nil || string(res.Structured.Raw()) != `{"answer":42}` || res.StructuredError != "" {
+		t.Fatalf("%+v %v", res, err)
+	}
+	if len(seen) != 2 || seen[0].StructuredError == "" || seen[0].Text != `{}` {
+		t.Fatalf("the hook saw %+v", seen)
 	}
 }
 

@@ -17,10 +17,17 @@ type TurnEndInfo struct {
 	// Text is the model's final answer: with RunnerConfig.ResponseGuided set,
 	// the constrained answer, which is what the turn would return.
 	Text string
-	// Draft is the model's free answer when a constraint rewrote it, that is
-	// when ResponseGuided needed a call of its own after a step that offered
-	// tools. Empty otherwise, including when the step itself was guided.
+	// Draft is the model's free answer when a constraint rewrote it: with
+	// ResponseSchema set, Text is the finalized JSON document and Draft the
+	// prose it came from; with ResponseGuided, when the constraint needed a
+	// call of its own after a step that offered tools. Empty otherwise,
+	// including when the step itself was guided.
 	Draft string
+	// StructuredError says why the finalized document doesn't validate
+	// against ResponseSchema, after every finalizing attempt, so a hook can
+	// refuse it and send the model back. Empty when it validates or no schema
+	// is set. It becomes TurnResult.StructuredError if the answer is accepted.
+	StructuredError string
 	// Messages is everything the turn has recorded so far, the answer last.
 	// Hooks must not modify it.
 	Messages []Message

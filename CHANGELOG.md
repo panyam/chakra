@@ -8,10 +8,15 @@ the same version.
 ## [Unreleased]
 
 ### Added
+- `RunnerConfig.ResponseGuided` and `TurnRequest.ResponseGuided` hold a turn's answer to a grammar, regex or JSON schema the server enforces. A step with no tools carries it on its own request; after a step with tools, one constrained call with no tools writes the answer and replaces the free draft in the record. Refused before any call when the provider can't send the kind asked for (#201).
+- `TurnEndInfo.Draft` and `TurnEndInfo.StructuredError` (#201).
 - `NewResponsesProvider`, a provider for OpenAI's Responses API. It chains tool steps with `previous_response_id` so a reasoning model keeps its reasoning between steps, and sends full history, reported through `ResponsesConfig.OnFullHistory`, when the history no longer matches a stored response (compaction, fork, resume, provider switch) (#157).
 - `Capabilities.Temperature`: whether a provider expects its model to take `ProviderRequest.Temperature`. True on `OpenAIProvider` unless `OpenAIConfig.NoTemperature` (OpenAI's reasoning models refuse one), false on `ResponsesProvider` unless `ResponsesConfig.Temperature`, false on `AnthropicProvider`. `FailoverProvider` intersects it and the wrappers pass it through. It only changes what is reported; a set Temperature is still forwarded (#191).
 - Host: `ConnectionConfig.Temperature` overrides that default per connection (#191).
 - Host: an `openai-responses` connection type, with `reasoningEffort`. Its full-history notices arrive as `session-warn` events (#157).
+
+### Changed
+- **Breaking:** with `ResponseSchema` set, `TurnEnd` hooks now run after the finalizing call and judge the JSON document (`TurnEndInfo.Text`), with the prose answer on `TurnEndInfo.Draft` and validation errors on `TurnEndInfo.StructuredError`. Before, they judged the prose and the document was made only from an accepted answer. A refused answer now costs its finalizing call. `TurnResult.Text` is still the prose (#201).
 
 ## [v0.2.2] - 2026-11-03
 
