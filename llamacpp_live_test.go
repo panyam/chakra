@@ -14,9 +14,11 @@ import (
 // TestLlamaCppServerHonorsSeedAndGuided runs NewLlamaCppProvider against a real
 // llama-server, which is the only way to see a grammar actually constrain a
 // model. Any model works since the constraint is what's tested; jaala keeps a
-// 1 MB one:
+// 1 MB one. Start it with one slot (-np 1): with several, the same seed can
+// draw differently from run to run (see NOTES.md on Consensus), which would
+// make the seed check below flaky.
 //
-//	llama-server -m stories260K.gguf --port 18089 --chat-template chatml
+//	llama-server -m stories260K.gguf --port 18089 --chat-template chatml -np 1
 //	CHAKRA_LLAMACPP_URL=http://127.0.0.1:18089/v1 go test -run LlamaCppServer -v .
 func TestLlamaCppServerHonorsSeedAndGuided(t *testing.T) {
 	url := os.Getenv("CHAKRA_LLAMACPP_URL")
