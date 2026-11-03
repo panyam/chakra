@@ -42,6 +42,13 @@ type ResponsesConfig struct {
 	// model with no summary shows the surface nothing while it thinks.
 	ReasoningSummary string
 
+	// Temperature says the model takes a temperature, and sets
+	// Capabilities.Temperature. It is false by default because the reasoning
+	// models this provider is mostly used for refuse one on the Responses API.
+	// Set it for a model that accepts one, such as gpt-4.1. A Temperature on
+	// the request is forwarded either way.
+	Temperature bool
+
 	// NoStore sends store:false and never chains requests, so every request
 	// carries the full history and the model starts each step without its
 	// earlier reasoning. Set it for an organization with zero data retention,
@@ -113,9 +120,12 @@ func NewResponsesProvider(cfg ResponsesConfig) (*ResponsesProvider, error) {
 	return &ResponsesProvider{cfg: cfg, http: hc, cursors: newCursorCache(size)}, nil
 }
 
-// ProviderCapabilities reports nothing: the Responses API has no seed and no
-// grammar or regex constraint.
-func (p *ResponsesProvider) ProviderCapabilities() Capabilities { return Capabilities{} }
+// ProviderCapabilities reports a temperature only when ResponsesConfig.Temperature
+// says the model takes one. The Responses API has no seed and no grammar or
+// regex constraint, so those are never reported.
+func (p *ResponsesProvider) ProviderCapabilities() Capabilities {
+	return Capabilities{Temperature: p.cfg.Temperature}
+}
 
 func (p *ResponsesProvider) check(req ProviderRequest) error {
 	if req.Seed != nil {

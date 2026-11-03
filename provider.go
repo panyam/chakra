@@ -86,10 +86,12 @@ type ProviderRequest struct {
 	// Not universally supported, and the unsupported case is a hard failure
 	// rather than a graceful one: current Anthropic models reject sampling
 	// parameters outright, so a non-nil Temperature makes the request 400
-	// instead of being ignored. Leave it nil for those models. Providers
-	// forward this field as given and do not screen it by model — mcpkit
-	// keeps no per-model capability table — so the vendor's own error is
-	// the diagnostic, carried verbatim in ProviderError.Body.
+	// instead of being ignored, and so do OpenAI's reasoning models on both
+	// OpenAI wires. Leave it nil for those models; CapabilitiesOf(p).Temperature
+	// says whether the provider expects its model to take one. Providers
+	// forward this field as given and do not screen it by model, since mcpkit
+	// keeps no per-model capability table, so the vendor's own error is the
+	// diagnostic, carried verbatim in ProviderError.Body.
 	Temperature *float64 `json:"temperature,omitempty"`
 
 	// MaxTokens caps the completion length when positive. Set it on a turn
@@ -166,11 +168,10 @@ type ProviderRequest struct {
 type GenerationParams struct {
 	// Temperature overrides the provider default when non-nil.
 	//
-	// Setting it is not universally safe. Current Anthropic models reject
-	// sampling parameters outright, so a non-nil Temperature makes the
-	// request fail with a 400 rather than being ignored, and mcpkit keeps no
-	// per-model capability table that would catch this first. Leave it nil
-	// unless the target model is known to accept it. Full contract on
+	// Setting it is not universally safe. Current Anthropic models and
+	// OpenAI's reasoning models reject it, so a non-nil Temperature makes the
+	// request fail with a 400 rather than being ignored. Check
+	// CapabilitiesOf(provider).Temperature first. Full contract on
 	// ProviderRequest.Temperature.
 	Temperature *float64 `json:"temperature,omitempty"`
 
@@ -281,6 +282,15 @@ type Capabilities struct {
 	Guided []string
 	// Seed says ProviderRequest.Seed is sent.
 	Seed bool
+	// Temperature says ProviderRequest.Temperature is sent and the endpoint
+	// is expected to accept it. Acceptance depends on the model as well as
+	// the wire: OpenAI's reasoning models and current Anthropic models answer
+	// 400 to a temperature on the same wire where other models take one. So
+	// this is the provider's configured expectation (OpenAIConfig.NoTemperature,
+	// ResponsesConfig.Temperature), not a per-model lookup. A provider still
+	// forwards a Temperature it reports false for, and the vendor's error is
+	// the diagnostic.
+	Temperature bool
 }
 
 // CanGuide reports whether g, a single constraint, is one of c.Guided. A nil
@@ -302,7 +312,7 @@ func (c Capabilities) intersect(o Capabilities) Capabilities {
 			both = append(both, k)
 		}
 	}
-	return Capabilities{Guided: both, Seed: c.Seed && o.Seed}
+	return Capabilities{Guided: both, Seed: c.Seed && o.Seed, Temperature: c.Temperature && o.Temperature}
 }
 
 // CapabilityReporter is implemented by a Provider that can say what it

@@ -120,6 +120,17 @@ type ConnectionConfig struct {
 	// Type "openai-responses", and only reasoning models accept it: leave it
 	// empty for any other model, or the request is refused.
 	ReasoningEffort string `json:"reasoningEffort,omitempty"`
+
+	// Temperature overrides whether this connection's model takes a
+	// temperature, which is what agent.Capabilities.Temperature reports for
+	// it. Nil keeps the type's default: true for the OpenAI-wire types,
+	// false for "openai-responses" and "anthropic". Set false for OpenAI's
+	// reasoning models on an OpenAI-wire connection (gpt-5 and later, the o
+	// series), and true for a non-reasoning model on "openai-responses". The
+	// "llamacpp", "ollama" and "anthropic" types ignore it, since their
+	// answer doesn't vary by model. It changes what the provider reports, not
+	// what it sends.
+	Temperature *bool `json:"temperature,omitempty"`
 }
 
 // ThinkingHint delimits a model's inline reasoning. An empty OpenTag
@@ -192,6 +203,7 @@ func buildProvider(conn ConnectionConfig, onFullHistory func(reason string)) (ag
 			Model:           conn.Model,
 			APIKey:          key,
 			ReasoningEffort: conn.ReasoningEffort,
+			Temperature:     conn.Temperature != nil && *conn.Temperature,
 			OnFullHistory:   onFullHistory,
 		})
 	case "llamacpp":
@@ -200,9 +212,10 @@ func buildProvider(conn ConnectionConfig, onFullHistory func(reason string)) (ag
 		p, err = agent.NewOllamaProvider(agent.OllamaConfig{BaseURL: base, Model: conn.Model, APIKey: key})
 	default:
 		p, err = agent.NewOpenAIProvider(agent.OpenAIConfig{
-			BaseURL: base,
-			Model:   conn.Model,
-			APIKey:  key,
+			BaseURL:       base,
+			Model:         conn.Model,
+			APIKey:        key,
+			NoTemperature: conn.Temperature != nil && !*conn.Temperature,
 		})
 	}
 	if err != nil {

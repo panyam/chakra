@@ -9,6 +9,8 @@ the same version.
 
 ### Added
 - `NewResponsesProvider`, a provider for OpenAI's Responses API. It chains tool steps with `previous_response_id` so a reasoning model keeps its reasoning between steps, and sends full history, reported through `ResponsesConfig.OnFullHistory`, when the history no longer matches a stored response (compaction, fork, resume, provider switch) (#157).
+- `Capabilities.Temperature`: whether a provider expects its model to take `ProviderRequest.Temperature`. True on `OpenAIProvider` unless `OpenAIConfig.NoTemperature` (OpenAI's reasoning models refuse one), false on `ResponsesProvider` unless `ResponsesConfig.Temperature`, false on `AnthropicProvider`. `FailoverProvider` intersects it and the wrappers pass it through. It only changes what is reported; a set Temperature is still forwarded (#191).
+- Host: `ConnectionConfig.Temperature` overrides that default per connection (#191).
 - Host: an `openai-responses` connection type, with `reasoningEffort`. Its full-history notices arrive as `session-warn` events (#157).
 
 ## [v0.2.2] - 2026-11-03

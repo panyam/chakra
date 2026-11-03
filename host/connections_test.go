@@ -327,7 +327,11 @@ func TestLocalConnectionsReportWhatTheyCanSend(t *testing.T) {
       "connections": {
         "local":  {"type": "llamacpp"},
         "ollama": {"type": "ollama", "model": "qwen2.5-coder:7b"},
-        "claude": {"type": "anthropic", "model": "claude-sonnet-5", "apiKeyEnv": "X"}
+        "claude": {"type": "anthropic", "model": "claude-sonnet-5", "apiKeyEnv": "X"},
+        "gpt4":   {"type": "openai", "model": "gpt-4.1-mini"},
+        "gpt5":   {"type": "openai", "model": "gpt-5.5", "temperature": false},
+        "resp":   {"type": "openai-responses", "model": "gpt-5.5"},
+        "resp41": {"type": "openai-responses", "model": "gpt-4.1-mini", "temperature": true}
       }
     }`), &c); err != nil {
 		t.Fatal(err)
@@ -337,16 +341,20 @@ func TestLocalConnectionsReportWhatTheyCanSend(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, want := range map[string]agent.Capabilities{
-		"local":  {Guided: []string{agent.GuidedGrammar, agent.GuidedJSONSchema}, Seed: true},
-		"ollama": {Guided: []string{agent.GuidedJSONSchema}, Seed: true},
+		"local":  {Guided: []string{agent.GuidedGrammar, agent.GuidedJSONSchema}, Seed: true, Temperature: true},
+		"ollama": {Guided: []string{agent.GuidedJSONSchema}, Seed: true, Temperature: true},
 		"claude": {},
+		"gpt4":   {Seed: true, Temperature: true},
+		"gpt5":   {Seed: true},
+		"resp":   {},
+		"resp41": {Temperature: true},
 	} {
 		p, err := r.Provider(name)
 		if err != nil {
 			t.Fatal(err)
 		}
 		got := agent.CapabilitiesOf(p)
-		if strings.Join(got.Guided, ",") != strings.Join(want.Guided, ",") || got.Seed != want.Seed {
+		if strings.Join(got.Guided, ",") != strings.Join(want.Guided, ",") || got.Seed != want.Seed || got.Temperature != want.Temperature {
 			t.Errorf("%s: %+v, want %+v", name, got, want)
 		}
 	}
@@ -359,6 +367,13 @@ func TestLocalConnectionsReportWhatTheyCanSend(t *testing.T) {
 	sw.set(claude)
 	if agent.CapabilitiesOf(sw).Seed {
 		t.Errorf("switch on anthropic still reports a seed")
+	}
+	if agent.CapabilitiesOf(sw).Temperature {
+		t.Errorf("switch on anthropic still reports a temperature")
+	}
+	sw.set(local)
+	if !agent.CapabilitiesOf(sw).Temperature {
+		t.Errorf("switch back on llamacpp reports no temperature")
 	}
 	c.Connections["bare"] = ConnectionConfig{Type: "openai"}
 	if _, err := NewConnectionRegistry(&c, nil); err == nil || !strings.Contains(err.Error(), "has no model") {

@@ -46,8 +46,10 @@ type AnthropicConfig struct {
 	// models (Opus 4.7/4.8, Sonnet 5, Fable 5) reject sampling parameters, so
 	// a non-nil ProviderRequest.Temperature makes the request 400 rather than
 	// being ignored. buildBody forwards Temperature as given and does not
-	// screen it by model — mcpkit keeps no per-model capability table, the
-	// same reason agentchat takes --context-window rather than inferring one.
+	// screen it by model, since mcpkit keeps no per-model capability table
+	// (the same reason agentchat takes --context-window rather than inferring
+	// one). Capabilities.Temperature reports false, so a caller that checks
+	// CapabilitiesOf first won't send one.
 	Model string
 
 	// MaxTokens caps the completion length sent on every request. Defaults to
@@ -466,7 +468,9 @@ func (s *anthropicStream) eventDeltas(msg anthropicSSE) ([]Delta, bool, error) {
 }
 
 // ProviderCapabilities reports nothing: the Messages API takes neither a
-// seed nor a grammar, and a request carrying one is refused.
+// seed nor a grammar, and a request carrying one is refused. Temperature is
+// reported false too, because current models answer 400 to one, though it is
+// still forwarded when set.
 func (p *AnthropicProvider) ProviderCapabilities() Capabilities { return Capabilities{} }
 
 // anthropicCheck refuses the ProviderRequest fields the Messages API has no

@@ -158,6 +158,9 @@ func TestCapabilitiesOfEachProvider(t *testing.T) {
 	vllm := openaiFor(t, OpenAIConfig{GuidedDialect: GuidedDialectVLLM})
 	anth, _ := NewAnthropicProvider(AnthropicConfig{Model: "m", APIKey: "k"})
 	plain := plainProvider{NewStubProvider()}
+	gpt5 := openaiFor(t, OpenAIConfig{NoTemperature: true})
+	resp, _ := NewResponsesProvider(ResponsesConfig{BaseURL: "http://unused", Model: "m"})
+	respTemp, _ := NewResponsesProvider(ResponsesConfig{BaseURL: "http://unused", Model: "m", Temperature: true})
 	fo := func(a, b Provider) Provider {
 		f, err := NewFailoverProvider(FailoverConfig{Primary: a, Backup: b})
 		if err != nil {
@@ -170,20 +173,26 @@ func TestCapabilitiesOfEachProvider(t *testing.T) {
 		p      Provider
 		guided []string
 		seed   bool
+		temp   bool
 	}{
-		{"llama.cpp", llama, []string{GuidedGrammar, GuidedJSONSchema}, true},
-		{"vllm", vllm, []string{GuidedGrammar, GuidedRegex, GuidedJSONSchema}, true},
-		{"ollama", ollama, []string{GuidedJSONSchema}, true},
-		{"anthropic", anth, nil, false},
-		{"thinking over llama.cpp", NewThinkingProvider(llama, "<think>", "</think>"), []string{GuidedGrammar, GuidedJSONSchema}, true},
-		{"failover llama.cpp then vllm", fo(llama, vllm), []string{GuidedGrammar, GuidedJSONSchema}, true},
-		{"failover vllm then anthropic", fo(vllm, anth), nil, false},
-		{"failover over a provider that can't say", fo(llama, plain), nil, false},
-		{"control: a provider that can't say", plain, nil, false},
+		{"llama.cpp", llama, []string{GuidedGrammar, GuidedJSONSchema}, true, true},
+		{"vllm", vllm, []string{GuidedGrammar, GuidedRegex, GuidedJSONSchema}, true, true},
+		{"ollama", ollama, []string{GuidedJSONSchema}, true, true},
+		{"openai with NoTemperature", gpt5, nil, true, false},
+		{"responses", resp, nil, false, false},
+		{"responses with Temperature", respTemp, nil, false, true},
+		{"anthropic", anth, nil, false, false},
+		{"thinking over llama.cpp", NewThinkingProvider(llama, "<think>", "</think>"), []string{GuidedGrammar, GuidedJSONSchema}, true, true},
+		{"thinking over anthropic", NewThinkingProvider(anth, "<think>", "</think>"), nil, false, false},
+		{"failover llama.cpp then vllm", fo(llama, vllm), []string{GuidedGrammar, GuidedJSONSchema}, true, true},
+		{"failover vllm then anthropic", fo(vllm, anth), nil, false, false},
+		{"failover vllm then openai with NoTemperature", fo(vllm, gpt5), nil, true, false},
+		{"failover over a provider that can't say", fo(llama, plain), nil, false, false},
+		{"control: a provider that can't say", plain, nil, false, false},
 	} {
 		got := CapabilitiesOf(c.p)
-		if !slices.Equal(got.Guided, c.guided) || got.Seed != c.seed {
-			t.Errorf("%s: %+v, want guided %v seed %v", c.name, got, c.guided, c.seed)
+		if !slices.Equal(got.Guided, c.guided) || got.Seed != c.seed || got.Temperature != c.temp {
+			t.Errorf("%s: %+v, want guided %v seed %v temperature %v", c.name, got, c.guided, c.seed, c.temp)
 		}
 	}
 }

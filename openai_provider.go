@@ -46,6 +46,13 @@ type OpenAIConfig struct {
 	// the conversation. NewOpenAIProvider takes a shallow copy; changing the
 	// map afterwards has no effect.
 	ExtraBody map[string]any
+
+	// NoTemperature says the model behind this endpoint refuses a
+	// temperature, which OpenAI's reasoning models (gpt-5 and later, the o
+	// series) do on chat completions unless it is the default 1. It sets
+	// Capabilities.Temperature to false so a caller holding only the Provider
+	// knows not to send one. A Temperature on the request is still forwarded.
+	NoTemperature bool
 }
 
 // GuidedDialect selects how OpenAIProvider encodes ProviderRequest.Guided.
@@ -98,11 +105,12 @@ func NewOpenAIProvider(cfg OpenAIConfig) (*OpenAIProvider, error) {
 }
 
 // ProviderCapabilities reports a seed always, since the provider sends one
-// whenever it's set, and the guided kinds its GuidedDialect encodes: grammar
+// whenever it's set; a temperature unless OpenAIConfig.NoTemperature says the
+// model refuses one; and the guided kinds its GuidedDialect encodes: grammar
 // and JSON schema for llama.cpp, all three for vLLM, JSON schema for Ollama,
 // none without a dialect.
 func (p *OpenAIProvider) ProviderCapabilities() Capabilities {
-	c := Capabilities{Seed: true}
+	c := Capabilities{Seed: true, Temperature: !p.cfg.NoTemperature}
 	switch p.cfg.GuidedDialect {
 	case GuidedDialectLlamaCpp:
 		c.Guided = []string{GuidedGrammar, GuidedJSONSchema}
