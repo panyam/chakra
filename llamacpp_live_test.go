@@ -99,4 +99,32 @@ func TestLlamaCppServerHonorsSeedAndGuided(t *testing.T) {
 			t.Fatalf("broken grammar answered %v, so the server may not read grammars at all", err)
 		}
 	})
+
+	t.Run("a shared prefix is reported as cached", func(t *testing.T) {
+		req := ProviderRequest{
+			Instructions: "Once upon a time a little girl named Lily played in the park with her dog every day.",
+			Messages:     []Message{{Role: RoleUser, Text: "Tell me"}},
+			MaxTokens:    4,
+			Seed:         intPtr(1),
+		}
+		if _, err := p.Generate(ctx, req); err != nil {
+			t.Fatal(err)
+		}
+		check := func(how string, u *Usage) {
+			if u == nil || u.CachedInputTokens <= 0 || u.CachedInputTokens > u.InputTokens {
+				t.Errorf("%s: usage %+v, want 0 < CachedInputTokens <= InputTokens", how, u)
+			}
+		}
+		resp, err := p.Generate(ctx, req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		check("Generate", resp.Usage)
+		s, err := p.Stream(ctx, req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer s.Close()
+		check("Stream", drain(t, s).Usage)
+	})
 }

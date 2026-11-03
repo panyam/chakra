@@ -191,7 +191,8 @@ func (p *OpenAIProvider) Generate(ctx context.Context, req ProviderRequest) (*Pr
 			} `json:"message"`
 			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
-		Usage *oaUsage `json:"usage"`
+		Usage   *oaUsage   `json:"usage"`
+		Timings *oaTimings `json:"timings"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&full); err != nil {
 		return nil, fmt.Errorf("agent: decode completion: %w", err)
@@ -214,7 +215,7 @@ func (p *OpenAIProvider) Generate(ctx context.Context, req ProviderRequest) (*Pr
 		out.ToolCalls = append(out.ToolCalls, ToolCall{ID: tc.ID, Name: realToolName(safeToReal, tc.Function.Name), Args: toolCallArgsFromJSON(json.RawMessage(args))})
 	}
 	if full.Usage != nil {
-		out.Usage = &Usage{InputTokens: full.Usage.PromptTokens, OutputTokens: full.Usage.CompletionTokens}
+		out.Usage = full.Usage.toUsage(full.Timings)
 	}
 	return out, nil
 }
@@ -355,8 +356,28 @@ type oaToolCall struct {
 }
 
 type oaUsage struct {
-	PromptTokens     int `json:"prompt_tokens"`
-	CompletionTokens int `json:"completion_tokens"`
+	PromptTokens        int `json:"prompt_tokens"`
+	CompletionTokens    int `json:"completion_tokens"`
+	PromptTokensDetails *struct {
+		CachedTokens int `json:"cached_tokens"`
+	} `json:"prompt_tokens_details"`
+}
+
+// oaTimings is llama.cpp's own report, beside usage. Only cache_n is read,
+// for builds that predate prompt_tokens_details.
+type oaTimings struct {
+	CacheN int `json:"cache_n"`
+}
+
+func (u *oaUsage) toUsage(t *oaTimings) *Usage {
+	out := &Usage{InputTokens: u.PromptTokens, OutputTokens: u.CompletionTokens}
+	switch {
+	case u.PromptTokensDetails != nil:
+		out.CachedInputTokens = u.PromptTokensDetails.CachedTokens
+	case t != nil:
+		out.CachedInputTokens = t.CacheN
+	}
+	return out
 }
 
 type oaChunk struct {
@@ -369,7 +390,8 @@ type oaChunk struct {
 		} `json:"delta"`
 		FinishReason *string `json:"finish_reason"`
 	} `json:"choices"`
-	Usage *oaUsage `json:"usage"`
+	Usage   *oaUsage   `json:"usage"`
+	Timings *oaTimings `json:"timings"`
 }
 
 // openaiStream adapts the SSE body to the Stream interface via servicekit's
@@ -401,10 +423,7 @@ func (s *openaiStream) decode(payload string) ([]Delta, bool, error) {
 func (s *openaiStream) chunkDeltas(chunk oaChunk) []Delta {
 	var out []Delta
 	if chunk.Usage != nil {
-		out = append(out, Delta{Kind: DeltaUsage, Usage: &Usage{
-			InputTokens:  chunk.Usage.PromptTokens,
-			OutputTokens: chunk.Usage.CompletionTokens,
-		}})
+		out = append(out, Delta{Kind: DeltaUsage, Usage: chunk.Usage.toUsage(chunk.Timings)})
 	}
 	if len(chunk.Choices) == 0 {
 		return out
