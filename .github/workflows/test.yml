@@ -116,6 +116,38 @@ jobs:
           cache-dependency-path: surfaces/web/web/package-lock.json
       - run: make test-web
 
+  # The web frontend's browser checks (Playwright). These drive the page the Go
+  # binary serves, so they need Go and the mcpkit checkout as well as Node.
+  test-web-e2e:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: chakra/main
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: chakra/main
+      - uses: actions/checkout@v7
+        with:
+          repository: panyam/mcpkit
+          ref: main
+          path: mcpkit/main
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: chakra/main/go.mod
+          cache-dependency-path: chakra/main/surfaces/web/go.sum
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: chakra/main/surfaces/web/web/package-lock.json
+      - run: make test-web-e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: chakra/main/surfaces/web/web/test-results/
+
   test-examples:
     runs-on: ubuntu-latest
     defaults:
