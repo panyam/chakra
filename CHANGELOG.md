@@ -5,6 +5,16 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
+## [v0.2.2] - 2026-11-03
+
+### Added
+- `NewLlamaCppProvider` and `NewOllamaProvider`, presets of `OpenAIProvider` for local servers. llama.cpp's sends grammars and JSON schemas in its dialect with `cache_prompt` on, and needs no model name. Ollama's sends a JSON schema as `response_format`, its only constraint, through the new `GuidedDialectOllama` (PR 182).
+- `CapabilitiesOf(p)` and the optional `CapabilityReporter`: which guided kinds a provider can send and whether a seed. OpenAI, Anthropic, `FailoverProvider` and the thinking wrapper report them (PR 182).
+- Host: a `llamacpp` connection type with an optional model, and `llamacpp` and `ollama` connections built through the presets (PR 182).
+
+### Changed
+- An `ollama` connection now sends a `Guided` JSON schema rather than refusing it. Requests without one are unchanged (PR 182).
+
 ## [v0.2.1] - 2026-11-02
 
 ### Added
