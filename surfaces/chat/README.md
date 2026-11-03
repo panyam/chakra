@@ -134,6 +134,8 @@ go run . --config chat.json --workspace ~/code/project \
 - **`languageServers`**: LSP in the loop. Diagnostics follow each edit, and the
   model gets `goto_definition` and `find_references`.
 - **`repoMap`**: puts a ranked map of the repository in the system prompt.
+- **`exec.network`**: `{"allow": [...hosts], "ask": true}` lets sandboxed commands reach the
+  listed hosts through a local proxy, and asks about others; see `ext/exec/README.md`.
 - **`exec.shell.processes`**: `true` (or an object with limits) adds `exec_command`,
   `write_stdin`, `list_processes` and `kill_process` for commands that keep running; see
   `ext/exec/README.md`.

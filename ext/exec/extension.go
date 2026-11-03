@@ -29,8 +29,31 @@ func New(cfg Config) (*Extension, error) {
 	return &Extension{src: src}, nil
 }
 
-// Close stops every process the session started with exec_command.
+// Close stops every process the session started with exec_command and the
+// network proxy, when Config.Network started one.
 func (e *Extension) Close() error { return e.src.Close() }
+
+// SetAnnounce implements host.Announcer: a connection the network allowlist
+// refuses is reported in the conversation, so the user can see why a
+// command failed.
+func (e *Extension) SetAnnounce(fn func(string)) {
+	if eg := e.src.egress; eg != nil {
+		eg.mu.Lock()
+		eg.announce = fn
+		eg.mu.Unlock()
+	}
+}
+
+// SetAsk implements host.Asker: with NetworkConfig.Ask, a connection to an
+// unlisted host becomes a question for the user, through the same queue as
+// approvals, and the answer holds for the session.
+func (e *Extension) SetAsk(fn func(ctx context.Context, question string) (bool, error)) {
+	if eg := e.src.egress; eg != nil {
+		eg.mu.Lock()
+		eg.asker = fn
+		eg.mu.Unlock()
+	}
+}
 
 // Name identifies the extension, and is the source id its tools register
 // under.

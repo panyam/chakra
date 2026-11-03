@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	osexec "os/exec"
 	"sort"
 	"strings"
@@ -272,6 +273,9 @@ func (s *Source) execCommand(args map[string]any) *core.ToolResult {
 	}
 	cmd := osexec.Command(path, argv[1:]...)
 	cmd.Args, cmd.Dir = argv, dir
+	if s.egress != nil {
+		cmd.Env = append(os.Environ(), s.egress.env()...)
+	}
 	p := &proc{command: a.Cmd, cmd: cmd, tty: a.TTY, out: &tailBuffer{max: m.cfg.MaxOutput}, done: make(chan struct{}), started: time.Now()}
 
 	policy := Policy{Write: s.write, DenyRead: s.denyRead, Dir: dir, AllowNetwork: s.shell.allowNetwork}
@@ -509,10 +513,13 @@ func (s *Source) renderProcApproval(info agent.ToolCallInfo) (string, bool) {
 	return "", false
 }
 
-// Close stops every process the session started.
+// Close stops every process the session started, and the network proxy.
 func (s *Source) Close() error {
 	if s.procs != nil {
 		s.procs.killAll()
+	}
+	if s.egress != nil {
+		return s.egress.close()
 	}
 	return nil
 }

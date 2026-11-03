@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/panyam/chakra"
+	agent "github.com/panyam/chakra"
 	"github.com/panyam/mcpkit/core"
 )
 
@@ -33,6 +33,7 @@ type Source struct {
 	denyRead  []string
 	shell     *shell
 	procs     *procManager
+	egress    *egress
 }
 
 // command is one resolved allowlist entry.
@@ -144,6 +145,16 @@ func NewSource(cfg Config) (*Source, error) {
 		if s.procs != nil {
 			s.defs = append(s.defs, s.procDefs()...)
 		}
+	}
+	if cfg.Network != nil {
+		if cfg.Shell != nil && cfg.Shell.AllowNetwork {
+			return nil, errProxyWithNetwork
+		}
+		eg, err := newEgress(*cfg.Network)
+		if err != nil {
+			return nil, err
+		}
+		s.egress = eg
 	}
 	return s, nil
 }
@@ -395,6 +406,9 @@ func (s *Source) spawn(ctx context.Context, sp spawnSpec) spawned {
 	// switch behaviour on argv[0].
 	cmd.Args = sp.argv
 	cmd.Dir = sp.dir
+	if s.egress != nil {
+		cmd.Env = append(os.Environ(), s.egress.env()...)
+	}
 	setProcessGroup(cmd)
 
 	stdout := newCapBuffer(s.maxOutput)

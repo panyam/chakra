@@ -288,3 +288,17 @@ func TestWorkspaceFileProcesses(t *testing.T) {
 		t.Error("an unknown processes field loaded")
 	}
 }
+
+func TestWorkspaceFileNetwork(t *testing.T) {
+	var cfg WorkspaceConfig
+	if err := cfg.LoadFile(writeWorkspaceFile(t, `{"exec": {"sandbox": "unconfined", "shell": {}, "network": {"allow": ["proxy.golang.org", "*.npmjs.org"], "ask": true}}}`)); err != nil {
+		t.Fatal(err)
+	}
+	n := cfg.Exec.Network
+	if n == nil || len(n.Allow) != 2 || n.Allow[1] != "*.npmjs.org" || !n.Ask {
+		t.Errorf("network = %+v", n)
+	}
+	if err := (&WorkspaceConfig{}).LoadFile(writeWorkspaceFile(t, `{"exec": {"shell": {}, "network": {"allowed": ["x"]}}}`)); err == nil {
+		t.Error("an unknown network field loaded")
+	}
+}

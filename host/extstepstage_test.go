@@ -109,3 +109,32 @@ func TestAnnouncerLinesReachSurfaces(t *testing.T) {
 		t.Errorf("messages = %q, want the extension's line", log.msgs)
 	}
 }
+
+type askExt struct {
+	BaseExtension
+	ask func(context.Context, string) (bool, error)
+}
+
+func (*askExt) Name() string                                            { return "asker" }
+func (e *askExt) SetAsk(fn func(context.Context, string) (bool, error)) { e.ask = fn }
+
+// TestAskerQuestionsGoThroughTheAskQueue checks the wiring: an Asker extension
+// gets a function whose question is answered the way approval asks are, here
+// on the terminal.
+func TestAskerQuestionsGoThroughTheAskQueue(t *testing.T) {
+	ts := startTestServer(t)
+	ext := &askExt{}
+	var out strings.Builder
+	app, err := NewApp(testConfig(ts.URL), &out, strings.NewReader("y\n"), WithProvider(agent.NewStubProvider()), WithExtension(ext))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	if ext.ask == nil {
+		t.Fatal("SetAsk was never called")
+	}
+	ok, err := ext.ask(context.Background(), "Allow commands to connect to example.test?")
+	if err != nil || !ok || !strings.Contains(out.String(), "example.test") {
+		t.Errorf("ok %v, err %v, terminal %q", ok, err, out.String())
+	}
+}
