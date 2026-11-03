@@ -471,10 +471,14 @@ func approvalPrompt(info agent.ToolCallInfo) string {
 	if len(args) > 200 {
 		args = args[:200] + "…"
 	}
+	q := fmt.Sprintf("Allow tool call %q with %s?", info.Call.Name, args)
 	if args == "" || args == "{}" {
-		return fmt.Sprintf("Allow tool call %q?", info.Call.Name)
+		q = fmt.Sprintf("Allow tool call %q?", info.Call.Name)
 	}
-	return fmt.Sprintf("Allow tool call %q with %s?", info.Call.Name, args)
+	if info.Class != nil && info.Class.Reason != "" {
+		q += " (" + info.Class.Reason + ")"
+	}
+	return q
 }
 
 // parseApprovalMode maps a config string to an agent mode, defaulting to ask.
@@ -523,7 +527,7 @@ func parseToolRule(s string) (agent.ToolRule, bool) {
 // buildApproval turns the config into a live policy whose ask seam presents
 // through the shared elicitation coordinator. Returns nil when no approval is
 // configured (the Runner then runs every call).
-func (c *ApprovalConfig) buildApproval(confirm agent.AskFunc, choose agent.ChooseFunc, key agent.RememberKeyFunc) *agent.TieredApproval {
+func (c *ApprovalConfig) buildApproval(confirm agent.AskFunc, choose agent.ChooseFunc, key agent.RememberKeyFunc, classify agent.ClassifyFunc) *agent.TieredApproval {
 	if c == nil {
 		return nil
 	}
@@ -533,6 +537,7 @@ func (c *ApprovalConfig) buildApproval(confirm agent.AskFunc, choose agent.Choos
 		agent.WithChooser(choose),
 		agent.WithRememberApprovals(c.Remember),
 		agent.WithRememberKey(key),
+		agent.WithClassifier(classify),
 	}
 	for tool, r := range c.Rules {
 		if rule, ok := parseToolRule(r); ok {
