@@ -666,6 +666,27 @@ not part of #1033 and remains unfiled. It is the substrate for sampling/vote (#1
 Host: `Config.FanOut []FanOutGroupConfig` → `registerFanOut`, added under `fanout:<name>`, with
 id underscores turned into dashes because the source id bans `_` while the tool name keeps it.
 
+### Consensus: seeded draws with a vote (#202)
+
+`Consensus` runs one turn N times and votes on a key the caller supplies. jaala's translator did
+this in its own loop (`frontends/nl/vote.go`), and nothing in it was about Datalog except the key,
+so it moved down. It calls `Runner.RunTurn` and nothing else, so it isn't a workflow engine (A8):
+every draw is the same turn, and what to do with a split vote stays with the caller.
+
+A few things we found while building it:
+
+- Draw `i` runs with seed `i`, and only when `CapabilitiesOf` says the provider takes a seed.
+  Unseeded draws at temperature 0 agree by construction, so the result says `Seeded: false`
+  instead of passing 5/5 off as confidence.
+- The Runner's `TreeBudget` has to be installed once, before the first draw. `RunTurn` installs
+  it only when the context has none, so without that each draw would get a fresh budget and a
+  vote could spend N times the cap.
+- On llama-server, a seed repeats its draw only on a single-slot server with draws run one at a
+  time. With the default four slots, a rerun of the same seeds drew differently in 2 of 8 tries,
+  and `Parallel: 2` on one slot in 1 of 8. As far as we can tell, a draw that lands on a
+  different slot's cache samples differently. The live test skips unless the server was started
+  with `-np 1`.
+
 ### Team (handoff)
 
 `Team` is the one mode that does not fit agent-as-tool: handoff transfers control rather than
