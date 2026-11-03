@@ -8,7 +8,7 @@
       "openai": { "type": "openai", "model": "gpt-5.5", "apiKeyEnv": "OPENAI_API_KEY", "temperature": false },
       "openai-responses": { "type": "openai-responses", "model": "gpt-5.5", "apiKeyEnv": "OPENAI_API_KEY", "reasoningEffort": "medium" },
       "claude": { "type": "anthropic", "model": "claude-sonnet-5-5", "apiKeyEnv": "ANTHROPIC_API_KEY" },
-      "deepseek": { "baseUrl": "https://api.deepseek.com/v1", "model": "deepseek-chat", "apiKeyEnv": "DEEPSEEK_API_KEY" }
+      "deepseek": { "baseUrl": "https://api.deepseek.com/v1", "model": "deepseek-chat", "apiKeyEnv": "DEEPSEEK_API_KEY", "responseSchema": false }
     }
   },
   "servers": []

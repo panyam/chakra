@@ -120,3 +120,14 @@ func TestAPlanRendersAsAChecklist(t *testing.T) {
 		t.Errorf("rendered %q", got)
 	}
 }
+
+// A routed step prints which connection answered it (#215).
+func TestRendererStepLine(t *testing.T) {
+	var out strings.Builder
+	r := newRenderer(&out, false)
+	r.handle(agent.Event{Kind: agent.EventTextDelta, Text: "looking"})
+	r.handle(agent.Event{Kind: agent.EventStep, Step: 2, Model: "mini"})
+	if got, want := out.String(), "looking\n↳ step 2 on mini\n"; got != want {
+		t.Fatalf("render = %q, want %q", got, want)
+	}
+}

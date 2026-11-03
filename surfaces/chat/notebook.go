@@ -174,7 +174,10 @@ func (s *nbObserver) render(ev host.HostEvent) []tea.Msg {
 		// with ANSI; folded into the glamoured assistant prose, glamour garbles the
 		// escape codes into literal "[2m" text (glamour must never see ANSI). So cut
 		// the prose so far at begin, close a verbatim "thinking" cell at end.
-		if re.Kind == agent.EventThinkingBegin {
+		// A step line (EventStep, sent after the step's text) is dim ANSI as
+		// well, so it gets the same cut, then closes as its own verbatim cell,
+		// collapsed so its header alone shows the line.
+		if re.Kind == agent.EventThinkingBegin || re.Kind == agent.EventStep {
 			if txt := seg(); txt != "" {
 				msgs = append(msgs, s.cell("assistant", txt))
 			}
@@ -186,6 +189,11 @@ func (s *nbObserver) render(ev host.HostEvent) []tea.Msg {
 		switch re.Kind {
 		case agent.EventThinkingEnd:
 			msgs = append(msgs, s.cell("thinking", seg())) // verbatim: cell() only glamours "assistant"
+			s.buf.Reset()
+		case agent.EventStep:
+			c := s.cell("step", seg())
+			c.collapsed = true
+			msgs = append(msgs, c)
 			s.buf.Reset()
 		case agent.EventToolEnd, agent.EventToolError, agent.EventToolDenied, agent.EventToolCancelled, agent.EventToolUnavailable:
 			if s.openTools > 0 {

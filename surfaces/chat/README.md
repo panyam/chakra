@@ -326,6 +326,55 @@ Bind a trigger on `task.completed` to have the agent proactively tell you the
 moment a job finishes. `/tasks` lists running tasks; `/tasks cancel <id>`
 stops one. Set `taskGraceSec` negative to wait inline forever.
 
+## Connections
+
+The `connections` block in the config names every model endpoint agentchat
+can use and says which one does which job. A connection is an endpoint plus a
+model, and the role fields (`active`, `embedder`, `agentRoles`, `stepRoutes`)
+point at connections by name.
+
+```json
+"connections": {
+  "active": "big",
+  "embedder": "embed",
+  "connections": {
+    "big":      { "type": "openai", "model": "gpt-5.5", "apiKeyEnv": "OPENAI_API_KEY", "temperature": false },
+    "mini":     { "type": "openai", "model": "gpt-5.4-mini", "apiKeyEnv": "OPENAI_API_KEY" },
+    "deepseek": { "baseUrl": "https://api.deepseek.com/v1", "model": "deepseek-chat", "apiKeyEnv": "DEEPSEEK_API_KEY", "responseSchema": false },
+    "local":    { "type": "llamacpp" },
+    "embed":    { "type": "ollama", "model": "nomic-embed-text", "dim": 768 }
+  },
+  "agentRoles": { "small": "mini", "large": "big" },
+  "stepRoutes": [{ "fromStep": 2, "connection": "mini" }]
+}
+```
+
+| Field | What it does |
+|---|---|
+| `active` | The chat connection at startup. `/provider <name>`, or agentweb's header picker, switches it for later turns. Required. |
+| `connections` | Name to endpoint, with the fields below. |
+| `embedder` | The connection that embeds for semantic memory. It must speak an embeddings API, so an `anthropic` connection is refused. Set `dim` on it. Optional. |
+| `agentRoles` | Maps the `small`, `medium` and `large` hints a server-advertised agent can send to connections. An agent runs on its hinted role, or on a larger one when that role is unset or lacks the `vision` the hint asks for. An agent with no hint runs on `active`. Optional. |
+| `stepRoutes` | Sends ranges of each turn's model calls to another connection. See [Routing steps to another model](#routing-steps-to-another-model). Optional. |
+
+One connection's fields:
+
+| Field | What it does |
+|---|---|
+| `type` | A built-in endpoint: `openai`, `openai-responses`, `anthropic`, `gemini`, `openrouter`, `litellm`, `lmstudio`, `llamacpp`, `ollama`. It sets the base URL, and for `anthropic`, `openai-responses`, `llamacpp` and `ollama` the provider that talks to it. Optional when `baseUrl` is set. |
+| `baseUrl` | The API root with its version prefix, such as `https://api.deepseek.com/v1`. Overrides `type`'s default. A connection with no `type` speaks the OpenAI chat-completions wire. |
+| `model` | The model id sent on every request. Required except for `llamacpp`. |
+| `apiKeyEnv` | The environment variable holding the key. Leave it out for local servers. |
+| `temperature` | `false` for a model that refuses a temperature (OpenAI's reasoning models on the `openai` type), `true` for one that takes it on `openai-responses`. It changes what the provider reports, so a caller knows not to send one. |
+| `responseSchema` | `false` for an endpoint that refuses `response_format: json_schema`, such as DeepSeek. A structured answer (`agentchat exec --output-schema`) then asks for `json_object` with the schema in the system message, and the Runner's validate-and-retry holds the reply to it. |
+| `reasoningEffort` | `openai-responses` with a reasoning model only: `low`, `medium` or `high`. |
+| `thinkingHint` | `{ "openTag": "<think>", "closeTag": "</think>" }` for a model that writes its reasoning inline, so surfaces show it as thinking. |
+| `vision` | Marks a model that takes images. Read only when `agentRoles` picks a connection. |
+| `dim` | The embedding width, when the connection is the `embedder`. |
+
+The doc comments on `ConnectionsConfig` and `ConnectionConfig` in
+`host/connections.go` are the full contract.
+
 ## Routing steps to another model
 
 `/provider <name>` switches the model for whole turns. `connections.stepRoutes`
@@ -345,7 +394,8 @@ that covers a step wins. A step no route covers runs on the active connection,
 so `/provider` still sets the default. Each switch makes the next call's
 prompt cache cold on the model it moves to, so a few long ranges cost less
 than alternating. A routed step's tokens show up per connection on the turn's
-`usageByModel` and on a `step` event.
+`usageByModel` and on a `step` event, and agentchat prints a dim
+`↳ step 2 on mini` line after each step of a routed turn.
 
 ## Events, injected context, and triggers
 
