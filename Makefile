@@ -34,7 +34,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/h
 # explicitly and the platform's own backend refuses. See the module README.
 GOTESTFLAGS ?= -race -timeout 300s
 
-.PHONY: help build test test-examples test-web testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity deploy-web weblogs \
+.PHONY: help build test test-examples test-web testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report deploy-web weblogs \
         check-no-binaries check-ext-isolation check-dep-consistency setup-hooks
 
 help: ## Show this help
@@ -185,6 +185,38 @@ CH_ADDR ?= localhost:8091
 
 coding-harness-web: ## agentweb over the coding agent's config, on a fresh copy of the fixture (CH_WORKSPACE=dir, CH_INSTRUCTIONS=codex)
 	@CH_ADDR=$(CH_ADDR) CH_ACTIVE=$(CH_ACTIVE) CH_MODEL=$(CH_MODEL) CH_WORKSPACE=$(CH_WORKSPACE) CH_INSTRUCTIONS=$(CH_INSTRUCTIONS) bash scripts/coding-harness-web.sh
+
+# Terminal-Bench 2 through Harbor, its official harness (#195). TB_AGENTS run
+# one after another on the same tasks; chakra goes in through
+# examples/terminal-bench/chakra_agent.py, codex and claude-code are Harbor's
+# built-in agents. Needs Docker, harbor on PATH, and a checkout of
+# terminal-bench-2 at TB_PATH. TB_TASKS is the starter set; TB_TASKS= (empty)
+# runs all 89.
+TB_PATH ?= $(HOME)/newstack/chakra/benchmarks/terminal-bench-2
+TB_JOBS ?= $(HOME)/newstack/chakra/benchmarks/jobs
+TB_AGENTS ?= chakra codex
+TB_MODEL ?= openai/gpt-5.5
+TB_K ?= 1
+TB_CONCURRENT ?= 2
+TB_TASKS ?= fix-git prove-plus-comm cobol-modernization kv-store-grpc polyglot-c-py \
+            nginx-request-logging openssl-selfsigned-cert custom-memory-heap-crash \
+            sanitize-git-repo multi-source-data-merger
+
+tbench-build: ## Static Linux agentchat for the Terminal-Bench containers (amd64, as the task images are)
+	@mkdir -p examples/terminal-bench/bin
+	@cd surfaces/chat && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../../examples/terminal-bench/bin/agentchat-linux-amd64 .
+
+tbench: tbench-build ## Terminal-Bench 2 via Harbor: TB_AGENTS on TB_TASKS, TB_K attempts each (TB_MODEL=openai/gpt-5.5)
+	@for a in $(TB_AGENTS); do \
+		case $$a in chakra) agent=chakra_agent:ChakraAgent ;; *) agent=$$a ;; esac; \
+		echo "==> $$a"; \
+		PYTHONPATH=$(CURDIR)/examples/terminal-bench harbor run -p $(TB_PATH) -a $$agent -m $(TB_MODEL) \
+			-k $(TB_K) -n $(TB_CONCURRENT) -o $(TB_JOBS) --job-name tbench-$$a-$$(date +%Y%m%d-%H%M%S) \
+			$(foreach t,$(TB_TASKS),-i $(t)) -y || echo "$$a: harbor exited non-zero, carrying on"; \
+	done
+
+tbench-report: ## Side-by-side markdown of the newest tbench job per agent in TB_JOBS
+	@python3 scripts/tbench_report.py $(TB_JOBS)
 
 coding-harness-parity: ## codex exec vs the coding harness, same fixture and model, side by side (needs codex and OPENAI_API_KEY; PARITY_MODEL=gpt-5.5, PARITY_ACTIVE=openai, PARITY_INSTRUCTIONS=codex)
 	@bash scripts/coding-harness-parity.sh
