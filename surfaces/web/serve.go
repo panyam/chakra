@@ -7,24 +7,24 @@ import (
 	"github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect"
 )
 
-// Handler builds the one mux the web surface serves, mirroring the Agni /
-// diffpp serve pattern: the HostService Connect handlers under their proto
-// service path, the frontend bundle under /static/, and a server-rendered shell
-// catching the rest at /. E3 ships a placeholder shell that names the live
-// endpoints; the full DockView + Solid frontend is E4 (issue 1197), a separate
-// PR that only swaps the shell and /static assets — the Connect surface here is
-// what it consumes.
+// Handler builds the one mux the web surface serves. It follows the Agni /
+// diffpp serve pattern. The HostService Connect handlers sit under their proto
+// service path, the frontend bundle under /static/, and a server-rendered
+// shell at / catches the rest. The shell loads the DockView + Solid frontend
+// (E4, issue 1197) from /static, and that frontend consumes the Connect
+// surface here.
 //
-// Connect server-streaming (Watch) rides the Connect protocol, which supports
-// server streams over HTTP/1.1, so no h2c is required for local dev; a
-// production deployment behind HTTP/2 works unchanged.
+// Connect server-streaming (Watch) uses the Connect protocol, which supports
+// server streams over HTTP/1.1. So local dev needs no h2c, and a production
+// deployment behind HTTP/2 works unchanged.
 func Handler(app *host.App) http.Handler {
 	return handlerFor(NewHostService(app))
 }
 
-// HandlerWithSessions is Handler for a multi-session server: it serves the same
-// mux over a SessionManager, so one server hosts many concurrent conversations
-// (empty session_id routes to the manager's default, CreateSession mints more).
+// HandlerWithSessions is Handler for a multi-session server. It serves the same
+// mux over a SessionManager, so one server hosts many concurrent conversations.
+// An empty session_id routes to the manager's default session, and
+// CreateSession creates more.
 func HandlerWithSessions(mgr *SessionManager, opts ...Option) http.Handler {
 	return handlerFor(NewHostServiceWithSessions(mgr, opts...))
 }

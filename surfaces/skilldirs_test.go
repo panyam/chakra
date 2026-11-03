@@ -86,9 +86,9 @@ func (l *loadedLog) On(ev host.HostEvent) {
 	}
 }
 
-// TestWorkspaceSkillsReachAnApp is the agentchat --workspace path: a skill in
-// the workspace's .agents/skills joins the catalog of an App built with
-// WorkspaceSkillDirs.
+// TestWorkspaceSkillsReachAnApp covers the agentchat --workspace path. A
+// skill in the workspace's .agents/skills joins the catalog of an App built
+// with WorkspaceSkillDirs.
 func TestWorkspaceSkillsReachAnApp(t *testing.T) {
 	ws := t.TempDir()
 	p := filepath.Join(ws, ".agents", "skills", "go-testing", "SKILL.md")

@@ -8,16 +8,17 @@ import (
 )
 
 // mdRenderer renders a finished markdown block to terminal ANSI via glamour,
-// for the "Glamour once at commit" path (issue 1063 B2). It is deliberately
-// used only on a committed block, never on partial streaming deltas: glamour
-// mangles a half-written fenced code block and reflows on every call, so
-// streaming stays raw and the render happens once when the block closes.
+// for the "Glamour once at commit" path (issue 1063 B2). Glamour mangles a
+// half-written fenced code block and reflows on every call. So the renderer
+// runs only on a committed block, never on partial streaming deltas. Streaming
+// output is raw, and the render happens once when the block closes.
 //
-// Rendering is disabled (raw passthrough) when color is off (the resolved
-// --no-color / NO_COLOR / dumb-terminal decision), matching the plain-mode
-// semantics in agent/host's terminal renderer; the plain REPL never reaches
-// this path at all. The underlying glamour TermRenderer is cached and rebuilt
-// only when the target width changes.
+// The --no-color flag, NO_COLOR, and a dumb terminal resolve to one color
+// decision. When color is off, rendering is disabled and text passes through
+// raw. That matches the plain-mode semantics of the host package's terminal
+// renderer. The plain REPL never reaches this path at all. The underlying
+// glamour TermRenderer is cached and rebuilt only when the target width
+// changes.
 type mdRenderer struct {
 	mu       sync.Mutex
 	disabled bool
@@ -45,7 +46,7 @@ func (r *mdRenderer) setWidth(w int) {
 
 // render turns a complete markdown block into styled terminal output. It
 // returns the input unchanged when disabled, when the block is empty, or when
-// glamour fails to build/render — the raw text is always a safe fallback, so a
+// glamour fails to build/render. The raw text is always a safe fallback, so a
 // rendering error never drops the assistant's words.
 func (r *mdRenderer) render(md string) string {
 	if md == "" {

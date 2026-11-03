@@ -73,8 +73,8 @@ func (w *watcher) kinds() []string {
 	return out
 }
 
-// waitForKind polls the recorded frames until one of kind appears (returning it)
-// or the deadline passes.
+// waitForKind polls the recorded frames until a frame of kind appears or the
+// deadline passes. It returns the frame it found.
 func (w *watcher) waitForKind(t *testing.T, kind string) *webv1.Frame {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
@@ -102,10 +102,10 @@ func contains(kinds []string, want string) bool {
 	return false
 }
 
-// TestBridge_WatchReplaysAndSubmitRunsTurn is the E3 acceptance: a Connect
-// client Submits a turn (which runs on the shared App) and a later Watch client
-// replays that turn's events from offset 0, then sees a subsequent turn live —
-// the same stream the local Observer receives.
+// TestBridge_WatchReplaysAndSubmitRunsTurn is the E3 acceptance. A Connect
+// client Submits a turn, and the turn runs on the shared App. A later Watch
+// client replays that turn's events from offset 0, then sees a subsequent turn
+// live. The local Observer receives the same stream.
 func TestBridge_WatchReplaysAndSubmitRunsTurn(t *testing.T) {
 	stub := agent.NewStubProvider(
 		agent.StubTurn{Text: "first", FinishReason: "stop"},
@@ -160,8 +160,8 @@ func TestBridge_WatchReplaysAndSubmitRunsTurn(t *testing.T) {
 		t.Fatalf("Watch saw %d turn-done frames, want >= 2 (replay + live); frames=%v", doneCount, w.kinds())
 	}
 
-	// The local Observer and the Watch client saw the same stream: every kind the
-	// Observer recorded also appears on the wire.
+	// The local Observer and the Watch client saw the same stream. Each kind in
+	// the Observer's record also appears on the wire.
 	for _, k := range rec.snapshot() {
 		if !contains(w.kinds(), string(k)) {
 			t.Fatalf("local Observer saw %q but Watch did not; watch=%v", k, w.kinds())
@@ -178,10 +178,10 @@ func TestBridge_WatchReplaysAndSubmitRunsTurn(t *testing.T) {
 	}
 }
 
-// TestBridge_RespondToAskWinsOverWire is the multi-surface ask acceptance: a
-// turn gates a tool call in approval "ask" mode, the local UI blocks, and a
-// RespondToAsk over the wire wins the ask so the turn proceeds — the resolved
-// frame names the web surface and the local UI is cancelled.
+// TestBridge_RespondToAskWinsOverWire is the multi-surface ask acceptance. A
+// turn gates a tool call in approval "ask" mode, and the local UI blocks. A
+// RespondToAsk over the wire wins the ask, so the turn proceeds. The resolved
+// frame names the web surface, and the local UI is cancelled.
 func TestBridge_RespondToAskWinsOverWire(t *testing.T) {
 	// Turn 1 emits a tool call (gated by approval ask); turn 2 finishes.
 	stub := agent.NewStubProvider(

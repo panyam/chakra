@@ -94,8 +94,8 @@ func TestConfigModeAsksWaitForASurface(t *testing.T) {
 		case ev := <-events:
 			switch ev.Kind {
 			case host.HostElicitRequest:
-				// Lose the race on purpose: a local responder that answers at
-				// all would have done so by now.
+				// Lose the race on purpose. If a local responder were going to
+				// answer, it would have answered by now.
 				time.Sleep(200 * time.Millisecond)
 				if err := app.RespondToAsk(int(ev.AskID), core.ElicitationResult{Action: "accept", Content: map[string]any{"confirm": true}}, "browser"); err != nil {
 					t.Fatalf("RespondToAsk: %v (the ask was already resolved by another responder)", err)

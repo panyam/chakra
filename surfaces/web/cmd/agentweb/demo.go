@@ -11,19 +11,20 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// demoElicitDelay is how long the scripted "terminal" responder waits before it
-// auto-approves a pending ask. A web surface can answer the prompt itself inside
-// this window (the first responder wins and the others retract); if nobody does,
-// the scripted terminal answers and every web surface retracts with an "answered
-// on terminal" receipt — the multi-surface retraction the demo exists to show.
+// demoElicitDelay sets how long the scripted "terminal" responder waits before
+// it auto-approves a pending ask. A web surface can answer the prompt itself
+// inside this window. The first responder wins and the others retract. If
+// nobody answers, the scripted terminal answers, and every web surface retracts
+// with an "answered on terminal" receipt. The demo exists to show this
+// multi-surface retraction.
 const demoElicitDelay = 8 * time.Second
 
 // demoElicitUI is the local (terminal) elicitation responder for `--demo`. The
 // real terminal UI reads a line, but the demo has no terminal input wired, so a
-// line-reading UI would hit EOF and resolve instantly, denying a web surface any
-// chance to answer. This one blocks for demoElicitDelay then accepts, standing
-// in for a human approving at the terminal so the cross-surface retract is
-// demonstrable with no second surface to script.
+// line-reading UI would hit EOF and resolve at once, before a web surface could
+// answer. This one blocks for demoElicitDelay and then accepts, as a human
+// approving at the terminal would. So the demo shows the cross-surface retract
+// without a second surface to script.
 func demoElicitUI(ctx context.Context, _ core.ElicitationRequest) (core.ElicitationResult, error) {
 	select {
 	case <-time.After(demoElicitDelay):
@@ -33,19 +34,20 @@ func demoElicitUI(ctx context.Context, _ core.ElicitationRequest) (core.Elicitat
 	}
 }
 
-// demoProvider is an inexhaustible, offline Provider for `agentweb --demo`. It
-// is scripted so the whole surface — not just the Conversation panel — visibly
-// populates: on a top-level turn that has delegate tools available it fans out
-// to the sub-agent personas (producing sub-agent-tree activity, tool calls, and
-// an offloaded result), reports token usage so the budget gauges move, then on
-// the follow-up turn streams a final answer word by word. A persona's own turn
-// (no tools in its request) just streams text, so there is no recursion. Unlike
-// the test StubProvider it never exhausts, so a person can drive many turns.
+// demoProvider is an inexhaustible, offline Provider for `agentweb --demo`. Its
+// script fills in every panel of the surface, the Conversation panel and the
+// rest. On a top-level turn with delegate tools available, it fans out to the
+// sub-agent personas. That fan-out produces sub-agent-tree activity, tool
+// calls, and an offloaded result. It reports token usage so the budget gauges
+// move. On the follow-up turn it streams a final answer word by word. A
+// persona's own turn has no tools in its request, so it just streams text and
+// nothing recurses. Unlike the test StubProvider it never exhausts, so a person
+// can drive many turns.
 type demoProvider struct{}
 
-// personaNames are the delegate tools the scripted top-level turn calls when
-// they are present in the request. Kept in sync with the SubAgentConfig names
-// wired in buildApp.
+// personaNames lists the delegate tools. The scripted top-level turn calls each
+// one present in the request. Keep it in sync with the SubAgentConfig names in
+// buildApp.
 var personaNames = []string{"researcher", "analyst"}
 
 // lastUserText returns the most recent user-role message text.
@@ -58,8 +60,8 @@ func lastUserText(req agent.ProviderRequest) string {
 	return ""
 }
 
-// lastRole reports the role of the final message, which tells a top-level first
-// pass (RoleUser) apart from the follow-up after tool results (RoleTool).
+// lastRole reports the role of the final message. That role tells a top-level
+// first pass (RoleUser) apart from the follow-up after tool results (RoleTool).
 func lastRole(req agent.ProviderRequest) agent.Role {
 	if len(req.Messages) == 0 {
 		return agent.RoleUser
@@ -84,8 +86,8 @@ func availablePersonas(req agent.ProviderRequest) []string {
 }
 
 // personaReply is what a sub-agent persona streams back. The researcher returns
-// a long passage (over the demo offload threshold, so it comes back as an
-// offloaded stub in the tool inspector); the analyst returns a short note.
+// a long passage. It exceeds the demo offload threshold, so it comes back as an
+// offloaded stub in the tool inspector. The analyst returns a short note.
 func personaReply(task string) string {
 	lower := strings.ToLower(task)
 	if strings.Contains(lower, "analyz") || strings.Contains(lower, "risk") {
@@ -111,11 +113,13 @@ func (d demoProvider) reply(req agent.ProviderRequest) string {
 }
 
 func (d demoProvider) Stream(_ context.Context, req agent.ProviderRequest) (agent.Stream, error) {
-	// Three cases, keyed on the last message role and whether delegate tools are
-	// present: a top-level first pass (RoleUser + persona tools) fans out to the
-	// personas; a persona's own turn (RoleUser, no tools) streams its persona
-	// reply (the researcher's is long enough to be offloaded); the follow-up
-	// after tool results (RoleTool) streams the top-level answer.
+	// The last message role and the delegate tools pick one of three cases. On
+	// a top-level first pass the last role is RoleUser and persona tools are
+	// present, so it fans out to the personas. On a persona's own turn the last
+	// role is RoleUser with no tools, so it streams the persona reply. The
+	// researcher's reply is long enough to be offloaded. On the follow-up after
+	// tool results the last role is RoleTool, so it streams the top-level
+	// answer.
 	if lastRole(req) == agent.RoleUser {
 		if personas := availablePersonas(req); len(personas) > 0 {
 			return &demoStream{delegateTo: personas, task: lastUserText(req)}, nil
@@ -129,10 +133,10 @@ func (d demoProvider) Generate(_ context.Context, req agent.ProviderRequest) (*a
 	return &agent.ProviderResponse{Text: d.reply(req), FinishReason: "stop", Usage: &agent.Usage{InputTokens: 900, OutputTokens: 60}}, nil
 }
 
-// demoStream drives one of two scripts. When delegateTo is set it emits a short
-// reasoning fragment then one tool call per named persona (finishing with
-// "tool_calls" and reporting usage); otherwise it streams words (a text reply)
-// then finishes with "stop". Both report usage so the budget gauges move.
+// demoStream drives one of two scripts. When delegateTo is set, it emits a short
+// reasoning fragment and then one tool call per named persona, and finishes
+// with "tool_calls". Otherwise it streams a text reply word by word and
+// finishes with "stop". Both scripts report usage so the budget gauges move.
 type demoStream struct {
 	// text-reply script
 	words []string
@@ -156,8 +160,8 @@ func (s *demoStream) Recv() (agent.Delta, error) {
 	return s.recvText()
 }
 
-// personaTask renders the task text a persona is seeded with, tagged so its
-// reply length differs (research = long/offloaded, analyst = short).
+// personaTask renders the seed task for a persona. It tags the task so the
+// researcher gets a long, offloaded reply and the analyst a short one.
 func (s *demoStream) personaTask(name string) string {
 	task := s.task
 	if task == "" {

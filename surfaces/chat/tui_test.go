@@ -89,7 +89,7 @@ func TestIsBoundary(t *testing.T) {
 func TestUpdateLiveThenCommit(t *testing.T) {
 	m := newTUIModel(nil, nil, 0)
 
-	// a live segment lands in the pending region, not scrollback
+	// a live segment goes to the pending region, not scrollback
 	next, _ := m.Update(liveMsg("thinking…"))
 	m = next.(tuiModel)
 	if m.pending != "thinking…" {
@@ -282,7 +282,7 @@ func TestRenderKeyHelp_ListsEditingBindings(t *testing.T) {
 }
 
 // blockingProvider holds a turn open inside the model call until release is
-// closed, so a test can observe the UI while App.turnMu is held by RunTurn.
+// closed. So a test can observe the UI while RunTurn holds App.turnMu.
 type blockingProvider struct {
 	started chan struct{}
 	release chan struct{}
@@ -303,10 +303,10 @@ func (p *blockingProvider) Generate(ctx context.Context, req agent.ProviderReque
 	return nil, errors.New("blocking provider released")
 }
 
-// TestView_DoesNotBlockDuringTurn guards the #1074 regression: the status line
-// must render from a cached session, never from App.RunID() (which takes
-// turnMu, held by RunTurn for the whole turn). Before the fix, View() blocked
-// until the turn finished, freezing the UI on the first message.
+// TestView_DoesNotBlockDuringTurn guards the #1074 regression. The status line
+// must render from a cached session, never from App.RunID(). RunID takes
+// turnMu, and RunTurn holds turnMu for the whole turn. Before the fix, View()
+// blocked until the turn finished, and the UI froze on the first message.
 func TestView_DoesNotBlockDuringTurn(t *testing.T) {
 	prov := &blockingProvider{started: make(chan struct{}), release: make(chan struct{})}
 	cfg := &host.Config{
@@ -342,12 +342,12 @@ func TestView_DoesNotBlockDuringTurn(t *testing.T) {
 	<-turnDone
 }
 
-// stubMD marks a span so a test can see which blocks took the glamour path
-// (prose) versus which passed through verbatim (tool/thinking meta lines).
+// stubMD marks a span. Then a test can see which blocks took the glamour path
+// (prose) and which passed through verbatim (tool/thinking meta lines).
 func stubMD(s string) string { return "MD{" + s + "}" }
 
 // tuiCommit drives the observer through a turn and returns the committed
-// segment (the string handed to tea.Println at the boundary).
+// segment. That segment is the string for tea.Println at the boundary.
 func tuiCommit(obs *tuiObserver, evs ...host.HostEvent) string {
 	var commit string
 	for _, ev := range evs {
@@ -379,7 +379,7 @@ func TestTUIObserver_GlamoursProseKeepsToolLinesVerbatim(t *testing.T) {
 	if !strings.Contains(commit, "MD{after}") {
 		t.Fatalf("prose-after-tool not glamoured:\n%s", commit)
 	}
-	// ...but the tool lines stayed verbatim (not wrapped in MD{})
+	// ...but the tool lines passed through verbatim (not wrapped in MD{})
 	if !strings.Contains(commit, "greet") {
 		t.Fatalf("tool line dropped from commit:\n%s", commit)
 	}

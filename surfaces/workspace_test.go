@@ -30,15 +30,15 @@ func TestWorkspaceExtensionsDisabledByDefault(t *testing.T) {
 	}
 }
 
-// TestWorkspaceExtensionsCheckpointFirst pins the ordering that nothing else
-// catches.
+// TestWorkspaceExtensionsCheckpointFirst pins the checkpoint-first order.
+// Nothing else catches a mistake in it.
 //
 // Extensions apply in registration order and their middleware keeps it, so the
 // checkpoint snapshot has to be installed ahead of the tool that writes.
-// Reversed, both orders still construct and run; the only symptom is an /undo
-// that restores the post-write content, which no construction-time error and
-// no tool-level test would show. Asserting the order here is the cheapest place
-// to catch a reversal.
+// Reversed, both orders still construct and run. The only symptom is an /undo
+// that restores the post-write content. No construction-time error shows that,
+// and no tool-level test does either. Asserting the order here is the cheapest
+// way to catch a reversal.
 func TestWorkspaceExtensionsCheckpointFirst(t *testing.T) {
 	exts, err := WorkspaceExtensions(WorkspaceConfig{Roots: []string{t.TempDir()}})
 	if err != nil {
@@ -68,9 +68,10 @@ func goExec() *exec.Config {
 	}
 }
 
-// TestWorkspaceExtensionsExecOrder pins exec between files and lsp: after the
-// checkpoint and file tools whose ordering the test above guards, and ahead of
-// lsp, which has to sit innermost to see writes after they land.
+// TestWorkspaceExtensionsExecOrder pins exec between files and lsp. Exec comes
+// after checkpoint and the file tools, and the test above guards their order.
+// It comes before lsp, which has to be innermost to see writes after they
+// happen.
 func TestWorkspaceExtensionsExecOrder(t *testing.T) {
 	exts, err := WorkspaceExtensions(WorkspaceConfig{Roots: []string{t.TempDir()}, Exec: goExec()})
 	if err != nil {
@@ -111,13 +112,13 @@ func TestWorkspaceExtensionsNoCheckpoint(t *testing.T) {
 	}
 }
 
-// TestWorkspaceExtensionsReachAnApp is the test issue 1293 exists for: it
-// builds a real host.App through host.WithExtension and asserts every seam the
-// extensions contribute actually arrives.
+// TestWorkspaceExtensionsReachAnApp is the test for issue 1293. It builds a
+// real host.App through host.WithExtension. Then it asserts that every seam
+// from the extensions actually arrives.
 //
-// Until this existed, applyExtensions was covered only by hand-rolled test
-// doubles inside agent/host, so the five file tools, the /undo command, and the
-// diff approval renderer were reachable in principle and registered by nobody.
+// Before this test, only hand-rolled test doubles inside host covered
+// applyExtensions. The five file tools, the /undo command and the diff
+// approval renderer were reachable in principle, but nothing registered them.
 func TestWorkspaceExtensionsReachAnApp(t *testing.T) {
 	ws := t.TempDir()
 	if err := os.WriteFile(filepath.Join(ws, "hello.txt"), []byte("hi\n"), 0o644); err != nil {
@@ -143,9 +144,9 @@ func TestWorkspaceExtensionsReachAnApp(t *testing.T) {
 	}
 
 	// Tools: assert through App.Tools, which writes the listing a user sees.
-	// There is no accessor returning tool definitions, and adding one to check
-	// a wiring property would widen a surface that #1240 is trying to narrow.
-	// The printed listing is the same question asked at the seam that ships.
+	// No accessor returns tool definitions. Adding one to check a wiring
+	// property would widen a surface, and #1240 is trying to narrow it. The
+	// printed listing asks the same question at the seam that ships.
 	if err := app.Tools(context.Background()); err != nil {
 		t.Fatalf("Tools: %v", err)
 	}
@@ -183,9 +184,9 @@ func (emptyStream) Recv() (agent.Delta, error) { return agent.Delta{}, io.EOF }
 func (emptyStream) Close() error               { return nil }
 
 // TestWorkspaceExtensionsSkipsLSPByDefault pins that language servers are
-// opt-in. checkpoint is opt-out because it costs a directory; a language
-// server is a subprocess and an index of the whole tree, so a caller who did
-// not ask for one does not get one.
+// opt-in. checkpoint is opt-out because it costs a directory. A language
+// server costs a subprocess and an index of the whole tree, so a caller who
+// did not ask for one does not get one.
 func TestWorkspaceExtensionsSkipsLSPByDefault(t *testing.T) {
 	exts, err := WorkspaceExtensions(WorkspaceConfig{Roots: []string{t.TempDir()}})
 	if err != nil {
@@ -230,8 +231,9 @@ func TestWorkspaceRepoMapNeedsALanguageServer(t *testing.T) {
 
 // TestCheckpointedWritesAreReversible pins that the files extension's writes
 // count as reversible exactly when a checkpoint covers them. Under
-// reversible-auto an edit /undo can restore runs unasked, and the same edit
-// with --no-checkpoint asks, since nothing could take it back.
+// reversible-auto with a checkpoint, /undo can restore an edit, so the edit
+// runs unasked. With --no-checkpoint the same edit asks, since nothing could
+// take it back.
 func TestCheckpointedWritesAreReversible(t *testing.T) {
 	for _, c := range []struct {
 		name         string
@@ -344,11 +346,11 @@ func TestEditApprovalBroadcastsTheDiff(t *testing.T) {
 	}
 }
 
-// TestUndoRestoresWhenTheProcessRunsElsewhere is issue 69. make dogfood-web
-// runs agentweb from surfaces/web, so the process's working directory is not
-// the workspace root. The model names a file relative to the root; the
-// checkpoint has to snapshot that file, not one under the process cwd, or
-// /undo restores nothing while reporting success.
+// TestUndoRestoresWhenTheProcessRunsElsewhere tests issue 69. make
+// dogfood-web runs agentweb from surfaces/web, so the process's working
+// directory is not the workspace root. The model names a file relative to the
+// root. The checkpoint has to snapshot that file, not one under the process
+// cwd. Otherwise /undo restores nothing and still reports success.
 func TestUndoRestoresWhenTheProcessRunsElsewhere(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(t.TempDir())
@@ -414,8 +416,8 @@ func TestWorkspaceExtensionsOffloadingReachesExec(t *testing.T) {
 	}
 }
 
-// TestWorkspaceInstructionsReachThePrompt is the agentchat --workspace path
-// for #146: an AGENTS.md in the workspace root reaches the model's system
+// TestWorkspaceInstructionsReachThePrompt covers the agentchat --workspace
+// path for #146. An AGENTS.md in the workspace root reaches the model's system
 // prompt through WorkspaceExtensions, and NoInstructions keeps it out.
 func TestWorkspaceInstructionsReachThePrompt(t *testing.T) {
 	ws := t.TempDir()
@@ -444,9 +446,9 @@ func TestWorkspaceInstructionsReachThePrompt(t *testing.T) {
 	}
 }
 
-// TestUndoRestoresEveryFileAPatchTouched is the checkpoint wiring for
-// apply_patch: one patch adds, changes, moves and deletes, and one /undo puts
-// every file back the way it was.
+// TestUndoRestoresEveryFileAPatchTouched tests the checkpoint wiring for
+// apply_patch. One patch adds, changes, moves and deletes files, and one /undo
+// puts every file back the way it was.
 func TestUndoRestoresEveryFileAPatchTouched(t *testing.T) {
 	ws := t.TempDir()
 	for name, body := range map[string]string{"keep.go": "one\n", "move.go": "two\n", "gone.go": "three\n"} {

@@ -16,8 +16,8 @@ import (
 
 // drainTimeout bounds how long shutdown waits for handlers once their contexts
 // are cancelled. A Watch or Submit returns as soon as its context ends, so this
-// only matters for a handler that ignores its context; past it, connections
-// are closed outright.
+// only matters for a handler that ignores its context. After the timeout,
+// the remaining connections are closed outright.
 const drainTimeout = 3 * time.Second
 
 // connectPrefix is the path every HostService RPC is served under.
@@ -25,8 +25,8 @@ const connectPrefix = "/chakra.web.v1.HostService/"
 
 // serve runs handler on ln until ctx ends or the process gets SIGINT/SIGTERM.
 // servicekit's graceful shutdown cancels every request context before it
-// drains, so an open Watch (every browser tab has one) or a running Submit
-// returns at once instead of holding the drain.
+// drains. So an open Watch returns at once instead of holding up the drain,
+// and so does a running Submit. Every browser tab has an open Watch.
 func serve(ctx context.Context, ln net.Listener, handler http.Handler) error {
 	srv := &http.Server{Handler: handler}
 	middleware.ApplyDefaults(srv)
@@ -54,8 +54,8 @@ const tokenHeader = "X-Agentweb-Token"
 // tokenGuard requires token in tokenHeader on every HostService call, when a
 // token is set. The origin guard only stops other sites' pages; a script can
 // send any Origin it likes, so a server anyone can reach needs this too. The
-// shell and static assets stay public: the page has to load before it can ask
-// for the token. An empty token disables the guard.
+// shell and static assets are still public, because the page has to load
+// before it can ask for the token. An empty token disables the guard.
 func tokenGuard(token string, next http.Handler) http.Handler {
 	if token == "" {
 		return next
@@ -77,11 +77,11 @@ func tokenGuard(token string, next http.Handler) http.Handler {
 // originGuard rejects HostService calls from a browser page on another site.
 // Without it, any page the user visits could drive the agent through
 // localhost, and so run its tools. servicekit's CheckRequest allows a call
-// when its Origin is on the allowlist, or, with no Origin (curl, a script),
-// when its Host is. The Host check stops DNS rebinding as well. Only the
-// Connect API is guarded: the shell and its static assets are public and
-// change nothing, so a phone can load the page and only needs --allow-origin
-// for the calls.
+// when its Origin is on the allowlist. A call with no Origin, such as one
+// from curl or a script, passes when its Host is on the allowlist. The Host
+// check stops DNS rebinding as well. The guard covers only the Connect API.
+// The shell and its static assets are public and change nothing. So a phone
+// can load the page, and it needs --allow-origin only for the calls.
 func originGuard(checker *middleware.OriginChecker, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, connectPrefix) && !checker.CheckRequest(r) {
@@ -94,7 +94,8 @@ func originGuard(checker *middleware.OriginChecker, next http.Handler) http.Hand
 }
 
 // newOriginChecker builds the allowlist from --allow-origin. localhost is
-// always on it, since the page agentweb serves to itself is the main client.
+// always on it, because the main client is agentweb's own page loaded from
+// localhost.
 func newOriginChecker(flagValue string) *middleware.OriginChecker {
 	origins := []string{"localhost"}
 	for _, o := range strings.Split(flagValue, ",") {

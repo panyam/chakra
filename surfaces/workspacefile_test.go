@@ -140,8 +140,8 @@ func TestWorkspaceFileBadDuration(t *testing.T) {
 	}
 }
 
-// TestDogfoodWorkspaceFileBuilds keeps the mission exercise's checked-in
-// config from rotting: it must decode and build into a working tool set.
+// TestDogfoodWorkspaceFileBuilds checks that the mission exercise's
+// checked-in config still decodes and builds into a working tool set.
 //
 // Two substitutions keep it runnable in CI. Language servers are dropped
 // because lsp.New spawns them and gopls is not on the runner. Off darwin the
@@ -186,10 +186,11 @@ func TestDogfoodWorkspaceFileBuilds(t *testing.T) {
 	}
 }
 
-// TestDogfoodFilesLoad keeps the mission exercise's files loadable: a field
-// typo in either fails here rather than at the start of a dogfood run. It
-// also pins the step budget, since run 1 (issue 70) died on the agent's
-// default of 8 halfway through writing a test, and that offloading is on.
+// TestDogfoodFilesLoad checks that the mission exercise's two files still
+// load. A field typo in either fails here, not at the start of a dogfood run.
+// The test also pins two settings. One is the step budget, because run 1
+// (issue 70) hit the agent's default of 8 steps halfway through writing a
+// test. The other is that offloading is on.
 func TestDogfoodFilesLoad(t *testing.T) {
 	cfg, err := host.LoadConfig("../examples/dogfood/config.json")
 	if err != nil {

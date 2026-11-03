@@ -14,13 +14,13 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// TestUndoBringsBackADeletedFile is issue 108 end to end: a real host runs a
-// turn in which the model calls delete_file, and /undo restores the content.
+// TestUndoBringsBackADeletedFile tests issue 108 end to end. A real host runs
+// a turn, the model calls delete_file, and /undo restores the content.
 //
-// The unit tests either side of this one prove the tool deletes and the
-// checkpoint restores; only the wiring decides whether the two are ever
-// introduced. A delete_file missing from fileWrites deletes the file and says
-// so in the gap report, which is honest but is not a safety net.
+// Unit tests on either side prove that the tool deletes and that the
+// checkpoint restores. Only the wiring connects the two. Suppose fileWrites
+// left out delete_file. The tool would still delete the file and say so in
+// the gap report. That is honest, but it is no safety net.
 func TestUndoBringsBackADeletedFile(t *testing.T) {
 	ws := t.TempDir()
 	const original = "the content that comes back\n"
@@ -70,9 +70,9 @@ func TestUndoBringsBackADeletedFile(t *testing.T) {
 	}
 }
 
-// TestDeleteIsReversibleUnderReversibleAuto pins the annotation half: with a
+// TestDeleteIsReversibleUnderReversibleAuto pins the annotation half. With a
 // checkpoint wired, delete_file declares destructiveHint false, so
-// reversible-auto runs it unasked. Without one it stays destructive and asks.
+// reversible-auto runs it unasked. Without one it is destructive and asks.
 func TestDeleteIsReversibleUnderReversibleAuto(t *testing.T) {
 	for _, c := range []struct {
 		name         string

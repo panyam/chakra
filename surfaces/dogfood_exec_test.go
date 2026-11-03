@@ -13,23 +13,23 @@ import (
 	"github.com/panyam/chakra/ext/exec"
 )
 
-// canSandbox reports whether sandbox-exec can apply a profile here. It cannot
-// inside another sandbox, and these tests run inside one when the agent runs
-// make test through run_test_all: Seatbelt refuses a second profile with
-// "sandbox_apply: Operation not permitted" (#95). The probe denies by default
-// because an allow-everything profile still applies when nested.
+// canSandbox reports whether sandbox-exec can apply a profile here. Inside
+// another sandbox, Seatbelt refuses a second profile with "sandbox_apply:
+// Operation not permitted" (#95). These tests run inside one when the agent
+// runs make test through run_test_all. The probe denies by default, because
+// an allow-everything profile still applies when nested.
 var canSandbox = sync.OnceValue(func() bool {
 	probe := "(version 1)(deny default)(allow process*)(allow file-read*)"
 	return osexec.Command("/usr/bin/sandbox-exec", "-p", probe, "/usr/bin/true").Run() == nil
 })
 
-// dogfoodExec builds the mission exercise's exec allowlist, as checked in, over
-// a fixture module that carries the repo's scripts/test-pkg.sh. It runs under
-// the real sandbox on darwin, where the exercise runs. Elsewhere, or
-// already inside a sandbox, it runs unconfined: these tests check the
-// allowlist and test-pkg.sh, and ext/exec's exec_live suite checks the
-// profile itself.
-// dogfoodExecWith is dogfoodExec plus extra fixture files under the root.
+// dogfoodExecWith builds the mission exercise's checked-in exec allowlist over
+// a fixture module. The fixture holds a copy of the repo's
+// scripts/test-pkg.sh, and extra adds more files under the root. On darwin,
+// where the exercise runs, the allowlist runs under the real sandbox.
+// Elsewhere, or inside a sandbox already, it runs unconfined. These tests
+// check the allowlist and test-pkg.sh, and ext/exec's exec_live suite checks
+// the profile itself.
 func dogfoodExecWith(t *testing.T, extra map[string]string) (*exec.Source, string) {
 	t.Helper()
 	root := t.TempDir()
@@ -40,8 +40,9 @@ func dogfoodExecWith(t *testing.T, extra map[string]string) (*exec.Source, strin
 	files := map[string]string{
 		"scripts/test-pkg.sh": string(script),
 		"go.mod":              "module fixture\n\ngo 1.24\n",
-		// Two modules below a directory that is not itself a module, the shape
-		// of the repo's ext/, where ./ext/... is nothing to the root module.
+		// Two modules are below a directory that is not a module itself. The
+		// repo's ext/ has this shape, and ./ext/... matches nothing in the
+		// root module.
 		"sub/one/go.mod":    "module fixture/sub/one\n\ngo 1.24\n",
 		"sub/two/go.mod":    "module fixture/sub/two\n\ngo 1.24\n",
 		"sub/two/t_test.go": "package two\n\nimport \"testing\"\n\nfunc TestTwo(t *testing.T) {}\n",
@@ -185,8 +186,8 @@ func TestDogfoodRunTestRunsEveryModuleBelowAPath(t *testing.T) {
 		"sub/two/broken_test.go": "package two\n\nimport \"testing\"\n\nfunc TestBroken(t *testing.T) { t.Fatal(\"broken\") }\n",
 	})
 	out, isErr = runDogfood(t, bad, "run_test", "./sub/...")
-	// A failing command is a result, not a tool error, so the exit code in the
-	// text is what says the run failed.
+	// A failing command is a result, not a tool error, so only the exit code
+	// in the text shows that the run failed.
 	if !strings.Contains(out, "exited 1") || strings.Contains(out, "exited 0") {
 		t.Fatalf("a failing module below the path must fail the run:\n%s", out)
 	}

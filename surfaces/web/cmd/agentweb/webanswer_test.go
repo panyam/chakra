@@ -15,8 +15,8 @@ import (
 )
 
 // askFixture is a testdata/asks file. The web UI's tests (asks.test.ts) check
-// that the UI builds Result from Schema; these check that Schema is what the
-// host really asks and that Result really gets the call run.
+// that the UI builds Result from Schema. These check that the host really
+// sends Schema in its ask, and that Result really gets the call run.
 type askFixture struct {
 	Schema json.RawMessage        `json:"schema"`
 	Result core.ElicitationResult `json:"result"`
@@ -90,9 +90,9 @@ func TestWebApproveRunsAPlainApproval(t *testing.T) {
 	}
 }
 
-// TestApproveWithoutConfirmStillDeclines pins the host's side of the contract
-// the old web answer broke: accept with no confirm is a refusal, so the fix
-// belongs in what the surface sends.
+// TestApproveWithoutConfirmStillDeclines pins the host's side of the contract.
+// The old web answer broke that contract. The host reads accept with no
+// confirm as a refusal, so the fix belongs in what the surface sends.
 func TestApproveWithoutConfirmStillDeclines(t *testing.T) {
 	app, root := askingApp(t)
 	answerAsWeb(t, app, core.ElicitationResult{Action: "accept"})

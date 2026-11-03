@@ -9,14 +9,15 @@ import (
 	"github.com/panyam/chakra/host"
 )
 
-// SkillPresets are the skill folders other coding agents read, as the
-// starting list a workspace's skills come from. A relative folder is read
-// under each workspace root; one starting with "~" is the user's own.
+// SkillPresets maps a preset name to a starting list of skill folders. The
+// codex and claude lists match the folders those agents read. A relative
+// folder is read under each workspace root, and one starting with "~" is the
+// user's own.
 //
-//   - codex: .agents/skills in the repository and ~/.agents/skills (the
-//     Codex docs; Codex also walks from the working directory up to the
-//     repository root, and here the workspace root is that directory).
-//   - claude: .claude/skills and ~/.claude/skills (Claude Code's docs).
+//   - codex: .agents/skills in the repository and ~/.agents/skills, per the
+//     Codex docs. Codex also walks up from the working directory to the
+//     repository root. Here the working directory is the workspace root.
+//   - claude: .claude/skills and ~/.claude/skills, per Claude Code's docs.
 //   - chakra, the default: both repository folders and ~/.agents/skills.
 var SkillPresets = map[string][]string{
 	"codex":  {".agents/skills", "~/.agents/skills"},
@@ -28,9 +29,10 @@ var SkillPresets = map[string][]string{
 // names neither a preset nor a list.
 const DefaultSkillPreset = "chakra"
 
-// SkillFolders resolves a skills setting to a folder list: dirs when set
-// (an empty, non-nil list means none), else the named preset, else the
-// default preset.
+// SkillFolders resolves a skills setting to a folder list. It returns dirs
+// when dirs is non-nil, and an empty non-nil list means no folders.
+// Otherwise it returns the named preset's list, or the default preset's when
+// preset is empty.
 func SkillFolders(preset string, dirs []string) ([]string, error) {
 	if dirs != nil {
 		return dirs, nil
@@ -51,10 +53,10 @@ func SkillFolders(preset string, dirs []string) ([]string, error) {
 }
 
 // WorkspaceSkillDirs turns the workspace's skill folders into host skill
-// folders for host.WithSkillDirs: each relative folder once per root, each
-// "~" or absolute folder once. Folders that don't exist are kept; the host
-// skips them quietly, so the defaults can name folders a repository doesn't
-// have. Nil when there are no roots.
+// folders for host.WithSkillDirs. A relative folder appears once per root,
+// and a "~" or absolute folder appears once. It keeps folders that don't
+// exist. The host skips those quietly, so the defaults can name folders
+// missing from a repository. It returns nil when there are no roots.
 func WorkspaceSkillDirs(cfg WorkspaceConfig) ([]host.SkillDir, error) {
 	if len(cfg.Roots) == 0 {
 		return nil, nil

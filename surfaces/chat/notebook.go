@@ -21,11 +21,12 @@ import (
 )
 
 // The notebook surface (--ui notebook) is the opt-in alt-screen alternative to
-// the default inline TUI. It trades the inline surface's native terminal scroll
-// and copy/paste for what only a managed alt-screen can offer: a viewport with
-// its own scroll (fixing the inline-mode scrollback limitation), and a
-// transcript of collapsible cells. Like tui.go it is presentation only — every
-// action routes through the App (Dispatch / RunTurn / Commands).
+// the default inline TUI. It gives up the native terminal scroll and
+// copy/paste of the inline surface. In return it gets two things only a managed
+// alt-screen can offer. The viewport has its own scroll, which fixes the
+// inline-mode scrollback limitation, and the transcript is made of collapsible
+// cells. Like tui.go it is presentation only. Every action routes through the
+// App (Dispatch / RunTurn / Commands).
 
 // nbCellMsg appends a finished cell (a boundary segment: an assistant turn, a
 // command result, an info line) to the notebook.
@@ -36,19 +37,19 @@ type nbCellMsg nbCell
 type nbLiveMsg string
 
 // liveFlushMsg is the debounce tick that re-renders the viewport for the
-// accumulated live text. Streaming sends one nbLiveMsg per token, and each
-// re-renders the whole transcript; doing that per token starves keystroke
-// render frames, so the model coalesces them behind this tick (the "alternate
-// keystrokes swallowed while streaming" report).
+// accumulated live text. Streaming sends one nbLiveMsg per token, and each one
+// re-renders the whole transcript. Doing that per token starves keystroke
+// render frames, so the model coalesces them behind this tick. This fixed the
+// "alternate keystrokes swallowed while streaming" report.
 type liveFlushMsg struct{}
 
-// liveFlushInterval caps live re-renders during streaming (~25 fps): smooth to
-// read, slow enough that typing stays responsive.
+// liveFlushInterval caps live re-renders during streaming at about 25 fps.
+// That is smooth to read, and slow enough that typing is still responsive.
 const liveFlushInterval = 40 * time.Millisecond
 
 // nbCell is one collapsible block in the transcript. rendered holds the
-// glamour-formatted body for assistant cells (issue 1063 B2); body stays the
-// raw text so the collapsed snippet and fold logic read plainly. Empty
+// glamour-formatted body for assistant cells (issue 1063 B2). body keeps the
+// raw text, so the collapsed snippet and fold logic read plainly. Empty
 // rendered means "display body verbatim" (tool / info / user cells).
 type nbCell struct {
 	label     string // "you" / "assistant" / "command" / "info" / "error"
@@ -58,10 +59,10 @@ type nbCell struct {
 }
 
 // nbObserver is the host.Observer for notebook mode. It reuses the terminal
-// renderer (so cell bodies format identically to the other surfaces) by
-// writing into a buffer, then splits the stream into cells at HostEvent
-// boundaries: the streaming turn (HostRunnerEvent) accumulates and renders live
-// until a non-runner event closes it into a labeled cell.
+// renderer by writing into a buffer, so cell bodies format identically to the
+// other surfaces. Then it splits the stream into cells at HostEvent
+// boundaries. The streaming turn (HostRunnerEvent) accumulates and renders
+// live. A non-runner event closes it into a labeled cell.
 type nbObserver struct {
 	mu   sync.Mutex
 	buf  *bytes.Buffer
@@ -71,10 +72,10 @@ type nbObserver struct {
 	md       *mdRenderer
 	renderMD func(string) string // == md.render; swapped in tests
 
-	// openTools/toolLabel track the current tool cell: a turn is split so each
-	// tool call (or a parallel batch) folds on its own, with the text before/
-	// after as separate assistant cells. openTools counts in-flight calls so
-	// concurrent tool-begins group into one cell.
+	// openTools/toolLabel track the current tool cell. A turn is split so each
+	// tool call (or a parallel batch) folds on its own, and the text before and
+	// after it become separate assistant cells. openTools counts in-flight
+	// calls, so concurrent tool-begins group into one cell.
 	openTools int
 	toolLabel string
 }
@@ -100,9 +101,9 @@ func (s *nbObserver) cell(label, body string) nbCellMsg {
 	return c
 }
 
-// assistantCell builds the turn-final assistant cell: the accumulated prose
-// rendered through glamour (issue 1063 B2), with the dim turn footer kept
-// verbatim after it — glamour must never see the ANSI footer.
+// assistantCell builds the turn-final assistant cell. It renders the
+// accumulated prose through glamour (issue 1063 B2) and appends the dim turn
+// footer verbatim after it. Glamour must never see the ANSI footer.
 func (s *nbObserver) assistantCell(prose, footer string) nbCellMsg {
 	prose = strings.TrimRight(prose, "\n")
 	footer = strings.TrimRight(footer, "\n")
@@ -131,9 +132,9 @@ func (s *nbObserver) On(ev host.HostEvent) {
 	}
 }
 
-// render folds one HostEvent into the tea messages the model should receive
-// (cells committed at boundaries, live updates in between). Separated from On
-// so tests can assert the cell split without a running program.
+// render folds one HostEvent into tea messages for the model. It commits cells
+// at boundaries and sends live updates in between. It is separate from On, so
+// tests can assert the cell split without a running program.
 func (s *nbObserver) render(ev host.HostEvent) []tea.Msg {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -141,19 +142,19 @@ func (s *nbObserver) render(ev host.HostEvent) []tea.Msg {
 	seg := func() string { return strings.TrimRight(s.buf.String(), "\n") }
 
 	if ev.Kind == host.HostSubAgentEvent {
-		// Nested sub-agent activity accumulates into the currently open cell (the
-		// ⚙ delegation tool cell during a sub-agent call), so its tree-gutter
-		// lines nest inside that cell instead of spawning separate info cells
-		// (issue 1063 B4).
+		// Nested sub-agent activity accumulates into the currently open cell.
+		// During a sub-agent call that is the ⚙ delegation tool cell. So the
+		// tree-gutter lines of the sub-agent nest inside that cell instead of
+		// spawning separate info cells (issue 1063 B4).
 		s.term.On(ev)
 		return append(msgs, nbLiveMsg(seg()))
 	}
 
 	if ev.Kind == host.HostRunnerEvent {
 		re := ev.RunnerEvent
-		// A tool-begin cuts the accumulated text into its own assistant cell
-		// (the first begin of a batch), then the tool renders into a fresh
-		// buffer that a matching tool-end flushes as a ⚙ cell.
+		// The first tool-begin of a batch cuts the accumulated text into its
+		// own assistant cell. Then the tool renders into a fresh buffer, and a
+		// matching tool-end flushes that buffer as a ⚙ cell.
 		if re.Kind == agent.EventToolBegin {
 			if s.openTools == 0 {
 				if txt := seg(); txt != "" {
@@ -170,13 +171,14 @@ func (s *nbObserver) render(ev host.HostEvent) []tea.Msg {
 			s.openTools++
 		}
 
-		// Reasoning renders as its own verbatim cell. The terminal renderer dims it
-		// with ANSI; folded into the glamoured assistant prose, glamour garbles the
-		// escape codes into literal "[2m" text (glamour must never see ANSI). So cut
-		// the prose so far at begin, close a verbatim "thinking" cell at end.
-		// A step line (EventStep, sent after the step's text) is dim ANSI as
-		// well, so it gets the same cut, then closes as its own verbatim cell,
-		// collapsed so its header alone shows the line.
+		// Reasoning renders as its own verbatim cell. The terminal renderer dims
+		// it with ANSI. If that text were folded into the glamoured assistant
+		// prose, glamour would garble the escape codes into literal "[2m" text.
+		// Glamour must never see ANSI. So cut the prose so far at begin, and
+		// close a verbatim "thinking" cell at end. A step line (EventStep) comes
+		// after the step's text and is dim ANSI as well. It gets the same cut,
+		// then closes as its own verbatim cell. That cell is collapsed, so only
+		// its header shows the line.
 		if re.Kind == agent.EventThinkingBegin || re.Kind == agent.EventStep {
 			if txt := seg(); txt != "" {
 				msgs = append(msgs, s.cell("assistant", txt))
@@ -213,9 +215,9 @@ func (s *nbObserver) render(ev host.HostEvent) []tea.Msg {
 		before := s.buf.Len()
 		s.term.On(ev)
 		if nbLabelFor(ev.Kind) == "assistant" {
-			// The assistant's prose accumulated before this event; the event's
-			// own output is the dim turn footer. Split them so glamour renders
-			// only the prose, never the ANSI footer.
+			// The assistant's prose accumulated before this event, and the
+			// event's own output is the dim turn footer. Split them so glamour
+			// renders only the prose, never the ANSI footer.
 			full := s.buf.String()
 			msgs = append(msgs, s.assistantCell(full[:before], full[before:]))
 		} else {
@@ -230,8 +232,8 @@ func (s *nbObserver) render(ev host.HostEvent) []tea.Msg {
 }
 
 // nbLabelFor maps a boundary event kind to a cell label. The streaming turn
-// closes on HostTurnDone, so that is the "assistant" cell; failures are their
-// own error cell; commands and the rest are informational.
+// closes on HostTurnDone, so that is the "assistant" cell. A failure gets its
+// own error cell. Commands and the rest are informational.
 func nbLabelFor(k host.HostEventKind) string {
 	switch k {
 	case host.HostTurnDone:
@@ -245,9 +247,10 @@ func nbLabelFor(k host.HostEventKind) string {
 	}
 }
 
-// notebookModel is the alt-screen bubbletea model: a scrollable viewport of
-// cells above an input, with two modes. Insert mode (default) types into the
-// input; Nav mode (Esc) moves a selection cursor over cells and folds them.
+// notebookModel is the alt-screen bubbletea model. It shows a scrollable
+// viewport of cells above an input, and it has two modes. Insert mode
+// (default) types into the input. Nav mode (Esc) moves a selection cursor over
+// cells and folds them.
 type notebookModel struct {
 	app     *host.App
 	surface *nbObserver
@@ -303,9 +306,10 @@ func newNotebookModel(app *host.App, surface *nbObserver, maxLines, window int) 
 func (m notebookModel) Init() tea.Cmd { return textarea.Blink }
 
 // relayout recomputes the split between the input and the viewport. The input
-// auto-grows with its line count (1 line when empty, up to maxLines, shrinking
-// back), and the viewport takes the rest — so a long multi-line draft expands
-// the prompt while a short one keeps the transcript tall.
+// auto-grows with its line count. It is 1 line when empty, grows up to
+// maxLines, and shrinks back. The viewport takes the rest. So a long
+// multi-line draft expands the prompt, and a short one leaves the transcript
+// tall.
 func (m *notebookModel) relayout() {
 	if m.width == 0 {
 		return
@@ -344,8 +348,8 @@ func (m notebookModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case nbLiveMsg:
-		// Coalesce per-token updates: record the latest live text but debounce the
-		// (whole-transcript) re-render behind a single pending tick, so streaming
+		// Coalesce per-token updates. Record the latest live text, but debounce the
+		// whole-transcript re-render behind a single pending tick, so streaming
 		// does not starve keystroke render frames.
 		m.live = string(msg)
 		if m.liveScheduled {
@@ -369,8 +373,8 @@ func (m notebookModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case turnDoneMsg:
 		m.running = false
-		// The turn (or dispatched command) has fully returned, so turnMu is
-		// free and a session-changing command like /sessions has landed.
+		// The turn (or dispatched command) has fully returned. So turnMu is
+		// free, and a session-changing command like /sessions has finished.
 		if m.app != nil {
 			m.session = m.app.RunID()
 		}
@@ -401,9 +405,9 @@ func (m notebookModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Type == tea.KeyCtrlC {
 			return m, tea.Quit
 		}
-		// An open dialog owns the keyboard: Esc pops one level (back to the
-		// parent overlay or the prompt); an action dispatches a line whose result
-		// nests a new overlay or closes the stack.
+		// An open dialog owns the keyboard. Esc pops one level, back to the
+		// parent overlay or the prompt. An action dispatches a line, and its
+		// result nests a new overlay or closes the stack.
 		if m.active() {
 			out := m.top().handleKey(msg)
 			switch {
@@ -418,7 +422,7 @@ func (m notebookModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		// ctrl+o toggles the whole transcript between rich and raw markdown, in
-		// place (issue 1083) — works in both INS and NAV modes.
+		// place (issue 1083). It works in both INS and NAV modes.
 		if key.Matches(msg, m.keys.Raw) {
 			m.raw = !m.raw
 			m.refresh()
@@ -427,12 +431,12 @@ func (m notebookModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.nav {
 			return m.updateNav(msg)
 		}
-		// Give the input its full height budget before the edit so the
-		// textarea's internal reposition only scrolls when content genuinely
-		// exceeds maxLines. Otherwise a just-inserted newline transiently
-		// over-scrolls (the old, smaller height is in effect during Update) and
-		// hides line 1 even though the grown box has room. relayout then shrinks
-		// the box back to the actual line count.
+		// Give the input its full height budget before the edit. Then the
+		// textarea's internal reposition scrolls only when content really
+		// exceeds maxLines. Without this, the old, smaller height is in effect
+		// during Update. A just-inserted newline briefly over-scrolls and hides
+		// line 1, even though the grown box has room. relayout then shrinks the
+		// box back to the actual line count.
 		m.ta.SetHeight(m.maxLines)
 		nm, cmd := m.updateInsert(msg)
 		n := nm.(notebookModel)
@@ -483,7 +487,7 @@ func (m notebookModel) updateNav(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // updateInsert handles keys while typing: submit, complete, history, scroll the
 // viewport, or enter nav mode; anything else edits the input.
 func (m notebookModel) updateInsert(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// `?` toggles full help only on an empty prompt, so it stays typeable
+	// `?` toggles full help only on an empty prompt, so it is still typeable
 	// mid-message. (In NAV mode there is no typing, so `?` always toggles.)
 	if key.Matches(msg, m.keys.Help) && m.ta.Value() == "" {
 		m.showAll = !m.showAll
@@ -518,8 +522,8 @@ func (m notebookModel) updateInsert(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.atBottom = m.vp.AtBottom()
 		return m, nil
 	case tea.KeyUp:
-		// Move within the prompt lines first; only at the top line do up-arrow
-		// history recall / transcript scroll kick in.
+		// Move within the prompt lines first. Up-arrow history recall and
+		// transcript scroll start only at the top line.
 		if m.ta.Line() > 0 {
 			break
 		}
@@ -589,9 +593,9 @@ func (m *notebookModel) refresh() {
 	}
 }
 
-// renderCells lays out every cell (a fold marker + label header, and the
-// indented body unless collapsed), highlighting the selected cell in nav mode,
-// then appends the in-flight turn.
+// renderCells lays out every cell. Each cell gets a header with a fold marker
+// and label, and an indented body unless it is collapsed. In nav mode it
+// highlights the selected cell. Then it appends the in-flight turn.
 func (m notebookModel) renderCells() string {
 	var b strings.Builder
 	rule := m.hrule()
@@ -605,8 +609,8 @@ func (m notebookModel) renderCells() string {
 			marker = "▸"
 		}
 		// A leading cursor column marks the nav selection with a glyph, not
-		// color/attribute alone, so the selected cell stays visible under
-		// NO_COLOR / a dumb terminal where Reverse is stripped (issue 1063 E3).
+		// color/attribute alone. NO_COLOR and a dumb terminal strip Reverse,
+		// and the glyph keeps the selected cell visible there (issue 1063 E3).
 		cursor := "  "
 		if m.nav && i == m.sel {
 			cursor = "▌ "
@@ -622,8 +626,8 @@ func (m notebookModel) renderCells() string {
 		b.WriteString("\n")
 		if !c.collapsed && c.body != "" {
 			display := c.body
-			// ctrl+o (m.raw) shows raw markdown for copy fidelity; otherwise the
-			// glamour-rendered form when there is one (issue 1083).
+			// ctrl+o (m.raw) shows raw markdown for copy fidelity. Otherwise the
+			// cell shows its glamour-rendered form when it has one (issue 1083).
 			if c.rendered != "" && !m.raw {
 				display = c.rendered
 			}
@@ -642,9 +646,9 @@ func (m notebookModel) renderCells() string {
 	return b.String()
 }
 
-// contentWidth is the viewport width the transcript renders into (falling back
-// to the last window width, then a floor), the single width both the hrule and
-// cell wrapping measure against.
+// contentWidth is the viewport width for the transcript. It falls back to the
+// last window width, then to a floor. Both the hrule and cell wrapping measure
+// against this one width.
 func (m notebookModel) contentWidth() int {
 	w := m.vp.Width
 	if w <= 0 {
@@ -661,12 +665,12 @@ func (m notebookModel) hrule() string {
 	return lipgloss.NewStyle().Faint(true).Render(strings.Repeat("─", m.contentWidth()))
 }
 
-// wrapCell soft-wraps a cell body to the viewport width before it is indented,
-// so wide lines (a long error, unwrapped tool output, raw JSON) stay inside the
-// viewport instead of being clipped at the right edge — the viewport does not
-// wrap on its own. ansi.Wrap preserves styling, is grapheme-width aware, and
-// hard-breaks tokens longer than the width (JSON with no spaces). The width is
-// reduced by the two-space indent indentBlock adds.
+// wrapCell soft-wraps a cell body to the viewport width before it is indented.
+// The viewport does not wrap on its own. Without this, a wide line is clipped
+// at the right edge, such as a long error, unwrapped tool output, or raw JSON.
+// ansi.Wrap preserves styling, is grapheme-width aware, and hard-breaks tokens
+// longer than the width (JSON with no spaces). indentBlock adds a two-space
+// indent, so the width is reduced by two.
 func wrapCell(s string, width int) string {
 	w := width - 2
 	if w < 1 {

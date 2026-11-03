@@ -11,34 +11,35 @@ import (
 //go:embed static
 var embeddedStatic embed.FS
 
-// staticAssets returns the /static file tree — the esbuild-built DockView + Solid
-// frontend (agent/web/web builds into this directory, which is committed so a
-// plain `go build` needs no Node step).
+// staticAssets returns the /static file tree. It holds the esbuild-built
+// DockView + Solid frontend. surfaces/web/web builds into this directory, and
+// the directory is committed, so a plain `go build` needs no Node step.
 func staticAssets() fs.FS {
 	sub, err := fs.Sub(embeddedStatic, "static")
 	if err != nil {
 		// The embed directive guarantees the directory exists, so this cannot
-		// happen at runtime; return the root FS rather than panic.
+		// happen at runtime. Return the root FS rather than panic.
 		return embeddedStatic
 	}
 	return sub
 }
 
-// shellData is the server-rendered shell's template model. Layout is the chosen
-// surface ("dockview" or "mobile"); Dockview links the dockview stylesheet only
-// on that layout (the mobile page never requests it) and marks it selected in
-// the picker. Spec is written into #page-spec for the frontend's IslandPage.
+// shellData is the server-rendered shell's template model. Layout names the
+// chosen surface, "dockview" or "mobile". Dockview makes the page link the
+// dockview stylesheet, and it marks dockview selected in the picker. The
+// mobile page never requests that stylesheet. Spec is written into #page-spec
+// for the frontend's IslandPage.
 type shellData struct {
 	Layout   string
 	Dockview bool
 	Spec     pageSpec
 }
 
-// pageSpec is the JSON tsappkit's IslandPage reads from #page-spec: which
-// islands this page mounts and into which [data-slot]. It has goapplib's
-// page.Spec shape, written here rather than imported so this module does not
-// take goapplib's dependency graph for one struct. The island names must be
-// keys of the registry in web/src/page.ts.
+// pageSpec is the JSON in #page-spec, and tsappkit's IslandPage reads it. It
+// lists which islands the page mounts and the [data-slot] for each. It has
+// goapplib's page.Spec shape. It is written here rather than imported, so this
+// module avoids goapplib's dependency graph for one struct. The island names
+// must be keys of the registry in web/src/page.ts.
 type pageSpec struct {
 	Layout  string       `json:"layout"`
 	Islands []pageIsland `json:"islands"`
@@ -50,8 +51,8 @@ type pageIsland struct {
 	Config map[string]any `json:"config"`
 }
 
-// specFor lists the islands a layout mounts. The topbar status line is in both;
-// the dock is desktop only, and the mobile overlays fill #workspace instead.
+// specFor lists the islands for a layout. The topbar status line is in both.
+// The dock is desktop only, and the mobile overlays fill #workspace instead.
 func specFor(layout string) pageSpec {
 	main := pageIsland{Name: "dock", Slot: "dock", Config: map[string]any{}}
 	if layout == "mobile" {
@@ -63,19 +64,20 @@ func specFor(layout string) pageSpec {
 	}}
 }
 
-// shellTemplate is the goapplib/diffpp shell pattern rendered with the stdlib
-// html/template (no goapplib/templar dependency for this one static page): a
-// self-contained page that links the esbuild bundle from /static/ and lays out
-// the island holes the frontend adopts. The CSS is inlined so the surface is one
-// file to serve; it is theme-aware (light/dark via prefers-color-scheme and a
-// forced data-theme). The [data-slot] elements are where the page spec's islands
-// mount: the status line, and either #dockview-container or #workspace itself.
+// shellTemplate renders the goapplib/diffpp shell pattern with the stdlib
+// html/template, so this one static page needs no goapplib/templar dependency.
+// The page is self-contained. It links the esbuild bundle from /static/ and
+// lays out the island holes that the frontend adopts. The CSS is inlined, so
+// the surface is one file to serve. The CSS is theme-aware, through
+// prefers-color-scheme for light and dark and through a forced data-theme.
+// The page spec's islands mount into the [data-slot] elements. Those are the
+// status line, and either #dockview-container or #workspace itself.
 var shellTemplate = template.Must(template.New("shell").Parse(shellHTML))
 
-// shellHandler serves the server-rendered shell. The layout is chosen from the
-// ?layout= query (default dockview; mobile is the narrow-screen variant), and
-// the topbar's layout <select> switches surfaces through it. Non-root paths that
-// fall through the mux 404 here.
+// shellHandler serves the server-rendered shell in the layout pickLayout
+// chooses, dockview or the narrow-screen mobile variant. The topbar's layout
+// <select> switches layouts through the ?layout= query. Non-root
+// paths that fall through the mux get a 404 here.
 func shellHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
@@ -86,10 +88,10 @@ func shellHandler(w http.ResponseWriter, r *http.Request) {
 	_ = shellTemplate.Execute(w, shellData{Layout: layout, Dockview: layout == "dockview", Spec: specFor(layout)})
 }
 
-// pickLayout reads ?layout=, and with none picks mobile for a phone's user
-// agent ("Mobi" is in every major mobile browser's) and dockview otherwise. The
-// layout select and the mobile More drawer pass ?layout= explicitly, so either
-// can be forced on any device.
+// pickLayout reads ?layout=. With none, it picks mobile for a phone's user
+// agent and dockview otherwise. Every major mobile browser's user agent
+// contains "Mobi". The layout select and the mobile More drawer pass ?layout=
+// explicitly, so either layout can be forced on any device.
 func pickLayout(r *http.Request) string {
 	switch r.URL.Query().Get("layout") {
 	case "mobile":

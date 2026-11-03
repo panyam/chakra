@@ -6,12 +6,12 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 )
 
-// appKeys centralizes the surface-level key bindings — the ones the models act
-// on before handing the event to the textarea. The one-line help bar, the
+// appKeys centralizes the surface-level key bindings. The models act on these
+// keys before they hand the event to the textarea. The one-line help bar, the
 // notebook status hints, the `?` full-help view, and the /keys cheatsheet all
 // render from these bindings, so the documented keys can never drift from the
 // handled keys (issue 1063 C2). The inline surface matches events against these
-// bindings directly (key.Matches), making them the single source of truth for
+// bindings directly (key.Matches), so they are the single source of truth for
 // both behavior and help.
 type appKeys struct {
 	Send     key.Binding
@@ -69,10 +69,10 @@ func (k appKeys) fullHelp() [][]key.Binding {
 	}
 }
 
-// renderKeyHelp is the /keys cheatsheet. The surface-keys section is generated
-// from the bindings above (so it never drifts); the prompt-editing section is
-// the readline keys the bubbles textarea owns, whose descriptions the textarea
-// does not carry, so they stay hand-written here.
+// renderKeyHelp is the /keys cheatsheet. It generates the surface-keys section
+// from the bindings above, so that section never drifts. The bubbles textarea
+// owns the readline keys in the prompt-editing section. The textarea does not
+// carry descriptions for them, so they are hand-written here.
 func renderKeyHelp() string {
 	var b strings.Builder
 	b.WriteString("Surface keys:\n")
