@@ -22,6 +22,9 @@ command -v codex >/dev/null || { echo "coding-harness-parity needs the codex CLI
 
 echo "==> codex exec ($MODEL)"
 cp -R "$EX/testdata/fixture" "$OUT/codex/repo"
+# A git repository with the fixture committed, as the chakra side gets, so
+# both agents see the fix as uncommitted changes.
+git -C "$OUT/codex/repo" init -q -b main && git -C "$OUT/codex/repo" add -A && git -C "$OUT/codex/repo" -c user.name=fixture -c user.email=fixture@example.com commit -qm fixture
 start=$(date +%s)
 (
 	cd "$OUT/codex/repo"

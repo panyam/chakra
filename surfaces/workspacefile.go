@@ -9,6 +9,7 @@ import (
 
 	"github.com/panyam/chakra/ext/agentsmd"
 	"github.com/panyam/chakra/ext/exec"
+	"github.com/panyam/chakra/ext/git"
 	"github.com/panyam/chakra/ext/lsp"
 )
 
@@ -46,6 +47,22 @@ type WorkspaceFile struct {
 	//
 	//	"skills": {"dirs": [".agents/skills", "~/my-skills"]}
 	Skills *SkillsFile `json:"skills,omitempty"`
+
+	// Git enables ext/git over the first root. Absent means none.
+	//
+	//	"git": {"review": true}
+	Git *GitFile `json:"git,omitempty"`
+}
+
+// GitFile is the workspace file's git section. Each field turns on more than
+// the read-only tools, which are always there.
+type GitFile struct {
+	// Mutations offers git_commit and git_branch.
+	Mutations bool `json:"mutations,omitempty"`
+	// WorktreeDir offers the worktree tools, creating worktrees under it.
+	WorktreeDir string `json:"worktreeDir,omitempty"`
+	// Review offers the review tool and /review, with the default rubric.
+	Review bool `json:"review,omitempty"`
 }
 
 // SkillsFile is the workspace file's skills section.
@@ -248,6 +265,12 @@ func (f *WorkspaceFile) Apply(cfg *WorkspaceConfig) error {
 			Extensions: ls.Extensions,
 			LanguageID: ls.LanguageID,
 		})
+	}
+	if f.Git != nil {
+		cfg.Git = &git.Config{Mutations: f.Git.Mutations, WorktreeDir: f.Git.WorktreeDir}
+		if f.Git.Review {
+			cfg.Git.Review = &git.ReviewConfig{}
+		}
 	}
 	if f.Exec != nil {
 		ec, err := f.Exec.config()

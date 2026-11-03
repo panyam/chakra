@@ -12,6 +12,8 @@ if [ -n "${CH_WORKSPACE:-}" ]; then
 else
 	WS="$(mktemp -d)/repo"
 	cp -R "$EX/testdata/fixture" "$WS"
+	# workspace.json turns on ext/git, which needs a repository.
+	git -C "$WS" init -q -b main && git -C "$WS" add -A && git -C "$WS" -c user.name=fixture -c user.email=fixture@example.com commit -qm fixture
 fi
 # Snapshots live outside the workspace, so the agent can't read or edit them.
 CKPT="$(mktemp -d)"

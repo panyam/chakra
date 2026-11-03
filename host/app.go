@@ -666,7 +666,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	// wraps outside it. registerBuiltinCommands has already run, so a
 	// collision with a built-in /command is caught here rather than
 	// silently shadowing it.
-	extMW, err := app.applyExtensions(o.extensions)
+	extMW, err := app.applyExtensions(o.extensions, provider)
 	if err != nil {
 		app.Close()
 		return nil, err

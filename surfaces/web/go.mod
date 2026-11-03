@@ -33,6 +33,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/panyam/chakra/ext/checkpoint v0.2.2 // indirect
 	github.com/panyam/chakra/ext/exec v0.2.2 // indirect
+	github.com/panyam/chakra/ext/git v0.0.0-00010101000000-000000000000 // indirect
 	github.com/panyam/chakra/ext/lsp v0.2.2 // indirect
 	github.com/panyam/chakra/store/gorm v0.2.2 // indirect
 	github.com/panyam/chakra/store/redis v0.2.2 // indirect
@@ -99,5 +100,7 @@ replace github.com/panyam/mcpkit/ext/auth => ../../../../mcpkit/main/ext/auth
 replace github.com/panyam/mcpkit/ext/skills => ../../../../mcpkit/main/ext/skills
 
 replace github.com/panyam/chakra/ext/exec => ../../ext/exec
+
+replace github.com/panyam/chakra/ext/git => ../../ext/git
 
 replace github.com/panyam/chakra/ext/agentsmd => ../../ext/agentsmd

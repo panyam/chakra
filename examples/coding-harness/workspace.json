@@ -15,5 +15,6 @@
       ]
     }
   },
-  "skills": {"dirs": [".agents/skills"]}
+  "skills": {"dirs": [".agents/skills"]},
+  "git": {"review": true}
 }

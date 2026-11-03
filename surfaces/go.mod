@@ -4,6 +4,7 @@ go 1.26.9
 
 require (
 	github.com/panyam/chakra v0.2.2
+	github.com/panyam/chakra/ext/git v0.0.0-00010101000000-000000000000
 	github.com/panyam/chakra/ext/lsp v0.2.2
 	github.com/panyam/chakra/store/gorm v0.2.2
 	github.com/panyam/chakra/store/redis v0.2.2
@@ -98,5 +99,7 @@ replace github.com/panyam/mcpkit/ext/auth => ../../../mcpkit/main/ext/auth
 replace github.com/panyam/mcpkit/ext/skills => ../../../mcpkit/main/ext/skills
 
 replace github.com/panyam/chakra/ext/exec => ../ext/exec
+
+replace github.com/panyam/chakra/ext/git => ../ext/git
 
 replace github.com/panyam/chakra/ext/agentsmd => ../ext/agentsmd
