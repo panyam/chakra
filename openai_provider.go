@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"maps"
 	"net/http"
 	"strings"
@@ -258,25 +257,18 @@ func (p *OpenAIProvider) post(ctx context.Context, body map[string]any) (*http.R
 	if err != nil {
 		return nil, fmt.Errorf("agent: encode request: %w", err)
 	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		strings.TrimSuffix(p.cfg.BaseURL, "/")+"/chat/completions", bytes.NewReader(raw))
-	if err != nil {
-		return nil, err
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	if p.cfg.APIKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+p.cfg.APIKey)
-	}
-	resp, err := p.http.Do(httpReq)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		defer resp.Body.Close()
-		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		return nil, &ProviderError{StatusCode: resp.StatusCode, Body: string(msg)}
-	}
-	return resp, nil
+	return sendWithRetry(ctx, p.http, func() (*http.Request, error) {
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
+			strings.TrimSuffix(p.cfg.BaseURL, "/")+"/chat/completions", bytes.NewReader(raw))
+		if err != nil {
+			return nil, err
+		}
+		httpReq.Header.Set("Content-Type", "application/json")
+		if p.cfg.APIKey != "" {
+			httpReq.Header.Set("Authorization", "Bearer "+p.cfg.APIKey)
+		}
+		return httpReq, nil
+	})
 }
 
 // buildBody produces the chat-completions request. Kept as one method so the

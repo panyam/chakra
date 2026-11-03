@@ -31,7 +31,9 @@ func (r recordingSandbox) Confine(*osexec.Cmd, Policy) error {
 func shellSource(t *testing.T, sb Sandbox) *Source {
 	t.Helper()
 	if sb == nil {
-		sb = Unconfined()
+		// A stand-in that counts as a sandbox: escalation only means
+		// something when there is one to leave (#203).
+		sb = recordingSandbox{new(int)}
 	}
 	return mustSource(t, Config{Roots: []string{workspace(t)}, Shell: &ShellConfig{Rules: testRules}, Sandbox: sb})
 }
@@ -164,7 +166,7 @@ func TestShellApprovalWording(t *testing.T) {
 	info := shellCall(words("rm -rf build"), nil)
 	info.Class = &agent.CallClass{Disposition: agent.DispositionDestructive, Reason: "recursive delete"}
 	q, _ = src.renderShellApproval(info)
-	if !strings.Contains(q, "Run in the unconfined sandbox") || !strings.Contains(q, "rm -rf build") || !strings.Contains(q, "(recursive delete)") {
+	if !strings.Contains(q, "Run in the recording sandbox") || !strings.Contains(q, "rm -rf build") || !strings.Contains(q, "(recursive delete)") {
 		t.Errorf("sandboxed wording: %q", q)
 	}
 }
@@ -175,5 +177,28 @@ func TestShellNeedsNoAllowlistAndChecksItsRules(t *testing.T) {
 	}
 	if _, err := NewSource(Config{Roots: []string{workspace(t)}, Shell: &ShellConfig{Rules: []PrefixRule{{Decision: Allow}}}, Sandbox: Unconfined()}); err == nil {
 		t.Error("a bad rule loaded")
+	}
+}
+
+// TestShellWithoutASandboxIgnoresEscalation is #203: inside a container that is
+// itself the sandbox, exec runs unconfined, and a model asking to escalate
+// must not be sent to an ask nobody can answer.
+func TestShellWithoutASandboxIgnoresEscalation(t *testing.T) {
+	src := shellSource(t, Unconfined())
+	call := shellCall(words("apt-get install -y nginx"), map[string]any{"escalate": true})
+	if got, _ := src.classifyShell(context.Background(), call); got.Disposition == agent.DispositionAlwaysAsk {
+		t.Errorf("escalate without a sandbox was classified %+v; it should be judged like any other call", got)
+	}
+	out, res := callAll(t, src, map[string]any{"command": helperArgv(t, "echo", "hi"), "escalate": true})
+	if res.IsError || !strings.Contains(out, "hi") {
+		t.Errorf("escalate without a justification was refused: %q", out)
+	}
+	out, _ = callAll(t, src, map[string]any{"command": helperArgv(t, "fail-with", "touch: /etc/x: Operation not permitted")})
+	if strings.Contains(out, "escalate") {
+		t.Errorf("suggested escalating with no sandbox to leave: %q", out)
+	}
+	def := src.shellDef()
+	if strings.Contains(def.Description, "escalate") || def.InputSchema.(map[string]any)["properties"].(map[string]any)["escalate"] != nil {
+		t.Errorf("the tool offers escalation without a sandbox: %q", def.Description)
 	}
 }
