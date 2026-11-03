@@ -50,10 +50,33 @@ jobs:
           ref: main
           path: mcpkit/main
 
-      - uses: actions/setup-go@v7
+      # setup-go's own cache is off because it keys by Go version and go.sum
+      # alone. test and test-examples then share one key, the first to finish
+      # (test-examples) saves a cache holding only the examples' modules and
+      # builds, and test restores it, downloads the rest and can never save,
+      # on every run until a go.sum changes. Each job keeps its own cache below.
+      - id: go
+        uses: actions/setup-go@v7
         with:
           go-version-file: chakra/main/go.mod
-          cache-dependency-path: chakra/main/**/go.sum
+          cache: false
+
+      # The module cache and the build cache. The build cache also holds go
+      # test's results, so the test steps pass -count=1: CI runs every test,
+      # and only compiling and downloading are saved. Only main saves (the step at the
+      # end of the job), a fresh entry per run so the build cache follows the
+      # code; a PR restores main's latest for this job, falling back to one
+      # from before the last go.sum change, so a dependency bump still starts
+      # warm.
+      - uses: actions/cache/restore@v6.1.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ steps.go.outputs.go-version }}-${{ github.job }}-${{ hashFiles('chakra/main/**/go.sum') }}-${{ github.run_id }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ steps.go.outputs.go-version }}-${{ github.job }}-${{ hashFiles('chakra/main/**/go.sum') }}-
+            go-${{ runner.os }}-${{ steps.go.outputs.go-version }}-${{ github.job }}-
 
       # Lives here rather than in `gates` because it needs the Go toolchain
       # that job deliberately does without. First step, so a formatting failure
@@ -70,7 +93,15 @@ jobs:
         run: make vet
 
       - name: Test every module
-        run: make test GOTESTFLAGS='-v -race -timeout 300s'
+        run: make test GOTESTFLAGS='-v -race -count=1 -timeout 300s'
+
+      - if: github.ref == 'refs/heads/main' && !cancelled()
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ steps.go.outputs.go-version }}-${{ github.job }}-${{ hashFiles('chakra/main/**/go.sum') }}-${{ github.run_id }}
 
   # The web frontend's unit tests (vitest). Node only: the bundle the Go binary
   # embeds is committed, so nothing here needs Go or mcpkit.
@@ -103,10 +134,41 @@ jobs:
           ref: main
           path: mcpkit/main
 
-      - uses: actions/setup-go@v7
+      # setup-go's own cache is off because it keys by Go version and go.sum
+      # alone. test and test-examples then share one key, the first to finish
+      # (test-examples) saves a cache holding only the examples' modules and
+      # builds, and test restores it, downloads the rest and can never save,
+      # on every run until a go.sum changes. Each job keeps its own cache below.
+      - id: go
+        uses: actions/setup-go@v7
         with:
           go-version-file: chakra/main/go.mod
-          cache-dependency-path: chakra/main/**/go.sum
+          cache: false
+
+      # The module cache and the build cache. The build cache also holds go
+      # test's results, so the test steps pass -count=1: CI runs every test,
+      # and only compiling and downloading are saved. Only main saves (the step at the
+      # end of the job), a fresh entry per run so the build cache follows the
+      # code; a PR restores main's latest for this job, falling back to one
+      # from before the last go.sum change, so a dependency bump still starts
+      # warm.
+      - uses: actions/cache/restore@v6.1.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ steps.go.outputs.go-version }}-${{ github.job }}-${{ hashFiles('chakra/main/**/go.sum') }}-${{ github.run_id }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ steps.go.outputs.go-version }}-${{ github.job }}-${{ hashFiles('chakra/main/**/go.sum') }}-
+            go-${{ runner.os }}-${{ steps.go.outputs.go-version }}-${{ github.job }}-
 
       - name: Test every example
-        run: make test-examples GOTESTFLAGS='-v -race -timeout 300s'
+        run: make test-examples GOTESTFLAGS='-v -race -count=1 -timeout 300s'
+
+      - if: github.ref == 'refs/heads/main' && !cancelled()
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ steps.go.outputs.go-version }}-${{ github.job }}-${{ hashFiles('chakra/main/**/go.sum') }}-${{ github.run_id }}

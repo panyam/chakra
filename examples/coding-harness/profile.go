@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	osexec "os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -34,8 +35,8 @@ type profile struct {
 	model string
 	// approval overrides the config's approval mode ("allow" when headless).
 	approval string
-	// unconfined runs exec commands with no sandbox, for platforms with no
-	// backend (CI is Linux; the backend is darwin-only).
+	// unconfined is set on platforms with no sandbox backend (CI is Linux;
+	// the backend is darwin-only), where exec runs under standInSandbox.
 	unconfined bool
 	// checkpoints is where file snapshots go, outside root.
 	checkpoints string
@@ -86,7 +87,7 @@ func (p profile) build(context.Context) (*host.App, error) {
 		ws.Instructions, ws.NoInstructions = &pr, false
 	}
 	if p.unconfined && ws.Exec != nil {
-		ws.Exec.Sandbox = exec.Unconfined()
+		ws.Exec.Sandbox = standInSandbox{}
 	}
 	exts, err := agentsurfaces.WorkspaceExtensions(ws)
 	if err != nil {
@@ -196,3 +197,15 @@ func (p *recordingProvider) Generate(ctx context.Context, req agent.ProviderRequ
 	p.rec.add(req)
 	return p.Provider.Generate(ctx, req)
 }
+
+// standInSandbox stands in for a sandbox where the platform has no backend
+// (CI is Linux; exec's backend is darwin-only). It confines nothing, but
+// unlike exec.Unconfined() it counts as a sandbox, so the shell tool still
+// offers escalation and an escalated call still goes to the approval ask.
+// That keeps the scripted run exercising the same wiring on every platform;
+// with exec.Unconfined() escalation is turned off (#203).
+type standInSandbox struct{}
+
+func (standInSandbox) Name() string                           { return "stand-in" }
+func (standInSandbox) Available() error                       { return nil }
+func (standInSandbox) Confine(*osexec.Cmd, exec.Policy) error { return nil }

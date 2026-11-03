@@ -749,6 +749,27 @@ who-acts-next, not owning the user; in the distributed limit it decouples into t
 
 ## Providers
 
+### A constraint on the answer, and what the turn-end hooks judge (#201)
+
+`ResponseGuided` puts a grammar (or a regex, or a JSON schema) on the turn's answer. It can't
+ride on a step that offers tools, because on llama.cpp a grammar covers the whole completion and
+tool calling is a grammar of its own. So a step without tools carries it directly, and after a
+step with tools the Runner makes one more call, with no tools and the constraint, from the
+conversation as it stood before the free answer. Leaving the draft out of that call's context was
+deliberate. With it in, the last message is the assistant's own, which a chat template reads as a
+prefix to continue, and getting around that needs a made-up user message. The model answers from
+the same context it drafted from anyway.
+
+The guided text replaces the draft in the record, rather than sitting beside it, since two
+assistant messages in a row is a shape some APIs refuse.
+
+`TurnEnd` hooks used to run before `ResponseSchema`'s finalizing call. That meant a hook could
+accept prose whose JSON then failed the schema, and the only sign was `StructuredError` after the
+turn was over. Both constraints now finalize first and the hooks judge the result, with the free
+answer on `TurnEndInfo.Draft`. The cost is that a refused answer has already paid for its
+finalizing call. Nothing in the repo set `TurnEnd` together with a schema when this changed, so
+only outside callers were affected.
+
 ### Generation parameters: how they reach a turn (#1239)
 
 `GenerationParams` (`agent/provider.go`) carries `Temperature`, `MaxTokens`, and `ToolChoice`.
