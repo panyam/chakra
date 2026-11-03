@@ -1353,6 +1353,25 @@ OTel or a logger even with no renderer, which is why they are Host events rather
 **`UIPrompt` was dropped**: a prompt is request/response (an `AskFunc` or elicitation `Confirm`),
 not fire-and-forget, so it never belonged in the event stream.
 
+### A process's output belongs to the process, not the call (#214, PR 219)
+
+`exec_command` hands the model a process's output only when it collects it, and a dev server prints
+mostly while no tool call is open and often between turns. So the live view rides a host event
+(`HostProcessOutput`, fed by the optional `ProcessReporter`), keyed by the process id the model
+was given, rather than a runner `agent.Event` scoped to a call. agentweb attaches it to the first
+tool row whose result names that `session_id`, holding anything that arrives before the result.
+
+- **The copy is taken at the write, and never moves the model's read position** (`p.read`).
+  `TestProcessStreamingLeavesResultsUnchanged` runs the same script with and without a listener;
+  making the stream advance `p.read` fails it.
+- **A per-process budget beside `MaxEventLogRetention`, not instead of it.** Retention caps the
+  whole log by count and evicts the oldest events of any kind, so with no RunStore a chatty process
+  can push the conversation's own turn events out of a reload. `ProcessConfig.StreamBudget`
+  (4 MiB, negative for no limit) stops that at the source. Non-runner host events are never
+  written to the RunStore, so none of this is persisted.
+- **The exit waits a fixed 20ms for the tty copier**, copied from `collect`. A tty process that
+  prints right at exit can lose that tail from the stream (not from the model); #218 has it.
+
 ### Session listing and paging
 
 Redis SCAN is unordered; gorm returns newest-first via a correlated subquery. **Pagination lives
@@ -1567,6 +1586,10 @@ needed it.
 - **Invisible to importers.** Go ignores `replace` outside the main module, so anyone importing
   chakra gets the required tag, while chakra's code may already use newer API (the agents port
   did). Tag mcpkit and repoint the requires before tagging chakra.
+- **A sibling session's uncommitted edits look the same as mcpkit main moving.** During PR 219,
+  `~/newstack/mcpkit/main` had another session's release in progress (its go.mod files modified,
+  v0.8.16 not yet tagged), and every module here wanted `go mod tidy`. Leave that checkout alone,
+  build with `GOFLAGS=-mod=mod`, and `git checkout` the go.mod and go.sum files before committing.
 - **Dependabot PRs against the old pins go stale fast.** PR 55 failed because it bumped modules
   unevenly against v0.5.2: `check_dep_consistency` caught the split, and `otel/log` moved ahead
   of the `otelslog` bridge. Re-tidying every module against mcpkit main superseded it.
@@ -1581,6 +1604,11 @@ needed it.
   background child both pull from it. So host tests assert *wiring* and the *behavior* is
   agent-layer-tested with isolated per-child providers. `blockingProvider{}` in
   `runner_test.go` is the "child that blocks until cancelled".
+- **Don't assert what a subprocess printed inside a short yield.** The `ext/exec` helper process is
+  the test binary re-executed, and on a loaded CI runner it took over 100ms to print its first
+  line, which failed PR 219's first CI run on a check the test didn't need. Give a process a
+  second to start, put the line that must arrive later a couple of seconds after it, and assert
+  ordering rather than what landed inside the yield.
 - `make test` covers every module and `make test-examples` the examples. CI runs those same two
   targets, overriding `GOTESTFLAGS` only to add `-v`, so the module list lives in the `Makefile`
   and nowhere else. **Adding a module is one edit.** Before the split it was three, in three

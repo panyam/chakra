@@ -5,10 +5,11 @@ Maintained by /checkpoint: one thread per branch, pruned when the branch merges.
 
 ## At a glance
 
-- Mission #162 (`mission_coding_harness`) is active, 20/28 tickets closed. `make coding-harness-exercise` (scripted) last passed 2026-11-03 at 7fe109d (#216). Live, parity and Terminal-Bench have not run since #208. Next ready: #195 (P1).
+- Mission #162 (`mission_coding_harness`) is active, 22/29 tickets closed. `make coding-harness-exercise` (scripted) last passed 2026-11-03 at 38c9ee1, after #219 and #220. Live, parity and Terminal-Bench have not run since #208. Next ready: #195 (P1), which waits on credits.
 - Mission #142 (`mission_api_v1`) is paused, not closed; its exercise is `make api-report` (#143).
-- main — mission #162 — next: pick #214 (no credits needed) or #195's credit pre-flight; the live runs wait on credits.
-- This run: dropped feat/step-routing-185 (PR #216 merged, mission log on #162); its routed live comparison moved into main's "Waiting on credits". Closed mission #172 (8/8; the rest is panyam/jaala#496). Synced go.mod files to mcpkit v0.8.16 (fb9b8c6).
+- main — mission #162 — next: #215 item 1 (DeepSeek through the structured finalize), which lets live runs go without OpenAI credits.
+- fix/responses-error-event — PR #221 open from another session; no thread recorded here.
+- This run: #214 merged as PR #219 (mission log on #162), #218 filed for the xterm.js tty view; process-output lessons went into NOTES.md.
 
 ## Across threads
 
@@ -21,6 +22,6 @@ Maintained by /checkpoint: one thread per branch, pruned when the branch merges.
 - **Last touched**: 2026-11-03 (local:~/newstack/chakra/codex)
 - **Ticket**: mission #162, worked through its queue with /start-pr. No branch open from this clone.
 - **Why**: build a Codex-equivalent from chakra primitives and measure it against Codex on Terminal-Bench 2 (#195; adapter and targets in `examples/terminal-bench`).
-- **Where it stopped**: #213 (#155) and #217 (#158) merged, mission logs for both are on #162, and no worktrees are left besides this checkout.
-- **Next action**: ask the user to pick between #214 (stream a running process's output to the surfaces) and #195's next PR (a credit pre-flight in `make tbench`, then k runs), and start it with /start-pr.
-- **Waiting on credits**: rerun `make tbench TB_AGENTS=chakra TB_TASKS="polyglot-c-py sanitize-git-repo nginx-request-logging"` to confirm #208's fixes (#203 was closed on them 2026-11-03 without a rerun), then the k=3 run for chakra and Codex, then live and parity, each with and without `CH_ROUTE_TO=openai CH_ROUTE_MODEL=gpt-5.4-mini` (`PARITY_ROUTE_*` for parity) so #185's per-model cost split gets its first real numbers. Last score was chakra 8/10, Codex 7/10 (k=1).
+- **Where it stopped**: #214 merged (PR #219); live and parity could not run, and the log on #162 says why. The orphan `pr-assets` branch now holds PR screenshots (see CLAUDE.md).
+- **Next action**: take #215 item 1 with /start-pr, so `CH_ACTIVE=deepseek make coding-harness-exercise-live` gets past the structured finalize (it fails with `response_format type is unavailable`). That gives the mission a live table while OpenAI has no credits.
+- **Waiting on credits**: rerun `make tbench TB_AGENTS=chakra TB_TASKS="polyglot-c-py sanitize-git-repo nginx-request-logging"` to confirm #208's fixes (#203 was closed on them without a rerun), then the k=3 run for chakra and Codex, then live and parity, each with and without `CH_ROUTE_TO=openai CH_ROUTE_MODEL=gpt-5.4-mini` (`PARITY_ROUTE_*` for parity) for #185's per-model cost split. Last score was chakra 8/10, Codex 7/10 (k=1).

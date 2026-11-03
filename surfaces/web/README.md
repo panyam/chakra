@@ -214,7 +214,11 @@ npm run test     # vitest: Frame-decode, event fold, dock reconcile, status line
 ```
 
 The built bundle is committed under `static/` so `go build` and `just test-agent`
-need no Node step; rebuild it after a frontend change.
+need no Node step; rebuild it after a frontend change. When a rebase or merge
+conflicts in `static/`, don't pick a side: take either copy, run `npm ci` and
+`npm run build` on the merged sources, and stage the result (a fresh worktree
+has no `node_modules`). The chunk names are content hashes, so a rebuild also
+renames chunks.
 
 ## Regenerating proto code
 

@@ -19,6 +19,9 @@ commit messages and docs below 1330 or so refer to `panyam/mcpkit`.
 | How to use the host / the CLI | `host/README.md`, `surfaces/chat/README.md` |
 | Where a new behavior hooks in (turn start, each model call, each tool call, turn end, events) | `docs/HOOKS.md` |
 
+Screenshots for a PR body go on the orphan `pr-assets` branch under `<PR number>/` and are linked
+by their `raw.githubusercontent.com` URL (GitHub has no CLI upload, and PNG keeps them visible).
+
 **Every PR says at the top which hook it uses and why**, in a short `Hook:` line before the
 rest of the body, using the points in `docs/HOOKS.md`. A change that needs a hook point the page
 doesn't list says so as its main decision, and updates the page in the same PR.
