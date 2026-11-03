@@ -696,6 +696,10 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	}
 	runnerCfg.ToolMiddleware = append(runnerCfg.ToolMiddleware, extMW...)
 	runnerCfg.StepStages = append(runnerCfg.StepStages, app.stepStages...)
+	if app.connections != nil && len(cfg.Connections.StepRoutes) > 0 {
+		runnerCfg.StepStages = append(runnerCfg.StepStages,
+			StepRouteStage(cfg.Connections.StepRoutes, app.connections.Provider, app.connections.Active))
+	}
 
 	// Critique goes after extensions and before the gate. Like the gate it
 	// must judge the arguments that will actually execute, so it cannot sit

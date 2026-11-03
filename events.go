@@ -58,7 +58,14 @@ const (
 	// EventPlan carries the plan a model published with update_plan (#148),
 	// on Plan, whole each time: a surface replaces the plan it showed. Step is
 	// the step whose tool call published it.
-	EventPlan    EventKind = "plan"
+	EventPlan EventKind = "plan"
+	// EventStep closes one model call that a StepStage named through
+	// StepView.ProviderName (#185): Step is the call, Model the name, and
+	// Usage what the provider reported for it (nil when it reported none).
+	// It fires after the call's deltas and before its tool calls run. A step
+	// no stage named emits none, so a turn without routing streams exactly
+	// what it did before.
+	EventStep    EventKind = "step"
 	EventTurnEnd EventKind = "turn-end"
 	EventError   EventKind = "error"
 )
@@ -110,6 +117,13 @@ type Event struct {
 
 	// Plan is the model's whole current plan, on EventPlan.
 	Plan *Plan `json:"plan,omitempty"`
+
+	// Model names the provider that answered, on EventStep. See
+	// StepView.ProviderName.
+	Model string `json:"model,omitempty"`
+
+	// Usage is one model call's token counts, on EventStep.
+	Usage *Usage `json:"usage,omitempty"`
 }
 
 // CompactionInfo reports what a compaction pass did: the message count

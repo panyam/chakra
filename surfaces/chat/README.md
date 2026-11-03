@@ -321,6 +321,27 @@ Bind a trigger on `task.completed` to have the agent proactively tell you the
 moment a job finishes. `/tasks` lists running tasks; `/tasks cancel <id>`
 stops one. Set `taskGraceSec` negative to wait inline forever.
 
+## Routing steps to another model
+
+`/provider <name>` switches the model for whole turns. `connections.stepRoutes`
+picks it step by step inside a turn, for instance planning on the active
+model and continuing on a cheaper one:
+
+```json
+"connections": {
+  "active": "big",
+  "connections": { "big": {...}, "mini": {...} },
+  "stepRoutes": [{ "fromStep": 2, "connection": "mini" }]
+}
+```
+
+Steps count from 1 in every turn. `toStep` bounds a route, and the first route
+that covers a step wins. A step no route covers runs on the active connection,
+so `/provider` still sets the default. Each switch makes the next call's
+prompt cache cold on the model it moves to, so a few long ranges cost less
+than alternating. A routed step's tokens show up per connection on the turn's
+`usageByModel` and on a `step` event.
+
 ## Events, injected context, and triggers
 
 Configure event streams per server and the host consumes them through two

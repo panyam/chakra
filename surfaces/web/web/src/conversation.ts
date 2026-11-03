@@ -36,10 +36,19 @@ export interface ResolvedNotice {
   text: string;
 }
 
-// Status is the status-line read (active model + session id).
+// Status is the status-line read: the active model and session id, plus the
+// connections the header's model picker offers (#185). providers is empty when
+// the session runs on one fixed model.
 export interface Status {
   model: string;
   session: string;
+  providers?: string[];
+  active?: string;
+}
+
+// statusFrom maps a GetStatus response onto Status.
+export function statusFrom(st: { modelLabel: string; runId: string; providers?: string[]; activeProvider?: string }): Status {
+  return { model: st.modelLabel, session: st.runId, providers: st.providers ?? [], active: st.activeProvider ?? "" };
 }
 
 // ConversationStore is the shared, framework-light state behind every surface
@@ -64,6 +73,9 @@ export interface ConversationStore {
   setAskField: (name: string, value: boolean) => void;
   dismissResolved: () => void;
   setStatus: (s: Status) => void;
+  // switchProvider makes name the session's model through /provider, as if
+  // the user had typed it, and refreshes the status line.
+  switchProvider: (name: string) => Promise<void>;
 }
 
 // surfaceLabel maps a resolving-surface tag (HostEvent.By) to a display noun.
@@ -267,7 +279,7 @@ export function createConversationStore(client: Client<typeof HostService>): Con
       // the model), and its result comes back here rather than on the Watch.
       void client
         .getStatus({})
-        .then((st) => setStatus({ model: st.modelLabel, session: st.runId }))
+        .then((st) => setStatus(statusFrom(st)))
         .catch(() => {});
     } catch (e) {
       if (ConnectError.from(e).code === Code.InvalidArgument) return false;
@@ -366,5 +378,8 @@ export function createConversationStore(client: Client<typeof HostService>): Con
     setAskField,
     dismissResolved: () => setResolved(null),
     setStatus: (s) => setStatus(s),
+    switchProvider: async (name) => {
+      await runCommand(`/provider ${name}`);
+    },
   };
 }

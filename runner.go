@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -288,6 +289,14 @@ type TurnResult struct {
 	// does see the whole tree; this field deliberately does not.
 	Usage Usage `json:"usage"`
 
+	// UsageByModel splits Usage by StepView.ProviderName, for a turn whose
+	// steps a StepStage named or routed (#185). Nil when no stage named any
+	// step, so a single-provider turn reads exactly as before. Steps no stage
+	// named are counted under "". The finalizing call of a structured or
+	// guided turn runs on RunnerConfig.Provider and is counted under "" too.
+	// Like Usage, it leaves out sub-agents.
+	UsageByModel map[string]Usage `json:"usageByModel,omitempty"`
+
 	// Steps is how many times the loop called the model, counting from one.
 	// A turn that answered without tools reports 1. The finalizing Generate
 	// of a structured-output turn is not counted here, though its tokens are
@@ -484,6 +493,7 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 	chain := r.stepChain(emit)
 	var added []Message
 	var usage Usage
+	byModel := usageByModel{}
 
 	for step := 1; step <= r.cfg.MaxSteps; step++ {
 		// Aggregate tree budget: charge one step (and reject if prior steps
@@ -508,7 +518,7 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 			stepSpan.RecordError(err)
 			stepSpan.End()
 			if errors.Is(err, ErrContextBudget) {
-				return r.partialResult(added, usage, step-1, err, "context_budget", emit, turnSpan)
+				return r.partialResult(added, usage, byModel, step-1, err, "context_budget", emit, turnSpan)
 			}
 			return nil, r.failSpan(emit, turnSpan, err)
 		}
@@ -526,7 +536,18 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 		if stepGuided {
 			stepReq.Guided = guided
 		}
-		stream, err := r.cfg.Provider.Stream(stepCtx, stepReq)
+		prov := r.cfg.Provider
+		if view.Provider != nil {
+			prov = view.Provider
+			if stepGuided && !CapabilitiesOf(prov).CanGuide(guided) {
+				err := fmt.Errorf("%w: ResponseGuided (step %d is routed to %q, which can't send this kind of constraint)", ErrUnsupportedParam, step, view.ProviderName)
+				stepSpan.RecordError(err)
+				stepSpan.End()
+				return nil, r.failSpan(emit, turnSpan, err)
+			}
+			stepSpan.SetAttribute("agent.provider", view.ProviderName)
+		}
+		stream, err := prov.Stream(stepCtx, stepReq)
 		if err != nil {
 			stepSpan.RecordError(err)
 			stepSpan.End()
@@ -545,6 +566,10 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 			usage.CachedInputTokens += resp.Usage.CachedInputTokens
 			treeBudget.addTokens(resp.Usage.InputTokens + resp.Usage.OutputTokens)
 		}
+		byModel.add(view.ProviderName, resp.Usage)
+		if view.ProviderName != "" {
+			emit(Event{Kind: EventStep, Step: step, Model: view.ProviderName, Usage: resp.Usage})
+		}
 
 		assistant := Message{Role: RoleAssistant, Text: resp.Text, ToolCalls: resp.ToolCalls}
 		msgs = append(msgs, assistant)
@@ -555,7 +580,9 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 			if guided != nil && !stepGuided {
 				// msgs ends with the free answer; the guided call answers from
 				// what came before it.
+				before := usage
 				text, err := r.finalizeGuided(ctx, turnInstructions, msgs[:len(msgs)-1], &usage, gen, guided)
+				byModel.addDelta(before, usage)
 				if err != nil {
 					stepSpan.RecordError(err)
 					stepSpan.End()
@@ -569,7 +596,9 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 			var structured core.RawJSON
 			var structuredErr string
 			if compiled != nil {
+				before := usage
 				s, invalid, err := r.finalizeStructured(ctx, turnInstructions, msgs, &usage, gen, schema, compiled)
+				byModel.addDelta(before, usage)
 				if err != nil {
 					stepSpan.RecordError(err)
 					stepSpan.End()
@@ -599,6 +628,7 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 				Text:            resp.Text,
 				Messages:        added,
 				Usage:           usage,
+				UsageByModel:    byModel.result(),
 				Steps:           step,
 				FinishReason:    resp.FinishReason,
 				Structured:      structured,
@@ -646,7 +676,7 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 		}
 	}
 
-	return r.partialResult(added, usage, r.cfg.MaxSteps, fmt.Errorf("%w (%d steps)", ErrMaxSteps, r.cfg.MaxSteps), "max_steps", emit, turnSpan)
+	return r.partialResult(added, usage, byModel, r.cfg.MaxSteps, fmt.Errorf("%w (%d steps)", ErrMaxSteps, r.cfg.MaxSteps), "max_steps", emit, turnSpan)
 }
 
 // partialResult builds the partial turn a turn that ran out of budget reports
@@ -657,12 +687,13 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 // answered, since a provider rejects that shape on the next request. Text and
 // FinishReason stay empty: there is no final answer, and the returned error is
 // how the caller learns the turn did not complete.
-func (r *Runner) partialResult(added []Message, usage Usage, steps int, err error, finish string, emit func(Event), turnSpan core.Span) (*TurnResult, error) {
+func (r *Runner) partialResult(added []Message, usage Usage, byModel usageByModel, steps int, err error, finish string, emit func(Event), turnSpan core.Span) (*TurnResult, error) {
 	msgs := DropUnansweredToolCalls(added)
 	result := &TurnResult{
-		Messages: msgs,
-		Usage:    usage,
-		Steps:    steps,
+		Messages:     msgs,
+		Usage:        usage,
+		UsageByModel: byModel.result(),
+		Steps:        steps,
 	}
 	turnSpan.SetAttribute("agent.steps", fmt.Sprint(steps))
 	turnSpan.SetAttribute("agent.finish_reason", finish)
@@ -690,6 +721,39 @@ func DropUnansweredToolCalls(msgs []Message) []Message {
 		msgs = msgs[:len(msgs)-1]
 	}
 	return msgs
+}
+
+// usageByModel accumulates a turn's usage per StepView.ProviderName.
+type usageByModel map[string]Usage
+
+func (m usageByModel) add(name string, u *Usage) {
+	t := m[name] // touch the key even without usage, so a named step counts as named
+	if u != nil {
+		t.InputTokens += u.InputTokens
+		t.OutputTokens += u.OutputTokens
+		t.CachedInputTokens += u.CachedInputTokens
+	}
+	m[name] = t
+}
+
+// addDelta credits what a finalizing call added to the turn's usage to the
+// configured provider, which is the one that makes it.
+func (m usageByModel) addDelta(before, after Usage) {
+	m.add("", &Usage{
+		InputTokens:       after.InputTokens - before.InputTokens,
+		OutputTokens:      after.OutputTokens - before.OutputTokens,
+		CachedInputTokens: after.CachedInputTokens - before.CachedInputTokens,
+	})
+}
+
+// result is the TurnResult.UsageByModel value: nil unless some step was named.
+func (m usageByModel) result() map[string]Usage {
+	for name := range m {
+		if name != "" {
+			return maps.Clone(m)
+		}
+	}
+	return nil
 }
 
 func (r *Runner) failSpan(emit func(Event), span core.Span, err error) error {

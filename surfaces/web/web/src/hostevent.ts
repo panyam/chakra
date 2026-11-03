@@ -66,6 +66,10 @@ export interface AgentEvent {
   compaction?: { before: number; after: number };
   reason?: string;
   error?: string;
+  // model and usage are set on a "step" event: the connection a routed step
+  // ran on and what it spent (#185).
+  model?: string;
+  usage?: Usage;
 }
 
 // ToolResult mirrors the fields core.ToolResult exposes over the wire that the
@@ -80,6 +84,7 @@ export interface ToolResult {
 export interface Usage {
   inputTokens?: number;
   outputTokens?: number;
+  cachedInputTokens?: number;
 }
 
 // SubAgentEnvelope is agent.SubAgentEvent (no json tags, so the keys are the Go

@@ -15,6 +15,12 @@ the same version.
 - `Capabilities.Temperature`: whether a provider expects its model to take `ProviderRequest.Temperature`. True on `OpenAIProvider` unless `OpenAIConfig.NoTemperature` (OpenAI's reasoning models refuse one), false on `ResponsesProvider` unless `ResponsesConfig.Temperature`, false on `AnthropicProvider`. `FailoverProvider` intersects it and the wrappers pass it through. It only changes what is reported; a set Temperature is still forwarded (#191).
 - Host: `ConnectionConfig.Temperature` overrides that default per connection (#191).
 - Host: an `openai-responses` connection type, with `reasoningEffort`. Its full-history notices arrive as `session-warn` events (#157).
+- `StepView.Provider` and `StepView.ProviderName`: a request-scoped `StepStage` can send one model call to another provider, and name it. The next step starts back on `RunnerConfig.Provider`. A guided step checks the routed provider can send the constraint (#185).
+- `EventStep`, with `Event.Model` and `Event.Usage`: one per named step, after its deltas. Steps no stage names emit none (#185).
+- `TurnResult.UsageByModel`: the turn's usage split by step name, nil when no stage named a step (#185).
+- Host: `connections.stepRoutes` and `StepRouteStage` route ranges of each turn's steps to other connections; unrouted steps stay on the active connection (#185).
+- agentweb: a model picker in the header beside the model label, listing the session's connections; `GetStatusResponse` gains `providers` and `active_provider` (#185).
+- Coding harness: `--route-to`, `--route-from` and `--route-model`, with tokens per model on the metrics line and in the parity table (#185).
 
 ### Changed
 - **Breaking:** with `ResponseSchema` set, `TurnEnd` hooks now run after the finalizing call and judge the JSON document (`TurnEndInfo.Text`), with the prose answer on `TurnEndInfo.Draft` and validation errors on `TurnEndInfo.StructuredError`. Before, they judged the prose and the document was made only from an accepted answer. A refused answer now costs its finalizing call. `TurnResult.Text` is still the prose (#201).

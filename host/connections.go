@@ -46,6 +46,13 @@ type ConnectionsConfig struct {
 	// it runs on the active connection. Optional; empty runs every agent on
 	// the active connection.
 	AgentRoles map[string]string `json:"agentRoles,omitempty"`
+
+	// StepRoutes sends ranges of each turn's model calls to other
+	// connections (#185), e.g. [{"fromStep": 2, "connection": "mini"}] to
+	// plan on the active model and continue on a cheaper one. The first
+	// route covering a step wins; a step none covers runs on the active
+	// connection, so /provider still sets the default. Optional.
+	StepRoutes []StepRoute `json:"stepRoutes,omitempty"`
 }
 
 // EmbedderConnection returns the connection named by Embedder and true, or a
@@ -356,6 +363,9 @@ func NewConnectionRegistry(cfg *ConnectionsConfig, build ProviderBuilder) (*Conn
 		if _, ok := cfg.Connections[name]; !ok {
 			return nil, fmt.Errorf("host: agentRoles %q names undefined connection %q", role, name)
 		}
+	}
+	if err := validateStepRoutes(cfg.StepRoutes, cfg.Connections); err != nil {
+		return nil, err
 	}
 	return &ConnectionRegistry{
 		conns:      cfg.Connections,

@@ -34,6 +34,12 @@ result it submits a steer. When the turn ends it runs `go test ./...` in the cop
 
 `-keep`, `-jsonl file` and `-metrics file` keep the workspace, the Watch frames and the metrics.
 
+`CH_ROUTE_TO=openai CH_ROUTE_MODEL=gpt-5.4-mini` (`--route-to`, `--route-model`) answers
+every step from `CH_ROUTE_FROM` (default 2) on with that connection and model, so step 1
+plans on the active model and the rest run cheaper. The metrics line then adds one
+`model=in/cached/out` entry per model, and `PARITY_ROUTE_TO`, `PARITY_ROUTE_FROM` and
+`PARITY_ROUTE_MODEL` do the same for the parity table.
+
 ## The checks
 
 `checks.go` has one check per behaviour the mission asks for, with the wiring that serves it.

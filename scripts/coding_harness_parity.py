@@ -105,6 +105,7 @@ def chakra_side(out):
         "test_files_untouched": m.get("test_files_untouched"),
         "stats_rule_followed": STATS_RULE in text,
         "commands": tools,
+        "by_model": m.get("by_model") or {},
     }
 
 
@@ -123,6 +124,10 @@ def main():
     print(f"{'':22}{'codex':>12}{'chakra':>12}")
     for r in rows:
         print(f"{r:22}{str(cx.get(r)):>12}{str(ck.get(r) if ck else 'no run'):>12}")
+    if ck and ck["by_model"]:
+        print("\nchakra steps were routed (#185); tokens by model, in / cached / out:")
+        for name, u in sorted(ck["by_model"].items()):
+            print(f"  {name or 'default':20}{u.get('inputTokens', 0):>10}{u.get('cachedInputTokens', 0):>10}{u.get('outputTokens', 0):>10}")
     print()
     print(f"chakra loaded instruction files with the {os.environ.get('PARITY_INSTRUCTIONS') or 'workspace.json'} preset.")
     print("\ncodex commands:")
