@@ -34,7 +34,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/h
 # explicitly and the platform's own backend refuses. See the module README.
 GOTESTFLAGS ?= -race -timeout 300s
 
-.PHONY: help build test test-examples test-web testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report deploy-web weblogs \
+.PHONY: help build test test-examples test-web test-web-e2e testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report deploy-web weblogs \
         check-no-binaries check-ext-isolation check-dep-consistency setup-hooks
 
 help: ## Show this help
@@ -77,6 +77,12 @@ check-fmt: ## Fail if any Go file (tracked, or new and not ignored) is not gofmt
 
 test-web: ## Run the web frontend's unit tests (vitest; needs Node)
 	cd surfaces/web/web && npm ci --silent && npm test
+
+# Playwright drives the page the Go binary serves (the committed bundle) over
+# internal/e2eserver's stub connections, so it needs Go and the mcpkit checkout
+# beside this one, as well as Node.
+test-web-e2e: ## Run the web frontend's browser checks (Playwright; needs Node and Go)
+	cd surfaces/web/web && npm ci --silent && npx playwright install --with-deps chromium && npm run e2e
 
 tidy-all: ## go mod tidy every module. Required after touching a shared import.
 	@for m in $(MODULES) $(EXAMPLES); do \

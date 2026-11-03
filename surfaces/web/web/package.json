@@ -7,7 +7,8 @@
     "gen": "buf generate ../protos --template buf.gen.web.yaml",
     "typecheck": "tsc --noEmit",
     "build": "node build.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.14.0",
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@bufbuild/protoc-gen-es": "^2.14.0",
+    "@playwright/test": "1.64.1",
     "esbuild": "^0.28.2",
     "esbuild-plugin-solid": "^0.6.0",
     "typescript": "^7.0.2",

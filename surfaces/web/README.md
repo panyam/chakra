@@ -219,7 +219,13 @@ npm run gen      # regenerate TS clients from ../protos (buf)
 npm run build    # esbuild bundle → ../static (committed; Go embeds it)
 npm run typecheck
 npm run test     # vitest: Frame-decode, event fold, dock reconcile, status line
+npm run e2e      # Playwright: drives the served page (needs Go; make test-web-e2e)
 ```
+
+The Playwright checks in `web/e2e` run against the committed bundle in
+`static/`, so rebuild it before running them after a frontend change.
+`internal/e2eserver` serves the page over two stub connections, and
+Playwright starts it with `go run`.
 
 The built bundle is committed under `static/`, so `go build` and
 `just test-agent` need no Node step. Rebuild it after a frontend change.
