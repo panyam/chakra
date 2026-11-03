@@ -32,6 +32,8 @@ export const HostEventKind = {
   TaskCompleted: "task-completed",
   ServerStateChanged: "server-state-changed",
   Handoff: "handoff",
+  // ProcessOutput is a running process's output as it prints (#214).
+  ProcessOutput: "process-output",
 } as const;
 
 // EventKind is agent.Event.kind, the streaming-turn discriminator.
@@ -78,6 +80,20 @@ export interface AgentEvent {
 export interface ToolResult {
   isError?: boolean;
   content?: { type: string; text?: string }[];
+  structuredContent?: Record<string, unknown>;
+}
+
+// ProcessOutput is host.ProcessOutput (no json tags, Go field names). ID is
+// the session_id exec_command gave the model.
+export interface ProcessOutput {
+  Source: string;
+  ID: string;
+  Command?: string;
+  Text?: string;
+  Dropped?: number;
+  Paused?: boolean;
+  Exited?: boolean;
+  ExitCode?: number;
 }
 
 // Usage is agent.Usage (token counts on a turn result).
@@ -113,6 +129,7 @@ export interface HostEvent {
   RunID?: string;
   Label?: string;
   Message?: string;
+  ProcessOutput?: ProcessOutput;
   From?: string;
   To?: string;
   AskID?: number;

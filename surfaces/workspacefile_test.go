@@ -274,6 +274,7 @@ func TestWorkspaceFileProcesses(t *testing.T) {
 		`{"exec": {"sandbox": "unconfined", "shell": {"processes": false}}}`:                        nil,
 		`{"exec": {"sandbox": "unconfined", "shell": {}}}`:                                          nil,
 		`{"exec": {"sandbox": "unconfined", "shell": {"processes": {"max": 2, "maxYield": "5s"}}}}`: {Max: 2, MaxYield: 5 * time.Second},
+		`{"exec": {"sandbox": "unconfined", "shell": {"processes": {"streamBudget": -1}}}}`:         {StreamBudget: -1},
 	} {
 		var cfg WorkspaceConfig
 		if err := cfg.LoadFile(writeWorkspaceFile(t, body)); err != nil {

@@ -63,3 +63,43 @@ describe("ToolStore projection", () => {
     expect(out.calls[0].preview).toBe("boom");
   });
 });
+
+describe("process output", () => {
+  const out = (id: string, t: string, extra: object = {}): HostEvent => ({
+    Kind: "process-output",
+    ProcessOutput: { Source: "exec", ID: id, Command: "npm run dev", Text: t, ...extra },
+  });
+  const started = (callId: string, procId: string): HostEvent =>
+    end(callId, "exec_command", { content: [{ type: "text", text: "$ npm run dev\nready" }], structuredContent: { session_id: procId, running: true } });
+
+  it("attaches output that arrived before the result, then keeps appending", () => {
+    const res = run([
+      begin("c1", "exec_command", { cmd: "npm run dev" }),
+      out("p1", "ready\n"),
+      started("c1", "p1"),
+      out("p1", "GET / 200\n"),
+    ]);
+    expect(res.calls[0]).toMatchObject({ process: "p1", output: "ready\nGET / 200\n", exitCode: null });
+  });
+
+  it("leaves a later poll's row alone and records the exit on the starting call", () => {
+    const res = run([
+      begin("c1", "exec_command"),
+      started("c1", "p1"),
+      begin("c2", "write_stdin"),
+      end("c2", "write_stdin", { content: [{ type: "text", text: "" }], structuredContent: { session_id: "p1", running: true } }),
+      out("p1", "\x1b[32mok\x1b[0m\n", { Dropped: 10 }),
+      out("p1", "", { Paused: true }),
+      out("p1", "", { Exited: true, ExitCode: 1 }),
+    ]);
+    expect(res.calls[0]).toMatchObject({ output: "… 10 bytes dropped …\nok\n", streamPaused: true, exitCode: 1 });
+    expect(res.calls[1]).toMatchObject({ process: "", output: "" });
+  });
+
+  it("keeps only the tail of a long stream", () => {
+    const big = "x".repeat(70_000);
+    const res = run([begin("c1", "exec_command"), started("c1", "p1"), out("p1", big), out("p1", "END")]);
+    expect(res.calls[0].output.length).toBeLessThanOrEqual(64 * 1024);
+    expect(res.calls[0].output.endsWith("END")).toBe(true);
+  });
+});

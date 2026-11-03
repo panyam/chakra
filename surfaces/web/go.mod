@@ -6,6 +6,7 @@ require (
 	connectrpc.com/connect v1.19.2
 	github.com/panyam/chakra v0.2.3
 	github.com/panyam/chakra/ext/agentsmd v0.2.3
+	github.com/panyam/chakra/ext/exec v0.2.3
 	github.com/panyam/chakra/ext/files v0.2.3
 	github.com/panyam/chakra/host v0.2.3
 	github.com/panyam/chakra/surfaces v0.2.3
@@ -33,7 +34,6 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/panyam/chakra/ext/checkpoint v0.2.3 // indirect
-	github.com/panyam/chakra/ext/exec v0.2.3 // indirect
 	github.com/panyam/chakra/ext/git v0.2.3 // indirect
 	github.com/panyam/chakra/ext/lsp v0.2.3 // indirect
 	github.com/panyam/chakra/store/gorm v0.2.3 // indirect

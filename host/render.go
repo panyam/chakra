@@ -23,6 +23,9 @@ type renderer struct {
 	plain    bool
 	thinking bool
 	midText  bool
+	// procTail holds each process's last unfinished line until the rest of it
+	// arrives, so a line split across two events prints once.
+	procTail map[string]string
 }
 
 // newRenderer builds a terminal renderer. colorEnabled=false renders every
@@ -397,6 +400,8 @@ func (r *renderer) On(ev HostEvent) {
 		r.serverState(ev.ServerID, ev.ServerState, ev.Err)
 	case HostSubAgentEvent:
 		r.subAgent(ev.SubAgent)
+	case HostProcessOutput:
+		r.processOutput(ev.ProcessOutput)
 	case HostHandoff:
 		fmt.Fprintf(r.out, "%s\n", r.dim("→ handed off to "+ev.To))
 	}
@@ -431,5 +436,40 @@ func (r *renderer) subAgent(sa agent.SubAgentEvent) {
 		if sa.Event.Result != nil && sa.Event.Result.Text != "" {
 			fmt.Fprintf(r.out, "%s%s\n", g, r.dim("["+sa.Scope+"] → "+snippet(sa.Event.Result.Text, 200)))
 		}
+	}
+}
+
+// processOutput prints a running process's output as dim lines tagged with
+// its id, one line at a time.
+func (r *renderer) processOutput(o *ProcessOutput) {
+	if o == nil {
+		return
+	}
+	r.breakLine()
+	tag := "[" + o.ID + "] "
+	if o.Dropped > 0 {
+		fmt.Fprintf(r.out, "%s\n", r.dim(fmt.Sprintf("%s... %d bytes dropped ...", tag, o.Dropped)))
+	}
+	if r.procTail == nil {
+		r.procTail = map[string]string{}
+	}
+	text := r.procTail[o.ID] + o.Text
+	delete(r.procTail, o.ID)
+	lines := strings.Split(text, "\n")
+	if last := lines[len(lines)-1]; last != "" && !o.Exited {
+		r.procTail[o.ID] = last
+	}
+	lines = lines[:len(lines)-1]
+	if o.Exited && text != "" && !strings.HasSuffix(text, "\n") {
+		lines = append(lines, text[strings.LastIndex(text, "\n")+1:])
+	}
+	for _, l := range lines {
+		fmt.Fprintf(r.out, "%s\n", r.dim(tag+l))
+	}
+	if o.Paused {
+		fmt.Fprintf(r.out, "%s\n", r.dim(tag+"output streaming paused; the model still reads it"))
+	}
+	if o.Exited {
+		fmt.Fprintf(r.out, "%s\n", r.dim(fmt.Sprintf("[%s exited %d]", o.ID, o.ExitCode)))
 	}
 }

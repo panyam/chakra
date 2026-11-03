@@ -44,6 +44,12 @@ func (e *Extension) SetAnnounce(fn func(string)) {
 	}
 }
 
+// SetProcessOutput implements host.ProcessReporter: output from processes
+// started with exec_command streams to the surfaces as it is printed, up to
+// ProcessConfig.StreamBudget per process, while the model keeps reading it
+// through write_stdin.
+func (e *Extension) SetProcessOutput(fn func(host.ProcessOutput)) { e.src.setProcessOutput(fn) }
+
 // SetAsk implements host.Asker: with NetworkConfig.Ask, a connection to an
 // unlisted host becomes a question for the user, through the same queue as
 // approvals, and the answer holds for the session.
