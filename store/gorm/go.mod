@@ -5,7 +5,7 @@ go 1.26.9
 replace github.com/panyam/chakra => ../..
 
 require (
-	github.com/panyam/chakra v0.2.2
+	github.com/panyam/chakra v0.2.3
 	github.com/panyam/mcpkit v0.8.15
 	github.com/pgvector/pgvector-go v0.4.1
 	gorm.io/driver/postgres v1.6.2
