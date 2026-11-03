@@ -458,3 +458,23 @@ func TestKeyMap_CtrlRightMovesByWord(t *testing.T) {
 		t.Fatalf("ctrl+right did not advance past the first word: col=%d", after)
 	}
 }
+
+func TestEnterDuringATurnSteersIt(t *testing.T) {
+	m := newTUIModel(nil, nil, 0)
+	m.running = true
+	var sent []string
+	m.sendSteer = func(line string) { sent = append(sent, line) }
+
+	m.ta.SetValue("also check Mean")
+	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = next.(tuiModel)
+	if len(sent) != 1 || sent[0] != "also check Mean" || cmd == nil || m.ta.Value() != "" || !m.running {
+		t.Fatalf("sent %q, cmd %v, input %q, running %v", sent, cmd != nil, m.ta.Value(), m.running)
+	}
+
+	m.ta.SetValue("/tools")
+	next, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if len(sent) != 1 || next.(tuiModel).ta.Value() != "/tools" {
+		t.Error("a slash command was sent into the running turn")
+	}
+}

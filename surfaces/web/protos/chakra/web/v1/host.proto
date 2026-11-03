@@ -28,8 +28,10 @@ service HostService {
   // a TUI Observer and a Watch client on one App see the same stream.
   rpc Watch(WatchRequest) returns (stream Frame);
 
-  // Submit runs one conversational turn (App.RunTurn). The turn's events arrive
+  // Submit runs one conversational turn (App.Submit). The turn's events arrive
   // on Watch; this returns when the turn finishes (an error if it failed).
+  // While a turn is already running it queues the input as a steer for that
+  // turn and returns at once with steered set.
   rpc Submit(SubmitRequest) returns (SubmitResponse);
 
   // Dispatch runs a slash command (App.Dispatch) and returns its CmdResult.
@@ -95,7 +97,12 @@ message SubmitRequest {
   // validated). Empty asks for nothing.
   string response_schema = 3;
 }
-message SubmitResponse {}
+message SubmitResponse {
+  // steered is true when a turn was already running: the input was queued
+  // for that turn's next model call (or the next turn, if it arrived after
+  // the last one) and Submit returned without waiting.
+  bool steered = 1;
+}
 
 message DispatchRequest {
   string line = 1;

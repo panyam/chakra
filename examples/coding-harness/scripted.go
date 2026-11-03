@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -12,8 +11,9 @@ import (
 )
 
 // scriptedProvider plays what a competent agent with today's tools does:
-// read the code, fix the loop, run the tests, answer. A last turn answers the
-// steer, which today runs as a second turn. As tickets land the script moves
+// read the code, fix the loop, run the tests, answer. The steer the driver
+// sends after the first tool result joins the turn (#149), so the answer
+// covers it. As tickets land the script moves
 // to their tools (apply_patch, update_plan), so the scripted run keeps
 // exercising the wiring each check names.
 func scriptedProvider(fixture string) (agent.Provider, error) {
@@ -48,9 +48,8 @@ func scriptedProvider(fixture string) (agent.Provider, error) {
 				"justification": "Fetch module dependencies; the sandbox has no network.",
 			}),
 		}},
-		agent.StubTurn{Text: "Fixed Sum's loop, which skipped the first element. go test ./... passes."},
+		agent.StubTurn{Text: "Fixed Sum's loop, which skipped the first element. go test ./... passes. I changed Sum in stats/stats.go."},
 		// The finalizing call for result.schema.json.
 		agent.StubTurn{Text: `{"status":"fixed","summary":"Sum skipped the first element; the loop now starts at 0.","files_changed":["stats/stats.go"],"tests_passed":true}`},
-		agent.StubTurn{Text: fmt.Sprintf("I changed %s.", "Sum in stats/stats.go")},
 	), nil
 }

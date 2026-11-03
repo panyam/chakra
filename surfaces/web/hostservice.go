@@ -148,7 +148,8 @@ func (s *HostService) Watch(ctx context.Context, req *connect.Request[webv1.Watc
 // Submit runs one conversational turn on the selected session. The turn's events
 // stream on that session's Watch; this returns when the turn finishes. A failed
 // turn maps to a Connect error (the same failure is also announced as a
-// HostTurnFailed frame on Watch).
+// HostTurnFailed frame on Watch). While a turn is running, the input is queued
+// as a steer for it (App.Submit) and this returns at once with Steered set.
 func (s *HostService) Submit(ctx context.Context, req *connect.Request[webv1.SubmitRequest]) (*connect.Response[webv1.SubmitResponse], error) {
 	app, err := s.appFor(ctx, req.Msg.GetSessionId())
 	if err != nil {
@@ -161,10 +162,11 @@ func (s *HostService) Submit(ctx context.Context, req *connect.Request[webv1.Sub
 		}
 		opts.ResponseSchema = core.NewRawJSON(json.RawMessage(raw))
 	}
-	if err := app.RunTurnWith(ctx, req.Msg.GetInput(), opts); err != nil {
+	steered, err := app.Submit(ctx, req.Msg.GetInput(), opts)
+	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&webv1.SubmitResponse{}), nil
+	return connect.NewResponse(&webv1.SubmitResponse{Steered: steered}), nil
 }
 
 // Dispatch runs a slash command on the selected session and returns its

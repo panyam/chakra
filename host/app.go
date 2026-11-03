@@ -133,6 +133,9 @@ type App struct {
 	// approvalClassifiers, also in registration order; see classifyApproval.
 	approvalClassifiers []ApprovalClassifier
 
+	// steer queues input sent while a turn runs; see Submit.
+	steer steerQueue
+
 	// stepStages are the extensions' before-each-model-call stages, in
 	// registration order, appended after the host's own.
 	stepStages []agent.StepStage
@@ -612,7 +615,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 		Tools:            runnerTools,
 		InstructionsFunc: app.promptBuilder.Build,
 		MaxSteps:         cfg.MaxSteps,
-		StepStages:       stepStages(cfg),
+		StepStages:       append(stepStages(cfg), app.steerStage()),
 		TracerProvider:   o.tp,
 		MeterProvider:    o.mp,
 		// Only the main Runner carries the tree budget; sub-agent / fan-out /
@@ -813,13 +816,35 @@ func (a *App) RunTurnWith(ctx context.Context, input string, opts TurnOptions) e
 		a.emit(HostEvent{Kind: HostTurnFailed, Err: err.Error()})
 		return err
 	}
+	late, err := a.runOneTurn(ctx, input, opts, false)
+	// Steers that arrived after the turn's last model call run next, already
+	// announced when they were queued. A failed turn doesn't drop them: the
+	// user said them, and the next turn is where they can still be answered.
+	for len(late) > 0 {
+		var next error
+		late, next = a.runOneTurn(ctx, joinSteers(late), TurnOptions{}, true)
+		if err == nil {
+			err = next
+		}
+	}
+	return err
+}
+
+// runOneTurn runs one turn and returns the steers it never drained.
+// announced says the input's user-input event was already emitted, which is
+// true of steers that missed their turn.
+func (a *App) runOneTurn(ctx context.Context, input string, opts TurnOptions, announced bool) (late []string, _ error) {
 	a.turnMu.Lock()
 	defer a.turnMu.Unlock()
+	a.steer.begin()
+	defer func() { late = a.steer.end() }()
 	a.triggers.NotifyEngagement()
-	a.emit(HostEvent{Kind: HostUserInput, Message: input})
+	if !announced {
+		a.emit(HostEvent{Kind: HostUserInput, Message: input})
+	}
 	if err := a.startExtensionTurns(ctx); err != nil {
 		a.emit(HostEvent{Kind: HostTurnFailed, Err: err.Error()})
-		return err
+		return nil, err
 	}
 	// Before the user message exists, so the expanded text is what history
 	// keeps and the model reads. Ahead of ensureRunLocked too, so a failed
@@ -828,7 +853,7 @@ func (a *App) RunTurnWith(ctx context.Context, input string, opts TurnOptions) e
 		transformed, terr := a.transformInput(ctx, input)
 		if terr != nil {
 			a.emit(HostEvent{Kind: HostTurnFailed, Err: terr.Error()})
-			return terr
+			return nil, terr
 		}
 		input = transformed
 	}
@@ -841,7 +866,7 @@ func (a *App) RunTurnWith(ctx context.Context, input string, opts TurnOptions) e
 		if err := a.ensureRunLocked(ctx); err != nil {
 			a.history = a.history[:len(a.history)-1]
 			a.emit(HostEvent{Kind: HostTurnFailed, Err: err.Error()})
-			return err
+			return nil, err
 		}
 		if a.team != nil {
 			// Team member events render attributed via OnEvent, so the persisting
@@ -906,21 +931,21 @@ func (a *App) RunTurnWith(ctx context.Context, input string, opts TurnOptions) e
 				a.persistTurnLocked(ctx, append([]agent.Message{userMsg}, kept...), pe)
 			}
 			a.emit(HostEvent{Kind: HostTurnFailed, Err: err.Error()})
-			return err
+			return nil, err
 		}
 		a.history = a.history[:len(a.history)-1]
 		if pe != nil {
 			a.persistFailedTurnLocked(ctx, pe)
 		}
 		a.emit(HostEvent{Kind: HostTurnFailed, Err: err.Error()})
-		return err
+		return nil, err
 	}
 	a.history = append(a.history, result.Messages...)
 	if pe != nil {
 		a.persistTurnLocked(ctx, append([]agent.Message{userMsg}, result.Messages...), pe)
 	}
 	a.emit(HostEvent{Kind: HostTurnDone, Result: result})
-	return nil
+	return nil, nil
 }
 
 // InterruptToolCalls cancels every tool call currently in flight without

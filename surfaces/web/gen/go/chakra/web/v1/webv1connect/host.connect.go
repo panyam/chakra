@@ -64,8 +64,10 @@ type HostServiceClient interface {
 	// then live events, until the client disconnects. It drains App.Subscribe;
 	// a TUI Observer and a Watch client on one App see the same stream.
 	Watch(context.Context, *connect.Request[v1.WatchRequest]) (*connect.ServerStreamForClient[v1.Frame], error)
-	// Submit runs one conversational turn (App.RunTurn). The turn's events arrive
+	// Submit runs one conversational turn (App.Submit). The turn's events arrive
 	// on Watch; this returns when the turn finishes (an error if it failed).
+	// While a turn is already running it queues the input as a steer for that
+	// turn and returns at once with steered set.
 	Submit(context.Context, *connect.Request[v1.SubmitRequest]) (*connect.Response[v1.SubmitResponse], error)
 	// Dispatch runs a slash command (App.Dispatch) and returns its CmdResult.
 	Dispatch(context.Context, *connect.Request[v1.DispatchRequest]) (*connect.Response[v1.DispatchResponse], error)
@@ -223,8 +225,10 @@ type HostServiceHandler interface {
 	// then live events, until the client disconnects. It drains App.Subscribe;
 	// a TUI Observer and a Watch client on one App see the same stream.
 	Watch(context.Context, *connect.Request[v1.WatchRequest], *connect.ServerStream[v1.Frame]) error
-	// Submit runs one conversational turn (App.RunTurn). The turn's events arrive
+	// Submit runs one conversational turn (App.Submit). The turn's events arrive
 	// on Watch; this returns when the turn finishes (an error if it failed).
+	// While a turn is already running it queues the input as a steer for that
+	// turn and returns at once with steered set.
 	Submit(context.Context, *connect.Request[v1.SubmitRequest]) (*connect.Response[v1.SubmitResponse], error)
 	// Dispatch runs a slash command (App.Dispatch) and returns its CmdResult.
 	Dispatch(context.Context, *connect.Request[v1.DispatchRequest]) (*connect.Response[v1.DispatchResponse], error)
