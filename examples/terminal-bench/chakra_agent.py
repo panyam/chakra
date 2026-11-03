@@ -18,10 +18,14 @@ import shlex
 from pathlib import Path
 
 from harbor.agents.agent_auth_resolution import ModelConnectionSpec, ProviderAccess
+from harbor.agents.capabilities import AgentCapabilities
 from harbor.agents.installed.base import BaseInstalledAgent, with_prompt_template
+from harbor.agents.options import InstalledAgentOptions
 from harbor.environments.base import BaseEnvironment
 from harbor.models.agent.context import AgentContext
 from harbor.models.model_api_format import ModelApiFormat
+
+from chakra_config import build
 
 _HERE = Path(__file__).resolve().parent
 
@@ -31,13 +35,16 @@ _HOME = "/tmp/chakra"
 _OUTPUT = "chakra.jsonl"
 _STDERR = "chakra.stderr.txt"
 
-# Turns end on the task's time budget, as Codex's do; chakra's default cap of
-# eight model calls would end most terminal tasks early.
-_MAX_STEPS = 400
-
 
 class ChakraAgent(BaseInstalledAgent):
-    """Runs `agentchat exec` inside the task container."""
+    """Runs `agentchat exec` inside the task container.
+
+    `--ak reasoning_effort=medium` pins the effort, the same option Harbor's
+    Codex agent takes, so `make tbench` can pin both sides with one flag.
+    """
+
+    options_model = InstalledAgentOptions
+    capabilities = AgentCapabilities(reasoning_effort=True)
 
     MODEL_CONNECTION = ModelConnectionSpec(
         default_provider="openai",
@@ -45,8 +52,8 @@ class ChakraAgent(BaseInstalledAgent):
             api_key_candidate_names=["OPENAI_API_KEY"],
             base_url_candidate_names=["OPENAI_BASE_URL"],
         ),
-        supported_api_formats=[ModelApiFormat.OPENAI_CHAT_COMPLETIONS],
-        default_api_format_by_provider={"default": ModelApiFormat.OPENAI_CHAT_COMPLETIONS},
+        supported_api_formats=[ModelApiFormat.OPENAI_RESPONSES],
+        default_api_format_by_provider={"default": ModelApiFormat.OPENAI_RESPONSES},
     )
 
     @staticmethod
@@ -67,23 +74,10 @@ class ChakraAgent(BaseInstalledAgent):
 
     async def configure(self, environment: BaseEnvironment) -> None:
         conn = self.model_connection
-        config = {
-            "model": {
-                "baseUrl": conn.execution_base_url or "https://api.openai.com/v1",
-                "model": conn.model_id or self.model_name,
-                "apiKeyEnv": "OPENAI_API_KEY",
-            },
-            "instructions": (
-                "You are a coding agent working in a terminal environment. "
-                "Complete the task fully, then say briefly what you did."
-            ),
-            "maxSteps": _MAX_STEPS,
-            "approval": {"mode": "allow"},
-        }
-        workspace = {
-            "exec": {"sandbox": "unconfined", "shell": {"timeout": "10m", "rules": [], "processes": {"detach": True}}},
-            "skills": {"dirs": []},
-        }
+        effort = self.options.reasoning_effort if self.options is not None else None
+        config, workspace = build(
+            conn.model_id or self.model_name, conn.execution_base_url or "https://api.openai.com/v1", effort
+        )
         await self.exec_as_agent(environment, command=f"mkdir -p {_HOME}")
         await self._upload_config_text(
             environment, content=json.dumps(config), remote_path=f"{_HOME}/config.json", filename="config.json"

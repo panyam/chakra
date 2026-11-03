@@ -59,12 +59,31 @@ def fmt_tokens(n):
     return f"{n / 1000:.0f}k" if n >= 1000 else str(n)
 
 
+def setup(job_dir):
+    """Names the agent, model and reasoning effort a job ran with, from its
+    config.json. A job without reasoning_effort ran at the agent's default."""
+    try:
+        with open(os.path.join(job_dir, "config.json")) as f:
+            agents = json.load(f).get("agents") or []
+    except (OSError, ValueError):
+        return f"{os.path.basename(job_dir)}: setup unknown"
+    parts = []
+    for a in agents:
+        effort = (a.get("kwargs") or {}).get("reasoning_effort") or "default"
+        parts.append(f"{a.get('name', '?').split(':')[-1].removesuffix('Agent').lower()}: {a.get('model_name', '?')}, effort {effort}")
+    return "; ".join(parts) or f"{os.path.basename(job_dir)}: setup unknown"
+
+
 def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
     jobs = sys.argv[2:] or newest_jobs(sys.argv[1])
     if not jobs:
         sys.exit(f"no tbench-* jobs in {sys.argv[1]}")
+    report(jobs)
+
+
+def report(jobs):
     rows = [t for j in jobs for t in trials(j)]
     agents = sorted({r["agent"] for r in rows})
     tasks = sorted({r["task"] for r in rows})
@@ -105,6 +124,8 @@ def main():
                     parts.append(f"{mark} {t_s} {fmt_tokens(r['in'])}")
             cells.append(", ".join(parts))
         print(f"| {t} | " + " | ".join(cells) + " |")
+    print()
+    print("Setup: " + " | ".join(setup(j) for j in jobs))
     print()
     print("Jobs: " + ", ".join(os.path.basename(j) for j in jobs))
 
