@@ -106,4 +106,6 @@ func (s *timeoutSource) Call(ctx context.Context, name string, args map[string]a
 	return res, err
 }
 
-func callTimeout(sc ServerConfig) time.Duration { return time.Duration(sc.CallTimeoutSec) * time.Second }
+func callTimeout(sc ServerConfig) time.Duration {
+	return time.Duration(sc.CallTimeoutSec) * time.Second
+}
