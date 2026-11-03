@@ -3,6 +3,7 @@ package surfaces
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -440,5 +441,76 @@ func TestWorkspaceInstructionsReachThePrompt(t *testing.T) {
 		if got == off {
 			t.Errorf("NoInstructions=%v: AGENTS.md in the system prompt = %v", off, got)
 		}
+	}
+}
+
+// TestUndoRestoresEveryFileAPatchTouched is the checkpoint wiring for
+// apply_patch: one patch adds, changes, moves and deletes, and one /undo puts
+// every file back the way it was.
+func TestUndoRestoresEveryFileAPatchTouched(t *testing.T) {
+	ws := t.TempDir()
+	for name, body := range map[string]string{"keep.go": "one\n", "move.go": "two\n", "gone.go": "three\n"} {
+		if err := os.WriteFile(filepath.Join(ws, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	exts, err := WorkspaceExtensions(WorkspaceConfig{Roots: []string{ws}, CheckpointStore: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	patch := "*** Begin Patch\n*** Update File: keep.go\n-one\n+ONE\n*** Update File: move.go\n*** Move to: sub/moved.go\n-two\n+TWO\n*** Delete File: gone.go\n*** Add File: added.go\n+four\n*** End Patch"
+	args, _ := json.Marshal(map[string]string{"input": patch})
+	cfg := &host.Config{Model: host.ModelConfig{BaseURL: "http://127.0.0.1:1", Model: "test"}, Instructions: "test", Approval: &host.ApprovalConfig{Mode: "allow"}}
+	app, err := host.NewApp(cfg, io.Discard, strings.NewReader(""),
+		host.WithProvider(agent.NewStubProvider(
+			agent.StubTurn{ToolCalls: []agent.ToolCall{{ID: "c1", Name: "apply_patch", Args: core.NewRawJSON(args)}}},
+			agent.StubTurn{Text: "done"},
+		)),
+		host.WithExtension(exts...),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	if err := app.RunTurn(context.Background(), "go"); err != nil {
+		t.Fatal(err)
+	}
+	read := func(name string) string {
+		b, err := os.ReadFile(filepath.Join(ws, name))
+		if err != nil {
+			return "<missing>"
+		}
+		return string(b)
+	}
+	if read("keep.go") != "ONE\n" || read("sub/moved.go") != "TWO\n" || read("added.go") != "four\n" || read("gone.go") != "<missing>" {
+		t.Fatalf("the patch didn't land: keep=%q moved=%q added=%q gone=%q", read("keep.go"), read("sub/moved.go"), read("added.go"), read("gone.go"))
+	}
+	if _, err := app.Dispatch(context.Background(), "/undo"); err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]string{"keep.go": "one\n", "move.go": "two\n", "gone.go": "three\n", "sub/moved.go": "<missing>", "added.go": "<missing>"} {
+		if got := read(name); got != want {
+			t.Errorf("after /undo %s = %q, want %q", name, got, want)
+		}
+	}
+}
+
+func TestWorkspaceFileEditTools(t *testing.T) {
+	var cfg WorkspaceConfig
+	if err := cfg.LoadFile(writeWorkspaceFile(t, `{"editTools": ["apply_patch"]}`)); err != nil {
+		t.Fatal(err)
+	}
+	exts, err := WorkspaceExtensions(WorkspaceConfig{Roots: []string{t.TempDir()}, EditTools: cfg.EditTools, NoCheckpoint: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	src, _ := exts[0].Tools()
+	defs, _ := src.Tools(context.Background())
+	got := map[string]bool{}
+	for _, d := range defs {
+		got[d.Name] = true
+	}
+	if got["edit_file"] || !got["apply_patch"] {
+		t.Errorf("tools = %v, want apply_patch without edit_file", got)
 	}
 }

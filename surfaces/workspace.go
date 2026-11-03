@@ -44,6 +44,10 @@ type WorkspaceConfig struct {
 	// exclude nothing.
 	Exclude []string
 
+	// EditTools picks the editing tools offered: "edit_file", "apply_patch",
+	// or both (nil). See files.Config.EditTools.
+	EditTools []string
+
 	// CheckpointStore is where snapshots live. Empty puts them under the
 	// primary root.
 	//
@@ -170,7 +174,7 @@ func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 	// Registering the tools alone leaves that contract discoverable only by
 	// failing an edit. Built first because checkpoint and lsp resolve paths
 	// through it; registration order below is unchanged.
-	fx, err := files.New(files.Config{Roots: cfg.Roots, Exclude: cfg.Exclude})
+	fx, err := files.New(files.Config{Roots: cfg.Roots, Exclude: cfg.Exclude, EditTools: cfg.EditTools})
 	if err != nil {
 		return nil, fmt.Errorf("workspace files: %w", err)
 	}
@@ -222,6 +226,7 @@ func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 			Writes: []lsp.WriteSpec{
 				{Tool: "write_file", Paths: fx.WritePaths},
 				{Tool: "edit_file", Paths: fx.WritePaths},
+				{Tool: files.PatchTool, Paths: fx.WritePaths},
 			},
 		})
 		if lspErr != nil {
@@ -257,7 +262,9 @@ func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 // be marked reversible without also being snapshotted.
 // delete_file is on it too, since the snapshot is the only copy /undo can
 // restore it from (issue 108).
-var fileWrites = []string{"write_file", "edit_file", "delete_file"}
+// apply_patch is on it because a patch can add, change, move and delete
+// files, and the snapshot covers every one of them.
+var fileWrites = []string{"write_file", "edit_file", "delete_file", files.PatchTool}
 
 // restorable wraps the files extension when a checkpoint covers its writes,
 // and declares those writes reversible (destructiveHint false) so

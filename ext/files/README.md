@@ -119,6 +119,42 @@ against the original content rather than against the result of earlier edits.
 So listing order cannot change the outcome, and an edit cannot match text an
 earlier edit introduced.
 
+## Multi-file patches (`apply_patch`)
+
+Some models are trained to write changes as a patch envelope and do measurably
+worse when made to use anchored replacements. `apply_patch` takes that format as
+one `input` string:
+
+```
+*** Begin Patch
+*** Update File: stats/stats.go
+@@ func Sum(xs []int) int {
+-	for i := 1; i < len(xs); i++ {
++	for i := 0; i < len(xs); i++ {
+*** Add File: stats/doc.go
++// Package stats has small helpers.
++package stats
+*** Delete File: stats/old.go
+*** End Patch
+```
+
+An update can rename with `*** Move to: new/path`, and `*** End of File` anchors
+a hunk to the end. Hunks are found by their context lines: an exact match
+first, then ignoring trailing whitespace, then ignoring whitespace at both ends.
+An `@@ text` header finds that line first and searches after it.
+
+The whole patch applies or none of it does. Every file's new content is worked
+out before anything is written, so a hunk that doesn't match, a path outside the
+roots, or a file in the wrong state (adding one that exists, updating one that
+doesn't) refuses the call with nothing changed. A write that fails part-way puts
+back the files already written. There is no `expect_hash`: the context lines are
+the anchor, and a stale file shows up as a hunk that doesn't match.
+
+`Config.EditTools` picks `edit_file`, `apply_patch`, or both (the default), and
+the prompt section only describes the tools offered. Checkpoint snapshots every
+file a patch touches, both ends of a move included, so one `/undo` reverts the
+whole patch.
+
 ## Creating and replacing whole files
 
 `edit_file` needs existing content to anchor against, so creating a file and

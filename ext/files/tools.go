@@ -42,6 +42,13 @@ type Config struct {
 	// This is not .gitignore and deliberately does not read one. See
 	// DefaultExclude for why the two questions are different.
 	Exclude []string
+
+	// EditTools picks which editing tools are offered: "edit_file" (anchored
+	// replacements checked against the hash read_file returned), "apply_patch"
+	// (a multi-file patch in the *** Begin Patch envelope), or both. Nil means
+	// both. Models trained on one format do measurably worse when made to use
+	// the other, so a profile offers the one its model writes.
+	EditTools []string
 }
 
 // Source serves the workspace tools over agent.ToolSource: read_file,
@@ -97,7 +104,14 @@ func NewSource(cfg Config) (*Source, error) {
 	if exclude == nil {
 		exclude = DefaultExclude
 	}
-	return &Source{roots: roots, exclude: exclude, defs: toolDefs()}, nil
+	defs, err := editToolDefs(cfg.EditTools)
+	if err != nil {
+		for _, r := range roots {
+			r.h.Close()
+		}
+		return nil, err
+	}
+	return &Source{roots: roots, exclude: exclude, defs: defs}, nil
 }
 
 // Close releases every root directory handle. A long-lived host need not call
@@ -118,6 +132,33 @@ func (s *Source) Close() error {
 // does not wire, so only the wiring can say so. A fresh map per tool, since a
 // caller may write into a ToolDef's annotations.
 func readOnly() map[string]any { return map[string]any{"readOnlyHint": true} }
+
+// editToolDefs is the tool list with the editing tools the config asks for.
+func editToolDefs(want []string) ([]core.ToolDef, error) {
+	offer := map[string]bool{"edit_file": true, PatchTool: true}
+	if want != nil {
+		offer = map[string]bool{}
+		for _, t := range want {
+			if t != "edit_file" && t != PatchTool {
+				return nil, fmt.Errorf("files: EditTools %q, want edit_file or %s", t, PatchTool)
+			}
+			offer[t] = true
+		}
+		if len(offer) == 0 {
+			return nil, fmt.Errorf("files: EditTools is empty; leave it nil for both")
+		}
+	}
+	var out []core.ToolDef
+	for _, d := range toolDefs() {
+		if d.Name != "edit_file" || offer["edit_file"] {
+			out = append(out, d)
+		}
+		if d.Name == "edit_file" && offer[PatchTool] {
+			out = append(out, patchDef())
+		}
+	}
+	return out, nil
+}
 
 func toolDefs() []core.ToolDef {
 	return []core.ToolDef{
@@ -304,6 +345,8 @@ func (s *Source) Call(ctx context.Context, name string, args map[string]any) (*c
 		return s.read(args), nil
 	case "edit_file":
 		return s.edit(args), nil
+	case PatchTool:
+		return s.applyPatch(args), nil
 	case "write_file":
 		return s.write(args), nil
 	case "delete_file":
