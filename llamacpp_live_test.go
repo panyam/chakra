@@ -126,3 +126,85 @@ func TestLlamaCppServerHonorsSeedAndGuided(t *testing.T) {
 		check("Stream", drain(t, s).Usage)
 	})
 }
+
+// TestLlamaCppRunnerGuidedAnswerWithTools runs a Runner turn that offers a
+// tool and holds its answer to a GBNF grammar against a real llama-server,
+// the shape jaala's translator needs: tools while the model works, the
+// grammar on the answer. The control runs the same turns without the grammar
+// and shows the model leaving it, so the grammar is what keeps the answer in.
+func TestLlamaCppRunnerGuidedAnswerWithTools(t *testing.T) {
+	url := os.Getenv("CHAKRA_LLAMACPP_URL")
+	if url == "" {
+		t.Skip("CHAKRA_LLAMACPP_URL is not set")
+	}
+	p, err := NewLlamaCppProvider(LlamaCppConfig{BaseURL: url})
+	if err != nil {
+		t.Fatal(err)
+	}
+	inGrammar := regexp.MustCompile(`^ans\([a-z]{1,8}\)$`)
+	run := func(seed int, g *GuidedDecoding) (*TurnResult, []ProviderRequest) {
+		var reqs []ProviderRequest
+		rec := recordingProvider{Provider: p, seen: &reqs}
+		r, err := NewRunner(RunnerConfig{
+			Provider:       rec,
+			Tools:          lookSource(t),
+			Instructions:   "Answer with ans(word).",
+			ResponseGuided: g,
+			Generation:     GenerationParams{Temperature: floatPtr(1.0), MaxTokens: 24, Seed: intPtr(seed)},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		res, err := r.RunTurn(context.Background(), TurnRequest{History: []Message{{Role: RoleUser, Text: "Name a colour."}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res, reqs
+	}
+	outside := 0
+	for seed := range 5 {
+		res, reqs := run(seed, &GuidedDecoding{Grammar: `root ::= "ans(" [a-z]{1,8} ")"`})
+		if !inGrammar.MatchString(res.Text) {
+			t.Fatalf("seed %d: guided answer %q is outside the grammar", seed, res.Text)
+		}
+		if last := reqs[len(reqs)-1]; last.Guided == nil || len(last.Tools) != 0 || len(reqs[0].Tools) == 0 {
+			t.Fatalf("seed %d: want tool steps then one guided call without tools, got %d calls", seed, len(reqs))
+		}
+		if free, _ := run(seed, nil); !inGrammar.MatchString(free.Text) {
+			outside++
+		}
+	}
+	if outside == 0 {
+		t.Fatal("control: every unguided answer fit the grammar anyway, so the test shows nothing")
+	}
+	t.Logf("unguided answers outside the grammar: %d of 5", outside)
+
+	r, err := NewRunner(RunnerConfig{Provider: p, Tools: lookSource(t), ResponseGuided: &GuidedDecoding{Grammar: `root ::= "unclosed`}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = r.RunTurn(context.Background(), TurnRequest{History: []Message{{Role: RoleUser, Text: "Name a colour."}}})
+	var perr *ProviderError
+	if !errors.As(err, &perr) {
+		t.Fatalf("control: a broken grammar should fail the turn with the server's error, got %v", err)
+	}
+}
+
+// recordingProvider passes calls through to Provider and keeps each request,
+// reporting the wrapped provider's capabilities.
+type recordingProvider struct {
+	Provider
+	seen *[]ProviderRequest
+}
+
+func (r recordingProvider) Stream(ctx context.Context, req ProviderRequest) (Stream, error) {
+	*r.seen = append(*r.seen, req)
+	return r.Provider.Stream(ctx, req)
+}
+
+func (r recordingProvider) Generate(ctx context.Context, req ProviderRequest) (*ProviderResponse, error) {
+	*r.seen = append(*r.seen, req)
+	return r.Provider.Generate(ctx, req)
+}
+
+func (r recordingProvider) ProviderCapabilities() Capabilities { return CapabilitiesOf(r.Provider) }

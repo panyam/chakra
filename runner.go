@@ -192,16 +192,35 @@ type RunnerConfig struct {
 	// structured output. After the tool loop reaches its terminal
 	// no-tool-call text, the Runner makes one additional Generate call with
 	// this schema (and no tools) and puts the JSON document on
-	// TurnResult.Structured. Tools and a response schema are never sent in
+	// TurnResult.Structured. It does so before the TurnEnd hooks, which judge
+	// the document, so a refusal re-runs the finalizing call on the next
+	// answer. Tools and a response schema are never sent in
 	// the same request (many endpoints forbid it), which is why this is a
 	// separate finalizing call rather than a field on the loop's requests.
 	// Empty means no structured coercion.
 	ResponseSchema core.RawJSON
 
+	// ResponseGuided, when set, holds the turn's answer to a decoding
+	// constraint: a grammar, a regex or a JSON schema the server enforces
+	// token by token, so the answer can't come out malformed. A step that
+	// offers no tools carries it on its own request. A step that offers tools
+	// can't, because a grammar covers the whole completion and tool calling
+	// needs its own, so once the model answers without calling a tool the
+	// Runner makes one more call, with no tools and the constraint, from the
+	// same conversation, and that text replaces the free answer as the turn's
+	// answer and in its record. TurnEnd hooks judge the constrained answer.
+	//
+	// The turn fails with ErrUnsupportedParam before any model call when the
+	// provider's Capabilities can't send the kind asked for, and with an error
+	// when ResponseSchema is also set. Nil means no constraint.
+	ResponseGuided *GuidedDecoding
+
 	// TurnEnd runs, in order, each time the model answers without calling a
-	// tool, before the answer is accepted and before ResponseSchema's
-	// finalizing call, so a structured answer is only ever made from an
-	// accepted one (#150). The first hook to refuse wins: its message joins
+	// tool, before the answer is accepted (#150). It judges what the turn
+	// would return: with ResponseSchema set, the finalized JSON document and
+	// whether it validates; with ResponseGuided set, the constrained answer.
+	// The model's free answer is on TurnEndInfo.Draft. A refused answer has
+	// already cost its finalizing call. The first hook to refuse wins: its message joins
 	// the turn as a RoleSystem note, an EventTurnContinued is emitted, and the
 	// loop takes another step. That step counts against MaxSteps and the tree
 	// budget like any other, so a hook that never accepts ends the turn with
@@ -362,6 +381,11 @@ type TurnRequest struct {
 	// the config's schema. A schema that doesn't compile fails the turn
 	// before any model call.
 	ResponseSchema core.RawJSON
+
+	// ResponseGuided overrides RunnerConfig.ResponseGuided for this turn, for
+	// a caller whose grammar differs per request (one built from the
+	// vocabulary a query is about, say). Nil keeps the config's.
+	ResponseGuided *GuidedDecoding
 }
 
 // Run executes one turn against history. Events stream to emit (nil is
@@ -399,6 +423,22 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 			return nil, fmt.Errorf("agent: response schema: %w", err)
 		}
 		compiled = c
+	}
+
+	guided := r.cfg.ResponseGuided
+	if req.ResponseGuided != nil {
+		guided = req.ResponseGuided
+	}
+	if guided != nil {
+		if schema.Len() > 0 {
+			return nil, fmt.Errorf("agent: ResponseGuided and ResponseSchema both set; a turn's answer takes one constraint")
+		}
+		if _, err := guided.kind(); err != nil {
+			return nil, fmt.Errorf("agent: ResponseGuided: %w", err)
+		}
+		if !CapabilitiesOf(r.cfg.Provider).CanGuide(guided) {
+			return nil, fmt.Errorf("%w: ResponseGuided (the provider can't send this kind of constraint)", ErrUnsupportedParam)
+		}
 	}
 
 	var reg *callCancels
@@ -482,6 +522,10 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 			Tools:        tools,
 		}
 		gen.applyTo(&stepReq)
+		stepGuided := guided != nil && len(tools) == 0
+		if stepGuided {
+			stepReq.Guided = guided
+		}
 		stream, err := r.cfg.Provider.Stream(stepCtx, stepReq)
 		if err != nil {
 			stepSpan.RecordError(err)
@@ -507,7 +551,35 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 		added = append(added, assistant)
 
 		if len(resp.ToolCalls) == 0 {
-			note, err := r.turnEnd(stepCtx, TurnEndInfo{Step: step, MaxSteps: r.cfg.MaxSteps, Text: resp.Text, Messages: added, Usage: usage})
+			info := TurnEndInfo{Step: step, MaxSteps: r.cfg.MaxSteps, Text: resp.Text, Usage: usage}
+			if guided != nil && !stepGuided {
+				// msgs ends with the free answer; the guided call answers from
+				// what came before it.
+				text, err := r.finalizeGuided(ctx, turnInstructions, msgs[:len(msgs)-1], &usage, gen, guided)
+				if err != nil {
+					stepSpan.RecordError(err)
+					stepSpan.End()
+					return nil, r.failSpan(emit, turnSpan, fmt.Errorf("agent: guided finalize: %w", err))
+				}
+				info.Draft, info.Text, info.Usage = resp.Text, text, usage
+				resp.Text = text
+				msgs[len(msgs)-1].Text = text
+				added[len(added)-1].Text = text
+			}
+			var structured core.RawJSON
+			var structuredErr string
+			if compiled != nil {
+				s, invalid, err := r.finalizeStructured(ctx, turnInstructions, msgs, &usage, gen, schema, compiled)
+				if err != nil {
+					stepSpan.RecordError(err)
+					stepSpan.End()
+					return nil, r.failSpan(emit, turnSpan, fmt.Errorf("agent: structured finalize: %w", err))
+				}
+				structured, structuredErr = s, invalid
+				info.Draft, info.Text, info.StructuredError, info.Usage = resp.Text, string(s.Raw()), invalid, usage
+			}
+			info.Messages = added
+			note, err := r.turnEnd(stepCtx, info)
 			if err != nil {
 				stepSpan.RecordError(err)
 				stepSpan.End()
@@ -523,15 +595,6 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 				continue
 			}
 			stepSpan.End()
-			var structured core.RawJSON
-			var structuredErr string
-			if compiled != nil {
-				s, invalid, err := r.finalizeStructured(ctx, turnInstructions, msgs, &usage, gen, schema, compiled)
-				if err != nil {
-					return nil, r.failSpan(emit, turnSpan, fmt.Errorf("agent: structured finalize: %w", err))
-				}
-				structured, structuredErr = s, invalid
-			}
 			result := &TurnResult{
 				Text:            resp.Text,
 				Messages:        added,
@@ -722,6 +785,28 @@ func (r *Runner) finalizeStructured(ctx context.Context, instructions string, ms
 			Message{Role: RoleUser, Text: "That answer doesn't match the required JSON schema: " + invalid + ". Reply with only a JSON document that matches it."})
 	}
 	return core.NewRawJSON(json.RawMessage(last)), invalid, nil
+}
+
+// finalizeGuided makes the one constrained call that writes a guided answer
+// after a step that offered tools: msgs is the conversation before the
+// model's free answer, no tools are offered, and the turn's ToolChoice is
+// dropped for the same reason finalizeStructured drops it. Its usage folds
+// into usage and the tree budget's tokens, as the step loop's calls do.
+func (r *Runner) finalizeGuided(ctx context.Context, instructions string, msgs []Message, usage *Usage, gen GenerationParams, g *GuidedDecoding) (string, error) {
+	req := ProviderRequest{Instructions: instructions, Messages: slices.Clip(msgs), Guided: g}
+	gen.applyTo(&req)
+	req.ToolChoice = ToolChoice{}
+	resp, err := r.cfg.Provider.Generate(ctx, req)
+	if err != nil {
+		return "", err
+	}
+	if resp.Usage != nil {
+		usage.InputTokens += resp.Usage.InputTokens
+		usage.OutputTokens += resp.Usage.OutputTokens
+		usage.CachedInputTokens += resp.Usage.CachedInputTokens
+		treeBudgetFrom(ctx).addTokens(resp.Usage.InputTokens + resp.Usage.OutputTokens)
+	}
+	return resp.Text, nil
 }
 
 // checkStructured returns why text is not a document valid against compiled,
