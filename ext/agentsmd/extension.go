@@ -235,7 +235,10 @@ func (e *Extension) load() {
 			manual = append(manual, r)
 		}
 	}
-	body, n, skipped := render(append(slices.Clip(e.seenDocs), always...), e.cfg.Profile.MaxBytes, nil)
+	// render reads a negative cap as "nothing fits". The profile documents a
+	// negative MaxBytes as no cap, so it is clamped to 0 here.
+	limit := max(e.cfg.Profile.MaxBytes, 0)
+	body, n, skipped := render(append(slices.Clip(e.seenDocs), always...), limit, nil)
 	e.promptN = n
 	if len(described) > 0 {
 		var b strings.Builder
@@ -258,7 +261,7 @@ func (e *Extension) load() {
 	case len(e.seenDocs) == 0:
 		e.say("No instruction files found.")
 	case len(skipped) > 0:
-		e.say("Instruction files loaded: %s. Over the %d-byte limit, not loaded: %s.", e.rels(e.seenDocs), e.cfg.Profile.MaxBytes, strings.Join(skipped, ", "))
+		e.say("Instruction files loaded: %s. Over the %d-byte limit, not loaded: %s.", e.rels(e.seenDocs), limit, strings.Join(skipped, ", "))
 	default:
 		e.say("Instruction files loaded: %s.", e.rels(e.seenDocs))
 	}

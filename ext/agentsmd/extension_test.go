@@ -207,6 +207,19 @@ func TestByteCapCutsThenSkips(t *testing.T) {
 	absent(t, "prompt", got, "never")
 }
 
+func TestNegativeByteCapMeansNoCap(t *testing.T) {
+	dir := tree(t, map[string]string{
+		".git/":       "",
+		"AGENTS.md":   "outer",
+		"x/AGENTS.md": "inner",
+	})
+	p := preset(t, "chakra")
+	p.MaxBytes = -1
+	got := prompt(newExt(t, p, "", filepath.Join(dir, "x")))
+	inOrder(t, "prompt", got, "outer", "inner")
+	absent(t, "prompt", got, "Not loaded")
+}
+
 func TestRootsEachGetAChainUnlessPrimaryOnly(t *testing.T) {
 	a := tree(t, map[string]string{".git/": "", "AGENTS.md": "repo-a"})
 	b := tree(t, map[string]string{".git/": "", "AGENTS.md": "repo-b"})

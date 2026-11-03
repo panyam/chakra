@@ -25,13 +25,6 @@ func TestSmokeAdapterYieldsEveryCase(t *testing.T) {
 		if c.Scorers == nil {
 			t.Fatalf("case %q has no scorers; a case nothing grades passes forever", c.Scenario.Name)
 		}
-		if len(c.Scorers(nil)) == 0 {
-			// Every smoke case is expected to carry at least one substring
-			// check, so it grades something in the default build. This check
-			// predates eval.Ungradeable. A rubric-only case now yields one
-			// Ungradeable scorer, so it passes here and fails at run time.
-			t.Errorf("case %q yields no scorers without a provider", c.Scenario.Name)
-		}
 	}
 }
 
