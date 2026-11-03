@@ -29,6 +29,9 @@ func New(cfg Config) (*Extension, error) {
 	return &Extension{src: src}, nil
 }
 
+// Close stops every process the session started with exec_command.
+func (e *Extension) Close() error { return e.src.Close() }
+
 // Name identifies the extension, and is the source id its tools register
 // under.
 func (e *Extension) Name() string { return "exec" }
@@ -101,7 +104,7 @@ narrow the command rather than concluding from a tail.`
 // ApprovalClassifiers judge each shell call by the prefix rules. The
 // allowlisted run_* tools keep their per-tool annotations.
 func (e *Extension) ApprovalClassifiers() []host.ApprovalClassifier {
-	return []host.ApprovalClassifier{e.src.classifyShell}
+	return []host.ApprovalClassifier{e.src.classifyShell, e.src.classifyProcs}
 }
 
 // ApprovalRenderers show the command line a user is being asked to approve.
@@ -117,6 +120,9 @@ func (e *Extension) ApprovalRenderers() []host.ApprovalRenderer {
 func (e *Extension) renderApproval(_ context.Context, info agent.ToolCallInfo) (string, bool) {
 	if info.Call.Name == ShellTool {
 		return e.src.renderShellApproval(info)
+	}
+	if q, ok := e.src.renderProcApproval(info); ok {
+		return q, true
 	}
 	c, ok := e.src.cmds[info.Call.Name]
 	if !ok {

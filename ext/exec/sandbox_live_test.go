@@ -233,3 +233,35 @@ func TestLiveShellDenialIsFlaggedAndEscalationEscapesIt(t *testing.T) {
 		t.Fatalf("the escalated run did not write the file: %+v", res.Content)
 	}
 }
+
+// TestLiveProcessesRunUnderTheSandbox is #155 under the real backend: a
+// long-running command and a tty command both start under sandbox-exec, and
+// a write outside the roots from a running process is still denied.
+func TestLiveProcessesRunUnderTheSandbox(t *testing.T) {
+	root := t.TempDir()
+	// No default write paths, so the temp dir the outside file lives in is
+	// outside what the sandbox lets a command write, as in the test above.
+	src, err := NewSource(Config{Roots: []string{root}, WritePaths: []string{}, Shell: &ShellConfig{Processes: &ProcessConfig{DefaultYield: 2 * time.Second}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer src.Close()
+	if src.sandbox.Name() == "unconfined" {
+		t.Fatal("expected the platform sandbox")
+	}
+	outside := filepath.Join(workspace(t), "escaped")
+	out, _ := callProc(t, src, ExecCommandTool, map[string]any{"cmd": "touch inside && touch " + outside + "; echo done"})
+	if !strings.Contains(out, "done") {
+		t.Fatalf("exec_command: %q", out)
+	}
+	if _, err := os.Stat(filepath.Join(root, "inside")); err != nil {
+		t.Errorf("write inside the root failed: %v", err)
+	}
+	if _, err := os.Stat(outside); err == nil {
+		t.Error("a process wrote outside every root")
+	}
+	out, _ = callProc(t, src, ExecCommandTool, map[string]any{"cmd": "test -t 0 && echo is-a-tty", "tty": true})
+	if !strings.Contains(out, "is-a-tty") {
+		t.Errorf("tty under the sandbox: %q", out)
+	}
+}

@@ -146,6 +146,39 @@ type ShellFile struct {
 	Rules        []ShellRuleFile `json:"rules"`
 	Timeout      string          `json:"timeout,omitempty"`
 	AllowNetwork bool            `json:"allowNetwork,omitempty"`
+	// Processes turns on exec_command, write_stdin, list_processes and
+	// kill_process: true for the defaults, or an object with limits.
+	Processes *ProcessesFile `json:"processes,omitempty"`
+}
+
+// ProcessesFile is exec.ProcessConfig: true for the defaults, false or absent
+// for off, or {"max": 4, "maxOutput": 262144, "defaultYield": "5s",
+// "maxYield": "30s"}.
+type ProcessesFile struct {
+	On           bool
+	Max          int    `json:"max,omitempty"`
+	MaxOutput    int    `json:"maxOutput,omitempty"`
+	DefaultYield string `json:"defaultYield,omitempty"`
+	MaxYield     string `json:"maxYield,omitempty"`
+}
+
+// UnmarshalJSON accepts true, false, or an object.
+func (p *ProcessesFile) UnmarshalJSON(b []byte) error {
+	var on bool
+	if err := json.Unmarshal(b, &on); err == nil {
+		*p = ProcessesFile{On: on}
+		return nil
+	}
+	type plain ProcessesFile
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.DisallowUnknownFields()
+	var v plain
+	if err := dec.Decode(&v); err != nil {
+		return fmt.Errorf("exec.shell.processes: %w", err)
+	}
+	*p = ProcessesFile(v)
+	p.On = true
+	return nil
 }
 
 // ShellRuleFile is one exec.PrefixRule. Each prefix position is a word or a
@@ -333,6 +366,16 @@ func (e *ExecFile) config() (*exec.Config, error) {
 				pr.Prefix = append(pr.Prefix, []string(w))
 			}
 			sh.Rules = append(sh.Rules, pr)
+		}
+		if pf := e.Shell.Processes; pf != nil && pf.On {
+			pc := &exec.ProcessConfig{Max: pf.Max, MaxOutput: pf.MaxOutput}
+			if pc.DefaultYield, err = parseDuration("exec.shell.processes.defaultYield", pf.DefaultYield); err != nil {
+				return nil, err
+			}
+			if pc.MaxYield, err = parseDuration("exec.shell.processes.maxYield", pf.MaxYield); err != nil {
+				return nil, err
+			}
+			sh.Processes = pc
 		}
 		cfg.Shell = sh
 	}

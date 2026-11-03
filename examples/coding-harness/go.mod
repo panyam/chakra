@@ -18,6 +18,7 @@ require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.6.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/creack/pty v1.1.24 // indirect
 	github.com/fernet/fernet-go v0.0.0-20240119011108-303da6aec611 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect

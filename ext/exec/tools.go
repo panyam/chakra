@@ -32,6 +32,7 @@ type Source struct {
 	write     []string
 	denyRead  []string
 	shell     *shell
+	procs     *procManager
 }
 
 // command is one resolved allowlist entry.
@@ -136,7 +137,13 @@ func NewSource(cfg Config) (*Source, error) {
 			st = timeout
 		}
 		s.shell = &shell{rules: rules, timeout: st, allowNetwork: cfg.Shell.AllowNetwork}
+		if cfg.Shell.Processes != nil {
+			s.procs = newProcManager(*cfg.Shell.Processes)
+		}
 		s.defs = append(s.defs, s.shellDef())
+		if s.procs != nil {
+			s.defs = append(s.defs, s.procDefs()...)
+		}
 	}
 	return s, nil
 }
@@ -280,6 +287,18 @@ func (s *Source) Tools(context.Context) ([]core.ToolDef, error) {
 func (s *Source) Call(ctx context.Context, name string, args map[string]any) (*core.ToolResult, error) {
 	if name == ShellTool && s.shell != nil {
 		return s.callShell(ctx, args), nil
+	}
+	if s.procs != nil {
+		switch name {
+		case ExecCommandTool:
+			return s.execCommand(args), nil
+		case WriteStdinTool:
+			return s.writeStdin(args), nil
+		case ListProcessesTool:
+			return s.listProcesses(), nil
+		case KillProcessTool:
+			return s.killProcess(args), nil
+		}
 	}
 	c, ok := s.cmds[name]
 	if !ok {

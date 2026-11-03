@@ -3,6 +3,7 @@
   "exec": {
     "sandbox": "platform",
     "shell": {
+      "processes": true,
       "timeout": "3m",
       "rules": [
         { "prefix": ["go", ["test", "vet", "build", "list", "env", "version"]], "decision": "allow",
