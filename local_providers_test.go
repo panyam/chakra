@@ -82,28 +82,60 @@ func TestLlamaCppPresetDefaults(t *testing.T) {
 	}
 }
 
-// Ollama's preset sends a seed and refuses a grammar before any request
-// leaves. control: the same request without Guided goes out.
-func TestOllamaPresetSendsSeedAndRefusesAGrammar(t *testing.T) {
+// Ollama's preset sends a seed and a JSON schema as response_format, on
+// Generate and Stream alike, and refuses a grammar or regex before any
+// request leaves, as it does a schema alongside ResponseSchema, which would
+// claim the same field. control: a plain request carries no response_format.
+func TestOllamaPresetSendsSeedAndSchemaAndRefusesAGrammar(t *testing.T) {
 	ts, body, hits := recordingServer(t)
 	p, err := NewOllamaProvider(OllamaConfig{BaseURL: ts.URL, Model: "qwen2.5-coder:7b"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := ProviderRequest{Messages: []Message{{Role: RoleUser, Text: "q"}}, Seed: intPtr(4), Guided: &GuidedDecoding{Grammar: `root ::= "a"`}}
-	_, gerr := p.Generate(context.Background(), req)
-	_, serr := p.Stream(context.Background(), req)
-	if !errors.Is(gerr, ErrUnsupportedParam) || !errors.Is(serr, ErrUnsupportedParam) || hits.Load() != 0 {
-		t.Fatalf("grammar: %v / %v, %d requests sent", gerr, serr, hits.Load())
+	ctx := context.Background()
+	msgs := []Message{{Role: RoleUser, Text: "q"}}
+	schema := core.NewRawJSON([]byte(`{"type":"object","properties":{"ok":{"type":"boolean"}}}`))
+	for name, req := range map[string]ProviderRequest{
+		"grammar":                   {Messages: msgs, Guided: &GuidedDecoding{Grammar: `root ::= "a"`}},
+		"regex":                     {Messages: msgs, Guided: &GuidedDecoding{Regex: `[a-z]+`}},
+		"schema and ResponseSchema": {Messages: msgs, Guided: &GuidedDecoding{JSONSchema: schema}, ResponseSchema: schema},
+	} {
+		_, gerr := p.Generate(ctx, req)
+		_, serr := p.Stream(ctx, req)
+		if !errors.Is(gerr, ErrUnsupportedParam) || !errors.Is(serr, ErrUnsupportedParam) {
+			t.Errorf("%s: %v / %v, want ErrUnsupportedParam", name, gerr, serr)
+		}
 	}
-	req.Guided = nil
-	if _, err := p.Generate(context.Background(), req); err != nil {
+	if hits.Load() != 0 {
+		t.Fatalf("refused requests reached the server %d times", hits.Load())
+	}
+	wantFormat := `{"json_schema":{"name":"guided","schema":{"properties":{"ok":{"type":"boolean"}},"type":"object"}},"type":"json_schema"}`
+	req := ProviderRequest{Messages: msgs, Seed: intPtr(4), Guided: &GuidedDecoding{JSONSchema: schema}}
+	for _, how := range []string{"Generate", "Stream"} {
+		if how == "Generate" {
+			_, err = p.Generate(ctx, req)
+		} else {
+			var s Stream
+			if s, err = p.Stream(ctx, req); err == nil {
+				s.Close()
+			}
+		}
+		if err != nil {
+			t.Fatalf("%s: %v", how, err)
+		}
+		var sent map[string]json.RawMessage
+		json.Unmarshal(*body, &sent)
+		if got := canonJSON(t, sent["response_format"]); got != wantFormat || string(sent["seed"]) != "4" || sent["grammar"] != nil || sent["cache_prompt"] != nil {
+			t.Errorf("%s sent response_format %s, seed %s", how, got, sent["seed"])
+		}
+	}
+	if _, err := p.Generate(ctx, ProviderRequest{Messages: msgs}); err != nil {
 		t.Fatal(err)
 	}
-	var sent map[string]any
-	json.Unmarshal(*body, &sent)
-	if sent["seed"] != float64(4) || sent["model"] != "qwen2.5-coder:7b" || sent["grammar"] != nil || sent["cache_prompt"] != nil {
-		t.Errorf("sent %v", sent)
+	var plain map[string]any
+	json.Unmarshal(*body, &plain)
+	if plain["response_format"] != nil {
+		t.Errorf("control: a plain request sent %v", plain["response_format"])
 	}
 }
 
@@ -141,7 +173,7 @@ func TestCapabilitiesOfEachProvider(t *testing.T) {
 	}{
 		{"llama.cpp", llama, []string{GuidedGrammar, GuidedJSONSchema}, true},
 		{"vllm", vllm, []string{GuidedGrammar, GuidedRegex, GuidedJSONSchema}, true},
-		{"ollama", ollama, nil, true},
+		{"ollama", ollama, []string{GuidedJSONSchema}, true},
 		{"anthropic", anth, nil, false},
 		{"thinking over llama.cpp", NewThinkingProvider(llama, "<think>", "</think>"), []string{GuidedGrammar, GuidedJSONSchema}, true},
 		{"failover llama.cpp then vllm", fo(llama, vllm), []string{GuidedGrammar, GuidedJSONSchema}, true},
@@ -158,6 +190,10 @@ func TestCapabilitiesOfEachProvider(t *testing.T) {
 
 func TestCanGuide(t *testing.T) {
 	llama, _ := NewLlamaCppProvider(LlamaCppConfig{})
+	ollama, _ := NewOllamaProvider(OllamaConfig{Model: "m"})
+	if CapabilitiesOf(ollama).CanGuide(&GuidedDecoding{Grammar: "g"}) || !CapabilitiesOf(ollama).CanGuide(&GuidedDecoding{JSONSchema: core.NewRawJSON([]byte(`{}`))}) {
+		t.Errorf("ollama: %+v", CapabilitiesOf(ollama))
+	}
 	c := CapabilitiesOf(llama)
 	for _, tc := range []struct {
 		name string

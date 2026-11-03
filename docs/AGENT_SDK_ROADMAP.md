@@ -245,7 +245,8 @@ sufficient.
     0.12+ (`structured_outputs`). `ProviderRequest.Seed` / `GenerationParams.Seed` carry the per-draw
     seed a vote needs. `OpenAIConfig.ExtraBody` carries server extras like llama.cpp's `cache_prompt`.
     Anthropic refuses both with `ErrUnsupportedParam`. SGLang has no dialect yet.
-    `NewLlamaCppProvider` and `NewOllamaProvider` (chakra #180) preset those for local servers, the host gains
+    `NewLlamaCppProvider` and `NewOllamaProvider` (chakra #180) preset those for local servers (Ollama's dialect
+    sends a JSON schema as `response_format`, its only constraint), the host gains
     a `llamacpp` connection type, and `CapabilitiesOf` tells a caller holding any `Provider` which of them it
     can send.
   - **Anthropic prompt caching & extended thinking #953 — dropped (not-planned).** Loop-invisible

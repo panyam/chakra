@@ -61,6 +61,13 @@ const (
 	// as "structured_outputs" with one of "grammar", "regex" or "json". The
 	// older guided_* fields were removed in 0.12 and are not sent.
 	GuidedDialectVLLM GuidedDialect = "vllm"
+
+	// GuidedDialectOllama targets Ollama's OpenAI-compatible API, whose only
+	// constraint is a JSON schema: JSONSchema goes out as response_format
+	// json_schema, which Ollama turns into its native format. A Grammar or
+	// Regex is refused, and so is a request also carrying ResponseSchema,
+	// which would claim the same field.
+	GuidedDialectOllama GuidedDialect = "ollama"
 )
 
 // OpenAIProvider implements Provider over the OpenAI-compatible
@@ -82,7 +89,7 @@ func NewOpenAIProvider(cfg OpenAIConfig) (*OpenAIProvider, error) {
 		hc = http.DefaultClient
 	}
 	switch cfg.GuidedDialect {
-	case "", GuidedDialectLlamaCpp, GuidedDialectVLLM:
+	case "", GuidedDialectLlamaCpp, GuidedDialectVLLM, GuidedDialectOllama:
 	default:
 		return nil, fmt.Errorf("agent: unknown OpenAIConfig.GuidedDialect %q", cfg.GuidedDialect)
 	}
@@ -92,7 +99,8 @@ func NewOpenAIProvider(cfg OpenAIConfig) (*OpenAIProvider, error) {
 
 // ProviderCapabilities reports a seed always, since the provider sends one
 // whenever it's set, and the guided kinds its GuidedDialect encodes: grammar
-// and JSON schema for llama.cpp, all three for vLLM, none without a dialect.
+// and JSON schema for llama.cpp, all three for vLLM, JSON schema for Ollama,
+// none without a dialect.
 func (p *OpenAIProvider) ProviderCapabilities() Capabilities {
 	c := Capabilities{Seed: true}
 	switch p.cfg.GuidedDialect {
@@ -100,6 +108,8 @@ func (p *OpenAIProvider) ProviderCapabilities() Capabilities {
 		c.Guided = []string{GuidedGrammar, GuidedJSONSchema}
 	case GuidedDialectVLLM:
 		c.Guided = []string{GuidedGrammar, GuidedRegex, GuidedJSONSchema}
+	case GuidedDialectOllama:
+		c.Guided = []string{GuidedJSONSchema}
 	}
 	return c
 }
@@ -119,6 +129,10 @@ func (p *OpenAIProvider) check(req ProviderRequest) error {
 		return fmt.Errorf("%w: Guided (OpenAIConfig.GuidedDialect is not set)", ErrUnsupportedParam)
 	case p.cfg.GuidedDialect == GuidedDialectLlamaCpp && kind == GuidedRegex:
 		return fmt.Errorf("%w: Guided.Regex (llama.cpp has no regex constraint)", ErrUnsupportedParam)
+	case p.cfg.GuidedDialect == GuidedDialectOllama && kind != GuidedJSONSchema:
+		return fmt.Errorf("%w: Guided.%s (Ollama takes a JSON schema only)", ErrUnsupportedParam, kind)
+	case p.cfg.GuidedDialect == GuidedDialectOllama && req.ResponseSchema.Len() > 0:
+		return fmt.Errorf("%w: Guided with ResponseSchema (both are Ollama's response_format)", ErrUnsupportedParam)
 	}
 	return nil
 }
@@ -147,6 +161,11 @@ func (p *OpenAIProvider) guidedFields(g *GuidedDecoding) map[string]any {
 			so["json"] = schema
 		}
 		return map[string]any{"structured_outputs": so}
+	case GuidedDialectOllama:
+		return map[string]any{"response_format": map[string]any{
+			"type":        "json_schema",
+			"json_schema": map[string]any{"name": "guided", "schema": schema},
+		}}
 	}
 	return nil
 }

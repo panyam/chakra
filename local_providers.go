@@ -76,9 +76,10 @@ type OllamaConfig struct {
 const DefaultOllamaBaseURL = "http://localhost:11434/v1"
 
 // NewOllamaProvider returns an OpenAIProvider for Ollama's /v1 endpoint
-// (#180). Seeds are sent as given. Ollama's OpenAI-compatible API takes no
-// grammar, so the provider has no guided dialect, and a request carrying
-// Guided is refused with ErrUnsupportedParam before anything is sent.
+// (#180), in the Ollama guided dialect: a GuidedDecoding.JSONSchema holds the
+// reply to that schema (sent as response_format, which Ollama decodes under).
+// Ollama takes no grammar or regex, so a request carrying either is refused
+// with ErrUnsupportedParam before anything is sent. Seeds are sent as given.
 func NewOllamaProvider(cfg OllamaConfig) (*OpenAIProvider, error) {
 	if cfg.Model == "" {
 		return nil, fmt.Errorf("agent: OllamaConfig requires Model")
@@ -87,9 +88,10 @@ func NewOllamaProvider(cfg OllamaConfig) (*OpenAIProvider, error) {
 		cfg.BaseURL = DefaultOllamaBaseURL
 	}
 	return NewOpenAIProvider(OpenAIConfig{
-		BaseURL:    cfg.BaseURL,
-		Model:      cfg.Model,
-		APIKey:     cfg.APIKey,
-		HTTPClient: cfg.HTTPClient,
+		BaseURL:       cfg.BaseURL,
+		Model:         cfg.Model,
+		APIKey:        cfg.APIKey,
+		HTTPClient:    cfg.HTTPClient,
+		GuidedDialect: GuidedDialectOllama,
 	})
 }

@@ -317,7 +317,8 @@ func TestApp_NoConnectionsProvidersEmpty(t *testing.T) {
 }
 
 // A llamacpp connection needs no model and builds a provider that takes a
-// grammar and a seed; an anthropic one reports neither; ollama a seed only.
+// grammar and a seed; an anthropic one reports neither; ollama a JSON schema
+// and a seed.
 // The runtime switch reports whichever is active.
 func TestLocalConnectionsReportWhatTheyCanSend(t *testing.T) {
 	var c ConnectionsConfig
@@ -337,7 +338,7 @@ func TestLocalConnectionsReportWhatTheyCanSend(t *testing.T) {
 	}
 	for name, want := range map[string]agent.Capabilities{
 		"local":  {Guided: []string{agent.GuidedGrammar, agent.GuidedJSONSchema}, Seed: true},
-		"ollama": {Seed: true},
+		"ollama": {Guided: []string{agent.GuidedJSONSchema}, Seed: true},
 		"claude": {},
 	} {
 		p, err := r.Provider(name)
