@@ -14,8 +14,13 @@ type TurnEndInfo struct {
 	// Step is the step that produced the answer, and MaxSteps the turn's
 	// cap. A refusal at Step == MaxSteps ends the turn with ErrMaxSteps.
 	Step, MaxSteps int
-	// Text is the model's final answer.
+	// Text is the model's final answer: with RunnerConfig.ResponseGuided set,
+	// the constrained answer, which is what the turn would return.
 	Text string
+	// Draft is the model's free answer when a constraint rewrote it, that is
+	// when ResponseGuided needed a call of its own after a step that offered
+	// tools. Empty otherwise, including when the step itself was guided.
+	Draft string
 	// Messages is everything the turn has recorded so far, the answer last.
 	// Hooks must not modify it.
 	Messages []Message
