@@ -33,6 +33,7 @@ type shellData struct {
 	Layout   string
 	Dockview bool
 	Spec     pageSpec
+	Profile  string
 }
 
 // pageSpec is the JSON in #page-spec, and tsappkit's IslandPage reads it. It
@@ -74,18 +75,25 @@ func specFor(layout string) pageSpec {
 // status line, and either #dockview-container or #workspace itself.
 var shellTemplate = template.Must(template.New("shell").Parse(shellHTML))
 
-// shellHandler serves the server-rendered shell in the layout pickLayout
-// chooses, dockview or the narrow-screen mobile variant. The topbar's layout
-// <select> switches layouts through the ?layout= query. Non-root
-// paths that fall through the mux get a 404 here.
-func shellHandler(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
+// shellHandler serves the server-rendered shell at "/" in the layout
+// pickLayout chooses, dockview or the narrow-screen mobile variant. The
+// topbar's layout <select> switches layouts through the ?layout= query.
+// Non-root paths that fall through the mux get a 404 here.
+var shellHandler = shellFor("", "/")
+
+// shellFor serves the shell at exactly path. profile marks the page with a
+// session profile (data-profile on body), and the frontend then shows that
+// profile's session, creating one when the browser has none.
+func shellFor(profile, path string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != path {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		layout := pickLayout(r)
+		_ = shellTemplate.Execute(w, shellData{Layout: layout, Dockview: layout == "dockview", Spec: specFor(layout), Profile: profile})
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	layout := pickLayout(r)
-	_ = shellTemplate.Execute(w, shellData{Layout: layout, Dockview: layout == "dockview", Spec: specFor(layout)})
 }
 
 // pickLayout reads ?layout=. With none, it picks mobile for a phone's user
@@ -267,9 +275,9 @@ body[data-layout="mobile"] .topbar label { display: none; }
 .mw-sheet-item:hover { background: var(--line); }
 </style>
 </head>
-<body data-layout="{{.Layout}}">
+<body data-layout="{{.Layout}}"{{if .Profile}} data-profile="{{.Profile}}"{{end}}>
 <div class="topbar">
-  <span class="topbar-brand">agentweb</span>
+  <span class="topbar-brand">agentweb{{if .Profile}} · {{.Profile}}{{end}}</span>
   <span class="topbar-status" data-slot="status">connecting…</span>
   <label>Layout
     <select id="layout-select" class="topbar-select">

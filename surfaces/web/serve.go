@@ -37,5 +37,10 @@ func handlerFor(svc *HostService) http.Handler {
 
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticAssets()))))
 	mux.HandleFunc("/", shellHandler)
+	for _, p := range svc.profiles {
+		if p.Path != "" {
+			mux.HandleFunc(p.Path, shellFor(p.Name, p.Path))
+		}
+	}
 	return mux
 }

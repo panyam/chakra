@@ -123,10 +123,10 @@ export function Sessions(props: { store: SessionsStore }) {
       <Show when={s.settings().sessions.length > 0} fallback={<div class="obs-empty">None yet.</div>}>
         <For each={s.settings().sessions}>
           {(x) => (
-            <div class="ss-row" classList={{ "ss-active": x.id === s.settings().active }}>
+            <div class="ss-row" classList={{ "ss-active": x.id === s.activeId() }}>
               <button type="button" class="ss-row-main" onClick={() => s.switchTo(x.id)}>
                 <span class="ss-name">{x.label}</span>
-                <span class="ss-sub">{x.id === s.settings().active ? "showing · " : ""}{x.provider}</span>
+                <span class="ss-sub">{x.id === s.activeId() ? "showing · " : ""}{x.provider}</span>
               </button>
               <button type="button" class="ss-btn" onClick={() => void s.close(x.id)}>
                 Close

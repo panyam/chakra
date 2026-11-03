@@ -3,19 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
-	"os"
-	osexec "os/exec"
-	"path/filepath"
-	"strings"
 	"sync"
 
 	agent "github.com/panyam/chakra"
-	"github.com/panyam/chakra/ext/agentsmd"
-	"github.com/panyam/chakra/ext/exec"
 	"github.com/panyam/chakra/host"
-	agentsurfaces "github.com/panyam/chakra/surfaces"
-	"github.com/panyam/mcpkit/core"
+	"github.com/panyam/chakra/surfaces/coding"
 )
 
 // profile is the coding agent. It holds everything that makes the agent
@@ -54,114 +46,38 @@ type profile struct {
 	recorder *recorder
 }
 
-// build is the SessionManager factory: one host.App per session.
-func (p profile) build(context.Context) (*host.App, error) {
-	cfg, err := host.LoadConfig(filepath.Join(p.dir, "config.json"))
-	if err != nil {
-		return nil, fmt.Errorf("load config: %w", err)
+// build is the SessionManager factory: one host.App per session, built by
+// surfaces/coding with the harness's recorder and step routing on top.
+func (p profile) build(ctx context.Context) (*host.App, error) {
+	cp := coding.Profile{
+		Dir:             p.dir,
+		Root:            p.root,
+		Provider:        p.provider,
+		Active:          p.active,
+		Model:           p.model,
+		Approval:        p.approval,
+		CheckpointStore: p.checkpoints,
+		Instructions:    p.instructions,
 	}
-	if p.approval != "" {
-		if cfg.Approval == nil {
-			cfg.Approval = &host.ApprovalConfig{}
-		}
-		cfg.Approval.Mode = p.approval
+	if p.unconfined {
+		cp.Sandbox = coding.StandInSandbox{}
 	}
-
-	prov := p.provider
-	if prov == nil {
-		prov, err = p.connectionProvider(cfg)
-		if err != nil {
-			return nil, err
-		}
+	if p.recorder != nil {
+		cp.WrapProvider = func(prov agent.Provider) agent.Provider { return &recordingProvider{Provider: prov, rec: p.recorder} }
 	}
-	var route []host.Extension
 	if p.routeTo != "" {
 		if p.provider != nil {
 			return nil, fmt.Errorf("step routing needs a live model, not the scripted one")
 		}
-		ext, err := p.routeExtension(cfg)
-		if err != nil {
-			return nil, err
+		cp.Extensions = func(cfg *host.Config) ([]host.Extension, error) {
+			ext, err := p.routeExtension(cfg)
+			if err != nil {
+				return nil, err
+			}
+			return []host.Extension{ext}, nil
 		}
-		route = append(route, ext)
 	}
-	// The provider is given directly, so the connection list would only
-	// offer switches the recorder cannot see.
-	cfg.Connections = nil
-	if p.recorder != nil {
-		prov = &recordingProvider{Provider: prov, rec: p.recorder}
-	}
-
-	ws := agentsurfaces.WorkspaceConfig{Roots: []string{p.root}, CheckpointStore: p.checkpoints}
-	if err := ws.LoadFile(filepath.Join(p.dir, "workspace.json")); err != nil {
-		return nil, err
-	}
-	if p.instructions != "" {
-		pr, err := agentsmd.Preset(p.instructions)
-		if err != nil {
-			return nil, err
-		}
-		ws.Instructions, ws.NoInstructions = &pr, false
-	}
-	if p.unconfined && ws.Exec != nil {
-		ws.Exec.Sandbox = standInSandbox{}
-	}
-	exts, err := agentsurfaces.WorkspaceExtensions(ws)
-	if err != nil {
-		return nil, err
-	}
-	skillDirs, err := agentsurfaces.WorkspaceSkillDirs(ws)
-	if err != nil {
-		return nil, err
-	}
-	return host.NewApp(cfg, io.Discard, strings.NewReader(""),
-		host.WithExtension(append(exts, route...)...),
-		host.WithSkillDirs(skillDirs...),
-		host.WithRoots(ws.Roots...),
-		host.WithProvider(prov),
-		host.WithElicitationUI(awaitSurface),
-	)
-}
-
-// connectionProvider builds the active connection from the config, with the
-// model override applied, and labels the App with it.
-func (p profile) connectionProvider(cfg *host.Config) (agent.Provider, error) {
-	prov, model, err := buildConnection(cfg, p.activeName(cfg), p.model)
-	if err != nil {
-		return nil, err
-	}
-	cfg.Model = host.ModelConfig{BaseURL: p.activeName(cfg), Model: model}
-	return prov, nil
-}
-
-func (p profile) activeName(cfg *host.Config) string {
-	if p.active != "" || cfg.Connections == nil {
-		return p.active
-	}
-	return cfg.Connections.Active
-}
-
-// buildConnection builds one config connection, with model overriding its
-// model when set, and returns the model it ended up with.
-func buildConnection(cfg *host.Config, name, model string) (agent.Provider, string, error) {
-	if cfg.Connections == nil {
-		return nil, "", fmt.Errorf("config has no connections")
-	}
-	conn, ok := cfg.Connections.Connections[name]
-	if !ok {
-		return nil, "", fmt.Errorf("no connection %q in the config", name)
-	}
-	if model != "" {
-		conn.Model = model
-	}
-	if conn.APIKeyEnv != "" && os.Getenv(conn.APIKeyEnv) == "" {
-		return nil, "", fmt.Errorf("connection %q needs %s set", name, conn.APIKeyEnv)
-	}
-	prov, err := host.DefaultProviderBuilder(conn)
-	if err != nil {
-		return nil, "", fmt.Errorf("connection %q: %w", name, err)
-	}
-	return prov, conn.Model, nil
+	return cp.Build(ctx)
 }
 
 // routeExtension sends steps from routeFrom on to routeTo through
@@ -170,7 +86,7 @@ func buildConnection(cfg *host.Config, name, model string) (agent.Provider, stri
 // Steps are named by model, so the metrics line reads "gpt-5.5" and
 // "gpt-5.4-mini" rather than two connection names that may share a model.
 func (p profile) routeExtension(cfg *host.Config) (host.Extension, error) {
-	routed, routedModel, err := buildConnection(cfg, p.routeTo, p.routeModel)
+	routed, routedModel, err := coding.BuildConnection(cfg, p.routeTo, p.routeModel)
 	if err != nil {
 		return nil, fmt.Errorf("route: %w", err)
 	}
@@ -194,13 +110,6 @@ type stageExtension struct {
 
 func (e stageExtension) Name() string                  { return "coding-harness.route" }
 func (e stageExtension) StepStages() []agent.StepStage { return []agent.StepStage{e.stage} }
-
-// awaitSurface leaves every ask to a surface's RespondToAsk, as agentweb does.
-// The App has no terminal to read an answer from.
-func awaitSurface(ctx context.Context, _ core.ElicitationRequest) (core.ElicitationResult, error) {
-	<-ctx.Done()
-	return core.ElicitationResult{}, ctx.Err()
-}
 
 // recorder keeps the instructions and the latest user text of every model
 // request. Safe for concurrent use.
@@ -258,15 +167,3 @@ func (p *recordingProvider) Generate(ctx context.Context, req agent.ProviderRequ
 	p.rec.add(req)
 	return p.Provider.Generate(ctx, req)
 }
-
-// standInSandbox stands in for a sandbox where the platform has no backend
-// (CI is Linux; exec's backend is darwin-only). It confines nothing.
-// exec.Unconfined() doesn't count as a sandbox, and escalation is turned off
-// under it (#203). standInSandbox does count as one, so the shell tool still
-// offers escalation and an escalated call still goes to the approval ask.
-// So the scripted run exercises the same wiring on every platform.
-type standInSandbox struct{}
-
-func (standInSandbox) Name() string                           { return "stand-in" }
-func (standInSandbox) Available() error                       { return nil }
-func (standInSandbox) Confine(*osexec.Cmd, exec.Policy) error { return nil }

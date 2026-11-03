@@ -1,8 +1,9 @@
 # coding-harness
 
-Mission #162's coding agent and its exercise. Here the agent is agentweb over `config.json` and
-`workspace.json`. `profile.go` builds the same `host.App` for the exercise. The exercise also needs
-a scripted model and a recorder, and agentweb can't take either from outside. The agent differs
+Mission #162's coding agent and its exercise. The agent is `surfaces/coding`'s `Profile` over this
+directory's `config.json` and `workspace.json`, and agentweb serves it at `/code/` with
+`--coding` (#178). `profile.go` adds what only the exercise needs on top: a scripted model, a
+recorder and step routing. The agent differs
 from `agentchat --workspace` only by choice of config, extension, tool or provider, and these files
 make each choice. If a mission ticket would have to change how a turn runs, that's a gap in a hook
 point, and it gets its own ticket.
@@ -13,7 +14,7 @@ point, and it gets its own ticket.
 |---|---|---|
 | `make coding-harness-exercise` | Scripted model, PASS/FAIL per behaviour, compared against `expected.go`. CI runs this one. | nothing |
 | `make coding-harness-exercise-live` | Same flow with a real model, plus `steps tool_calls in_tok out_tok wall tests` | `CH_ACTIVE` (default `openai`), its key |
-| `make coding-harness-web` | Plain agentweb at http://localhost:8091 over this directory's config and workspace files, on a fresh copy of the fixture | same as live; `CH_WORKSPACE=dir` for another repo, `CH_ADDR` |
+| `make coding-harness-web` | agentweb at http://localhost:8091, with chat at `/` and the coding agent at `/code/`. Each coding session gets a fresh copy of the fixture | same as live; `CH_WORKSPACE=dir` for one repo every session shares, `CH_ADDR` |
 | `make coding-harness-parity` | `codex exec` and the live harness on the same fixture, prompt and model, side by side | `codex` on PATH, `OPENAI_API_KEY`; `PARITY_MODEL` (default `gpt-5.5`), `PARITY_ACTIVE` (default `openai-responses`), `PARITY_INSTRUCTIONS` |
 
 `CH_INSTRUCTIONS` (`--instructions` on both binaries) picks how `AGENTS.md` and the like load. The

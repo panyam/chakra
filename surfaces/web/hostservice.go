@@ -40,6 +40,32 @@ type HostService struct {
 	build SessionBuilder
 	// private hides sessions from anyone without the id. See WithPrivateSessions.
 	private bool
+	// profiles are the other kinds of session this server builds. See
+	// WithProfile.
+	profiles []Profile
+}
+
+// Profile is a kind of session a server builds besides its default, such as
+// agentweb's coding agent (#178). Sessions of every profile live in the same
+// SessionManager, so the Sessions panel and ListWebSessions show them all.
+type Profile struct {
+	// Name is what CreateSessionRequest.profile asks for, such as "coding".
+	// "" and "chat" mean the default and can't be used.
+	Name string
+
+	// Path is where the page for this profile is served, such as "/code/".
+	// The page is the same shell, marked with the profile, and it creates a
+	// session of this profile when the browser has none. Empty serves no page.
+	Path string
+
+	// Build makes one session's App. Its error goes back to the caller as
+	// FailedPrecondition, so it should say what the server is missing.
+	Build func(ctx context.Context) (*host.App, error)
+}
+
+// WithProfile adds a kind of session CreateSession can build by name.
+func WithProfile(p Profile) Option {
+	return func(s *HostService) { s.profiles = append(s.profiles, p) }
 }
 
 // SessionBuilder makes a session's App from the provider in a CreateSession
@@ -269,6 +295,9 @@ func (s *HostService) GetStatus(ctx context.Context, req *connect.Request[webv1.
 // has no factory and returns CodeFailedPrecondition. A factory error is
 // CodeInternal.
 func (s *HostService) CreateSession(ctx context.Context, req *connect.Request[webv1.CreateSessionRequest]) (*connect.Response[webv1.CreateSessionResponse], error) {
+	if name := req.Msg.GetProfile(); name != "" && name != "chat" {
+		return s.createProfileSession(ctx, name)
+	}
 	if s.build != nil {
 		app, err := s.build(ctx, req.Msg.GetProvider())
 		if err != nil {
@@ -288,6 +317,38 @@ func (s *HostService) CreateSession(ctx context.Context, req *connect.Request[we
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&webv1.CreateSessionResponse{SessionId: id}), nil
+}
+
+// createProfileSession builds a session of the named profile and adds it to
+// the roster. An unknown name is InvalidArgument, and it lists the names this
+// server has.
+func (s *HostService) createProfileSession(ctx context.Context, name string) (*connect.Response[webv1.CreateSessionResponse], error) {
+	var have []string
+	for _, p := range s.profiles {
+		if p.Name != name {
+			have = append(have, p.Name)
+			continue
+		}
+		app, err := p.Build(ctx)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("profile %q: %w", name, err))
+		}
+		id, err := s.sessions.Adopt(ctx, app)
+		if err != nil {
+			app.Close()
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		return connect.NewResponse(&webv1.CreateSessionResponse{SessionId: id}), nil
+	}
+	return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("no session profile %q on this server (have chat%s)", name, joinNames(have)))
+}
+
+func joinNames(names []string) string {
+	s := ""
+	for _, n := range names {
+		s += ", " + n
+	}
+	return s
 }
 
 // ListWebSessions returns the session_ids of every conversation the server

@@ -22,14 +22,20 @@ export interface SessionEntry {
   label: string;
   provider: string;
   created: number;
+  // profile and path are set for a session of another kind than chat, such
+  // as the coding agent: its profile name and the page that shows it (#178).
+  profile?: string;
+  path?: string;
 }
 
 export interface Settings {
   token: string;
   providers: ProviderEntry[];
   sessions: SessionEntry[];
-  // active is the session the page is showing, or "" for none.
+  // active is the session the chat page is showing, or "" for none.
   active: string;
+  // activeProfiles is the session each profile's page shows, by profile.
+  activeProfiles: Record<string, string>;
 }
 
 // SettingsStorage is the Web Storage subset this needs, so tests pass a fake.
@@ -46,7 +52,7 @@ export const SETTINGS_KEY = "agentweb-settings-v1";
 export const PROVIDER_TYPES = ["demo", "anthropic", "openai", "gemini", "openrouter", "litellm", "ollama", "lmstudio"] as const;
 
 export function emptySettings(): Settings {
-  return { token: "", providers: [], sessions: [], active: "" };
+  return { token: "", providers: [], sessions: [], active: "", activeProfiles: {} };
 }
 
 // loadSettings reads the saved settings, or empty ones when there are none, they
@@ -61,10 +67,19 @@ export function loadSettings(storage: SettingsStorage | null): Settings {
       providers: Array.isArray(p.providers) ? p.providers : [],
       sessions: Array.isArray(p.sessions) ? p.sessions : [],
       active: typeof p.active === "string" ? p.active : "",
+      activeProfiles: stringMap(p.activeProfiles),
     };
   } catch {
     return emptySettings();
   }
+}
+
+function stringMap(v: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (v && typeof v === "object" && !Array.isArray(v)) {
+    for (const [k, x] of Object.entries(v)) if (typeof x === "string") out[k] = x;
+  }
+  return out;
 }
 
 // saveSettings writes s back. A storage failure is swallowed: the page keeps

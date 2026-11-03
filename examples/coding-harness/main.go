@@ -31,6 +31,7 @@ import (
 
 	agent "github.com/panyam/chakra"
 	"github.com/panyam/chakra/host"
+	"github.com/panyam/chakra/surfaces/coding"
 )
 
 type options struct {
@@ -103,10 +104,7 @@ func exercise(ctx context.Context, o options) (*exerciseRun, error) {
 		return nil, err
 	}
 	root := filepath.Join(tmp, "repo")
-	if err := copyTree(fixture, root); err != nil {
-		return nil, err
-	}
-	if err := commitFixture(root); err != nil {
+	if err := coding.CopyFixture(fixture, root); err != nil {
 		return nil, err
 	}
 

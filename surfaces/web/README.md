@@ -107,6 +107,28 @@ phone opens:
 go run ./cmd/agentweb --addr :8090 --allow-origin 192.168.1.5 --config ...
 ```
 
+### The coding agent at /code/
+
+`--coding <dir>` also serves chakra's coding agent (`surfaces/coding`, #178), built from `dir`'s
+`config.json` and `workspace.json`:
+
+```
+go run ./cmd/agentweb --config chat.json \
+  --coding ../../examples/coding-harness --coding-fixture ../../examples/coding-harness/testdata/fixture
+```
+
+`/code/` is the same page, marked with the `coding` profile. When the browser has no coding session,
+the page calls `CreateSession` with `profile: "coding"`, and the server builds one. Chat and coding
+sessions share one `SessionManager`, so the Sessions panel lists both. Choosing a session of the
+other kind opens its page. The origin check and the access token cover `/code/` too.
+
+Each coding session works in `--coding-workspace` or in a fresh git copy of `--coding-fixture`.
+Its file snapshots go to a temp folder outside the workspace. `--coding-active`, `--coding-model`
+and `--coding-instructions` pick its connection, model and instruction preset. `--coding` can't be
+used with `--byok`, because the coding config holds the server's own keys. It's meant for local use.
+Commands run with the full environment, and Linux has no exec sandbox yet (#32), so `/code/` is no
+place for a hosted deployment.
+
 Ctrl-C cancels every open `Watch` and running turn, waits up to 3s for handlers
 to return, then closes what is left. There is no write timeout, because `Watch`
 lasts as long as a tab is open and `Submit` as long as a turn.

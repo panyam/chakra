@@ -162,6 +162,10 @@ message CreateSessionRequest {
   // holds. A server started with a session builder (agentweb --byok) requires
   // it; one that builds every session from its own config ignores it.
   ProviderSpec provider = 1;
+  // profile picks which kind of session to build: "" or "chat" is the
+  // server's default, and "coding" is the coding agent when the server has
+  // one (agentweb --coding). An unknown profile is InvalidArgument.
+  string profile = 2;
 }
 message CreateSessionResponse {
   // session_id of the freshly created conversation (App).
