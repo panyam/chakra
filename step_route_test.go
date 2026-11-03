@@ -2,9 +2,12 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/panyam/mcpkit/core"
 )
 
 // routeFrom sends every step from `from` on to p under name.
@@ -145,6 +148,56 @@ func TestUsageByModelOnlyWhenNamed(t *testing.T) {
 	}
 	if res.Usage.InputTokens != 150 || res.Usage.OutputTokens != 15 {
 		t.Errorf("Usage = %+v, want the total across both", res.Usage)
+	}
+}
+
+// The finalizing call runs on RunnerConfig.Provider, so on a routed turn it
+// counts under the name a stage gave that provider (#225), not under "".
+func TestFinalizeCountsUnderTheConfiguredProvidersName(t *testing.T) {
+	nameStep1 := StepStage{Name: "test.label", Scope: ScopeRequest, Run: func(_ context.Context, info StepInfo, v StepView) (StepView, error) {
+		if info.Step == 1 {
+			v.ProviderName = "big"
+		}
+		return v, nil
+	}}
+	cases := []struct {
+		name string
+		cfg  func(big, small *StubProvider) RunnerConfig
+	}{
+		{"structured", func(big, small *StubProvider) RunnerConfig {
+			return RunnerConfig{Provider: big, ResponseSchema: core.NewRawJSON(json.RawMessage(`{"type":"object"}`))}
+		}},
+		{"guided", func(big, small *StubProvider) RunnerConfig {
+			return RunnerConfig{Provider: grammarStub{big}, ResponseGuided: answerGrammar}
+		}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			final := `{"ok":true}`
+			if c.name == "guided" {
+				final = "ans(x)"
+			}
+			big := NewStubProvider(withUsage(dumpCalls(1)[0], 100, 10), withUsage(StubTurn{Text: final}, 7, 3))
+			small := NewStubProvider(withUsage(StubTurn{Text: "done"}, 50, 5))
+			cfg := c.cfg(big, small)
+			cfg.Tools = bigTool(1)
+			cfg.StepStages = []StepStage{nameStep1, routeFrom(2, "small", small)}
+			r, err := NewRunner(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			res, err := r.Run(context.Background(), []Message{{Role: RoleUser, Text: "go"}}, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if n := len(big.Requests()); n != 2 {
+				t.Fatalf("configured provider got %d calls, want step 1 and the finalize", n)
+			}
+			want := map[string]Usage{"big": {InputTokens: 107, OutputTokens: 13}, "small": {InputTokens: 50, OutputTokens: 5}}
+			if len(res.UsageByModel) != 2 || res.UsageByModel["big"] != want["big"] || res.UsageByModel["small"] != want["small"] {
+				t.Errorf("UsageByModel = %v, want %v", res.UsageByModel, want)
+			}
+		})
 	}
 }
 

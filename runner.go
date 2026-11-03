@@ -304,8 +304,10 @@ type TurnResult struct {
 	// StepStage named or routed the turn's steps (#185). It is nil when no
 	// stage named any step, so a single-provider turn reads exactly as
 	// before. Unnamed steps are counted under "". The finalizing call of a
-	// structured or guided turn runs on RunnerConfig.Provider and is counted
-	// under "" too. Like Usage, it leaves out sub-agents.
+	// structured or guided turn runs on RunnerConfig.Provider. A stage may
+	// have named a step it left on that provider, such as a route's default
+	// label (#225). If so, the finalizing call is counted under the last such
+	// name, and otherwise under "". Like Usage, it leaves out sub-agents.
 	UsageByModel map[string]Usage `json:"usageByModel,omitempty"`
 
 	// Steps is how many times the loop called the model, counting from one.
@@ -508,6 +510,10 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 	var added []Message
 	var usage Usage
 	byModel := usageByModel{}
+	// defaultName is the name a stage last gave a step it left on
+	// RunnerConfig.Provider. The finalizing calls run there, so they count
+	// under it.
+	defaultName := ""
 
 	for step := 1; step <= r.cfg.MaxSteps; step++ {
 		// Charge one step to the aggregate tree budget before spending another
@@ -551,6 +557,9 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 			stepReq.Guided = guided
 		}
 		prov := r.cfg.Provider
+		if view.Provider == nil && view.ProviderName != "" {
+			defaultName = view.ProviderName
+		}
 		if view.Provider != nil {
 			prov = view.Provider
 			if stepGuided && !CapabilitiesOf(prov).CanGuide(guided) {
@@ -596,7 +605,7 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 				// what came before it.
 				before := usage
 				text, err := r.finalizeGuided(ctx, turnInstructions, msgs[:len(msgs)-1], &usage, gen, guided)
-				byModel.addDelta(before, usage)
+				byModel.addDelta(defaultName, before, usage)
 				if err != nil {
 					stepSpan.RecordError(err)
 					stepSpan.End()
@@ -612,7 +621,7 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 			if compiled != nil {
 				before := usage
 				s, invalid, err := r.finalizeStructured(ctx, turnInstructions, msgs, &usage, gen, schema, compiled)
-				byModel.addDelta(before, usage)
+				byModel.addDelta(defaultName, before, usage)
 				if err != nil {
 					stepSpan.RecordError(err)
 					stepSpan.End()
@@ -763,9 +772,10 @@ func (m usageByModel) add(name string, u *Usage) {
 }
 
 // addDelta takes the usage a finalizing call added to the turn and credits it
-// to the configured provider, since that provider makes the call.
-func (m usageByModel) addDelta(before, after Usage) {
-	m.add("", &Usage{
+// to name. name is the configured provider's label, since that provider makes
+// the call.
+func (m usageByModel) addDelta(name string, before, after Usage) {
+	m.add(name, &Usage{
 		InputTokens:       after.InputTokens - before.InputTokens,
 		OutputTokens:      after.OutputTokens - before.OutputTokens,
 		CachedInputTokens: after.CachedInputTokens - before.CachedInputTokens,
