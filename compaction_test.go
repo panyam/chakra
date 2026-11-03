@@ -79,8 +79,8 @@ func TestSummarizingCompactor_SummarizesHeadKeepsTail(t *testing.T) {
 
 func TestSummarizingCompactor_DoesNotOrphanToolResult(t *testing.T) {
 	stub := NewStubProvider(StubTurn{Text: "summary"})
-	// KeepRecent=1 would put the cut right before a RoleTool message; the
-	// compactor must pull the cut earlier so the tail starts on a non-tool.
+	// KeepRecent=1 would put the cut right before a RoleTool message. The
+	// compactor must move the cut earlier, so the tail starts on a non-tool.
 	c, _ := NewSummarizingCompactor(SummarizingConfig{Provider: stub, MaxTokens: 1, KeepRecent: 1})
 	history := []Message{
 		{Role: RoleUser, Text: strings.Repeat("x", 40)},
@@ -120,7 +120,8 @@ func TestSummarizingCompactor_Validation(t *testing.T) {
 }
 
 func TestRunnerCompactionHookFires(t *testing.T) {
-	// summarizer stub returns the summary; chat stub answers after compaction.
+	// The summarizer stub returns the summary, and the chat stub answers after
+	// compaction.
 	summarizer := NewStubProvider(StubTurn{Text: "compacted facts"})
 	compactor, _ := NewSummarizingCompactor(SummarizingConfig{Provider: summarizer, MaxTokens: 5, KeepRecent: 1})
 

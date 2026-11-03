@@ -9,7 +9,7 @@ import (
 
 func floatPtr(f float64) *float64 { return &f }
 
-// genRunner builds a Runner whose config carries gen, with a one-turn script.
+// genRunner builds a Runner with gen in its config and a one-turn script.
 func genRunner(t *testing.T, gen GenerationParams) (*Runner, *StubProvider) {
 	t.Helper()
 	p := NewStubProvider(StubTurn{Text: "done"})
@@ -20,10 +20,10 @@ func genRunner(t *testing.T, gen GenerationParams) (*Runner, *StubProvider) {
 	return r, p
 }
 
-// TestGenerationDefaultsReachTheStepLoop is the core of issue 1239: before it,
-// RunnerConfig had no way to express temperature, token cap, or tool choice, so
-// three of the four ProviderRequest generation parameters were unreachable from
-// a turn.
+// TestGenerationDefaultsReachTheStepLoop covers the core of issue 1239. Before
+// that issue, RunnerConfig had no way to express temperature, token cap, or
+// tool choice. A turn could not reach three of the four ProviderRequest
+// generation parameters.
 func TestGenerationDefaultsReachTheStepLoop(t *testing.T) {
 	r, p := genRunner(t, GenerationParams{
 		Temperature: floatPtr(0.7),
@@ -51,9 +51,9 @@ func TestGenerationDefaultsReachTheStepLoop(t *testing.T) {
 	}
 }
 
-// TestGenerationUnsetSendsNothing pins the default path: a Runner with no
-// Generation must build the same request it built before these fields existed,
-// so an existing caller's wire shape is byte-identical.
+// TestGenerationUnsetSendsNothing pins the default path. A Runner with no
+// Generation must build the same request as before these fields existed, so an
+// existing caller's wire shape is byte-identical.
 func TestGenerationUnsetSendsNothing(t *testing.T) {
 	r, p := genRunner(t, GenerationParams{})
 
@@ -73,9 +73,9 @@ func TestGenerationUnsetSendsNothing(t *testing.T) {
 	}
 }
 
-// TestGenerationPerTurnOverride covers the per-turn half: TurnRequest.Generation
-// wins over the config for the fields it sets. Forcing a tool call on one
-// proactive turn is the motivating case.
+// TestGenerationPerTurnOverride covers the per-turn half. When
+// TurnRequest.Generation sets a field, its value wins over the config. The
+// motivating case forces a tool call on one proactive turn.
 func TestGenerationPerTurnOverride(t *testing.T) {
 	r, p := genRunner(t, GenerationParams{Temperature: floatPtr(0.2), MaxTokens: 100})
 
@@ -93,10 +93,10 @@ func TestGenerationPerTurnOverride(t *testing.T) {
 	}
 }
 
-// TestGenerationPerTurnMergeInheritsUnsetFields is the merge contract: a zero
-// field on the turn inherits the config's rather than clearing it. Without this
-// a turn that only wants to force a tool call would silently drop the config's
-// temperature and token cap.
+// TestGenerationPerTurnMergeInheritsUnsetFields checks the merge contract. A
+// zero field on the turn inherits the config's value rather than clearing it.
+// Imagine a turn that only wants to force a tool call. Without this rule it
+// would silently drop the config's temperature and token cap.
 func TestGenerationPerTurnMergeInheritsUnsetFields(t *testing.T) {
 	r, p := genRunner(t, GenerationParams{Temperature: floatPtr(0.2), MaxTokens: 100})
 
@@ -120,9 +120,9 @@ func TestGenerationPerTurnMergeInheritsUnsetFields(t *testing.T) {
 	}
 }
 
-// TestGenerationReachesFinalizingGenerate covers the structured-output path:
-// the finalizing Generate is a second model call and must carry the same
-// params, or a token cap set for the turn would not apply to it.
+// TestGenerationReachesFinalizingGenerate covers the structured-output path.
+// The finalizing Generate is a second model call. It must send the same
+// params, or the turn's token cap would not apply to it.
 func TestGenerationReachesFinalizingGenerate(t *testing.T) {
 	p := NewStubProvider(
 		StubTurn{Text: "done"},
@@ -155,9 +155,9 @@ func TestGenerationReachesFinalizingGenerate(t *testing.T) {
 	}
 }
 
-// TestGenerationToolChoiceDroppedOnFinalize guards a real trap: the finalizing
-// call offers no tools, so forwarding a ToolChoice would ask the provider to
-// force a call it has no tool for. OpenAI rejects that combination.
+// TestGenerationToolChoiceDroppedOnFinalize guards a real trap. The finalizing
+// call offers no tools. Forwarding a ToolChoice would ask the provider to force
+// a call with no tool to call, and OpenAI rejects that combination.
 func TestGenerationToolChoiceDroppedOnFinalize(t *testing.T) {
 	p := NewStubProvider(
 		StubTurn{Text: "done"},

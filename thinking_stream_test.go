@@ -8,7 +8,8 @@ import (
 )
 
 // feedAll runs chunks through a parser and returns the concatenated text and
-// reasoning (robust to how the parser splits deltas across the boundary).
+// reasoning. The result doesn't depend on how the parser splits deltas across
+// the boundary.
 func feedAll(open, close string, chunks ...string) (text, reason string) {
 	p := newThinkParser(open, close)
 	var t, r strings.Builder
@@ -39,7 +40,7 @@ func TestThinkParser_BasicSplit(t *testing.T) {
 }
 
 func TestThinkParser_TagStraddlesChunks(t *testing.T) {
-	// Every tag is split across a chunk boundary — the boundary-safe case.
+	// Every tag is split across a chunk boundary. This is the boundary-safe case.
 	text, reason := feedAll("<think>", "</think>",
 		"answer: <thi", "nk>because rea", "sons</thi", "nk>42")
 	if text != "answer: 42" {
@@ -51,7 +52,7 @@ func TestThinkParser_TagStraddlesChunks(t *testing.T) {
 }
 
 func TestThinkParser_EmptyOpenTag(t *testing.T) {
-	// No open tag: reasoning runs from the head until closeTag, then text.
+	// With no open tag, reasoning runs from the head until closeTag, then text.
 	text, reason := feedAll("", "</think>", "step one, step two</think>the answer is 5")
 	if text != "the answer is 5" {
 		t.Fatalf("text = %q", text)

@@ -17,8 +17,8 @@ func stubRef(t *testing.T, stub string) string {
 	return m[1]
 }
 
-// #109: re-reading an unchanged file stored a second copy under a new ref,
-// and nothing told the model it had already paged through this content.
+// In #109, re-reading an unchanged file stored a second copy under a new ref.
+// Nothing told the model it had already paged through this content.
 func TestOffloadingSameContentSharesARefAndSaysSo(t *testing.T) {
 	big := strings.Repeat("unchanged file line\n", 50)
 	o, _ := newOffloader(t, textResult(big), OffloadConfig{Threshold: 100})

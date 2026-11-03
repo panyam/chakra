@@ -7,24 +7,24 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// stage is one step of an event pipeline, generic over the event type so the
-// machinery stays independent of MCP and the model. Push feeds one event and
+// stage is one step of an event pipeline. It is generic over the event type, so
+// the machinery is independent of MCP and the model. Push feeds one event and
 // returns whatever the stage releases now; Flush releases anything whose
 // window has expired by now. Stateless stages return their result from Push
 // and nil from Flush. Stages are not safe for concurrent use; drive each
 // pipeline from one goroutine (the policies do).
 //
-// This is deliberately unexported. Nothing in the public API accepts a stage:
-// the injection and trigger configs take plain funcs, and the typed adapters
-// below (TypedFilter, TypedTransform, MergeWith, ShallowMergeJSON) are what
-// callers compose. Export it only when a public seam genuinely needs to
+// This is deliberately unexported. Nothing in the public API accepts a stage.
+// The injection and trigger configs take plain funcs, and callers compose the
+// typed adapters below (TypedFilter, TypedTransform, MergeWith,
+// ShallowMergeJSON). Export it only when a public seam genuinely needs to
 // receive one.
 type stage[E any] interface {
 	Push(now time.Time, ev E) []E
 	Flush(now time.Time) []E
 }
 
-// pipeline chains stages: each event Pushed cascades through every stage in
+// pipeline chains stages. Each Pushed event cascades through every stage in
 // order, and Flush cascades expirations the same way.
 type pipeline[E any] struct {
 	stages []stage[E]
@@ -51,7 +51,7 @@ func (p *pipeline[E]) Push(now time.Time, ev E) []E {
 	return events
 }
 
-// Flush cascades window expirations: stage i's flushed events still traverse
+// Flush cascades window expirations. Stage i's flushed events still traverse
 // stages i+1..n before release.
 func (p *pipeline[E]) Flush(now time.Time) []E {
 	var out []E
@@ -100,8 +100,8 @@ func (s transformStage[E]) Flush(time.Time) []E { return nil }
 // WindowStrategy selects how a Window coalesces a burst.
 type WindowStrategy string
 
-// Window strategies, matching the context-hint vocabulary: last-wins keeps
-// only the newest event per key, merge folds the burst through a combiner,
+// The Window strategies match the context-hint vocabulary. last-wins keeps
+// only the newest event per key. merge folds the burst through a combiner.
 // debounce releases only after the key has been quiet for the window.
 const (
 	WindowLastWins WindowStrategy = "last-wins"
@@ -168,9 +168,9 @@ func (s *windowStage[E]) Flush(now time.Time) []E {
 	return out
 }
 
-// TypedFilter adapts a payload-typed predicate onto IncomingEvent: the
-// payload is Bound once; events whose payload does not decode as T do not
-// match. Use for filters that inspect fields with compile-time safety.
+// TypedFilter adapts a payload-typed predicate onto IncomingEvent. The payload
+// is Bound once, and an event whose payload does not decode as T does not
+// match. Use it for filters that inspect fields with compile-time safety.
 func TypedFilter[T any](fn func(T) bool) func(IncomingEvent) bool {
 	return func(ev IncomingEvent) bool {
 		var v T
@@ -181,10 +181,10 @@ func TypedFilter[T any](fn func(T) bool) func(IncomingEvent) bool {
 	}
 }
 
-// TypedTransform adapts a payload-typed rewrite onto IncomingEvent; the
+// TypedTransform adapts a payload-typed rewrite onto IncomingEvent. The
 // returned payload is re-marshaled into Data. Undecodable payloads pass
-// through unchanged (a transform must not silently eat events it cannot
-// read).
+// through unchanged, because a transform must not silently eat an unreadable
+// event.
 func TypedTransform[T any](fn func(T) (T, bool)) func(IncomingEvent) (IncomingEvent, bool) {
 	return func(ev IncomingEvent) (IncomingEvent, bool) {
 		var v T
@@ -205,9 +205,9 @@ func TypedTransform[T any](fn func(T) (T, bool)) func(IncomingEvent) (IncomingEv
 }
 
 // MergeWith adapts a payload-typed combiner into an IncomingEvent merge for
-// Window's merge strategy: both payloads are Bound as T, folded, and the
-// result re-marshaled onto the newer event's envelope. If either payload
-// does not decode, the newer event wins (never fabricate data).
+// Window's merge strategy. Both payloads are Bound as T and folded, and the
+// result is re-marshaled onto the newer event's envelope. If either payload
+// does not decode, the newer event wins, so no data is fabricated.
 func MergeWith[T any](merge func(acc, next T) T) func(acc, next IncomingEvent) IncomingEvent {
 	return func(acc, next IncomingEvent) IncomingEvent {
 		var a, n T
@@ -224,9 +224,9 @@ func MergeWith[T any](merge func(acc, next T) T) func(acc, next IncomingEvent) I
 }
 
 // ShallowMergeJSON is the default combiner for merge windows on
-// IncomingEvent when no typed combiner is supplied: a shallow JSON-object
-// merge where the newer event's fields win. Non-object payloads fall back
-// to last-wins.
+// IncomingEvent when no typed combiner is supplied. It does a shallow
+// JSON-object merge, and the newer event's fields win. Non-object payloads
+// fall back to last-wins.
 func ShallowMergeJSON(acc, next IncomingEvent) IncomingEvent {
 	var a, n map[string]json.RawMessage
 	if acc.Data.Bind(&a) != nil || next.Data.Bind(&n) != nil {

@@ -97,8 +97,8 @@ func TestAnthropicBuildBodyRolesAndTools(t *testing.T) {
 
 func TestAnthropicBuildBodyDefaultMaxTokensNoTools(t *testing.T) {
 	p := newTestAnthropic(t, "http://unused")
-	// No per-request MaxTokens, no tools, no instructions → config default
-	// max_tokens, no tools/tool_choice/system keys.
+	// With no per-request MaxTokens, no tools and no instructions, the body
+	// has the config default max_tokens and no tools/tool_choice/system keys.
 	body := p.buildBody(ProviderRequest{Messages: []Message{{Role: RoleUser, Text: "hi"}}}, false)
 	if body["max_tokens"] != defaultAnthropicMaxTokens {
 		t.Fatalf("max_tokens = %v, want %d", body["max_tokens"], defaultAnthropicMaxTokens)
@@ -394,7 +394,7 @@ func TestAnthropicGenerateStructured(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Structured output surfaces in Text, not as a tool call.
+	// Structured output comes back in Text, not as a tool call.
 	if res.Text != `{"name":"trip"}` {
 		t.Fatalf("structured text = %q", res.Text)
 	}

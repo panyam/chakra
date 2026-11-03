@@ -7,8 +7,8 @@ import (
 )
 
 // cancelHarness wires a runner over a blocking "slow" tool and an
-// immediate "fast" tool, so tests can steer per-call cancellation
-// deterministically: slow only returns when its ctx is cancelled.
+// immediate "fast" tool. slow returns only when its ctx is cancelled. So
+// tests can steer per-call cancellation deterministically.
 func cancelHarness(t *testing.T, turns ...StubTurn) (*Runner, *FuncSource) {
 	t.Helper()
 	src := NewFuncSource()
@@ -152,9 +152,9 @@ func TestRunTurnControlUnknownCallIDIsNoOp(t *testing.T) {
 	}
 }
 
-// TestRunTurnCtxCancelStillAbortsTurn pins the coarse-grained behavior:
-// cancelling RunTurn's own ctx aborts the whole turn (per-call Controls
-// are the only continue-after-cancel path).
+// TestRunTurnCtxCancelStillAbortsTurn pins the coarse-grained behavior.
+// Cancelling RunTurn's own ctx aborts the whole turn. Only a per-call
+// Control lets the turn continue after a cancel.
 func TestRunTurnCtxCancelStillAbortsTurn(t *testing.T) {
 	r, _ := cancelHarness(t,
 		StubTurn{ToolCalls: []ToolCall{{ID: "c1", Name: "slow"}}},
@@ -181,7 +181,7 @@ func TestRunTurnCtxCancelStillAbortsTurn(t *testing.T) {
 }
 
 // TestRunDelegatesToRunTurn pins that the legacy signature is a pure
-// shim: same result shape, no Control plumbing required.
+// shim. It gives the same result shape and needs no Control plumbing.
 func TestRunDelegatesToRunTurn(t *testing.T) {
 	r, _ := cancelHarness(t, StubTurn{Text: "plain"})
 	res, err := r.Run(context.Background(), []Message{{Role: RoleUser, Text: "hi"}}, nil)

@@ -6,13 +6,13 @@ import (
 	"time"
 )
 
-// Server-advertised trigger bindings are not implemented. The vendor _meta
-// key reserved for them (io.github.panyam.mcpkit/trigger, planned in
-// docs/AGENT_DESIGN.md) previously had an exported constant here with no
-// reader anywhere, which promised a capability the code does not have: a
-// server could set the key and nothing would install a binding. The constant
-// returns alongside the parser that consumes it, mirroring MetaKeyContextHint
-// and HintFromMeta in injection.go. Bindings today are host-configured only.
+// Server-advertised trigger bindings are not implemented. docs/AGENT_DESIGN.md
+// plans a vendor _meta key for them, io.github.panyam.mcpkit/trigger. That key
+// used to have an exported constant here, but nothing read it. A server could
+// set the key and nothing would install a binding, so the constant promised a
+// capability the code does not have. The constant comes back together with the
+// parser that reads it, the same way MetaKeyContextHint pairs with HintFromMeta
+// in injection.go. Bindings today are host-configured only.
 
 // DefaultTriggerCooldown gates re-arming when a binding does not set its own.
 const DefaultTriggerCooldown = 5 * time.Minute
@@ -43,7 +43,7 @@ type TriggerBinding struct {
 	Cooldown time.Duration
 }
 
-// TriggerFiring is an approved proactive-turn request: the host runs it
+// TriggerFiring is an approved proactive-turn request. The host runs it
 // however it runs turns.
 type TriggerFiring struct {
 	Binding TriggerBinding
@@ -70,12 +70,13 @@ type TriggerPolicyConfig struct {
 }
 
 // TriggerPolicy is the anti-nag mediation layer between events and
-// proactive turns, the CIP playbook's Tier-1 slot machine ported: one slot
-// per binding, OPEN to SPENT on fire, re-armed only when BOTH a user
-// engagement arrived after the firing AND the binding's cooldown elapsed.
-// This is a deterministic approximation of the original's LLM engagement
-// signal (positive-engagement detection is a documented future upgrade).
-// Safe for concurrent use.
+// proactive turns. It ports the CIP playbook's Tier-1 slot machine. Each
+// binding has one slot, and the slot goes from OPEN to SPENT when it fires.
+// The slot re-arms only when BOTH a user engagement arrives after the firing
+// AND the binding's cooldown has elapsed. The original used an LLM engagement
+// signal, and this policy approximates it deterministically. Positive-
+// engagement detection is a documented future upgrade. Safe for concurrent
+// use.
 type TriggerPolicy struct {
 	cfg TriggerPolicyConfig
 
@@ -111,10 +112,11 @@ func NewTriggerPolicy(cfg TriggerPolicyConfig) *TriggerPolicy {
 	return &TriggerPolicy{cfg: cfg, bindings: bindings, slots: slots}
 }
 
-// Add installs a binding at runtime — the seam a create_trigger meta-tool
-// uses so the model can set up a standing behavior through conversation.
-// A binding whose slotKey already exists replaces it and resets its slot
-// (re-arming the behavior). Safe for concurrent use with OnEvent.
+// Add installs a binding at runtime. A create_trigger meta-tool calls it, so
+// the model can set up a standing behavior through conversation. If a binding
+// with the same slotKey exists, Add replaces it and resets its slot.
+// Resetting the slot re-arms the behavior. Safe for concurrent use with
+// OnEvent.
 func (t *TriggerPolicy) Add(b TriggerBinding) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -163,8 +165,8 @@ func slotKey(b TriggerBinding) string { return b.Server + "/" + b.Event + "/" + 
 
 // OnEvent evaluates ev against every binding and returns at most one
 // approved firing (first matching OPEN binding wins), or nil when nothing
-// fires. Suppressions (spent slot, budget, consent) are logged, not
-// surfaced: servers get no backpressure channel by design.
+// fires. Suppressions from a spent slot, the budget, or consent are logged,
+// not surfaced. By design, servers get no backpressure channel.
 func (t *TriggerPolicy) OnEvent(ev IncomingEvent) *TriggerFiring {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -210,8 +212,8 @@ func (t *TriggerPolicy) OnEvent(ev IncomingEvent) *TriggerFiring {
 }
 
 // NotifyEngagement records that the user engaged (sent a message) after any
-// pending firing: half of every spent slot's re-arm condition, the other
-// half being its cooldown.
+// pending firing. A spent slot re-arms after an engagement and its cooldown,
+// and this call supplies the engagement.
 func (t *TriggerPolicy) NotifyEngagement() {
 	t.mu.Lock()
 	defer t.mu.Unlock()

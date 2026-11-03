@@ -17,10 +17,10 @@ const (
 	PlanCompleted  = "completed"
 )
 
-// Plan is the checklist a model publishes with update_plan (#148): its
-// steps in order, each with a status, and an optional explanation of what
-// changed. It travels on EventPlan, so it is JSON-tagged like every Event
-// payload (A2).
+// Plan is the checklist a model publishes with update_plan (#148). It has
+// the steps in order, each with a status, and an optional explanation of
+// what changed. It is sent on EventPlan, so it is JSON-tagged like every
+// Event payload (A2).
 type Plan struct {
 	Steps       []PlanStep `json:"steps"`
 	Explanation string     `json:"explanation,omitempty"`
@@ -32,10 +32,10 @@ type PlanStep struct {
 	Status string `json:"status"`
 }
 
-// Validate refuses a plan a surface couldn't show sensibly: no steps, an
-// empty step, a status other than the three, or more than one step in
-// progress, since a plan with two current steps says nothing about which
-// one the model is on.
+// Validate refuses a plan that a surface couldn't show sensibly. It refuses
+// a plan with no steps, an empty step, or a status other than the three. It
+// also refuses more than one step in progress. A plan with two current steps
+// says nothing about which one the model is on.
 func (p Plan) Validate() error {
 	if len(p.Steps) == 0 {
 		return fmt.Errorf("a plan needs at least one step")
@@ -59,8 +59,9 @@ func (p Plan) Validate() error {
 	return nil
 }
 
-// String is the plan as a checklist, one step per line: [x] completed, [~]
-// in progress, [ ] pending, with the explanation first when there is one.
+// String is the plan as a checklist, one step per line. [x] marks completed,
+// [~] in progress, and [ ] pending. The explanation comes first when there is
+// one.
 func (p Plan) String() string {
 	var b strings.Builder
 	if p.Explanation != "" {
@@ -82,8 +83,8 @@ func (p Plan) String() string {
 // PlanToolName is the tool's name, the one codex uses.
 const PlanToolName = "update_plan"
 
-// PlanTool is the update_plan tool: a ToolSource whose one tool takes the
-// whole plan each call, replaces the previous one, and emits it as an
+// PlanTool is the update_plan tool. It is a ToolSource with one tool. Each
+// call takes the whole plan, replaces the previous one, and emits it as an
 // EventPlan for surfaces. The call and its arguments are part of the record
 // like any tool call, so a resumed session still has the plan in its
 // history. One PlanTool serves one session.
@@ -140,7 +141,8 @@ func (t *PlanTool) Tools(context.Context) ([]core.ToolDef, error) {
 
 // Call validates the plan, keeps it as the latest, emits it as an EventPlan
 // for the step that called it, and answers with a short acknowledgement. An
-// invalid plan is an IsError result the model can fix; nothing is emitted.
+// invalid plan gets an IsError result that the model can fix, and nothing is
+// emitted.
 func (t *PlanTool) Call(ctx context.Context, name string, args map[string]any) (*core.ToolResult, error) {
 	if name != PlanToolName {
 		return nil, fmt.Errorf("%w: %q", ErrUnknownTool, name)
@@ -187,10 +189,11 @@ func planFromArgs(args map[string]any) (Plan, error) {
 	return p, nil
 }
 
-// StepStage keeps the latest plan in view: when no update_plan call is left
-// in the messages a model call will see, because a compaction summarized it
-// away, it adds the plan as a note for that one request. It adds nothing
-// while the call itself is still in view, or before the first plan.
+// StepStage keeps the latest plan in view. Imagine a compaction that
+// summarizes away every update_plan call. The next model call would then see
+// no plan. In that case the stage adds the plan as a note for that one
+// request. It adds nothing while the call itself is still in view, or before
+// the first plan.
 func (t *PlanTool) StepStage() StepStage {
 	return StepStage{
 		Name:  "agent.plan",
@@ -214,10 +217,11 @@ func (t *PlanTool) StepStage() StepStage {
 	}
 }
 
-// toolEmitKey carries, in a tool call's context, the function that emits an
-// Event for the step that made the call. Unexported: the plan tool is the
-// one tool that publishes an event of its own, and a general way for any
-// tool to put events on the turn's stream is a bigger decision than #148.
+// toolEmitKey is the context key for a function in a tool call's context.
+// The function emits an Event for the step that made the call. It is
+// unexported, because the plan tool is the only tool that publishes an event
+// of its own. A general way for any tool to put events on the turn's stream
+// is a bigger decision than #148.
 type toolEmitKey struct{}
 
 func withToolEmit(ctx context.Context, emit func(Event)) context.Context {

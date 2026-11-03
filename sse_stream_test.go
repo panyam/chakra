@@ -15,8 +15,8 @@ func newTestSSEStream(ctx context.Context, data string, decode func(string) ([]D
 	return &sseStream{ctx: ctx, body: r, events: ssehttp.NewSSEEventReader(r), decode: decode}
 }
 
-// TestSSEStream_DoneSentinelStopsBeforeLaterEvents pins the shared loop: a
-// decode returning done=true ends the stream, so events after the sentinel are
+// TestSSEStream_DoneSentinelStopsBeforeLaterEvents pins the shared loop. When
+// a decode returns done=true, the stream ends. Events after the sentinel are
 // never decoded, and Recv then returns io.EOF.
 func TestSSEStream_DoneSentinelStopsBeforeLaterEvents(t *testing.T) {
 	s := newTestSSEStream(context.Background(),
@@ -46,8 +46,8 @@ func TestSSEStream_EmptyPayloadSkipped(t *testing.T) {
 	}
 }
 
-// TestSSEStream_DecodeErrorSurfaces pins that a decode error is returned from
-// Recv (not swallowed).
+// TestSSEStream_DecodeErrorSurfaces pins that Recv returns a decode error
+// rather than swallowing it.
 func TestSSEStream_DecodeErrorSurfaces(t *testing.T) {
 	boom := errors.New("bad chunk")
 	s := newTestSSEStream(context.Background(),

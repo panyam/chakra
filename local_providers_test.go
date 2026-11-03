@@ -29,8 +29,9 @@ func recordingServer(t *testing.T) (*httptest.Server, *json.RawMessage, *atomic.
 	return ts, &body, &hits
 }
 
-// The llama.cpp preset sends what jaala's llamacpp client sends, the same
-// golden TestOpenAILlamaCppRequestGolden pins for a hand-built config.
+// The llama.cpp preset sends what jaala's llamacpp client sends.
+// TestOpenAILlamaCppRequestGolden pins the same golden for a hand-built
+// config.
 func TestLlamaCppPresetSendsTheGoldenRequest(t *testing.T) {
 	ts, body, _ := recordingServer(t)
 	p, err := NewLlamaCppProvider(LlamaCppConfig{BaseURL: ts.URL, Model: "qwen"})
@@ -83,9 +84,10 @@ func TestLlamaCppPresetDefaults(t *testing.T) {
 }
 
 // Ollama's preset sends a seed and a JSON schema as response_format, on
-// Generate and Stream alike, and refuses a grammar or regex before any
-// request leaves, as it does a schema alongside ResponseSchema, which would
-// claim the same field. control: a plain request carries no response_format.
+// Generate and Stream alike. It refuses a grammar or regex before any request
+// leaves. It also refuses a schema alongside ResponseSchema, because both
+// would use the same field. The control is a plain request, and it has no
+// response_format.
 func TestOllamaPresetSendsSeedAndSchemaAndRefusesAGrammar(t *testing.T) {
 	ts, body, hits := recordingServer(t)
 	p, err := NewOllamaProvider(OllamaConfig{BaseURL: ts.URL, Model: "qwen2.5-coder:7b"})

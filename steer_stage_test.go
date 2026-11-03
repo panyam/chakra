@@ -9,10 +9,10 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// TestSessionStageCarriesInputSentDuringAStep is the Runner side of steering
-// (#149): input that arrives while step 1's tool runs is added to the record
-// by a session-scope stage before step 2, so step 2's request carries it
-// after the tool result and the turn's messages keep it.
+// TestSessionStageCarriesInputSentDuringAStep covers the Runner side of
+// steering (#149). Input arrives while step 1's tool runs. A session-scope
+// stage adds it to the record before step 2. So step 2's request includes it
+// after the tool result, and the turn's messages keep it.
 func TestSessionStageCarriesInputSentDuringAStep(t *testing.T) {
 	var mu sync.Mutex
 	var queue []string

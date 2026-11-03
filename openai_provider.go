@@ -27,38 +27,38 @@ type OpenAIConfig struct {
 	Model string
 
 	// HTTPClient overrides http.DefaultClient. Set this for proxies,
-	// custom TLS, or timeouts (note: an overall client timeout also bounds
-	// streaming reads; prefer per-request ctx deadlines for streams).
+	// custom TLS, or timeouts. An overall client timeout also bounds
+	// streaming reads, so prefer per-request ctx deadlines for streams.
 	HTTPClient *http.Client
 
-	// GuidedDialect names the server family whose request fields carry
-	// ProviderRequest.Guided. Guided decoding has no OpenAI-standard field,
-	// so the provider cannot guess one. Empty means the endpoint takes no
-	// constraint and a request carrying one is refused. An unknown value
+	// GuidedDialect names the server family, and so the request fields that
+	// hold ProviderRequest.Guided. Guided decoding has no OpenAI-standard
+	// field, so the provider can't guess one. Empty means the endpoint takes
+	// no constraint, and a request with one is refused. An unknown value
 	// fails NewOpenAIProvider.
 	GuidedDialect GuidedDialect
 
 	// ExtraBody holds server-specific top-level request fields sent on every
-	// request, such as llama.cpp's "cache_prompt": true. A key the provider
-	// sets for the request (model, messages, temperature when set, and so on)
-	// keeps the provider's value, so ExtraBody fills gaps and never rewrites
-	// the conversation. NewOpenAIProvider takes a shallow copy; changing the
-	// map afterwards has no effect.
+	// request, such as llama.cpp's "cache_prompt": true. The provider sets
+	// some keys itself, such as model, messages, and temperature when set.
+	// Those keys keep the provider's value. So ExtraBody fills gaps and never
+	// rewrites the conversation. NewOpenAIProvider takes a shallow copy, so
+	// changing the map afterwards has no effect.
 	ExtraBody map[string]any
 
 	// NoTemperature says the model behind this endpoint refuses a
-	// temperature, which OpenAI's reasoning models (gpt-5 and later, the o
-	// series) do on chat completions unless it is the default 1. It sets
-	// Capabilities.Temperature to false so a caller holding only the Provider
+	// temperature. OpenAI's reasoning models (gpt-5 and later, the o series)
+	// refuse one on chat completions unless it is the default 1. It sets
+	// Capabilities.Temperature to false, so a caller with only the Provider
 	// knows not to send one. A Temperature on the request is still forwarded.
 	NoTemperature bool
 
 	// NoResponseSchema says the endpoint refuses response_format json_schema
 	// but takes json_object, as DeepSeek does (#215). A ResponseSchema then
-	// goes out as json_object, and the schema itself is appended to the system
-	// message, since json_object carries none. The endpoint no longer enforces
-	// the schema, so the Runner's validate-and-retry in the structured
-	// finalize is what holds the reply to it.
+	// goes out as json_object. json_object has no schema field, so the
+	// schema itself is appended to the system message. The endpoint no
+	// longer enforces the schema. Instead, the Runner validates the reply
+	// and retries in the structured finalize.
 	NoResponseSchema bool
 }
 
@@ -66,21 +66,21 @@ type OpenAIConfig struct {
 type GuidedDialect string
 
 const (
-	// GuidedDialectLlamaCpp targets llama.cpp's llama-server: Grammar goes
+	// GuidedDialectLlamaCpp targets llama.cpp's llama-server. Grammar goes
 	// out as "grammar" (GBNF) and JSONSchema as "json_schema". It has no
 	// regex mode, so a Regex constraint is refused.
 	GuidedDialectLlamaCpp GuidedDialect = "llamacpp"
 
-	// GuidedDialectVLLM targets vLLM 0.12 and later: the constraint goes out
-	// as "structured_outputs" with one of "grammar", "regex" or "json". The
-	// older guided_* fields were removed in 0.12 and are not sent.
+	// GuidedDialectVLLM targets vLLM 0.12 and later. The constraint goes out
+	// as "structured_outputs" with one of "grammar", "regex" or "json". vLLM
+	// removed the older guided_* fields in 0.12, and they are not sent.
 	GuidedDialectVLLM GuidedDialect = "vllm"
 
-	// GuidedDialectOllama targets Ollama's OpenAI-compatible API, whose only
-	// constraint is a JSON schema: JSONSchema goes out as response_format
-	// json_schema, which Ollama turns into its native format. A Grammar or
-	// Regex is refused, and so is a request also carrying ResponseSchema,
-	// which would claim the same field.
+	// GuidedDialectOllama targets Ollama's OpenAI-compatible API. Its only
+	// constraint is a JSON schema. JSONSchema goes out as response_format
+	// json_schema, and Ollama turns that into its native format. A Grammar or
+	// Regex is refused. A request that also has ResponseSchema is refused
+	// too, because both would use the same field.
 	GuidedDialectOllama GuidedDialect = "ollama"
 )
 
@@ -111,11 +111,12 @@ func NewOpenAIProvider(cfg OpenAIConfig) (*OpenAIProvider, error) {
 	return &OpenAIProvider{cfg: cfg, http: hc}, nil
 }
 
-// ProviderCapabilities reports a seed always, since the provider sends one
-// whenever it's set; a temperature unless OpenAIConfig.NoTemperature says the
-// model refuses one; and the guided kinds its GuidedDialect encodes: grammar
-// and JSON schema for llama.cpp, all three for vLLM, JSON schema for Ollama,
-// none without a dialect.
+// ProviderCapabilities always reports a seed, since the provider sends one
+// whenever it's set. It reports a temperature unless
+// OpenAIConfig.NoTemperature says the model refuses one. It reports the
+// guided kinds that its GuidedDialect encodes. llama.cpp gets grammar and
+// JSON schema, vLLM gets all three, Ollama gets JSON schema, and no dialect
+// gets none.
 func (p *OpenAIProvider) ProviderCapabilities() Capabilities {
 	c := Capabilities{Seed: true, Temperature: !p.cfg.NoTemperature}
 	switch p.cfg.GuidedDialect {
@@ -129,8 +130,8 @@ func (p *OpenAIProvider) ProviderCapabilities() Capabilities {
 	return c
 }
 
-// check refuses, before anything is sent, a request this endpoint cannot
-// honor as asked.
+// check refuses a request that this endpoint can't honor as asked. It runs
+// before anything is sent.
 func (p *OpenAIProvider) check(req ProviderRequest) error {
 	if req.Guided == nil {
 		return nil
@@ -152,8 +153,8 @@ func (p *OpenAIProvider) check(req ProviderRequest) error {
 	return nil
 }
 
-// guidedFields returns the top-level body fields carrying g under the
-// configured dialect. check has already validated the pair.
+// guidedFields encodes g as top-level body fields for the configured
+// dialect. check has already validated the pair.
 func (p *OpenAIProvider) guidedFields(g *GuidedDecoding) map[string]any {
 	var schema any
 	if g.JSONSchema.Len() > 0 {
@@ -198,9 +199,9 @@ func (e *ProviderError) Error() string {
 	return fmt.Sprintf("agent: provider returned HTTP %d: %s", e.StatusCode, e.Body)
 }
 
-// Stream implements Provider. Deltas map 1:1 from SSE chunks; tool calls
+// Stream implements Provider. Deltas map 1:1 from SSE chunks. Tool calls
 // arrive as DeltaToolCallStart followed by DeltaToolCallArgs fragments on the
-// same index. The stream ends with io.EOF after the servers [DONE] marker.
+// same index. The stream ends with io.EOF after the server's [DONE] marker.
 func (p *OpenAIProvider) Stream(ctx context.Context, req ProviderRequest) (Stream, error) {
 	if err := p.check(req); err != nil {
 		return nil, err

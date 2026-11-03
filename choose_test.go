@@ -8,8 +8,9 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// runChoice sends info through a gate built with opts and reports the call
-// that reached next (nil if none did), the result, and the denial reason.
+// runChoice sends info through a gate built with opts. It reports the call
+// that reached next, or nil if none did. It also reports the result and the
+// denial reason.
 func runChoice(t *testing.T, info ToolCallInfo, opts ...TieredOption) (*ToolCallInfo, *core.ToolResult, string) {
 	t.Helper()
 	var ran *ToolCallInfo
@@ -111,8 +112,8 @@ func TestWholeApprovalThroughChooserIsRemembered(t *testing.T) {
 	}
 }
 
-// The chooser sits inside the gate, so it sees arguments after every earlier
-// middleware has rewritten them, and narrows those rather than the model's.
+// The chooser runs inside the gate, so it sees arguments after every earlier
+// middleware has rewritten them. It narrows those, not the model's originals.
 func TestChooserSeesRewrittenArgs(t *testing.T) {
 	var saw string
 	choose := func(_ context.Context, info ToolCallInfo) (Choice, error) {

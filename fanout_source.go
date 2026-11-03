@@ -44,16 +44,16 @@ type FanOutConfig struct {
 // result, so the parent model delegates an ensemble in a single step instead of
 // emitting N calls and stitching N results itself.
 //
-// It reuses AgentSource wholesale: each member is an AgentSource, so the same
+// It reuses AgentSource wholesale. Each member is an AgentSource, so the same
 // depth guard, ctx-threaded aggregate call budget (WithAgentCallBudget), and
-// event scope apply. A member that fails or is refused by a guard is isolated —
-// its FanOutResult is marked IsError and folded into the aggregate, and the
-// other members still run; the fan-out tool itself does not error. Only an
-// unknown tool name is a dispatch error.
+// event scope apply. Suppose a member fails or a guard refuses it. That member
+// is isolated. Its FanOutResult is marked IsError and folded into the
+// aggregate, and the other members still run. The fan-out tool itself does
+// not error. Only an unknown tool name is a dispatch error.
 //
-// Concurrency note: members run in their own goroutines, so a member's
-// AgentSource.OnEvent handler may be called concurrently with its siblings' —
-// wire it to a serialized sink (the host's emit is mutex-guarded).
+// Members run in their own goroutines, so a member's AgentSource.OnEvent
+// handler may be called concurrently with its siblings' handlers. Wire it to a
+// serialized sink. The host's emit is mutex-guarded.
 type FanOutSource struct {
 	cfg FanOutConfig
 	def core.ToolDef
@@ -102,9 +102,9 @@ func (s *FanOutSource) Call(ctx context.Context, name string, args map[string]an
 		return errorToolResult(fmt.Sprintf("fan-out %q requires a non-empty 'task'", s.cfg.Name)), nil
 	}
 
-	// One goroutine per member; each writes its own result slot (no shared-slice
-	// race), so the aggregate stays in member order even though members finish
-	// in any order.
+	// One goroutine per member. Each writes its own result slot, so there is no
+	// shared-slice race, and the aggregate is in member order even though
+	// members finish in any order.
 	results := make([]FanOutResult, len(s.cfg.Members))
 	var wg sync.WaitGroup
 	for i, m := range s.cfg.Members {

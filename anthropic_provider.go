@@ -24,8 +24,8 @@ const DefaultAnthropicVersion = "2023-06-01"
 const defaultAnthropicMaxTokens = 4096
 
 // structuredOutputToolName is the synthetic tool used to coerce structured
-// output on Generate: Anthropic has no response_format, so a forced tool whose
-// input_schema is the caller's ResponseSchema is the equivalent mechanism.
+// output on Generate. Anthropic has no response_format. So Generate forces a
+// tool, and that tool's input_schema is the caller's ResponseSchema.
 const structuredOutputToolName = "structured_output"
 
 // AnthropicConfig configures the Anthropic Messages API endpoint.
@@ -34,26 +34,26 @@ type AnthropicConfig struct {
 	// to "https://api.anthropic.com" when empty.
 	BaseURL string
 
-	// APIKey is sent as the x-api-key header. Required against the real API;
+	// APIKey is sent as the x-api-key header. The real API requires it. It
 	// may be empty for a local mock.
 	APIKey string
 
 	// Model is the model identifier sent on every request (required). The
 	// caller supplies it; the provider hardcodes none.
 	//
-	// Model choice constrains what ProviderRequest fields are usable: current
-	// models (Opus 4.7/4.8, Sonnet 5, Fable 5) reject sampling parameters, so
-	// a non-nil ProviderRequest.Temperature makes the request 400 rather than
-	// being ignored. buildBody forwards Temperature as given and does not
-	// screen it by model, since mcpkit keeps no per-model capability table
-	// (the same reason agentchat takes --context-window rather than inferring
-	// one). Capabilities.Temperature reports false, so a caller that checks
-	// CapabilitiesOf first won't send one.
+	// The model decides which ProviderRequest fields are usable. Current
+	// models (Opus 4.7/4.8, Sonnet 5, Fable 5) reject sampling parameters.
+	// So a non-nil ProviderRequest.Temperature makes the request fail with a
+	// 400 rather than being ignored. mcpkit keeps no per-model capability
+	// table, so buildBody forwards Temperature as given and does not screen
+	// it by model. For the same reason, agentchat takes --context-window
+	// rather than inferring one. Capabilities.Temperature reports false, so
+	// a caller that checks CapabilitiesOf first won't send one.
 	Model string
 
-	// MaxTokens caps the completion length sent on every request. Defaults to
-	// 4096 when not positive; a per-request ProviderRequest.MaxTokens overrides
-	// it.
+	// MaxTokens caps the completion length sent on every request. It
+	// defaults to 4096 when not positive. A per-request
+	// ProviderRequest.MaxTokens overrides it.
 	MaxTokens int
 
 	// Version is the anthropic-version header. Defaults to
@@ -61,8 +61,8 @@ type AnthropicConfig struct {
 	Version string
 
 	// HTTPClient overrides http.DefaultClient. Set this for proxies, custom
-	// TLS, or timeouts (note: an overall client timeout also bounds streaming
-	// reads; prefer per-request ctx deadlines for streams).
+	// TLS, or timeouts. An overall client timeout also bounds streaming
+	// reads, so prefer per-request ctx deadlines for streams.
 	HTTPClient *http.Client
 }
 
@@ -74,7 +74,7 @@ type AnthropicProvider struct {
 	http *http.Client
 }
 
-// NewAnthropicProvider validates cfg and returns a provider. Model is required;
+// NewAnthropicProvider validates cfg and returns a provider. Model is required.
 // BaseURL, MaxTokens, and Version fall back to defaults.
 func NewAnthropicProvider(cfg AnthropicConfig) (*AnthropicProvider, error) {
 	if cfg.Model == "" {
@@ -116,10 +116,10 @@ func (p *AnthropicProvider) Stream(ctx context.Context, req ProviderRequest) (St
 	return st, nil
 }
 
-// Generate implements Provider with a non-streaming request. When
-// req.ResponseSchema is set, the request forces a synthetic tool whose
-// input_schema is the schema and the tool_use input is returned in
-// ProviderResponse.Text (Anthropic has no response_format).
+// Generate implements Provider with a non-streaming request. Anthropic has no
+// response_format. So when req.ResponseSchema is set, the request forces a
+// synthetic tool, and that tool's input_schema is the schema. Generate
+// returns the tool_use input in ProviderResponse.Text.
 func (p *AnthropicProvider) Generate(ctx context.Context, req ProviderRequest) (*ProviderResponse, error) {
 	if err := anthropicCheck(req); err != nil {
 		return nil, err
@@ -230,10 +230,10 @@ func (p *AnthropicProvider) buildBody(req ProviderRequest, stream bool) map[stri
 				}},
 			})
 		default:
-			// RoleSystem carries mcpkit injected-context messages that live
-			// mid-history. Anthropic has no inline system role in the messages
-			// array (system is a top-level string), so each such message maps
-			// to a plain user text turn.
+			// RoleSystem messages are mcpkit injected-context messages that
+			// live mid-history. Anthropic's system prompt is a top-level
+			// string, and the messages array has no inline system role. So
+			// each such message maps to a plain user text turn.
 			msgs = append(msgs, map[string]any{
 				"role":    "user",
 				"content": []map[string]any{{"type": "text", "text": m.Text}},
@@ -349,8 +349,8 @@ type anthropicContentBlock struct {
 }
 
 // anthropicSSE is one decoded SSE data payload. Anthropic events are dispatched
-// on the JSON "type" field (which duplicates the SSE "event:" name), so the
-// stream adapter never needs the event line.
+// on the JSON "type" field. That field duplicates the SSE "event:" name, so
+// the stream adapter never needs the event line.
 type anthropicSSE struct {
 	Type    string `json:"type"`
 	Index   int    `json:"index"`
@@ -377,10 +377,10 @@ type anthropicSSE struct {
 }
 
 // anthropicStream adapts the SSE body to the Stream interface via servicekit's
-// WHATWG-conformant SSEEventReader. Recv keeps a small queue because one SSE
-// event can expand to several Deltas (message_delta carries both finish and
-// usage). inputTokens is captured at message_start and folded into the usage
-// delta emitted at message_delta.
+// WHATWG-conformant SSEEventReader. One SSE event can expand to several
+// Deltas, because message_delta holds both finish and usage. So Recv keeps a
+// small queue. inputTokens is captured at message_start, and it is folded into
+// the usage delta emitted at message_delta.
 type anthropicStream struct {
 	sseStream
 	inputTokens  int
@@ -397,9 +397,9 @@ func (s *anthropicStream) decode(payload string) ([]Delta, bool, error) {
 	return s.eventDeltas(msg)
 }
 
-// eventDeltas maps one typed Anthropic event to Deltas, tracking input tokens
-// across the message so the final usage delta carries both counts. "message_stop"
-// ends the stream; an "error" event surfaces as a decode error.
+// eventDeltas maps one typed Anthropic event to Deltas. It tracks input tokens
+// across the message, so the final usage delta has both counts. "message_stop"
+// ends the stream. An "error" event comes back as a decode error.
 func (s *anthropicStream) eventDeltas(msg anthropicSSE) ([]Delta, bool, error) {
 	switch msg.Type {
 	case "message_start":
@@ -459,14 +459,14 @@ func (s *anthropicStream) eventDeltas(msg anthropicSSE) ([]Delta, bool, error) {
 	return nil, false, nil
 }
 
-// ProviderCapabilities reports nothing: the Messages API takes neither a
-// seed nor a grammar, and a request carrying one is refused. Temperature is
-// reported false too, because current models answer 400 to one, though it is
-// still forwarded when set.
+// ProviderCapabilities reports nothing. The Messages API takes neither a seed
+// nor a grammar, and a request with either is refused. Temperature is
+// reported false too, because current models answer 400 to one. A Temperature
+// that is set is still forwarded.
 func (p *AnthropicProvider) ProviderCapabilities() Capabilities { return Capabilities{} }
 
-// anthropicCheck refuses the ProviderRequest fields the Messages API has no
-// counterpart for, so they fail loudly instead of being dropped.
+// anthropicCheck refuses each ProviderRequest field that has no Messages API
+// counterpart, so those fields fail loudly instead of being dropped.
 func anthropicCheck(req ProviderRequest) error {
 	if req.Seed != nil {
 		return fmt.Errorf("%w: Seed (the Anthropic Messages API has no seed)", ErrUnsupportedParam)

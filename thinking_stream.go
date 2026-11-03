@@ -6,22 +6,23 @@ import (
 	"strings"
 )
 
-// NewThinkingProvider wraps p so inline reasoning that a model emits in its
-// text stream — delimited by openTag/closeTag, e.g. "<think>…</think>" — is
-// re-emitted as DeltaReasoning instead of DeltaText. That is all the Runner
-// needs: its consumeStream already turns DeltaReasoning into
-// thinking-begin/delta/end events, so a surface renders the reasoning
+// NewThinkingProvider wraps p to re-emit inline reasoning as DeltaReasoning
+// instead of DeltaText. A model emits that reasoning in its text stream,
+// delimited by openTag/closeTag, for example "<think>…</think>". The Runner
+// needs nothing more. Its consumeStream already turns DeltaReasoning into
+// thinking-begin/delta/end events. So a surface renders the reasoning
 // distinctly with no Runner change.
 //
-// openTag empty means reasoning starts at the stream head and runs until the
-// first closeTag (the "no open tag" models that stream reasoning first, then
-// the answer). closeTag empty makes the hint inert: p is returned unwrapped,
-// since without a terminator there is nothing to delimit.
+// An empty openTag means reasoning starts at the stream head and runs until
+// the first closeTag. Some "no open tag" models stream reasoning first and
+// then the answer. An empty closeTag makes the hint inert. Without a
+// terminator there is nothing to delimit, so p is returned unwrapped.
 //
-// The transform is delimiter-boundary safe: a tag split across two provider
-// deltas (a "<thi" / "nk>" boundary) is buffered and matched whole. Native
+// The transform is safe at delimiter boundaries. A tag may split across two
+// provider deltas, as in a "<thi" / "nk>" boundary. It is buffered and
+// matched whole. The parser only reinterprets DeltaText. So native
 // DeltaReasoning from a provider that already separates reasoning passes
-// through untouched — the parser only reinterprets DeltaText.
+// through untouched.
 func NewThinkingProvider(p Provider, openTag, closeTag string) Provider {
 	if closeTag == "" {
 		return p
@@ -34,8 +35,8 @@ type thinkingProvider struct {
 	open, close string
 }
 
-// Stream wraps the inner stream so DeltaText carrying reasoning delimiters is
-// re-split into DeltaText / DeltaReasoning.
+// Stream wraps the inner stream. When DeltaText contains reasoning
+// delimiters, Stream re-splits it into DeltaText / DeltaReasoning.
 func (t *thinkingProvider) Stream(ctx context.Context, req ProviderRequest) (Stream, error) {
 	s, err := t.inner.Stream(ctx, req)
 	if err != nil {
@@ -44,12 +45,12 @@ func (t *thinkingProvider) Stream(ctx context.Context, req ProviderRequest) (Str
 	return &thinkingStream{inner: s, p: newThinkParser(t.open, t.close)}, nil
 }
 
-// ProviderCapabilities reports the wrapped provider's: re-tagging reasoning
-// changes nothing that is sent.
+// ProviderCapabilities reports the wrapped provider's capabilities, because
+// re-tagging reasoning changes nothing that is sent.
 func (t *thinkingProvider) ProviderCapabilities() Capabilities { return CapabilitiesOf(t.inner) }
 
 // Generate splits inline reasoning out of the completed Text into Reasoning,
-// so the non-streaming path stays consistent with Stream.
+// so the non-streaming path is consistent with Stream.
 func (t *thinkingProvider) Generate(ctx context.Context, req ProviderRequest) (*ProviderResponse, error) {
 	resp, err := t.inner.Generate(ctx, req)
 	if err != nil || resp == nil {
@@ -85,9 +86,10 @@ type thinkingStream struct {
 	done  bool
 }
 
-// Recv implements Stream: it pulls from the queue, refilling from the inner
-// stream (feeding DeltaText through the parser, flushing then forwarding any
-// non-text delta) until a delta is available or the inner stream ends.
+// Recv implements Stream. It pulls from the queue. When the queue is empty, it
+// refills from the inner stream until a delta is available or the inner
+// stream ends. It feeds DeltaText through the parser. For any non-text delta,
+// it flushes the parser and then forwards the delta.
 func (s *thinkingStream) Recv() (Delta, error) {
 	for len(s.queue) == 0 {
 		if s.done {
@@ -106,8 +108,8 @@ func (s *thinkingStream) Recv() (Delta, error) {
 			s.queue = append(s.queue, s.p.feed(d.Text)...)
 			continue
 		}
-		// A non-text delta ends the current text run: flush any held
-		// partial-tag bytes (as the current mode) before forwarding it, so
+		// A non-text delta ends the current text run. Flush any held
+		// partial-tag bytes in the current mode before forwarding it, so
 		// ordering is preserved.
 		s.queue = append(s.queue, s.p.flush()...)
 		s.queue = append(s.queue, d)
@@ -129,8 +131,9 @@ type thinkParser struct {
 	buf         string
 }
 
-// newThinkParser starts inThink when openTag is empty (reasoning-from-head
-// models); otherwise it starts in text mode looking for openTag.
+// newThinkParser starts inThink when openTag is empty, for models that stream
+// reasoning from the head. Otherwise it starts in text mode looking for
+// openTag.
 func newThinkParser(open, close string) *thinkParser {
 	return &thinkParser{open: open, close: close, inThink: open == ""}
 }
@@ -144,8 +147,8 @@ func (p *thinkParser) feed(s string) []Delta {
 		if p.inThink {
 			tag = p.close
 		}
-		// No tag to look for (empty openTag after leaving a think block):
-		// the rest is plain text, nothing more to split.
+		// There is no tag to look for, because openTag is empty and we left
+		// a think block. The rest is plain text, with nothing more to split.
 		if tag == "" {
 			out = appendNonEmpty(out, p.emit(p.buf))
 			p.buf = ""
@@ -157,7 +160,7 @@ func (p *thinkParser) feed(s string) []Delta {
 			p.inThink = !p.inThink
 			continue
 		}
-		// No full tag: emit everything except a suffix that could be the
+		// No full tag yet. Emit everything except a suffix that could be the
 		// start of the tag, and hold that suffix for the next feed.
 		keep := prefixOverlap(p.buf, tag)
 		out = appendNonEmpty(out, p.emit(p.buf[:len(p.buf)-keep]))
@@ -167,8 +170,8 @@ func (p *thinkParser) feed(s string) []Delta {
 	return out
 }
 
-// flush emits whatever is buffered (at stream end or before a non-text
-// delta) as the current mode; buffered bytes are literal content by then.
+// flush emits whatever is buffered as the current mode. It runs at stream end
+// or before a non-text delta, and by then buffered bytes are literal content.
 func (p *thinkParser) flush() []Delta {
 	if p.buf == "" {
 		return nil
@@ -193,8 +196,8 @@ func appendNonEmpty(out []Delta, d Delta) []Delta {
 }
 
 // prefixOverlap returns the length of the longest suffix of s that is a
-// (strict) prefix of tag — the partial-tag tail to hold back. Zero when no
-// suffix could begin the tag.
+// strict prefix of tag. That suffix is the partial-tag tail to hold back.
+// Zero means no suffix could begin the tag.
 func prefixOverlap(s, tag string) int {
 	max := len(tag) - 1
 	if len(s) < max {

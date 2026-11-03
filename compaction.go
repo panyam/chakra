@@ -7,28 +7,28 @@ import (
 )
 
 // Compactor shrinks a turn's history before the model sees it, trading some
-// fidelity for a smaller context. It is the lossy counterpart to tool-result
-// offloading (which is lossless, pay-on-lookup): compaction pays
-// unconditionally and cannot be un-done, so it is the tool of last resort for
+// fidelity for a smaller context. Tool-result offloading is lossless, and its
+// cost comes only on lookup. Compaction is the lossy counterpart. Its cost is
+// unconditional and it cannot be undone, so it is the tool of last resort for
 // keeping a long conversation under a model's context budget.
 //
-// The Runner calls Compact before every model call, on its working messages
-// rather than the history it was handed, so Run stays stateless over that
-// history and the turn's record keeps every message. A Compactor
-// MUST be a pure function of its input (no turn or session state) and MUST
-// return the input unchanged when nothing needs compacting — the Runner
-// detects a no-op by length and emits an EventCompaction only when the count
-// actually drops.
+// The Runner calls Compact before every model call. It compacts its working
+// messages, not the history it was handed. So Run is still stateless over that
+// history, and the turn's record keeps every message. A Compactor MUST be a
+// pure function of its input, with no turn or session state. It MUST return
+// the input unchanged when nothing needs compacting. The Runner detects a
+// no-op by length and emits an EventCompaction only when the count actually
+// drops.
 type Compactor interface {
 	Compact(ctx context.Context, history []Message) ([]Message, error)
 }
 
 // TokenEstimator estimates the token cost of a message slice so a Compactor
 // can decide when history exceeds a budget. Real tokenizers are
-// provider-specific and heavy; the default is a cheap character heuristic and
-// a real tokenizer is a drop-in behind this seam (a filed follow-up). An
-// estimate must be monotonic: more or longer messages never estimate fewer
-// tokens.
+// provider-specific and heavy. The default is a cheap character heuristic. A
+// real tokenizer can drop in behind this seam, and a follow-up is filed for
+// that. An estimate must be monotonic. More or longer messages never estimate
+// fewer tokens.
 type TokenEstimator interface {
 	Estimate(msgs []Message) int
 }
@@ -62,8 +62,8 @@ func (e CharTokenEstimator) Estimate(msgs []Message) int {
 }
 
 // DefaultKeepRecent is how many trailing messages SummarizingCompactor keeps
-// verbatim when no KeepRecent is configured — enough to preserve the active
-// exchange while still collapsing the older head.
+// verbatim when no KeepRecent is configured. That is enough to preserve the
+// active exchange and still collapse the older head.
 const DefaultKeepRecent = 6
 
 // SummarizingConfig configures a SummarizingCompactor.
@@ -75,11 +75,11 @@ type SummarizingConfig struct {
 	// CharTokenEstimator with the default ratio.
 	Estimator TokenEstimator
 
-	// MaxTokens is the budget: compaction fires only when the estimate
+	// MaxTokens is the budget. Compaction fires only when the estimate
 	// exceeds it. Required (must be > 0).
 	MaxTokens int
 
-	// KeepRecent is how many trailing messages stay verbatim. Zero uses
+	// KeepRecent is how many trailing messages are kept verbatim. Zero uses
 	// DefaultKeepRecent. The cut is nudged earlier if it would orphan a
 	// tool-result message from its call, so the kept tail is always
 	// self-contained.
@@ -93,7 +93,7 @@ type SummarizingConfig struct {
 
 // SummarizingCompactor collapses the head of an over-budget conversation into
 // a single RoleSystem summary produced by a model, keeping a recent tail
-// verbatim. It is the first, heuristic-budget compaction strategy; a
+// verbatim. It is the first, heuristic-budget compaction strategy. A
 // token-accurate estimator is a follow-up.
 type SummarizingCompactor struct {
 	cfg SummarizingConfig
@@ -125,23 +125,24 @@ func NewSummarizingCompactor(cfg SummarizingConfig) (*SummarizingCompactor, erro
 	return &SummarizingCompactor{cfg: cfg}, nil
 }
 
-// Compact implements Compactor: a no-op under budget, otherwise the head is
-// summarized into one RoleSystem message prepended to the verbatim tail.
+// Compact implements Compactor. Under budget it is a no-op. Otherwise it
+// summarizes the head into one RoleSystem message and prepends that message
+// to the verbatim tail.
 func (c *SummarizingCompactor) Compact(ctx context.Context, history []Message) ([]Message, error) {
 	if c.cfg.Estimator.Estimate(history) <= c.cfg.MaxTokens {
 		return history, nil
 	}
 
 	cut := len(history) - c.cfg.KeepRecent
-	// Do not orphan a tool result from the assistant call that produced it:
-	// pull the cut earlier until the tail starts on a non-tool message.
+	// Do not orphan a tool result from the assistant call that produced it.
+	// Pull the cut earlier until the tail starts on a non-tool message.
 	for cut > 0 && history[cut].Role == RoleTool {
 		cut--
 	}
 	if cut <= 0 {
-		// Nothing summarizable ahead of the tail (short, or all tool
-		// messages); leave history untouched rather than emit an empty
-		// summary.
+		// Nothing ahead of the tail can be summarized, because history is
+		// short or all tool messages. Leave history untouched rather than
+		// emit an empty summary.
 		return history, nil
 	}
 

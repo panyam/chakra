@@ -6,14 +6,14 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// IncomingEvent is the neutral event shape the policy engines consume,
-// deliberately decoupled from any delivery mechanism: the events extension's
-// stream, a webhook receiver, or a future page-bridge source all adapt into
-// it. Wire-serializable per constraints A2/A5 (RawJSON payload) so wire
-// surfaces can forward events verbatim.
+// IncomingEvent is the neutral event shape that the policy engines consume.
+// It is deliberately decoupled from any delivery mechanism. The events
+// extension's stream, a webhook receiver, or a future page-bridge source all
+// adapt into it. Constraints A2/A5 make it wire-serializable with a RawJSON
+// payload, so wire surfaces can forward events verbatim.
 type IncomingEvent struct {
-	// Server identifies the source connection (the MultiSource id in
-	// agentchat's wiring).
+	// Server identifies the source connection. In agentchat's wiring it is
+	// the MultiSource id.
 	Server string `json:"server"`
 
 	// Name is the event name as declared in events/list.
@@ -25,9 +25,9 @@ type IncomingEvent struct {
 	// Cursor is the replay cursor for cursored sources, empty otherwise.
 	Cursor string `json:"cursor,omitempty"`
 
-	// Time is when the host received the event (not the server's
-	// timestamp; policies window on receipt time so an injected clock
-	// governs tests).
+	// Time is when the host received the event. It is not the server's
+	// timestamp. Policies window on receipt time, so an injected clock
+	// governs tests.
 	Time time.Time `json:"time"`
 
 	// Data is the payload.

@@ -10,8 +10,8 @@ import (
 )
 
 // bySeed answers each call with answers[*req.Seed], so a draw's answer
-// doesn't depend on the order draws run in. It reports a seed, and records
-// the seeds it was sent.
+// doesn't depend on the order in which draws run. It reports a seed, and
+// records the seeds it was sent.
 type bySeed struct {
 	answers []string
 	mu      sync.Mutex
@@ -89,8 +89,8 @@ func TestConsensusMajorityWins(t *testing.T) {
 	}
 }
 
-// Refused draws don't form a bloc: three refusals against two agreeing
-// answers still elect the answer, and with no strict majority it's split.
+// Refused draws don't form a bloc. Three refusals against two agreeing
+// answers still elect the answer. With no strict majority, the vote is split.
 func TestConsensusRefusalsAgreeWithNothing(t *testing.T) {
 	p := &bySeed{answers: []string{"refuse", "x", "refuse", "x", "refuse"}}
 	res := vote(t, &Consensus{Runner: runnerOver(t, p, RunnerConfig{}), Draws: 5, Key: keyText})
@@ -110,7 +110,7 @@ func TestConsensusTieGoesToTheEarlierDraw(t *testing.T) {
 	if res.WinnerKey != "late" || res.Agree != 2 || !res.Split || res.Winner != res.Draws[0].Result {
 		t.Fatalf("tie should go to draw 0's key: key %q agree %d split %v", res.WinnerKey, res.Agree, res.Split)
 	}
-	// Map order must not decide it: rerunning gives the same winner.
+	// Map order must not decide it, so rerunning gives the same winner.
 	for range 20 {
 		p := &bySeed{answers: []string{"late", "early", "early", "late"}}
 		if again := vote(t, &Consensus{Runner: runnerOver(t, p, RunnerConfig{}), Draws: 4, Key: keyText}); again.WinnerKey != "late" {
@@ -140,8 +140,9 @@ func TestConsensusUnseededProviderSendsNoSeed(t *testing.T) {
 	}
 }
 
-// The Runner's tree budget caps the vote, not each draw: with room for two
-// model calls, the third draw stops the vote and the first two are kept.
+// The Runner's tree budget caps the vote, not each draw. The budget has room
+// for two model calls. So the third draw stops the vote, and the first two
+// are kept.
 func TestConsensusTreeBudgetStopsTheVote(t *testing.T) {
 	p := &bySeed{answers: []string{"a", "a", "a", "a"}}
 	r := runnerOver(t, p, RunnerConfig{TreeBudget: TreeBudget{MaxSteps: 2}})
@@ -222,7 +223,7 @@ func TestConsensusNeedsRunnerAndKey(t *testing.T) {
 	}
 }
 
-// failingSeed fails the call carrying seed bad and defers the rest.
+// failingSeed fails the call with seed bad and defers the rest.
 type failingSeed struct {
 	*bySeed
 	bad int
@@ -235,7 +236,7 @@ func (f failingSeed) Stream(ctx context.Context, req ProviderRequest) (Stream, e
 	return f.bySeed.Stream(ctx, req)
 }
 
-// A prior answer is counted like a draw that came first: it votes, it wins
+// A prior answer is counted like a draw that came first. It votes and wins
 // ties, and the fresh draws keep their seeds 0..Draws-1.
 func TestConsensusCountsPriors(t *testing.T) {
 	p := &bySeed{answers: []string{"b", "a"}}
@@ -259,8 +260,8 @@ func TestConsensusRefusesANilPrior(t *testing.T) {
 	}
 }
 
-// A draw whose turn-end hook stops it is a failed draw: recorded, not
-// counted, and the vote goes on.
+// A turn-end hook can stop a draw. That draw has failed. It is recorded but
+// not counted, and the vote goes on.
 func TestConsensusRecordsAStoppedDrawAsFailed(t *testing.T) {
 	p := &bySeed{answers: []string{"a", "stop", "a"}}
 	stop := func(_ context.Context, info TurnEndInfo) (TurnEndVerdict, error) {

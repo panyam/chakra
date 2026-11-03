@@ -7,13 +7,12 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// FilterSource wraps a ToolSource with a static allow/deny predicate: the
-// per-profile allowlist shape. Filtered tools disappear from both listing and
-// calling (a Call to a filtered name fails with ErrUnknownTool via the
-// listing check), so a filter is a real capability boundary, not a
-// presentation hint. For context-dependent narrowing use RunnerConfig.
-// Selector instead; FilterSource is for policy that never varies by
-// conversation.
+// FilterSource wraps a ToolSource with a static allow/deny predicate, in the
+// shape of a per-profile allowlist. Filtered tools disappear from listing and
+// from calling. A Call to a filtered name fails the listing check with
+// ErrUnknownTool. So a filter is a real capability boundary, not a
+// presentation hint. For context-dependent narrowing, use RunnerConfig.Selector
+// instead. FilterSource is for policy that never varies by conversation.
 type FilterSource struct {
 	src  ToolSource
 	keep func(core.ToolDef) bool

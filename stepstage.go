@@ -9,38 +9,39 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// ErrContextBudget is returned (wrapped) by Run when a turn has grown past its
-// compactor's budget and compacting it again did not bring it back under. Like
-// ErrMaxSteps it comes with a partial TurnResult, so a caller can keep what the
-// turn got through: nothing went wrong but the budget.
+// ErrContextBudget means a turn grew past its compactor's budget, and
+// compacting it again did not bring it back under. Run returns it wrapped.
+// Like ErrMaxSteps, it comes with a partial TurnResult. Nothing went wrong
+// except the budget, so a caller can keep what the turn got through.
 var ErrContextBudget = errors.New("agent: context budget exceeded")
 
-// StepScope is how long what a StepStage produces lives. Every stage in the
-// chain picks one, and the chain runs them in scope order: all session stages,
-// then turn stages, then request stages.
+// StepScope says how long a StepStage's output lives. Every stage in the
+// chain picks one. The chain runs stages in scope order, with all session
+// stages first, then turn stages, then request stages.
 //
-// The scope is a stage's main contract rather than a detail, because getting
-// it wrong is silent and compounding. A note meant for one request that lands
-// in the record is re-sent forever. A summary meant for this turn that lands
-// in the record gets summarized again next turn alongside real conversation.
-// An injection meant for the record that only reaches one request leaves no
-// trace of why the model did what it did. See docs/HOOKS.md, Record or view.
+// The scope is a stage's main contract rather than a detail. A wrong scope
+// fails silently, and the damage compounds. Imagine a note meant for one
+// request ends up in the record. It is re-sent forever. Or a summary meant
+// for this turn ends up in the record. Next turn it gets summarized again
+// alongside real conversation. Or an injection meant for the record reaches
+// only one request. Then nothing records why the model did what it did. See
+// docs/HOOKS.md, Record or view.
 type StepScope int
 
 const (
-	// ScopeSession stages add messages to the turn's record. What they add
-	// joins TurnResult.Messages, so the host keeps it in history and the
-	// session store, and every later step and turn sees it. Append-only: a
-	// session stage that changes or drops a message it was given fails the
-	// turn, since the record is what already happened.
-	// Stages run before every step, so one that means to add a message once
-	// checks the messages it is given for its own earlier addition.
+	// ScopeSession stages add messages to the turn's record. Their messages
+	// join TurnResult.Messages. So the host keeps them in history and the
+	// session store, and every later step and turn sees them. The record
+	// holds what already happened, so it is append-only. A session stage
+	// that changes or drops a message it was given fails the turn.
+	// Stages run before every step. So a stage that means to add a message
+	// once checks its input messages for its own earlier addition.
 	ScopeSession StepScope = iota
 
 	// ScopeTurn stages rewrite the working messages for the rest of this turn
-	// and no further. Compaction is the example: the summary replaces the
+	// and no further. Compaction is the example. The summary replaces the
 	// head for every later step, so the summarizer runs once rather than on
-	// every step, but the record keeps every message.
+	// every step. The record still keeps every message.
 	ScopeTurn
 
 	// ScopeRequest stages shape one model call. Nothing they return is kept,
@@ -55,48 +56,49 @@ type StepInfo struct {
 	Step int
 	// MaxSteps is the turn's step cap.
 	MaxSteps int
-	// Usage is what the turn has spent so far, before this step.
+	// Usage counts what the turn has spent so far, before this step.
 	Usage Usage
 }
 
-// StepView is what one model call will send, as far as stages may change it.
+// StepView holds the parts of one model call's request that stages may
+// change.
 type StepView struct {
 	// Messages is the conversation the model will read.
 	Messages []Message
-	// Tools is the tool set offered on this call. Only a ScopeRequest stage's
-	// change to it reaches the model; tools are listed afresh every step, so
-	// there is no record or rest-of-turn for a tool set to persist into.
+	// Tools is the tool set offered on this call. Tools are listed afresh
+	// every step, so a tool set has no record or rest-of-turn to persist
+	// into. So only a change by a ScopeRequest stage reaches the model.
 	Tools []core.ToolDef
 
-	// Provider, when set, answers this one call in place of
-	// RunnerConfig.Provider (#185). The next step starts from the configured
-	// provider again, so a stage that routes several steps sets it on each.
-	// Only a ScopeRequest stage may set it; a routed provider is a choice
-	// about one call, and a session or turn stage that sets it fails the
-	// turn. Each switch costs a cold prompt cache on the provider switched
-	// to, so a routing policy does better staying put than alternating.
+	// Provider answers this one call in place of RunnerConfig.Provider when
+	// set (#185). The next step starts from the configured provider again,
+	// so a stage that routes several steps sets it on each. A routed
+	// provider is a choice about one call. So only a ScopeRequest stage may
+	// set it, and a session or turn stage that sets it fails the turn. Each
+	// switch starts the new provider with a cold prompt cache. So a routing
+	// policy does better keeping one provider than alternating.
 	//
-	// The structured or guided finalize after the last step stays on
+	// The structured or guided finalize after the last step always uses
 	// RunnerConfig.Provider.
 	Provider Provider
 
-	// ProviderName labels this call for EventStep and TurnResult.UsageByModel:
-	// a connection name, a model id, whatever the router calls it. It may be
-	// set without Provider, to name the configured provider. Like Provider,
-	// only a ScopeRequest stage may set it.
+	// ProviderName labels this call for EventStep and TurnResult.UsageByModel.
+	// It can be a connection name, a model id, or whatever the router calls
+	// it. It may be set without Provider, to name the configured provider.
+	// Like Provider, only a ScopeRequest stage may set it.
 	ProviderName string
 }
 
-// StepStage is one entry in the chain that runs before every model call
-// (RunnerConfig.StepStages). It is the "before each model call" hook point in
-// docs/HOOKS.md, which before this had a separate RunnerConfig field per
-// feature and an order nobody had chosen.
+// StepStage is one entry in RunnerConfig.StepStages, the chain that runs
+// before every model call. It is the "before each model call" hook point in
+// docs/HOOKS.md. Before StepStage, that hook point had a separate
+// RunnerConfig field per feature, in an order nobody had chosen.
 type StepStage struct {
 	// Name identifies the stage in errors. Use a dotted, contributor-scoped
 	// form ("host.step_budget").
 	Name string
 
-	// Scope is how long what Run returns lives. See StepScope.
+	// Scope says how long Run's output lives. See StepScope.
 	Scope StepScope
 
 	// Run returns the view with this stage's contribution folded in, or the
@@ -104,17 +106,18 @@ type StepStage struct {
 	Run func(ctx context.Context, info StepInfo, view StepView) (StepView, error)
 }
 
-// compactionStage is RunnerConfig.Compactor as a ScopeTurn stage. It used to
-// run once, before the first step, which left a single turn that grows past
-// the budget (#7) uncovered. As a stage it runs before every step; a Compactor
-// is a no-op under budget, so a short turn never calls the summarizer.
+// compactionStage is RunnerConfig.Compactor as a ScopeTurn stage. Compaction
+// used to run once, before the first step. Then a single turn could grow past
+// the budget with nothing to stop it (#7). As a stage it runs before every
+// step. A Compactor is a no-op under budget, so a short turn never calls the
+// summarizer.
 //
-// After the first step it also enforces the floor: if the compactor can say
-// whether messages fit (SummarizingCompactor can) and they still don't after
-// compacting, the turn ends with ErrContextBudget instead of compacting a
-// summary of a summary on every step. Step 1 is exempt and keeps the old
-// behavior, sending what the user gave it, because a large first message is
-// the user's to send, while growth after that is the turn's own.
+// After the first step it also enforces the floor. Some compactors can say
+// whether messages fit, and SummarizingCompactor is one. If the messages
+// still don't fit after compacting, the turn ends with ErrContextBudget. It
+// does not compact a summary of a summary on every step. Step 1 is exempt and
+// keeps the old behavior of sending what the user gave it. The user may send
+// a large first message, and only growth after that belongs to the turn.
 func compactionStage(c Compactor, emit func(Event)) StepStage {
 	return StepStage{
 		Name:  "agent.compaction",
@@ -155,9 +158,9 @@ func selectorStage(sel ToolSelector) StepStage {
 
 // StepBudgetStage tells the model how many steps it has left once that number
 // is at or below within. Without it a turn runs into MaxSteps without warning,
-// often mid-way through writing a test (#109), and leaves the user nothing
-// that says where it got to. The note is per request, so it never joins the
-// record and only costs tokens on the steps it appears in.
+// often mid-way through writing a test (#109). The user then has nothing that
+// says where the turn got to. The note is per request. So it never joins the
+// record, and it only uses tokens on the steps where it appears.
 //
 // Within of zero or less means a quarter of MaxSteps, and at least 3.
 func StepBudgetStage(within int) StepStage {
@@ -184,14 +187,15 @@ func StepBudgetStage(within int) StepStage {
 	}
 }
 
-// stepChain is the ordered stage list for one Runner: the Compactor and
-// Selector fields as built-in stages, then RunnerConfig.StepStages, sorted
-// stably by scope so the configured order holds within each scope.
+// stepChain is the ordered stage list for one Runner. It holds the Compactor
+// and Selector fields as built-in stages, then RunnerConfig.StepStages. It
+// sorts them stably by scope, so the configured order holds within each
+// scope.
 //
-// The built-ins go first in their scopes. Compaction first among turn stages
-// means a later turn stage works on messages that already fit. The selector
-// first among request stages keeps its old position, before anything a
-// caller adds.
+// The built-ins go first in their scopes. Compaction runs first among turn
+// stages, so a later turn stage works on messages that already fit. The
+// selector runs first among request stages. That is its old position, before
+// anything a caller adds.
 func (r *Runner) stepChain(emit func(Event)) []StepStage {
 	var chain []StepStage
 	if r.cfg.Compactor != nil {
@@ -206,8 +210,8 @@ func (r *Runner) stepChain(emit func(Event)) []StepStage {
 }
 
 // runStepChain applies the chain before one model call. It returns the
-// working messages for the rest of the turn, the messages session stages
-// added to the record, and the view to send.
+// working messages for the rest of the turn, then the messages that session
+// stages added to the record, then the view to send.
 func runStepChain(ctx context.Context, chain []StepStage, info StepInfo, working []Message, tools []core.ToolDef) (newWorking, recorded []Message, view StepView, err error) {
 	view = StepView{Messages: working, Tools: tools}
 	for _, st := range chain {

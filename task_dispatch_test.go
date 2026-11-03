@@ -13,17 +13,17 @@ import (
 	"github.com/panyam/mcpkit/server"
 )
 
-// taskFixture is a hand-rolled SEP-2663 server: one task-returning tool plus
-// tasks/get and tasks/update over custom method handlers. Deliberately not
-// ext/tasks, so the agent module's dependency set stays core+client+server.
+// taskFixture is a hand-rolled SEP-2663 server. It has one task-returning tool,
+// plus tasks/get and tasks/update over custom method handlers. It deliberately
+// avoids ext/tasks, so the agent module depends only on core, client and server.
 type taskFixture struct {
 	mu        sync.Mutex
 	polls     int
 	responses core.InputResponses
 	failMode  bool
 
-	// holdUntil, when non-nil, keeps the task in working until the channel
-	// closes, then completes with a fixed result (no input flow). For
+	// holdUntil keeps the task in working when non-nil. When the channel
+	// closes, the task completes with a fixed result and no input flow. For
 	// grace/detach tests.
 	holdUntil chan struct{}
 	cancelled bool

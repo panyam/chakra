@@ -13,17 +13,17 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// Embedding is a dense vector produced by an Embedder. A defined type (not a
-// bare []float32) so the comparison lives on it as a method and signatures
-// read in domain terms; every Embedding from one Embedder shares a
-// dimensionality, and comparing embeddings from different Embedders is
+// Embedding is a dense vector produced by an Embedder. It is a defined type,
+// not a bare []float32, so the comparison is a method on it and signatures
+// read in domain terms. Every Embedding from one Embedder has the same
+// dimensionality. Comparing embeddings from different Embedders is
 // meaningless.
 type Embedding []float32
 
-// Cosine returns the cosine of the angle between a and b, in [-1, 1] (1 =
-// identical direction). It returns 0 when either vector is zero or the
-// lengths differ — a degenerate comparison ranks last rather than erroring,
-// so a recall query never fails on a malformed vector.
+// Cosine returns the cosine of the angle between a and b, in [-1, 1], where 1
+// means the same direction. It returns 0 when either vector is zero or the
+// lengths differ. A degenerate comparison ranks last instead of erroring, so
+// a recall query never fails on a malformed vector.
 func (a Embedding) Cosine(b Embedding) float64 {
 	if len(a) != len(b) {
 		return 0
@@ -40,10 +40,10 @@ func (a Embedding) Cosine(b Embedding) float64 {
 	return dot / (math.Sqrt(na) * math.Sqrt(nb))
 }
 
-// Embedder turns text into Embeddings so memory can be recalled by semantic
-// similarity rather than substring match. It is the sibling of Provider: an
-// independently swappable seam (a hosted API, a local model, a stub) that the
-// rest of the agent depends on only through this interface.
+// Embedder turns text into Embeddings, so memory can be recalled by semantic
+// similarity instead of substring match. It is the sibling of Provider. It is
+// an independently swappable seam, such as a hosted API, a local model, or a
+// stub. The rest of the agent depends on it only through this interface.
 //
 // Embed returns exactly one Embedding per input text, in the same order. A
 // store must be built and queried with the same Embedder.
@@ -67,15 +67,15 @@ type OpenAIEmbedderConfig struct {
 	// HTTPClient overrides http.DefaultClient.
 	HTTPClient *http.Client
 
-	// TracerProvider opts the embedder into an agent.embed span per call
-	// (input count + model attributes). Nil or NoopTracerProvider means
-	// zero overhead, the repo-wide pattern.
+	// TracerProvider opts the embedder into an agent.embed span per call,
+	// with input count and model attributes. Nil or NoopTracerProvider
+	// means zero overhead, the repo-wide pattern.
 	TracerProvider core.TracerProvider
 }
 
 // OpenAIEmbedder is an Embedder over any OpenAI-compatible /embeddings
-// endpoint (OpenAI, LM Studio, Ollama, ...), using net/http directly with no
-// SDK dependency — the same no-SDK approach as OpenAIProvider.
+// endpoint (OpenAI, LM Studio, Ollama, ...). It uses net/http directly with
+// no SDK dependency, the same approach as OpenAIProvider.
 type OpenAIEmbedder struct {
 	cfg  OpenAIEmbedderConfig
 	http *http.Client
@@ -111,9 +111,9 @@ type embeddingResponse struct {
 	} `json:"data"`
 }
 
-// Embed implements Embedder. It sends all texts in one request and returns
-// the embeddings reordered to match the input order (the API echoes an index
-// per embedding, which need not be in request order).
+// Embed implements Embedder. It sends all texts in one request. The API
+// echoes an index per embedding, and the indexes need not be in request
+// order. So Embed reorders the embeddings to match the input order.
 func (e *OpenAIEmbedder) Embed(ctx context.Context, texts []string) ([]Embedding, error) {
 	ctx, span := e.tp.StartSpan(ctx, "agent.embed",
 		core.Attribute{Key: "agent.embed.count", Value: fmt.Sprint(len(texts))},
@@ -177,11 +177,12 @@ func (e *OpenAIEmbedder) Embed(ctx context.Context, texts []string) ([]Embedding
 // is unset.
 const DefaultStubEmbedderDim = 64
 
-// StubEmbedder is a deterministic, dependency-free Embedder for tests: it
-// projects each text into a fixed-width bag-of-words vector (each lowercased
-// token hashed into a bucket), so texts that share words produce similar
-// vectors and CosineSimilarity is meaningful. No model, no network, stable
-// across runs — the embedding counterpart of StubProvider.
+// StubEmbedder is a deterministic, dependency-free Embedder for tests. It
+// projects each text into a fixed-width bag-of-words vector, and hashes each
+// lowercased token into a bucket. So texts that share words produce similar
+// vectors, and Embedding.Cosine is meaningful. It needs no model and no
+// network, and it is stable across runs. It is the embedding counterpart of
+// StubProvider.
 type StubEmbedder struct {
 	// Dim is the vector width. Zero uses DefaultStubEmbedderDim.
 	Dim int

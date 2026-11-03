@@ -9,12 +9,13 @@ import (
 	ssehttp "github.com/panyam/servicekit/http"
 )
 
-// sseStream is the shared read loop for the streaming providers. Both the
-// OpenAI and Anthropic streams landed as near-identical Recv() bodies — queue
-// drain, done check, ctx cancellation, ReadEvent, the subtle partial-event-
-// riding-EOF handling, TrimSpace — differing only in how one SSE data payload
-// decodes into Deltas. Consolidating the loop here removes that bug-drift risk;
-// each provider embeds sseStream and supplies its own decode.
+// sseStream is the shared read loop for the streaming providers. The OpenAI
+// and Anthropic streams used to have near-identical Recv() bodies. Each drained
+// a queue, checked done, honored ctx cancellation, called ReadEvent, handled a
+// partial event that arrives with EOF, and called TrimSpace. They differed only
+// in how one SSE data payload decodes into Deltas. With one loop here, the two
+// copies can't drift apart. Each provider embeds sseStream and supplies its own
+// decode.
 type sseStream struct {
 	ctx    context.Context
 	body   io.ReadCloser
@@ -31,9 +32,10 @@ type sseStream struct {
 }
 
 // Recv implements Stream. It returns queued Deltas one at a time, reading and
-// decoding the next SSE event only when the queue is empty. A partial event can
-// ride along with io.EOF; it is decoded before EOF is surfaced on the next
-// call. A cancelled context takes precedence over a read error.
+// decoding the next SSE event only when the queue is empty. A read can return
+// a partial event together with io.EOF. Recv decodes that event first and
+// surfaces EOF on the next call. A cancelled context takes precedence over a
+// read error.
 func (s *sseStream) Recv() (Delta, error) {
 	for {
 		if len(s.queue) > 0 {
@@ -52,8 +54,8 @@ func (s *sseStream) Recv() (Delta, error) {
 			if ctxErr := s.ctx.Err(); ctxErr != nil {
 				return Delta{}, ctxErr
 			}
-			// A partial event can ride along with io.EOF; process it before
-			// surfacing EOF on the next call.
+			// A read can return a partial event together with io.EOF. Process
+			// the event now and surface EOF on the next call.
 			if !errors.Is(err, io.EOF) || ev.Data == "" {
 				return Delta{}, err
 			}

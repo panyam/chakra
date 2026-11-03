@@ -11,7 +11,7 @@ import (
 )
 
 // bigTool returns n bytes per call, so a turn's own tool results push it past
-// a compaction budget, the case #7 is about.
+// a compaction budget. #7 is about this case.
 func bigTool(n int) *FuncSource {
 	src := NewFuncSource()
 	AddFunc(src, "dump", "dumps a lot", func(context.Context, struct{}) (string, error) {
@@ -29,8 +29,9 @@ func dumpCalls(n int) []StubTurn {
 	return append(turns, StubTurn{Text: "done"})
 }
 
-// requestHasOrphanToolResult reports a tool message whose call isn't in the
-// assistant message right before the run of tool messages it belongs to.
+// requestHasOrphanToolResult reports whether a run of tool messages has no
+// assistant message with tool calls right before it. It does not match call
+// IDs, so it catches a dropped assistant message but not a mismatched one.
 func requestHasOrphanToolResult(msgs []Message) bool {
 	for i, m := range msgs {
 		if m.Role != RoleTool {

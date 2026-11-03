@@ -31,8 +31,8 @@ type ResponsesConfig struct {
 
 	// ReasoningEffort, when set, is sent as reasoning.effort ("minimal",
 	// "low", "medium", "high"). Setting it or ReasoningSummary sends the
-	// reasoning object, which only reasoning models accept: a non-reasoning
-	// model rejects the request with a 400.
+	// reasoning object. Only reasoning models accept that object, and a
+	// non-reasoning model rejects the request with a 400.
 	ReasoningEffort string
 
 	// ReasoningSummary, when set, is sent as reasoning.summary ("auto",
@@ -42,14 +42,14 @@ type ResponsesConfig struct {
 	ReasoningSummary string
 
 	// Temperature says the model takes a temperature, and sets
-	// Capabilities.Temperature. It is false by default because the reasoning
-	// models this provider is mostly used for refuse one on the Responses API.
-	// Set it for a model that accepts one, such as gpt-4.1. A Temperature on
+	// Capabilities.Temperature. It is false by default. This provider mostly
+	// serves reasoning models, and those refuse a temperature on the Responses
+	// API. Set it for a model that accepts one, such as gpt-4.1. A Temperature on
 	// the request is forwarded either way.
 	Temperature bool
 
-	// NoStore sends store:false and never chains requests, so every request
-	// carries the full history and the model starts each step without its
+	// NoStore sends store:false and never chains requests. Every request then
+	// sends the full history, and the model starts each step without its
 	// earlier reasoning. Set it for an organization with zero data retention,
 	// where the server refuses to store responses.
 	NoStore bool
@@ -60,20 +60,21 @@ type ResponsesConfig struct {
 	// chains again.
 	CursorCacheSize int
 
-	// OnFullHistory, when set, is called when a request that continues a
-	// conversation (its history holds an assistant message) has to send the
-	// full history instead of chaining from a stored response. reason says
-	// why. It is not called for the first request of a conversation, nor
-	// when NoStore is set. It runs on the calling goroutine before the
-	// request is sent and must not block.
+	// OnFullHistory, when set, is called when a continuing request has to send
+	// the full history instead of chaining from a stored response. A request
+	// continues a conversation when its history holds an assistant message.
+	// reason says why. It is not called for the first request of a
+	// conversation, nor when NoStore is set. It runs on the calling goroutine
+	// before the request is sent and must not block.
 	OnFullHistory func(reason string)
 }
 
 // Reasons passed to ResponsesConfig.OnFullHistory.
 const (
 	// FullHistoryNoCursor means no remembered response matches the history
-	// before its last assistant message: the history was compacted, edited,
-	// forked or resumed, the provider switched, or the entry was evicted.
+	// before its last assistant message. The history may have been compacted,
+	// edited, forked or resumed, the provider may have switched, or the entry
+	// may have been evicted.
 	FullHistoryNoCursor = "no stored response matches this history"
 
 	// FullHistoryStaleCursor means the server no longer had the remembered
@@ -85,17 +86,17 @@ const (
 // ResponsesProvider implements Provider over OpenAI's Responses API with no
 // SDK dependency. Safe for concurrent use.
 //
-// Reasoning continuity across tool steps comes from server-side storage: each
+// Reasoning continuity across tool steps comes from server-side storage. Each
 // response is stored (store:true), and the provider remembers its id keyed by
-// a hash of the conversation it answered. A later request whose history
-// extends that conversation with tool results or user messages only is sent
+// a hash of the conversation it answered. Imagine a later request extends that
+// conversation with only tool results or user messages. The provider sends it
 // as previous_response_id plus the new messages, so the server replays the
-// model's reasoning items. Nothing opaque crosses the Provider seam, which
-// keeps Message wire-clean (A2) and the loop unaware of the cursor (A9).
+// model's reasoning items. Nothing opaque crosses the Provider seam. So
+// Message is still wire-clean (A2), and the loop is unaware of the cursor (A9).
 //
-// Any other history (compacted, edited, forked, resumed from a RunStore, or
-// first seen by this provider instance) goes out in full, without the earlier
-// reasoning, and OnFullHistory says so.
+// Any other history goes out in full, without the earlier reasoning, and
+// OnFullHistory says so. That covers history that was compacted, edited,
+// forked, resumed from a RunStore, or first seen by this provider instance.
 type ResponsesProvider struct {
 	cfg     ResponsesConfig
 	http    *http.Client
@@ -137,9 +138,9 @@ func (p *ResponsesProvider) check(req ProviderRequest) error {
 }
 
 // Stream implements Provider. Text, reasoning summaries and function calls
-// stream as their Delta kinds; the stream ends with io.EOF after
+// stream as their Delta kinds. The stream ends with io.EOF after
 // response.completed. A response cut short by max_output_tokens finishes
-// with FinishReason "length"; a failed response surfaces as a Recv error.
+// with FinishReason "length", and a failed response surfaces as a Recv error.
 func (p *ResponsesProvider) Stream(ctx context.Context, req ProviderRequest) (Stream, error) {
 	if err := p.check(req); err != nil {
 		return nil, err
@@ -155,8 +156,8 @@ func (p *ResponsesProvider) Stream(ctx context.Context, req ProviderRequest) (St
 }
 
 // Generate implements Provider with a non-streaming request. When
-// req.ResponseSchema is set, the request carries text.format json_schema and
-// the structured document is returned in ProviderResponse.Text.
+// req.ResponseSchema is set, the request sets text.format json_schema, and
+// ProviderResponse.Text holds the structured document.
 func (p *ResponsesProvider) Generate(ctx context.Context, req ProviderRequest) (*ProviderResponse, error) {
 	if err := p.check(req); err != nil {
 		return nil, err
@@ -179,8 +180,8 @@ func (p *ResponsesProvider) Generate(ctx context.Context, req ProviderRequest) (
 	return out, nil
 }
 
-// requestPlan is what one request was sent as: the cursor key of the history
-// it carried, so the reply can be remembered under history + reply.
+// requestPlan records the history one request sent. When the reply arrives,
+// the provider remembers it under that history plus the reply.
 type requestPlan struct {
 	history []Message
 }
@@ -215,8 +216,8 @@ func (p *ResponsesProvider) notify(reason string) {
 	}
 }
 
-// remember stores id under the history the request carried plus the
-// assistant message the Runner will append for out.
+// remember stores id under the request's history plus an assistant message
+// for out. The Runner will append that same assistant message.
 func (p *ResponsesProvider) remember(plan requestPlan, id string, out *ProviderResponse) {
 	if p.cfg.NoStore || id == "" {
 		return
@@ -264,9 +265,9 @@ func (p *ResponsesProvider) post(ctx context.Context, body map[string]any) (*htt
 	})
 }
 
-// buildBody produces the Responses request carrying input, chained from prev
-// when non-empty. Instructions and tools are sent on every request, since the
-// server does not carry them over from the previous response.
+// buildBody produces the Responses request for input, chained from prev when
+// non-empty. Instructions and tools are sent on every request, since the
+// server does not copy them over from the previous response.
 func (p *ResponsesProvider) buildBody(req ProviderRequest, input []Message, prev string, stream bool) map[string]any {
 	realToSafe, _ := toolNameMaps(req.Tools)
 	items := make([]map[string]any, 0, len(input))
@@ -362,8 +363,8 @@ func responsesToolChoice(tc ToolChoice, realToSafe map[string]string) any {
 	return nil
 }
 
-// rsResponse is the response object, as Generate returns it and as
-// response.completed, response.incomplete and response.failed carry it.
+// rsResponse is the response object. Generate returns it, and the
+// response.completed, response.incomplete and response.failed events hold it.
 type rsResponse struct {
 	ID                string         `json:"id"`
 	Status            string         `json:"status"`
@@ -410,8 +411,9 @@ func (u *rsUsage) toUsage() *Usage {
 }
 
 // finishReason maps the response status onto the chat-completions
-// vocabulary the rest of the SDK already compares against: "tool_calls",
-// "stop", or the incomplete reason with max_output_tokens spelled "length".
+// vocabulary. The rest of the SDK already compares against that vocabulary.
+// The result is "tool_calls", "stop", or the incomplete reason, with
+// max_output_tokens spelled "length".
 func (r *rsResponse) finishReason(hasCalls bool) string {
 	if r.Status == "incomplete" && r.IncompleteDetails != nil {
 		if r.IncompleteDetails.Reason == "max_output_tokens" {

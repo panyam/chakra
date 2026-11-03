@@ -10,9 +10,10 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// recMeter is a recording MeterProvider for the tests: every Add / Record lands
-// as a point on the shared recorder, tagged with its instrument name and
-// attributes, so a test can assert exactly what the Runner emitted.
+// recMeter is a recording MeterProvider for the tests. It records every Add /
+// Record as a point on the shared recorder and tags the point with its
+// instrument name and attributes, so a test can assert exactly what the Runner
+// emitted.
 type recPoint struct {
 	name  string
 	value float64
@@ -71,9 +72,10 @@ func (i recInstrument) Record(_ context.Context, v float64, attrs ...core.Attrib
 func attrOf(p recPoint, key string) string { return p.attrs[key] }
 
 // TestRunnerEmitsTurnAndToolMetrics asserts the Runner emits the issue-1023
-// metric set at turn end and per tool call: a turn counter (tagged by finish
-// reason), a steps counter, a tokens counter split by direction, and a
-// tool-call counter tagged by tool + status (ok here).
+// metric set. At turn end it emits a turn counter tagged by finish reason, a
+// steps counter, and a tokens counter split by direction. Per tool call it
+// emits a tool-call counter tagged by tool and status, and the status is ok
+// here.
 func TestRunnerEmitsTurnAndToolMetrics(t *testing.T) {
 	src := NewFuncSource()
 	AddFunc(src, "lookup", "looks up", func(ctx context.Context, in struct {
@@ -120,9 +122,9 @@ func TestRunnerEmitsTurnAndToolMetrics(t *testing.T) {
 	}
 }
 
-// TestRunnerToolMetricStatuses asserts the tool-call metric carries the right
-// terminal status for the non-ok outcomes: a handler error becomes an IsError
-// result (status "tool_error"), and an approval denial is "denied".
+// TestRunnerToolMetricStatuses asserts the tool-call metric's terminal status
+// for the non-ok outcomes. A handler error becomes an IsError result with
+// status "tool_error", and an approval denial gets status "denied".
 func TestRunnerToolMetricStatuses(t *testing.T) {
 	t.Run("tool_error", func(t *testing.T) {
 		src := NewFuncSource()

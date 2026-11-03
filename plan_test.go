@@ -41,9 +41,9 @@ func TestPlanValidate(t *testing.T) {
 	}
 }
 
-// A turn in which the model calls update_plan emits the plan as an EventPlan
-// for that step, keeps the call in the record, answers with an ack, and the
-// tool remembers it. A second call replaces it whole.
+// The model calls update_plan in a turn. The turn emits the plan as an
+// EventPlan for that step, keeps the call in the record, and answers with an
+// ack. The tool remembers the plan. A second call replaces it whole.
 func TestUpdatePlanEmitsThePlanAndKeepsItInTheRecord(t *testing.T) {
 	tool := NewPlanTool()
 	stub := NewStubProvider(
@@ -106,7 +106,8 @@ func TestAnInvalidPlanIsAToolError(t *testing.T) {
 }
 
 // The step stage adds the latest plan to a request only when no update_plan
-// call is left in view, as after a compaction, and only for that request.
+// call is left in view, as happens after a compaction. It adds the plan to
+// that one request only.
 func TestThePlanStaysInViewAfterItsCallIsGone(t *testing.T) {
 	tool := NewPlanTool()
 	stage := tool.StepStage()

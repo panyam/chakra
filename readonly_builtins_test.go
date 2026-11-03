@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-// TestBuiltinToolsDeclareReadOnly pins which agent-owned tools carry
-// readOnlyHint (#99). The ones that only read run without a prompt under
-// read-only-auto; the ones that write or start work must still ask.
+// TestBuiltinToolsDeclareReadOnly pins which agent-owned tools declare
+// readOnlyHint (#99). Under read-only-auto, the tools that only read run
+// without a prompt. The tools that write or start work must still ask.
 func TestBuiltinToolsDeclareReadOnly(t *testing.T) {
 	mem, err := NewMemorySource(NewInMemoryMemoryStore())
 	if err != nil {

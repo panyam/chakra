@@ -37,9 +37,9 @@ func TestFileToolResultStore_UnknownRefIsAppState(t *testing.T) {
 	}
 }
 
-// TestFileToolResultStore_SurvivesReopen pins the local-agent value: a
-// second store over the same directory sees blobs the first wrote, with
-// no server involved.
+// TestFileToolResultStore_SurvivesReopen has one store write blobs and opens
+// a second store over the same directory. The second store sees the blobs
+// with no server involved, and a local agent depends on that.
 func TestFileToolResultStore_SurvivesReopen(t *testing.T) {
 	ctx := context.Background()
 	dir := filepath.Join(t.TempDir(), "blobs")

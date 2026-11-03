@@ -30,12 +30,13 @@ type agentIDArgs struct {
 	ID string `json:"id"`
 }
 
-// NewSpawnSource returns a leaf ToolSource exposing the runner-control tools
-// over pool: spawn_agent / await_agent / cancel_agent / list_agents (issue
-// 1166). "Supervision = a Runner whose tools control other Runners" — this is
-// that tool surface. Model-facing, so it lives in agent/ (A6). The spawn tool's
-// description enumerates the pool's registered agents, so populate the pool
-// (Register) before calling this.
+// NewSpawnSource returns a leaf ToolSource that exposes the runner-control
+// tools over pool (issue 1166). The tools are spawn_agent, await_agent,
+// cancel_agent and list_agents. A supervisor is a Runner whose tools control
+// other Runners, and these are those tools. It is
+// model-facing, so it lives in agent/ (A6). The spawn tool's description
+// lists the pool's registered agents. So populate the pool with Register
+// before calling this.
 func NewSpawnSource(pool *AgentPool) *FuncSource {
 	fs := NewFuncSource()
 
@@ -98,19 +99,20 @@ func NewSpawnSource(pool *AgentPool) *FuncSource {
 	return fs
 }
 
-// AgentPool runs named child agents in the background and hands the parent
-// model a handle to each, so the model can steer sub-agents through ordinary
-// tool calls (issue 1166, piece B of the 1036 control axis): spawn one now,
-// await its result at a chosen point, or cancel it. It is the model-driven,
-// handle-based counterpart to AgentSource (blocking, no handle) and
-// AsyncAgentSource (fire-and-inject, no handle): here the model holds the
-// handle and pulls the result via await, or drops it via cancel.
+// AgentPool runs named child agents in the background and gives the parent
+// model a handle to each. So the model can steer sub-agents through ordinary
+// tool calls (issue 1166, piece B of the 1036 control axis). It can spawn one
+// now, await its result at a chosen point, or cancel it. AgentSource blocks
+// and gives no handle. AsyncAgentSource fires, injects the result, and gives
+// no handle. AgentPool is the model-driven, handle-based counterpart to both.
+// The model holds the handle and pulls the result with await, or drops it
+// with cancel.
 //
-// A handle outlives the spawning turn (the child runs on a DetachForBackground
-// context), so spawn-in-turn-1 / await-in-turn-3 works. Delivery is pull-only:
-// a spawned result is stored on the handle and returned by await, never
-// auto-injected — auto-injection is AsyncAgentSource's model. The pool is
-// safe for concurrent use.
+// The child runs on a DetachForBackground context, so a handle outlives the
+// spawning turn. The model can spawn in turn 1 and await in turn 3. Delivery
+// is pull-only. A spawned result is stored on the handle and returned by
+// await. It is never auto-injected, since auto-injection is
+// AsyncAgentSource's model. The pool is safe for concurrent use.
 type AgentPool struct {
 	mu      sync.Mutex
 	agents  map[string]pooledAgent
@@ -127,7 +129,8 @@ type pooledAgent struct {
 }
 
 // spawnHandle tracks one background child. done closes exactly once, when the
-// child's Run returns; result/err are then readable. cancel aborts the child.
+// child's Run returns. result and err are readable after that. cancel aborts
+// the child.
 type spawnHandle struct {
 	id     string
 	name   string
@@ -140,9 +143,9 @@ type spawnHandle struct {
 	err    error
 }
 
-// SpawnStatus is a wire-serializable snapshot of one live handle for
-// list_agents (constraint A2). It is a point-in-time copy: a running child may
-// have finished by the time the caller reads it.
+// SpawnStatus is a wire-serializable snapshot of one handle for list_agents
+// (constraint A2). It is a point-in-time copy. A running child may have
+// finished by the time the caller reads it.
 //
 // It describes handles only. For the agents a pool can spawn, before any
 // spawn has happened, see Registered.
@@ -154,29 +157,30 @@ type SpawnStatus struct {
 	Name string `json:"name"`
 
 	// Status is one of "running", "done", "failed", or "cancelled". The two
-	// failure values are distinct on purpose: "failed" means the child's own
-	// Run returned an error, "cancelled" means the parent dropped it, and
-	// collapsing them loses that.
+	// failure values are distinct on purpose. "failed" means the child's own
+	// Run returned an error. "cancelled" means the parent dropped it. One
+	// value for both would lose that difference.
 	Status string `json:"status"`
 }
 
 // RegisteredAgent describes one agent a pool can spawn, as returned by
-// Registered. It is the pre-spawn view: no handle exists yet, so there is no
+// Registered. It is the pre-spawn view. No handle exists yet, so there is no
 // ID and no lifecycle state.
 type RegisteredAgent struct {
 	// Name is the name Register was called with, and the name the model
 	// passes to spawn_agent.
 	Name string `json:"name"`
 
-	// Description is the human-readable blurb Register was given, used to
-	// build the spawn tool's menu so the model can choose between agents.
+	// Description is the human-readable blurb passed to Register. It builds
+	// the spawn tool's menu, so the model can choose between agents.
 	Description string `json:"description"`
 }
 
 // NewAgentPool returns an empty pool. onEvent, when non-nil, receives every
-// spawned child's event stream wrapped in a SubAgentEvent (scope = the agent
-// name, depth threaded), so a surface renders background activity the same way
-// it renders a blocking sub-agent's. Nil drops child events.
+// spawned child's event stream. Each event is wrapped in a SubAgentEvent with
+// the agent name as its scope and the depth threaded through. So a surface
+// renders background activity the same way it renders a blocking sub-agent's.
+// Nil drops child events.
 func NewAgentPool(onEvent func(SubAgentEvent)) *AgentPool {
 	return &AgentPool{
 		agents:  map[string]pooledAgent{},
@@ -185,9 +189,9 @@ func NewAgentPool(onEvent func(SubAgentEvent)) *AgentPool {
 	}
 }
 
-// Register adds a spawnable agent under name (its child Runner + a description
-// for the model + a depth cap; zero uses DefaultMaxAgentDepth). A duplicate
-// name is an error.
+// Register adds a spawnable agent under name. It takes the child Runner, a
+// description for the model, and a depth cap. A zero cap uses
+// DefaultMaxAgentDepth. A duplicate name is an error.
 func (p *AgentPool) Register(name, description string, runner *Runner, maxDepth int) error {
 	if name == "" || runner == nil {
 		return fmt.Errorf("agent: AgentPool.Register requires a name and runner")
@@ -206,8 +210,8 @@ func (p *AgentPool) Register(name, description string, runner *Runner, maxDepth 
 }
 
 // Registered lists the agents this pool can spawn, in registration order,
-// for a spawn tool's help text. It describes registrations rather than live
-// children; use list_agents (backed by statuses) for handles in flight.
+// for a spawn tool's help text. It describes registrations, not live
+// children. For handles in flight, use list_agents, which reads statuses.
 func (p *AgentPool) Registered() []RegisteredAgent {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -218,11 +222,12 @@ func (p *AgentPool) Registered() []RegisteredAgent {
 	return out
 }
 
-// spawn starts the named agent on a detached, cancellable goroutine over an
-// isolated slice seeded with task, and returns a handle id. Depth and the
-// ctx-threaded call budget are checked before the spawn (an unknown name or an
-// exhausted guard is an error, not a started agent). The child outlives ctx
-// (DetachForBackground), so it keeps running after the spawning turn ends.
+// spawn starts the named agent on a detached, cancellable goroutine and
+// returns a handle id. The child gets an isolated history that starts with
+// task. spawn checks depth and the ctx-threaded call budget first. An
+// unknown name or an exhausted guard returns an error, and no agent starts.
+// The child runs on DetachForBackground, so it outlives ctx and keeps running
+// after the spawning turn ends.
 func (p *AgentPool) spawn(ctx context.Context, name, task string) (string, error) {
 	p.mu.Lock()
 	spec, ok := p.agents[name]
@@ -265,7 +270,7 @@ func (p *AgentPool) spawn(ctx context.Context, name, task string) (string, error
 }
 
 // finish records the terminal outcome and closes done exactly once. A cancelled
-// handle keeps its "cancelled" status (the run error is the cancellation).
+// handle keeps its "cancelled" status, since its run error is the cancellation.
 func (h *spawnHandle) finish(result *TurnResult, err error) {
 	h.mu.Lock()
 	if h.status == "running" {
@@ -280,9 +285,10 @@ func (h *spawnHandle) finish(result *TurnResult, err error) {
 	close(h.done)
 }
 
-// await blocks until the spawned agent id finishes and returns its result, or
-// returns when ctx is cancelled (the turn was cancelled). An unknown id is an
-// error. await is idempotent: a second call returns the same stored result.
+// await blocks until the spawned agent id finishes, and returns its result.
+// It also returns when ctx is cancelled, which means the turn was cancelled.
+// An unknown id is an error. await is idempotent, so a second call returns
+// the same stored result.
 func (p *AgentPool) await(ctx context.Context, id string) (*TurnResult, error) {
 	p.mu.Lock()
 	h, ok := p.handles[id]
@@ -303,9 +309,9 @@ func (p *AgentPool) await(ctx context.Context, id string) (*TurnResult, error) {
 	return h.result, nil
 }
 
-// cancel aborts the spawned agent id (its context is cancelled; the running
-// child returns and its handle moves to "cancelled"). An unknown id is an
-// error. Cancelling a finished agent is a no-op that still succeeds.
+// cancel aborts the spawned agent id. It cancels the agent's context, so the
+// running child returns and its handle moves to "cancelled". An unknown id is
+// an error. Cancelling a finished agent is a no-op that still succeeds.
 func (p *AgentPool) cancel(id string) error {
 	p.mu.Lock()
 	h, ok := p.handles[id]
@@ -322,8 +328,8 @@ func (p *AgentPool) cancel(id string) error {
 	return nil
 }
 
-// statuses snapshots every handle (running and finished) for list_agents,
-// in id order of creation.
+// statuses snapshots every handle, running or finished, for list_agents. The
+// handles are in the order their ids were created.
 func (p *AgentPool) statuses() []SpawnStatus {
 	p.mu.Lock()
 	defer p.mu.Unlock()

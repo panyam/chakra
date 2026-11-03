@@ -50,8 +50,8 @@ func argMsg(t *testing.T, args core.RawJSON) string {
 }
 
 // TestToolMiddlewareRewritesArgs pins that an argument rewrite reaches the
-// tool. Redaction is the motivating case: a middleware that strips a secret
-// is worthless if the original arguments execute anyway.
+// tool. Redaction is the motivating case. Imagine a middleware that strips
+// a secret. It is worthless if the original arguments execute anyway.
 func TestToolMiddlewareRewritesArgs(t *testing.T) {
 	redact := BeforeToolCall(func(_ context.Context, info *ToolCallInfo) error {
 		info.Call.Args = core.NewRawJSON(json.RawMessage(`{"msg":"[redacted]"}`))
@@ -67,7 +67,7 @@ func TestToolMiddlewareRewritesArgs(t *testing.T) {
 	}
 }
 
-// TestToolMiddlewareOrderIsOutermostFirst pins the composition rule: entry 0
+// TestToolMiddlewareOrderIsOutermostFirst pins the composition rule. Entry 0
 // wraps entry 1, so the second sees the first's rewrite. A gate registered
 // last depends on this to inspect what will really execute.
 func TestToolMiddlewareOrderIsOutermostFirst(t *testing.T) {
@@ -90,10 +90,10 @@ func TestToolMiddlewareOrderIsOutermostFirst(t *testing.T) {
 	}
 }
 
-// TestToolMiddlewareDenyStopsTheChain pins that a middleware which declines
-// to call next ends the call: nothing further down runs and the tool never
-// executes. A gate stays meaningful because no middleware behind it can
-// rewrite arguments it has already passed on.
+// TestToolMiddlewareDenyStopsTheChain pins that a middleware ends the call
+// when it declines to call next. Nothing further down runs, and the tool
+// never executes. A gate keeps its meaning because no middleware behind it
+// can rewrite arguments it has already passed on.
 func TestToolMiddlewareDenyStopsTheChain(t *testing.T) {
 	deny := ToolMiddleware(func(_ context.Context, _ ToolCallInfo, _ ToolCallFunc) (*core.ToolResult, error) {
 		return nil, DenyTool("nope")
@@ -138,7 +138,7 @@ func TestToolMiddlewareDenyStopsTheChain(t *testing.T) {
 }
 
 // TestToolMiddlewareRewritesResult pins the result path. Marking untrusted
-// tool output lands there (#1058), alongside redaction.
+// tool output happens there (#1058), alongside redaction.
 func TestToolMiddlewareRewritesResult(t *testing.T) {
 	mark := AfterToolCall(func(_ context.Context, _ ToolCallInfo, res *core.ToolResult) (*core.ToolResult, error) {
 		return &core.ToolResult{Content: []core.Content{{
@@ -156,9 +156,9 @@ func TestToolMiddlewareRewritesResult(t *testing.T) {
 	}
 }
 
-// TestToolMiddlewareCanServeWithoutCalling is what the wrapping shape buys
-// over a flat before/after pair: a middleware can answer from a cache and
-// never dispatch. A phase-based seam cannot express this.
+// TestToolMiddlewareCanServeWithoutCalling pins a case that the wrapping
+// shape allows and a flat before/after pair doesn't. A middleware can answer
+// from a cache and never dispatch. A phase-based seam can't express this.
 func TestToolMiddlewareCanServeWithoutCalling(t *testing.T) {
 	cached := ToolMiddleware(func(_ context.Context, _ ToolCallInfo, _ ToolCallFunc) (*core.ToolResult, error) {
 		return &core.ToolResult{Content: []core.Content{{Type: "text", Text: "from cache"}}}, nil
@@ -199,10 +199,10 @@ func TestAfterToolCallSkippedOnDeny(t *testing.T) {
 	}
 }
 
-// TestTieredApprovalIsToolMiddleware is the collapse acceptance: permission
-// is not a parallel mechanism, it is one middleware among others. A gate
-// placed last must decide on the arguments an earlier entry rewrote, which is
-// the whole reason agent/host appends it last.
+// TestTieredApprovalIsToolMiddleware is the collapse acceptance. Permission
+// is not a parallel mechanism. It is one middleware among others. A gate
+// placed last must decide on the arguments after an earlier entry rewrote
+// them. agent/host appends it last for that reason.
 func TestTieredApprovalIsToolMiddleware(t *testing.T) {
 	var asked string
 	gate := NewTieredApproval(WithAsk(func(_ context.Context, info ToolCallInfo) (bool, error) {

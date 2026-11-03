@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-// DefaultFailoverCooldown is how long after a primary failure the failover
-// provider keeps routing to the backup before re-trying the primary.
+// DefaultFailoverCooldown is how long the failover provider routes to the
+// backup after a primary failure. After that it re-tries the primary.
 const DefaultFailoverCooldown = 30 * time.Second
 
 // FailoverConfig assembles a FailoverProvider.
@@ -18,26 +18,26 @@ type FailoverConfig struct {
 	// Primary is the preferred provider. Required.
 	Primary Provider
 
-	// Backup takes over when the primary fails cleanly. Required (a
-	// failover wrapper with no backup is just the primary).
+	// Backup takes over when the primary fails cleanly. Required, because a
+	// failover wrapper with no backup is just the primary.
 	Backup Provider
 
-	// Cooldown is how long the primary stays benched after a failure
-	// before the next call re-tries it (lazy recovery). Zero means
+	// Cooldown is how long the primary is benched after a failure. After
+	// that, the next call re-tries it, which is lazy recovery. Zero means
 	// DefaultFailoverCooldown.
 	Cooldown time.Duration
 
 	// Logger receives failover transitions at Warn and recoveries at
-	// Info, with structured attrs. Nil discards: the agent module never
-	// writes to process-global outputs (constraint A4).
+	// Info, with structured attrs. Nil discards, because the agent module
+	// never writes to process-global outputs (constraint A4).
 	Logger *slog.Logger
 
 	// now is injectable for tests; nil means time.Now.
 	now func() time.Time
 }
 
-// ProviderHealth is the pollable failover snapshot, the host-facing
-// equivalent of a connection-status endpoint.
+// ProviderHealth is the pollable failover snapshot. For the host it does the
+// job of a connection-status endpoint.
 type ProviderHealth struct {
 	// Active is "primary" or "backup".
 	Active string `json:"active"`
@@ -53,16 +53,17 @@ type ProviderHealth struct {
 }
 
 // FailoverProvider fronts a primary and a backup Provider behind the plain
-// Provider interface, so the Runner never knows failover exists. Semantics:
+// Provider interface, so the Runner never knows failover exists. It behaves
+// as follows.
 //
-//   - A call that fails CLEANLY on the primary (the call itself errors
-//     before any delta was delivered) is transparently retried on the
-//     backup, once. A stream that already emitted deltas is never retried:
-//     the consumer observed partial output, and replaying could re-run
-//     side effects downstream.
+//   - A call may fail CLEANLY on the primary, meaning the call itself errors
+//     before any delta was delivered. Then it is transparently retried on
+//     the backup, once. A stream that already emitted deltas is never
+//     retried. The consumer observed partial output, and replaying could
+//     re-run side effects downstream.
 //   - After a primary failure, calls route to the backup until Cooldown
-//     elapses; the next call after that re-tries the primary (lazy
-//     recovery). StartReconciler adds an optional background probe.
+//     elapses. The next call after that re-tries the primary, which is lazy
+//     recovery. StartReconciler adds an optional background probe.
 //
 // Safe for concurrent use.
 type FailoverProvider struct {
@@ -136,9 +137,9 @@ func (f *FailoverProvider) recordRecovery() {
 	f.benchedUntil = time.Time{}
 }
 
-// Stream implements Provider. See the type doc for retry semantics; the
-// no-retry-after-deltas rule is enforced by wrapping the primary stream so a
-// mid-stream failure surfaces to the caller instead of restarting.
+// Stream implements Provider. See the type doc for retry semantics. Stream
+// wraps the primary stream to enforce the no-retry-after-deltas rule. So a
+// mid-stream failure reaches the caller instead of restarting.
 func (f *FailoverProvider) Stream(ctx context.Context, req ProviderRequest) (Stream, error) {
 	if f.primaryBenched() {
 		return f.cfg.Backup.Stream(ctx, req)
@@ -151,9 +152,9 @@ func (f *FailoverProvider) Stream(ctx context.Context, req ProviderRequest) (Str
 	return &failoverStream{f: f, inner: s}, nil
 }
 
-// ProviderCapabilities reports what both Primary and Backup can send, since
-// either may serve a call and a parameter only one of them takes would be
-// refused when the other does.
+// ProviderCapabilities reports what both Primary and Backup can send. Either
+// may serve a call. Imagine a parameter that only one of them takes. It
+// would be refused whenever the other one serves the call.
 func (f *FailoverProvider) ProviderCapabilities() Capabilities {
 	return CapabilitiesOf(f.cfg.Primary).intersect(CapabilitiesOf(f.cfg.Backup))
 }
@@ -173,9 +174,9 @@ func (f *FailoverProvider) Generate(ctx context.Context, req ProviderRequest) (*
 }
 
 // StartReconciler probes the primary every interval while it is benched, so
-// recovery does not wait for user traffic. probe runs a caller-supplied
-// cheap check (nil uses a one-token Generate against the primary). Returns
-// a stop func; also stops when ctx ends.
+// recovery does not wait for user traffic. probe is a cheap check that the
+// caller supplies. Nil uses a one-token Generate against the primary. It
+// returns a stop func, and it also stops when ctx ends.
 func (f *FailoverProvider) StartReconciler(ctx context.Context, interval time.Duration, probe func(context.Context) error) (stop func()) {
 	if probe == nil {
 		probe = func(ctx context.Context) error {
@@ -210,8 +211,8 @@ func (f *FailoverProvider) StartReconciler(ctx context.Context, interval time.Du
 	return func() { once.Do(func() { close(done) }) }
 }
 
-// failoverStream marks the primary healthy once its stream completes and
-// records (without retrying) a failure that happens after deltas flowed.
+// failoverStream marks the primary healthy once its stream completes. It
+// records a failure that happens after deltas flowed, without retrying.
 type failoverStream struct {
 	f         *FailoverProvider
 	inner     Stream
@@ -229,10 +230,10 @@ func (s *failoverStream) Recv() (Delta, error) {
 		s.f.recordRecovery()
 		return d, err
 	default:
-		// Bench the primary for future calls either way, but this
-		// stream's consumer must see the error: after partial output a
-		// silent replay could re-run downstream side effects, and even
-		// before output the caller already holds this stream.
+		// Bench the primary for future calls either way. This stream's
+		// consumer must still see the error. After partial output, a
+		// silent replay could re-run downstream side effects. Even before
+		// output, the caller already holds this stream.
 		s.f.recordFailure(err)
 		return d, err
 	}

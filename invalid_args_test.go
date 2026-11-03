@@ -9,13 +9,13 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// Issue 104: a model that emits tool arguments which are not valid JSON must
-// not be able to put unterminated JSON into ToolCall.Args. The bad bytes would
-// otherwise sit in the assistant message, and every reader of that message
-// (the session store, the Watch stream, a provider re-encoding the history on
-// the next step) would fail to encode it.
+// Issue 104. Imagine a model emits tool arguments that are not valid JSON. It
+// must not be able to put unterminated JSON into ToolCall.Args. Otherwise the
+// bad bytes would sit in the assistant message, and every reader of that
+// message would fail to encode it. The readers include the session store, the
+// Watch stream, and a provider re-encoding the history on the next step.
 //
-// The fix belongs where the provider builds Args, not in dispatch: by the time
+// The fix belongs where the provider builds Args, not in dispatch. By the time
 // dispatch runs, the bad RawJSON is already in the history.
 const badArgsJSON = "{\"text\":\"line one\nline two\"}"
 
@@ -63,9 +63,9 @@ func runInvalidArgsTurn(t *testing.T) (*TurnResult, []Event, *invalidArgTools) {
 	return result, events, tools
 }
 
-// TestInvalidArgs_RunnerEventsAndRunMarshal is the wire-safety half of #104:
-// with invalid model-supplied arguments, every event the runner emitted and
-// the whole persisted Run must still encode as JSON.
+// TestInvalidArgs_RunnerEventsAndRunMarshal covers the wire-safety half of
+// #104. The model supplies invalid arguments. The runner's events and the whole
+// persisted Run must still encode as JSON.
 func TestInvalidArgs_RunnerEventsAndRunMarshal(t *testing.T) {
 	result, events, _ := runInvalidArgsTurn(t)
 
@@ -78,7 +78,7 @@ func TestInvalidArgs_RunnerEventsAndRunMarshal(t *testing.T) {
 		}
 	}
 
-	// A tool-begin event is where a surface first sees the raw arguments.
+	// A surface first sees the raw arguments in a tool-begin event.
 	var sawBegin bool
 	for _, ev := range events {
 		if ev.Kind == EventToolBegin {
@@ -98,7 +98,7 @@ func TestInvalidArgs_RunnerEventsAndRunMarshal(t *testing.T) {
 		t.Fatalf("persisted run did not marshal: %v", err)
 	}
 
-	// And through the real store, whose records a durable backend encodes.
+	// And through the real store. A durable backend encodes its records.
 	store := NewInMemoryRunStore()
 	ctx := context.Background()
 	if _, err := store.CreateRun(ctx, CreateRunRequest{RunID: "run-1"}); err != nil {
@@ -119,9 +119,10 @@ func TestInvalidArgs_RunnerEventsAndRunMarshal(t *testing.T) {
 	}
 }
 
-// TestInvalidArgs_StoredArgsAreValidJSON pins the shape of what is repaired:
-// the assistant message keeps the call (so the conversation stays well-formed
-// for the next step) but its Args are a valid JSON object, not the bad bytes.
+// TestInvalidArgs_StoredArgsAreValidJSON pins the shape of the repair. The
+// assistant message keeps the call, so the conversation is still well-formed
+// for the next step. The call's Args are a valid JSON object, not the bad
+// bytes.
 func TestInvalidArgs_StoredArgsAreValidJSON(t *testing.T) {
 	result, _, _ := runInvalidArgsTurn(t)
 
@@ -146,7 +147,7 @@ func TestInvalidArgs_StoredArgsAreValidJSON(t *testing.T) {
 	}
 }
 
-// TestInvalidArgs_ModelSeesError is the model-facing half of #104: the call
+// TestInvalidArgs_ModelSeesError covers the model-facing half of #104. The call
 // does not run, and the model is told its arguments were invalid.
 func TestInvalidArgs_ModelSeesError(t *testing.T) {
 	result, _, tools := runInvalidArgsTurn(t)
@@ -170,8 +171,8 @@ func TestInvalidArgs_ModelSeesError(t *testing.T) {
 	}
 }
 
-// TestDeltaAccumulator_InvalidArgsNormalized covers the streaming path: the
-// accumulator is where argument fragments are promoted into a RawJSON.
+// TestDeltaAccumulator_InvalidArgsNormalized covers the streaming path. The
+// accumulator promotes argument fragments into a RawJSON.
 func TestDeltaAccumulator_InvalidArgsNormalized(t *testing.T) {
 	var acc DeltaAccumulator
 	acc.Add(Delta{Kind: DeltaToolCallStart, Index: 0, ToolCallID: "c1", ToolName: "echo"})
@@ -190,10 +191,11 @@ func TestDeltaAccumulator_InvalidArgsNormalized(t *testing.T) {
 	}
 }
 
-// TestProviderArgsFromJSON normalizes nothing that is already fine, and repairs
-// whatever is not. Every provider path that builds ToolCall.Args goes through
-// it (DeltaAccumulator.Result for streaming, and the Generate paths in
-// openai_provider.go and anthropic_provider.go).
+// TestProviderArgsFromJSON checks that toolCallArgsFromJSON leaves valid args
+// alone and repairs invalid ones. Every provider path builds ToolCall.Args
+// through toolCallArgsFromJSON.
+// DeltaAccumulator.Result does for streaming, and so do the Generate paths in
+// openai_provider.go and anthropic_provider.go.
 func TestProviderArgsFromJSON(t *testing.T) {
 	cases := []struct {
 		name string

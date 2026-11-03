@@ -43,9 +43,9 @@ func scopedDefs() []core.ToolDef {
 	return []core.ToolDef{{Name: "search", Description: "search the corpus", InputSchema: map[string]any{"type": "object"}}}
 }
 
-// TestServerAgentSource_DispatchesScopedCall proves the happy path: the child
-// calls a scoped tool, the call reaches the backing (the server), and the
-// child's final text bubbles up through the delegate.
+// TestServerAgentSource_DispatchesScopedCall covers the happy path. The child
+// calls a scoped tool, the call reaches the backing server, and the child's
+// final text comes back up through the delegate.
 func TestServerAgentSource_DispatchesScopedCall(t *testing.T) {
 	backing := &recordingBacking{}
 	prov := NewStubProvider(
@@ -75,11 +75,11 @@ func TestServerAgentSource_DispatchesScopedCall(t *testing.T) {
 	}
 }
 
-// TestServerAgentSource_RejectsUnscopedTool is the capability-boundary guard:
-// the child model calls a tool the backing server HAS but the agent definition
-// did NOT scope. The call must never reach the backing; the child is told the
-// tool is unknown and its turn continues. Proven to fail if scopedSource were
-// to delegate every name straight through.
+// TestServerAgentSource_RejectsUnscopedTool guards the capability boundary.
+// The child model calls a tool that the backing server HAS, but the agent
+// definition did NOT scope it. The call must never reach the backing. The
+// child is told the tool is unknown, and its turn continues. The test was
+// shown to fail when scopedSource delegated every name straight through.
 func TestServerAgentSource_RejectsUnscopedTool(t *testing.T) {
 	backing := &recordingBacking{}
 	prov := NewStubProvider(
@@ -105,8 +105,8 @@ func TestServerAgentSource_RejectsUnscopedTool(t *testing.T) {
 
 // TestServerAgentSource_ThreadsInstructionsAndScopedTools asserts the child
 // Runner is seeded with the agent's instructions and advertises exactly the
-// scoped tools to its own model (progressive disclosure: the scoped schemas
-// live in the child, and only the scoped names are offered).
+// scoped tools to its own model. The scoped schemas live in the child, and
+// only the scoped names are offered. This is progressive disclosure.
 func TestServerAgentSource_ThreadsInstructionsAndScopedTools(t *testing.T) {
 	backing := &recordingBacking{}
 	prov := NewStubProvider(StubTurn{Text: "ok"})

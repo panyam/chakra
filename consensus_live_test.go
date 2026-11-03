@@ -11,10 +11,10 @@ import (
 
 // TestLlamaCppConsensusRepeatsWithTheSameSeeds runs a vote twice against a
 // real llama-server at temperature 1, sequentially. The same seeds must give
-// the same draws, with the second vote running on the prefix the first one
-// cached. It needs a single-slot server: with several slots the same seed
-// lands on a different slot's cache and drew differently in 2 of 8 runs, so
-// a server started without -np 1 is skipped rather than failed.
+// the same draws. The first vote caches the prefix, and the second vote runs
+// on that cache. It needs a single-slot server. With several slots, the same
+// seed can run on a different slot's cache, and it drew differently in 2 of
+// 8 runs. So a server started without -np 1 is skipped, not failed.
 //
 //	llama-server -m stories260K.gguf --port 18089 --chat-template chatml -np 1
 //	CHAKRA_LLAMACPP_URL=http://127.0.0.1:18089/v1 go test -run LlamaCppConsensus -v .

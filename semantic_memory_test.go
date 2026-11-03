@@ -122,9 +122,9 @@ func TestRecallRelevant(t *testing.T) {
 	}
 }
 
-// TestSemanticRecallThroughMemorySource is the payoff: the recall tool is
-// semantic (similarity-ranked) with no change to the model-facing surface,
-// purely by swapping the MemoryStore behind MemorySource.
+// TestSemanticRecallThroughMemorySource puts a semantic MemoryStore behind
+// MemorySource. The recall tool then ranks notes by similarity, and the
+// model-facing surface does not change.
 func TestSemanticRecallThroughMemorySource(t *testing.T) {
 	m, err := NewMemorySource(seedSemantic(t))
 	if err != nil {

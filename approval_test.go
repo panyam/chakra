@@ -9,9 +9,9 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// countingAsk returns an AskFunc that always answers `answer` and a pointer to
-// the number of times it was consulted, so a test can assert both the verdict
-// and whether the ask seam was reached at all.
+// countingAsk returns an AskFunc that always answers `answer`. It also returns
+// a pointer to a count of how often the AskFunc was consulted. So a test can
+// assert both the verdict and whether the ask seam was reached at all.
 func countingAsk(answer bool) (AskFunc, *int) {
 	n := 0
 	return func(ctx context.Context, info ToolCallInfo) (bool, error) {
@@ -20,11 +20,11 @@ func countingAsk(answer bool) (AskFunc, *int) {
 	}, &n
 }
 
-// gate runs the policy as middleware and reports the outcome in the shape the
-// assertions below care about: whether the call was allowed through to next,
-// and the reason when it was refused. A denial is an error carrying
-// ToolDeniedError rather than a returned struct, so this unwraps it once here
-// instead of at every call site.
+// gate runs the policy as middleware and reports the outcome for the
+// assertions below. It reports whether the call was allowed through to next,
+// and the reason when it was refused. A denial comes back as an error that
+// wraps ToolDeniedError, not as a returned struct. So gate unwraps it once
+// here instead of at every call site.
 func gate(p *TieredApproval, info ToolCallInfo) (allowed bool, reason string, err error) {
 	reached := false
 	next := func(context.Context, ToolCallInfo) (*core.ToolResult, error) {
@@ -199,9 +199,10 @@ func TestReversibleAutoMode(t *testing.T) {
 		}
 	})
 
-	// The conservative pin, through the Runner's own resolution path rather
-	// than hand-set fields: a tool that annotates nothing must reach the ask.
-	// Getting this backwards would silently widen what runs unattended.
+	// This pins the conservative default through the Runner's own resolution
+	// path, not through hand-set fields. A tool that annotates nothing must
+	// reach the ask. Getting this backwards would silently widen what runs
+	// unattended.
 	t.Run("asks for an unannotated tool", func(t *testing.T) {
 		ask, n := countingAsk(true)
 		p := NewTieredApproval(WithDefaultMode(ModeReversibleAuto), WithAsk(ask))
@@ -249,8 +250,9 @@ func TestToolHints(t *testing.T) {
 		{Name: "edit", Annotations: map[string]any{"readOnlyHint": false, "destructiveHint": false}},
 		{Name: "send", Annotations: map[string]any{"readOnlyHint": false, "destructiveHint": true}},
 		{Name: "put", Annotations: map[string]any{"destructiveHint": false, "idempotentHint": true}},
-		// Contradictory: the spec says the other two are meaningful only
-		// when a tool writes, so read-only wins and this reports safe.
+		// These hints contradict each other. The spec says the other two
+		// mean something only when a tool writes, so read-only wins and this
+		// reports safe.
 		{Name: "contradictory", Annotations: map[string]any{"readOnlyHint": true, "destructiveHint": true, "idempotentHint": false}},
 	}
 	type hints struct{ readOnly, destructive, idempotent bool }
@@ -272,9 +274,9 @@ func TestToolHints(t *testing.T) {
 	}
 }
 
-// An absent destructiveHint must resolve to destructive, which is the one
-// default that inverts the Go zero value and so the one a refactor can quietly
-// flip.
+// An absent destructiveHint must resolve to destructive. It is the one default
+// that is the opposite of the Go zero value. So a refactor could quietly flip
+// it.
 func TestToolHintsUnannotatedIsDestructive(t *testing.T) {
 	for _, tool := range []core.ToolDef{
 		{Name: "t"},
@@ -320,9 +322,9 @@ func TestUserDeclineTellsTheModelItDidNotRun(t *testing.T) {
 	}
 }
 
-// A remembered approval covers what its key names. When the key changes, as a
-// skill's does when its files rotate (#50), the user is asked again; a call
-// with no key is never remembered.
+// A remembered approval covers what its key names. A skill's key changes when
+// its files rotate (#50). When the key changes, the user is asked again. A
+// call with no key is never remembered.
 func TestRememberKeyDecidesWhatAnApprovalCovers(t *testing.T) {
 	ask, asked := countingAsk(true)
 	key := "v1"

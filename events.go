@@ -5,14 +5,14 @@ import (
 )
 
 // EventKind discriminates Event payloads. The vocabulary is the surfaces
-// contract from docs/AGENT_DESIGN.md: every kind is emitted in-process and
+// contract from docs/AGENT_DESIGN.md. Every kind is emitted in-process and
 // must project 1:1 onto a wire.
 type EventKind string
 
 // Event kinds, in the order a typical turn emits them. Thinking markers wrap
-// contiguous reasoning deltas within one step; tool events may interleave
-// across parallel calls of the same step, but tool-begin always precedes its
-// call's tool-end, tool-error, tool-denied, or tool-cancelled.
+// contiguous reasoning deltas within one step. Tool events may interleave
+// across parallel calls of the same step. For each call, tool-begin always
+// comes before its tool-end, tool-error, tool-denied, or tool-cancelled.
 const (
 	EventTurnBegin     EventKind = "turn-begin"
 	EventThinkingBegin EventKind = "thinking-begin"
@@ -23,60 +23,63 @@ const (
 	EventToolEnd       EventKind = "tool-end"
 	EventToolError     EventKind = "tool-error"
 	EventToolDenied    EventKind = "tool-denied"
-	// EventToolCancelled marks a call the user cancelled mid-flight via
-	// a TurnRequest Control. Distinct from tool-error (the tool did not
-	// fail; the user stopped it) so surfaces can render an interrupt
-	// differently from a failure. Reason carries the model-visible
-	// feedback text.
+	// EventToolCancelled marks a call that the user cancelled mid-flight
+	// through a TurnRequest Control. The tool did not fail, because the user
+	// stopped it. So this kind is separate from tool-error, and surfaces can
+	// render an interrupt differently from a failure. Reason holds the
+	// model-visible feedback text.
 	EventToolCancelled EventKind = "tool-cancelled"
-	// EventToolUnavailable marks a call whose backing server was not reachable
-	// (ErrNotAvailableNow): the tool exists but its server is down right now.
-	// Distinct from tool-error (nothing failed on the server; it just isn't
-	// there yet) so a surface can render it as a transient miss and evals keyed
-	// on Error don't count it. Reason carries the model-visible feedback text;
-	// the turn continues so the model can retry, route around it, or tell the
-	// user. See docs/AGENT_SERVER_STATE.md.
+	// EventToolUnavailable marks a call to a tool whose backing server was
+	// not reachable (ErrNotAvailableNow). The tool exists, but its server is
+	// down right now. Nothing failed on the server, because the server just
+	// isn't there yet. So this kind is separate from tool-error. A surface can
+	// render it as a transient miss, and evals keyed on Error don't count it.
+	// Reason holds the model-visible feedback text. The turn continues, so
+	// the model can retry, route around it, or tell the user. See
+	// docs/AGENT_SERVER_STATE.md.
 	EventToolUnavailable EventKind = "tool-unavailable"
 	// EventCompaction marks that a Compactor rewrote the turn's working
-	// messages before a model call (the head summarized, a recent tail kept
-	// verbatim). Step says which call; a Step above 1 is a mid-turn
-	// compaction. Emitted only when compaction actually fired; Compaction
-	// carries the before/after message counts. Surfaces can render a
-	// "compacted context" note; evals can assert it happened.
+	// messages before a model call. It summarized the head and kept a recent
+	// tail verbatim. Step says which call, and a Step above 1 is a mid-turn
+	// compaction. It is emitted only when compaction actually fired.
+	// Compaction holds the before/after message counts. Surfaces can render
+	// a "compacted context" note, and evals can assert that it happened.
 	EventCompaction EventKind = "compaction"
-	// EventSignal marks that a child agent raised an upward Signal, observed by
-	// the parent Runner at the dispatch join (issue 1165). Signal carries the
-	// raised signal. It is the observability projection of the control-axis "up"
-	// channel — a surface renders "child escalated"; the signal's effect on the
-	// turn (inject / abort) is the SignalPolicy's job, not this event's.
+	// EventSignal marks that a child agent raised an upward Signal. The
+	// parent Runner observes it at the dispatch join (issue 1165). Signal
+	// holds the raised signal. This event projects the control-axis "up"
+	// channel for observability, and a surface renders "child escalated".
+	// The SignalPolicy decides the signal's effect on the turn, inject or
+	// abort. This event does not.
 	EventSignal EventKind = "signal"
 	// EventTurnContinued marks that a TurnEndHook refused the model's final
-	// answer (#150). Step is the step that answered, and Reason the message
-	// the turn continues with, which also joins the record as a RoleSystem
-	// note (RoleUser when the verdict set AsUser). A Stop emits no
-	// turn-continued; the turn ends with EventError. Another step follows unless the turn is at MaxSteps.
+	// answer (#150). Step is the step that answered. Reason is the message
+	// that the turn continues with. That message also joins the record as a
+	// RoleSystem note, or as RoleUser when the verdict set AsUser. A Stop
+	// emits no turn-continued, and the turn ends with EventError. Another
+	// step follows unless the turn is at MaxSteps.
 	EventTurnContinued EventKind = "turn-continued"
-	// EventPlan carries the plan a model published with update_plan (#148),
-	// on Plan, whole each time: a surface replaces the plan it showed. Step is
-	// the step whose tool call published it.
+	// EventPlan sends the plan that a model published with update_plan
+	// (#148). Plan holds the whole plan each time, so a surface replaces the
+	// plan it showed. Step is the step whose tool call published it.
 	EventPlan EventKind = "plan"
 	// EventStep closes one model call that a StepStage named through
-	// StepView.ProviderName (#185): Step is the call, Model the name, and
-	// Usage what the provider reported for it (nil when it reported none).
-	// It fires after the call's deltas and before its tool calls run. A step
-	// no stage named emits none, so a turn without routing streams exactly
-	// what it did before.
+	// StepView.ProviderName (#185). Step is the call and Model is the name.
+	// Usage holds what the provider reported for the call, or nil when it
+	// reported none. It fires after the call's deltas and before its tool
+	// calls run. When no stage names a step, that step emits no EventStep. So
+	// a turn without routing streams exactly what it did before.
 	EventStep    EventKind = "step"
 	EventTurnEnd EventKind = "turn-end"
 	EventError   EventKind = "error"
 )
 
-// Event is one increment of a running turn, the payload surfaces consume
-// (constraint A2: JSON-tagged, stable kind, no Go-only fields). Events carry
-// no turn or session identity on purpose: in-process the emit closure is
-// scoped to one Run call, and wire layers wrap events in their own envelope
-// (session id, turn id, sequence) rather than the module pre-committing an
-// ID scheme.
+// Event is one increment of a running turn, and surfaces consume it.
+// Constraint A2 makes it JSON-tagged, with a stable kind and no Go-only
+// fields. Events have no turn or session identity on purpose. In-process,
+// the emit closure is scoped to one Run call. Wire layers wrap events in
+// their own envelope with a session id, turn id and sequence. So the module
+// does not pre-commit to an ID scheme.
 type Event struct {
 	Kind EventKind `json:"kind"`
 
@@ -84,33 +87,33 @@ type Event struct {
 	// events). Zero on turn-begin, turn-end, and error.
 	Step int `json:"step,omitempty"`
 
-	// Text carries the fragment for text-delta and thinking-delta.
+	// Text holds the fragment for text-delta and thinking-delta.
 	Text string `json:"text,omitempty"`
 
 	// ToolCall identifies the call for tool-begin, tool-end, and
 	// tool-error.
 	ToolCall *ToolCall `json:"toolCall,omitempty"`
 
-	// ToolResult is the outcome on tool-end (including IsError results;
-	// tool-error is reserved for dispatch failures).
+	// ToolResult is the outcome on tool-end, including IsError results.
+	// tool-error is reserved for dispatch failures.
 	ToolResult *core.ToolResult `json:"toolResult,omitempty"`
 
 	// Error is the failure description on tool-error and error. A string,
 	// not an error value, so the event crosses wires unchanged.
 	Error string `json:"error,omitempty"`
 
-	// Reason is the human-readable justification on tool-denied (why the
-	// approval policy refused the call), tool-cancelled (the user
-	// stopped the call) and turn-continued (the message a TurnEndHook
-	// refused the answer with). Distinct from Error because all three are
-	// outcomes of someone's decision, not failures; none carries a
-	// ToolResult.
+	// Reason is the human-readable justification on three kinds. On
+	// tool-denied it says why the approval policy refused the call. On
+	// tool-cancelled it says the user stopped the call. On turn-continued it
+	// is the message that a TurnEndHook refused the answer with. All three
+	// are outcomes of someone's decision, not failures, so Reason is
+	// separate from Error. None of them has a ToolResult.
 	Reason string `json:"reason,omitempty"`
 
 	// Result is the completed turn on turn-end.
 	Result *TurnResult `json:"result,omitempty"`
 
-	// Compaction carries the before/after message counts on compaction.
+	// Compaction holds the before/after message counts on compaction.
 	Compaction *CompactionInfo `json:"compaction,omitempty"`
 
 	// Signal is the upward signal a child raised, on EventSignal.
@@ -127,9 +130,8 @@ type Event struct {
 	Usage *Usage `json:"usage,omitempty"`
 }
 
-// CompactionInfo reports what a compaction pass did: the message count
-// before and after the head was summarized. After < Before whenever the
-// event fires.
+// CompactionInfo reports the message count before and after a compaction
+// pass summarized the head. After < Before whenever the event fires.
 type CompactionInfo struct {
 	Before int `json:"before"`
 	After  int `json:"after"`

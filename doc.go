@@ -1,17 +1,19 @@
-// Package agent is mcpkit's host layer: the agentic loop that turns a set of
-// connected MCP servers and an LLM into a working agent.
+// Package agent is the agentic loop that turns a set of connected MCP servers
+// and an LLM into a working agent. It sits above mcpkit and uses it as an
+// ordinary dependency.
 //
-// The module provides four seams (see docs/AGENT_DESIGN.md for the design and
-// the tracking epic for delivery order):
+// docs/AGENT_DESIGN.md has the design, and the tracking epic has the delivery
+// order. The module provides four seams:
 //
 //   - Provider: streaming LLM access with tool-call support
 //   - Runner: the multi-step tool loop, emitting wire-serializable events
 //   - ToolSource: tool aggregation across MCP servers and host-local functions
 //   - Policy hooks: context injection and event-initiated turns
 //
-// It deliberately excludes sessions, chat transports, and persistence; those
-// belong to the applications (CLIs, web hosts, native shells) that embed it.
+// It leaves out sessions, chat transports, and persistence on purpose.
+// Applications that embed it own those, such as CLIs, web hosts, and native
+// shells.
 //
-// agent/ is a separate Go module so that LLM-provider dependencies never
-// reach mcpkit's core, server, or client packages.
+// It lives in its own repository, so LLM-provider dependencies never reach
+// mcpkit's core, server, or client packages.
 package agent

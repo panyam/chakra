@@ -15,8 +15,8 @@ import (
 
 // TestResponsesLiveToolLoopChains runs a tool-using turn against the real
 // Responses API and checks that every step after the first chains from the
-// step before. It is the only check that the server accepts the chained
-// request shape:
+// step before. No other test checks that the server accepts the chained
+// request shape. Run it with:
 //
 //	CHAKRA_RESPONSES_MODEL=gpt-5-mini go test -run ResponsesLive -v .
 //

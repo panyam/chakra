@@ -7,12 +7,13 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// runnerMetrics holds the Runner's OTel instruments (issue 1023), the metrics
-// sibling of the SEP-414 trace spans. They are emitted at the same points the
-// spans are (turn end, each tool call), so a dashboard can chart rate, latency,
-// token throughput, and tool error/deny rate. Built once from the configured
-// MeterProvider; a NoopMeterProvider returns shared no-op instruments, so the
-// unconfigured path is a branch-free zero-overhead call.
+// runnerMetrics holds the Runner's OTel instruments (issue 1023). They are the
+// metrics sibling of the SEP-414 trace spans. They are emitted at the same
+// points as the spans, at turn end and on each tool call. So a dashboard can
+// chart rate, latency, token throughput, and tool error/deny rate. They are
+// built once from the configured MeterProvider. A NoopMeterProvider returns
+// shared no-op instruments, so the unconfigured path is a branch-free
+// zero-overhead call.
 type runnerMetrics struct {
 	turns     core.Int64Counter
 	turnDur   core.Float64Histogram
@@ -33,8 +34,8 @@ func newRunnerMetrics(mp core.MeterProvider) *runnerMetrics {
 	}
 }
 
-// turnDone records the per-turn metrics: one turn, its duration, the steps it
-// took, and the input/output tokens it consumed.
+// turnDone records the per-turn metrics. It counts one turn and records its
+// duration, its steps, and the input/output tokens it consumed.
 func (m *runnerMetrics) turnDone(ctx context.Context, steps int, in, out int, finishReason string, elapsed time.Duration) {
 	m.turns.Add(ctx, 1, core.Attribute{Key: "agent.finish_reason", Value: finishReason})
 	m.turnDur.Record(ctx, elapsed.Seconds())

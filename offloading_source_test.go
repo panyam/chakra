@@ -87,9 +87,9 @@ func TestOffloadingSource_LargeResultStubbedAndStored(t *testing.T) {
 	}
 }
 
-// TestOffloadingSource_StubIsFaithful pins the log-fidelity property: the
-// bytes fed back to the model (the stub) are exactly what a persisted
-// RoleTool message would carry, so resume replays what the model saw.
+// TestOffloadingSource_StubIsFaithful pins log fidelity. The model gets a stub
+// back, and a persisted RoleTool message holds exactly the same bytes. So
+// resume replays what the model saw.
 func TestOffloadingSource_StubIsFaithful(t *testing.T) {
 	o, _ := newOffloader(t, textResult(strings.Repeat("y", 5000)), OffloadConfig{})
 	res := callDump(t, o)
@@ -210,17 +210,17 @@ func isHexish(b byte) bool {
 }
 
 // The two fixtures under testdata/ are real captured `go test` output from
-// this module, one run with -v and one without, each carrying a single
-// genuine failure. They exist because go test decides where a failure's
-// detail sits relative to the line a caller can grep for. We didn't choose
-// it, and it differs between the two modes.
+// this module. One run used -v and one didn't, and each has a single genuine
+// failure. We need real output because go test decides where a failure's
+// detail goes relative to the line a caller can grep for. We didn't choose
+// that placement, and it differs between the two modes.
 const (
 	verboseFixture = "testdata/gotest_verbose_fail.txt"
 	plainFixture   = "testdata/gotest_plain_fail.txt"
 )
 
 // TestReadToolResult_GrepContextRecoversFailureDetail is the regression for
-// chakra#41. Grepping "--- FAIL" finds which test failed and never why: in
+// chakra#41. Grepping "--- FAIL" finds which test failed and never why. In
 // -v output the assertion is printed ABOVE that marker, and without -v it is
 // printed BELOW. So context has to be two-sided to reach both.
 func TestReadToolResult_GrepContextRecoversFailureDetail(t *testing.T) {
@@ -311,8 +311,9 @@ func TestGrepLines_BoundedByLimit(t *testing.T) {
 		t.Fatalf("truncation must be stated, got %q", got)
 	}
 
-	// The default bound applies when the caller sets no limit, so a loose
-	// pattern cannot re-inline the whole payload offloading just removed.
+	// The default bound applies when the caller sets no limit. Offloading just
+	// removed the payload, and the bound stops a loose pattern from
+	// re-inlining all of it.
 	unbounded := grepLines(lines, regexp.MustCompile("hit"), 0, 0, "res:x", "hit")
 	if n := strings.Count(unbounded, "\n"); n > DefaultGrepMaxLines+1 {
 		t.Fatalf("unbounded grep returned %d lines, want <= %d", n, DefaultGrepMaxLines)
@@ -335,9 +336,9 @@ func TestGrepLines_NoMatchIsGraceful(t *testing.T) {
 }
 
 // TestReadToolResult_AutoAllowedUnderReadOnlyAuto is the regression for #99.
-// Without readOnlyHint, read_tool_result went to the approver on every call,
-// so a host with nobody answering (agentweb over Connect) declined each one
-// and an offloaded result could never be read back.
+// Without readOnlyHint, read_tool_result went to the approver on every call.
+// On a host with nobody answering, such as agentweb over Connect, each call
+// was declined. An offloaded result could never be read back.
 func TestReadToolResult_AutoAllowedUnderReadOnlyAuto(t *testing.T) {
 	o, _ := newOffloader(t, textResult(strings.Repeat("x", 9000)+"needle"), OffloadConfig{Threshold: 1000})
 	ref := extractRef(t, toolResultText(callDump(t, o)))
