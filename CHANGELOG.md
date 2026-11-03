@@ -5,9 +5,13 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
-## [Unreleased]
+## [v0.2.4] - 2026-11-03
 
 ### Added
+- Host: `"sampling": {"enabled": true}` answers servers' `sampling/createMessage` requests, asking the user first with the server, system prompt and messages shown (unless approval is `allow`). `connection`, `maxTokens` and `reviewResponse` pick the model, cap the reply and ask again before it goes back (PR 212).
+- `ext/exec`: long-running processes. `ShellConfig.Processes` adds `exec_command`, `write_stdin`, `list_processes` and `kill_process`, with an optional pseudo-terminal (`tty: true`). Processes belong to the session, are capped per session and per output, and die with it (PR 213).
+- `ext/exec`: per-domain network egress. `Config.Network` runs a local HTTP and SOCKS5 proxy that every command goes through, allowing listed hosts and, with `ask`, asking once per host per session (PR 217).
+- `ext/exec`: a running process's output streams to surfaces as `process-output` events while it prints, shown live in agentweb's Tools panel and as `[p1]` lines in agentchat. The model's tool results are unchanged (PR 219).
 - `StepView.Provider` and `StepView.ProviderName`: a request-scoped `StepStage` can send one model call to another provider, and name it. The next step starts back on `RunnerConfig.Provider`. A guided step checks the routed provider can send the constraint (#185).
 - `EventStep`, with `Event.Model` and `Event.Usage`: one per named step, after its deltas. Steps no stage names emit none (#185).
 - `TurnResult.UsageByModel`: the turn's usage split by step name, nil when no stage named a step (#185).
