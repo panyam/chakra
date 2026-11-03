@@ -347,6 +347,9 @@ func WithExtension(exts ...Extension) AppOption {
 // A renderer that returns an empty string is treated as having declined,
 // because an empty approval prompt asks the user to confirm nothing.
 func (a *App) renderApproval(ctx context.Context, info agent.ToolCallInfo) string {
+	if text, ok := a.renderSkillLoad(info); ok {
+		return text
+	}
 	for _, r := range a.approvalRenderers {
 		if r == nil {
 			continue
@@ -377,6 +380,9 @@ func (a *App) chooseApproval(ctx context.Context, info agent.ToolCallInfo, prese
 // classifyApproval gives each registered classifier a look at a pending call,
 // in registration order, and returns the first claim.
 func (a *App) classifyApproval(ctx context.Context, info agent.ToolCallInfo) (agent.CallClass, bool) {
+	if class, ok := a.classifySkillLoad(info); ok {
+		return class, true
+	}
 	for _, c := range a.approvalClassifiers {
 		if c == nil {
 			continue

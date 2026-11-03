@@ -132,7 +132,10 @@ type App struct {
 	// approvalRenderers are collected from the extensions in registration
 	// order and consulted before the built-in prompt format.
 	approvalRenderers []ApprovalRenderer
-	approvalChoosers  []ApprovalChooser
+	// grants are the skill allowed-tools grants approved this session and
+	// active this turn (#187).
+	grants           skillGrants
+	approvalChoosers []ApprovalChooser
 	// approvalClassifiers, also in registration order; see classifyApproval.
 	approvalClassifiers []ApprovalClassifier
 
@@ -400,13 +403,17 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	// The approval "ask" prompt uses the same FIFO seam as elicitation, so a
 	// gated tool call never stacks a dialog against a concurrent elicitation.
 	ask := func(ctx context.Context, info agent.ToolCallInfo) (bool, error) {
-		return coord.Confirm(ctx, app.renderApproval(ctx, info))
+		ok, err := coord.Confirm(ctx, app.renderApproval(ctx, info))
+		if ok && err == nil {
+			app.noteApprovedSkillLoad(info)
+		}
+		return ok, err
 	}
 	app.confirm = coord.Confirm
 	choose := func(ctx context.Context, info agent.ToolCallInfo) (agent.Choice, error) {
 		return app.chooseApproval(ctx, info, agent.ElicitationUI(coord.Handler()))
 	}
-	app.approval = cfg.Approval.buildApproval(ask, choose, app.rememberKey, app.classifyApproval)
+	app.approval = cfg.Approval.buildApproval(ask, choose, app.rememberKey, app.classifyApproval, app.grantCovers)
 
 	// serverTools mirrors only the server sources, with no meta-tools and no
 	// sub-agents. A sub-agent or fan-out persona gets this filtered view of the
@@ -908,6 +915,8 @@ func (a *App) runOneTurn(ctx context.Context, input string, opts TurnOptions, an
 	defer a.turnMu.Unlock()
 	a.steer.begin()
 	defer func() { late = a.steer.end() }()
+	a.grants.endTurn()
+	defer a.grants.endTurn()
 	a.triggers.NotifyEngagement()
 	if !announced {
 		a.emit(HostEvent{Kind: HostUserInput, Message: input})

@@ -252,10 +252,14 @@ func (a *App) registerLoadSkill(multi *agent.MultiSource) error {
 			if err != nil {
 				return "", err
 			}
+			out := wrapSkillOrigin(match.serverID, match.entry.Name(), string(body))
 			if match.local != nil {
-				return wrapLocalSkill(*match.local, match.entry.Name(), string(body)), nil
+				out = wrapLocalSkill(*match.local, match.entry.Name(), string(body))
 			}
-			return wrapSkillOrigin(match.serverID, match.entry.Name(), string(body)), nil
+			if note := a.grantSkill(match); note != "" {
+				out += "\n\n" + note
+			}
+			return out, nil
 		})
 	if err != nil {
 		return err
@@ -364,7 +368,16 @@ func (a *App) rememberKey(info agent.ToolCallInfo) (string, bool) {
 		return "", false
 	}
 	match, _ := resolveCatalogSkill(a.allCatalogSkills(), strings.TrimSpace(in.Name), strings.TrimSpace(in.Server))
-	if match == nil || match.entry.Resources.Dynamic {
+	if match == nil {
+		return "", false
+	}
+	return skillApprovalKey(match)
+}
+
+// skillApprovalKey is the remember key for loading match: its source, its URI
+// and every file's digest. A dynamic skill has no fixed files, so ok is false.
+func skillApprovalKey(match *catalogSkill) (string, bool) {
+	if match.entry.Resources.Dynamic {
 		return "", false
 	}
 	files := make([]string, 0, len(match.entry.Resources.Files))

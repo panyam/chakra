@@ -42,7 +42,7 @@ func TestExtensionClassifierReachesTheGate(t *testing.T) {
 		prompts = append(prompts, a.renderApproval(ctx, info))
 		return false, nil
 	}
-	gate := (&ApprovalConfig{Mode: "read-only-auto"}).buildApproval(ask, nil, nil, a.classifyApproval)
+	gate := (&ApprovalConfig{Mode: "read-only-auto"}).buildApproval(ask, nil, nil, a.classifyApproval, nil)
 
 	run := func(args string) bool {
 		ran := false

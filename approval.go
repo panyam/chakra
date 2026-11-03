@@ -160,6 +160,7 @@ type TieredApproval struct {
 	remember bool
 	key      RememberKeyFunc
 	classify ClassifyFunc
+	grant    GrantFunc
 
 	mu         sync.Mutex
 	remembered map[string]bool
@@ -213,6 +214,23 @@ func WithRememberKey(fn RememberKeyFunc) TieredOption {
 // anything else. Nil keeps every call's disposition at its tool's annotations.
 func WithClassifier(fn ClassifyFunc) TieredOption {
 	return func(t *TieredApproval) { t.classify = fn }
+}
+
+// GrantFunc reports whether the user already approved this call some other
+// way. The host uses it for a skill's allowed-tools (#187). The user approves
+// the grants when they approve loading the skill, and the grants then cover
+// matching calls for the rest of the turn.
+//
+// A grant stands in for an ask and for nothing else. A forbidden or always-ask
+// verdict from the classifier still wins, and so does RuleDeny. A grant does
+// beat RuleAsk and a destructive verdict, because both of those only mean
+// "ask first", and the user has already answered.
+type GrantFunc func(ctx context.Context, info ToolCallInfo) bool
+
+// WithGrants sets the check for calls the user approved ahead of time. Nil
+// means nothing is granted.
+func WithGrants(fn GrantFunc) TieredOption {
+	return func(t *TieredApproval) { t.grant = fn }
 }
 
 // rememberKey is the cache key for info, or ok false when it can't be cached.
@@ -269,9 +287,10 @@ func (t *TieredApproval) DefaultMode() ApprovalMode {
 	return t.mode
 }
 
-// WrapToolCall applies four checks in order. The classifier runs first and
-// refuses a forbidden call here. A remembered approval comes next, then a
-// per-tool rule. The default mode comes last, and it reads the classifier's
+// WrapToolCall applies five checks in order. The classifier runs first and
+// refuses a forbidden call here. A remembered approval comes next. Then
+// RuleDeny refuses, a grant (WithGrants) allows, and any other per-tool rule
+// applies. The default mode comes last, and it reads the classifier's
 // disposition in place of the tool's annotations. An ask that the user
 // accepts is remembered when the cache is on. A refusal denies with a Reason.
 // Refusals come from rule Deny, an ask returning false, or an ask with no
@@ -311,7 +330,15 @@ func (t *TieredApproval) WrapToolCall(ctx context.Context, info ToolCallInfo, ne
 		return next(ctx, info)
 	}
 
-	if rule, ok := t.rules[info.Call.Name]; ok {
+	rule, hasRule := t.rules[info.Call.Name]
+	if hasRule && rule == RuleDeny {
+		return nil, DenyTool("denied by approval policy")
+	}
+	if t.grant != nil && t.grant(ctx, info) {
+		return next(ctx, info)
+	}
+
+	if hasRule {
 		switch rule {
 		case RuleAllow:
 			return next(ctx, info)
