@@ -421,3 +421,19 @@ func TestCursorKeyIgnoresTimestampOnly(t *testing.T) {
 		t.Fatal("field boundaries collide")
 	}
 }
+
+// The Responses API nests an error event's details under "error", as a
+// quota failure shows: the code and message must reach the caller.
+func TestResponsesErrorEventCarriesTheServerMessage(t *testing.T) {
+	ts := rawServer(t, nil, "text/event-stream", rsData(
+		`{"type":"error","error":{"type":"insufficient_quota","code":"credit_balance_exhausted","message":"You have no credits remaining.","param":null},"sequence_number":2}`))
+	s, err := newTestResponsesProvider(t, ts.URL, ResponsesConfig{}).Stream(context.Background(), ProviderRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	_, err = s.Recv()
+	if err == nil || !strings.Contains(err.Error(), "credit_balance_exhausted") || !strings.Contains(err.Error(), "You have no credits remaining.") {
+		t.Fatalf("want the server's code and message, got %v", err)
+	}
+}

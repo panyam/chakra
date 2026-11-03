@@ -466,6 +466,12 @@ type rsEvent struct {
 	Response    *rsResponse   `json:"response"`
 	Code        string        `json:"code"`
 	Message     string        `json:"message"`
+	// Error holds an error event's details. OpenAI nests them here; Code and
+	// Message above are the flat form, read when Error is absent.
+	Error *struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	} `json:"error"`
 }
 
 // responsesStream adapts the Responses event stream to the Stream interface.
@@ -524,7 +530,11 @@ func (s *responsesStream) decode(payload string) ([]Delta, bool, error) {
 		}
 		return nil, true, fmt.Errorf("agent: %s", msg)
 	case "error":
-		return nil, true, fmt.Errorf("agent: stream error %s: %s", ev.Code, ev.Message)
+		code, msg := ev.Code, ev.Message
+		if ev.Error != nil {
+			code, msg = ev.Error.Code, ev.Error.Message
+		}
+		return nil, true, fmt.Errorf("agent: stream error %s: %s", code, msg)
 	}
 	for _, d := range out {
 		s.acc.Add(d)
