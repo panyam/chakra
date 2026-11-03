@@ -60,8 +60,8 @@ type walkOpts struct {
 }
 
 // walkTarget is one root and the subtree within it to traverse. A call with no
-// dir produces one target per root, which is what makes a listing span the
-// workspace rather than whichever root happened to be first.
+// dir produces one target per root, so a listing spans the whole workspace
+// rather than whichever root happened to be first.
 type walkTarget struct {
 	root *workspaceRoot
 	dir  string
@@ -69,8 +69,8 @@ type walkTarget struct {
 
 // excluded reports whether a directory name is skipped.
 //
-// Matching is on the base name rather than the full path, because that is what
-// the default list means: `node_modules` anywhere, not only at the root. A
+// Matching is on the base name rather than the full path, so an entry in the
+// default list such as `node_modules` matches anywhere, not only at the root. A
 // caller wanting a path-anchored rule can pass a pattern and it is matched with
 // path.Match against both forms.
 func excluded(patterns []string, name, rel string) bool {

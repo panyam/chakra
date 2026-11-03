@@ -24,102 +24,106 @@ The tell is the natural return type. A protocol object (`core.DetailedTask`, `ev
 `InputResponses`) is client-layer. A model-facing object (`core.ToolResult`, injected context,
 a proactive turn) is agent-layer.
 
-This is why task polling, `BackgroundTask`, and `StreamChan` live in `client/` while
-`EventInjectionPolicy`, `TriggerPolicy`, and the Runner live here. It is also why `RunStore`,
-`ToolResultStore`, and `MemoryStore` live in `chakra` rather than a root `stores/`: they
-traffic in `agent.Message` / `core.ToolResult` / `MemoryItem`, so hoisting them would force a
-root→agent dependency.
+By that test, task polling, `BackgroundTask`, and `StreamChan` live in `client/`, while
+`EventInjectionPolicy`, `TriggerPolicy`, and the Runner live here. The same test puts `RunStore`,
+`ToolResultStore`, and `MemoryStore` in `chakra` rather than a root `stores/`. They
+traffic in `agent.Message` / `core.ToolResult` / `MemoryItem`, so moving them to the root would
+make the root depend on agent.
 
 ## Background goroutines
 
-Use `core.DetachForBackground(ctx)`, never `context.WithoutCancel`. The former replaces the
-dead POST-scoped requestFunc/notifyFunc with the session-level persistent push. Anything that
-outlives a turn *and* calls MCP server tools needs it: async sub-agents, the agent pool, task
-dispatch.
+Use `core.DetachForBackground(ctx)`, never `context.WithoutCancel`. `DetachForBackground`
+replaces the dead POST-scoped requestFunc/notifyFunc with the session-level persistent push.
+Async sub-agents, the agent pool and task dispatch all outlive a turn *and* call MCP server
+tools, so they all need it.
 
 ---
 
 ## Runner, control, and cancellation
 
-`Runner.RunTurn(ctx, TurnRequest)` is the real entry point; `Run` is a shim. The Runner is a
-deterministic fan-out-then-join pure function over history. It is stateless, so one Runner can
-be reused across turns, and that is what makes resume / fork / eval / compaction composable.
+`Runner.RunTurn(ctx, TurnRequest)` is the real entry point, and `Run` is a shim. The Runner is
+a deterministic fan-out-then-join pure function over history. It holds no state between turns,
+so one Runner can be reused across turns, and resume, fork, eval and compaction compose.
 
-**Per-tool-call cancellation** rides `TurnRequest.Control <-chan Control`. `Control{}` with an
-empty CallID cancels every in-flight call in one send; `Control{CallID}` targets one. A
-cancelled call feeds `"cancelled by user"` back to the model and **the turn continues** —
-cancelling `RunTurn`'s own ctx is still the way to abort outright.
+**Per-tool-call cancellation** goes over `TurnRequest.Control <-chan Control`. `Control{}` with
+an empty CallID cancels every in-flight call in one send, and `Control{CallID}` cancels one. A
+cancelled call feeds `"cancelled by user"` back to the model and **the turn continues**. To
+abort outright, cancel `RunTurn`'s own ctx.
 
-The gotcha that bit: cancellation must be checked on all three outcome shapes. Transports
-return an error, but `FuncSource` converts a handler's `ctx.Err()` into an `IsError` result,
-and a success can race the cancel. User cancel wins in the race. `EventToolCancelled` carries
-`Reason`, not `Error`, so error-keyed eval scorers do not miscount interrupts.
+Cancellation must be checked on all three outcome shapes, and we got this wrong first.
+Transports return an error. `FuncSource` converts a handler's `ctx.Err()` into an `IsError`
+result. A success can race the cancel, and the user's cancel wins that race.
+`EventToolCancelled` has a `Reason` field, not `Error`, so error-keyed eval scorers do not
+count interrupts as errors.
 
-`Control` is the extensible steering envelope; future verbs are additive `Kind` values.
-Mid-turn *content* ("/btw") is deliberately not a Control — it routes through injection so it
-lands in history.
+`Control` is the extensible steering envelope, and future verbs are additive `Kind` values.
+Mid-turn *content* ("/btw") is deliberately not a Control. It routes through injection so it
+ends up in history.
 
 ### Upward signals (#1165, PR 1168)
 
-A child raises a **non-referential** `Signal` (`SignalKind` ∈ `escalate`, `custom`, `preempt`)
-to its parent by calling the `signal_parent` tool. The child reports only its own state and
-never names a sibling: under A7 it cannot know what its siblings are doing. The parent holds
+A child calls the `signal_parent` tool to raise a **non-referential** `Signal` to its parent.
+`SignalKind` is one of `escalate`, `custom` or `preempt`. The child reports only its own state and
+never names a sibling, because under A7 it cannot know what its siblings are doing. The parent holds
 the fan-out inventory and its own policy, so the parent decides what to do about the others.
 
 `cancel_siblings` was deliberately dropped as a kind. It implies sibling-awareness, and it
-no-ops anyway — siblings have already joined by the time a non-interruptible parent reads at
-the join.
+would do nothing anyway. A non-interruptible parent reads signals at the join, and by then the
+siblings have already joined.
 
-**Two-key ctx sink**, and a single-key design was a real bug caught before tests:
-`dispatchSinkKey` is a dispatch's sink for its own children; `parentSinkKey` is snapshotted by
-`AgentSource.Call` and is the spawner's sink. `RaiseSignal` reads `parentSinkKey` so a child
-raises to its spawner rather than to its own dispatch sink, which would shadow it. A grandchild
-therefore reaches its immediate parent. Guarded by
+**Two-key ctx sink.** We first had a single key, and caught the bug before tests did.
+`dispatchSinkKey` holds a dispatch's sink for its own children. `AgentSource.Call` snapshots the
+spawner's sink into `parentSinkKey`. `RaiseSignal` reads `parentSinkKey`, so a child raises to
+its spawner. If it read its own dispatch sink, that sink would shadow the spawner's. A
+grandchild therefore reaches its immediate parent. Guarded by
 `TestUpwardSignal_NestedReachesImmediateParent`.
 
-The parent reads drained signals at the dispatch join and reacts via `RunnerConfig.SignalPolicy`
+The parent drains signals at the dispatch join. It reacts through `RunnerConfig.SignalPolicy`
 (built-in `AbortOnEscalate`) or by injecting a `RoleSystem` note into the next step.
-`EventSignal` surfaces it.
+`EventSignal` reports each signal to surfaces.
 
 ### Interruptible turn (#1167, PR 1170)
 
-`RunnerConfig.Interruptible` (default off) lets `dispatch` break the fan-out join barrier on
-the first mid-flight signal: cancel the remaining calls, return partial results, and let the
-existing `RunTurn` loop re-plan. There is no `RunTurn` change — re-entry falls out of the
-existing post-dispatch loop.
+`RunnerConfig.Interruptible` is off by default. When it is on, `dispatch` breaks the fan-out
+join barrier on the first mid-flight signal. It cancels the remaining calls, returns partial
+results, and lets the existing `RunTurn` loop re-plan. `RunTurn` did not change, because the
+existing post-dispatch loop already re-enters.
 
-**The parent-vs-callBase ctx split is the load-bearing detail.** A fan cancel must leave the
-*step* ctx (`parent`) live so cancelled siblings read "cancelled by user" rather than the turn
-aborting. `callTool`'s `cancelled()` is `call-ctx-done && parent-live`. Calls run under a
-cancellable `callBase = WithCancel(parent)`, and in non-interruptible mode `callBase == parent`
-so the default path is byte-identical. Still `wg.Wait()` after the cancel so every result slot
-is filled — providers require a result per tool call. `dispatch` returns `([]Message, []Signal)`.
+**Calls run under their own ctx, `callBase`, separate from the step's `parent`.** A
+fan cancel must leave the *step* ctx (`parent`) live. Then cancelled siblings read "cancelled
+by user", and the turn does not abort. `callTool`'s `cancelled()` is
+`call-ctx-done && parent-live`. Calls run under a cancellable `callBase = WithCancel(parent)`.
+In non-interruptible mode `callBase == parent`, so the default path is byte-identical. After
+the cancel, `dispatch` still calls `wg.Wait()` so every result slot is filled, because providers
+require a result per tool call. `dispatch` returns `([]Message, []Signal)`.
 
 ### preempt is parent-granted, not child-authoritative (#1176, PR 1178)
 
-A `custom` FYI signal never breaks the barrier. `escalate` always breaks (must-handle
-contract). A `preempt` breaks and cancels the in-flight losers **only when
-`RunnerConfig.PreemptGrant` honors it**. Nil, the default, means injected-only: the model
-decides on re-plan, so a rogue or prompt-injected child cannot unilaterally kill its siblings.
+A `custom` FYI signal never breaks the barrier. `escalate` always breaks, because the parent
+must handle it. A `preempt` breaks and cancels the in-flight losers **only when
+`RunnerConfig.PreemptGrant` honors it**. The default is nil, and then a preempt is only
+injected. The model decides on re-plan, so a rogue or prompt-injected child cannot
+unilaterally kill its siblings.
 
-The design crux: under A7 a child cannot know global sufficiency, so its preempt is advisory.
-Mechanism is `signalSink.breakOn` (set to `Runner.shouldBreakOn`) gating `raise`'s notify.
-`agent.GrantAllPreempts` is the trust-all grant; host `Config.AllowPreempt` (default false).
+Under A7 a child cannot know whether the tree as a whole has enough, so its preempt is
+advisory. `signalSink.breakOn` gates `raise`'s notify, and the Runner sets it to
+`Runner.shouldBreakOn`. `agent.GrantAllPreempts` is the trust-all grant. The host exposes it as
+`Config.AllowPreempt`, which defaults to false.
 
 Letting the grant select *which* in-flight calls to cancel via the #936 registry is #1177.
 
 ### Tree budget (#1032, PR 1162)
 
-`agent.TreeBudget{MaxSteps, MaxTokens}` is a ctx-threaded shared counter capping total model
-steps and tokens across a turn's whole tree: parent, sub-agents, fan-out members, handoff
-rounds. It is the aggregate rail complementing per-Runner `MaxSteps`, `WithAgentCallBudget`
-(call count), and `Team.MaxHandoffs`.
+`agent.TreeBudget{MaxSteps, MaxTokens}` is a shared counter threaded through ctx. It caps total
+model steps and tokens across a turn's whole tree, which covers the parent, sub-agents, fan-out
+members and handoff rounds. It caps the aggregate. Per-Runner `MaxSteps`, `WithAgentCallBudget`
+(call count) and `Team.MaxHandoffs` each cap one piece.
 
-The top-level Runner installs it (install-if-absent, `RunnerConfig.TreeBudget`) and every child
-inherits the same live counter through ctx — sharing falls out of existing ctx propagation, no
-plumbing. Steps are pre-decremented at the step-loop top; tokens are post-hoc from provider
-`Usage`, so a turn can overshoot `MaxTokens` by at most one step. Exhaustion raises
-`ErrTreeBudget`, which `AgentSource` softens to an `IsError` result for a sub-agent.
+The top-level Runner installs it from `RunnerConfig.TreeBudget` if ctx has none yet. Every child
+inherits the same live counter through ctx, so the sharing needs no plumbing beyond existing ctx
+propagation. Steps are pre-decremented at the step-loop top; tokens are post-hoc from provider
+`Usage`, so a turn can overshoot `MaxTokens` by at most one step. Exhaustion raises `ErrTreeBudget`,
+which `AgentSource` softens to an `IsError` result for a sub-agent.
 
 ---
 
@@ -132,61 +136,62 @@ Design map: `docs/AGENT_MEMORY_FLOW.md`. Phase 2 (epic 926) is complete.
 `agent/memory.go`: `PutMemory` / `ListMemories(Query, Limit)` / `DeleteMemory`, gRPC-style
 req/resp, unknown-key delete is app state rather than an error.
 
-**`ListMemories` returns `[]ScoredMemory`, not `[]MemoryItem`.** `Score` is per-query — it
-lives on the result, not the stored item, so a reranker can add signals without touching the
+**`ListMemories` returns `[]ScoredMemory`, not `[]MemoryItem`.** `Score` is per-query. It is
+a field on the result, not the stored item, so a reranker can add signals without touching the
 fact.
 
-**Retrieval lives behind this one interface**: substring, O(n) cosine, or pgvector ANN all wear
-the same `ListMemories(Query, Limit=k)` signature. There is deliberately no separate public
+**Retrieval sits behind this one interface.** Substring, O(n) cosine and pgvector ANN all
+implement the same `ListMemories(Query, Limit=k)` signature. There is deliberately no separate public
 `VectorStore` seam; #1021 revisits that only if doc-RAG needs one.
 
 Implementations: `InMemoryMemoryStore` (substring, Score 1), `InMemorySemanticStore` (Embedder
-plus brute-force cosine — renamed from `SemanticMemoryStore` because "semantic" is a property
-of a MemoryStore impl, not a separate interface), `redisstore.MemoryStore` (durable substring),
-and `gormstore.SemanticMemoryStore` (durable pgvector ANN).
+plus brute-force cosine), `redisstore.MemoryStore` (durable substring), and
+`gormstore.SemanticMemoryStore` (durable pgvector ANN). `InMemorySemanticStore` used to be
+`SemanticMemoryStore`. We renamed it because "semantic" is a property of a MemoryStore impl,
+not a separate interface.
 
 ### Namespace (#1003) and session scoping (#1140)
 
 `Namespace` is a **per-request field** on `PutMemoryRequest` / `ListMemoriesRequest` /
-`DeleteMemoryRequest`: one independent scratchpad per session or user, empty meaning the shared
-default, and recall never crosses namespaces. Every backend honors it. The in-memory stores
-partition their maps; `gormstore.SemanticMemoryStore` reads `req.Namespace` falling back to
-`WithMemoryNamespace`; `redisstore.MemoryStore` stores each namespace as one Redis hash
-(`<prefix>:<namespace>` → key→JSON, `DefaultMemoryKeyPrefix = "mcpkit.agent.memory"`) with
-CreatedAt preserved on update for stable order and an optional per-namespace TTL
-(`WithMemoryTTL`) to GC abandoned sessions.
+`DeleteMemoryRequest`. Each namespace is an independent scratchpad for one session or user. An
+empty namespace means the shared default, and recall never crosses namespaces. Every backend
+honors it. The in-memory stores partition their maps. `gormstore.SemanticMemoryStore` reads
+`req.Namespace` and falls back to `WithMemoryNamespace`. `redisstore.MemoryStore` stores each
+namespace as one Redis hash (`<prefix>:<namespace>` → key→JSON,
+`DefaultMemoryKeyPrefix = "mcpkit.agent.memory"`). It preserves CreatedAt on update so order is
+stable, and an optional per-namespace TTL (`WithMemoryTTL`) cleans up abandoned sessions.
 
 `MemorySource` threads it via `WithMemoryNamespaceFunc(func() string)`; nil means shared.
 
 **The deadlock trap.** `MemoryConfig.SessionScoped` makes `registerMemory` pass
-`WithMemoryNamespaceFunc(a.currentRunID)`. The namespace func runs *inside a turn while
-`turnMu` is held* — both from the memory tools and from summary/recall injection — so
-`App.RunID()`, which takes `turnMu`, would re-enter and deadlock. The fix is a lock-free
-`currentRunID()` backed by an `atomic.Value` mirror of `runID`, with all four writers
-(`AttachRun`, `resumeLocked`, `Fork`, `ensureRunLocked`) routed through one `setRunID` so the
-mirror cannot drift.
+`WithMemoryNamespaceFunc(a.currentRunID)`. The memory tools and summary/recall injection both
+call the namespace func *inside a turn, while `turnMu` is held*. `App.RunID()` takes `turnMu`,
+so calling it there would re-enter and deadlock. The fix is a lock-free `currentRunID()`. It
+reads an `atomic.Value` mirror of `runID`. All four writers (`AttachRun`, `resumeLocked`,
+`Fork`, `ensureRunLocked`) go through one `setRunID`, so the mirror cannot drift.
 
 A durable *semantic* Redis backend is still a follow-up; durable semantic recall is the
 pgvector store's job.
 
 ### pgvector store (#1019, PR 1047)
 
-Postgres plus pgvector only, no SQLite path — the vector type, the `<=>` cosine-distance
-operator, and the HNSW index are pgvector features. The `vector` extension is a prerequisite
-the store does **not** install, because `CREATE EXTENSION` needs privileges.
+Postgres plus pgvector only, no SQLite path. The vector type, the `<=>` cosine-distance
+operator and the HNSW index are all pgvector features. The store needs the `vector` extension
+but does **not** install it, because `CREATE EXTENSION` needs privileges.
 `docker/backends`' `init/01-agent.sql` creates it on a fresh volume only. Tests are PG-only and
 skip when it is unavailable, so the sqlite-first RunStore and ToolResult tests are unaffected.
 
 `PutMemory` embeds `key+" "+value` client-side and upserts `(namespace, key, body JSON,
-embedding, created_at)`; **on conflict `created_at` is preserved** for stable listing position.
+embedding, created_at)`. **On conflict it preserves `created_at`**, so listing position is
+stable.
 `ListMemories` embeds the query, orders by `embedding <=> $q LIMIT k`, and reports
 **Score = 1 − cosine distance** to match `Embedding.Cosine`. An empty query gives oldest-first
 with Score 0. Dimension is `WithVectorDimensions` (default 1536) and **must match the
 Embedder** or pgvector rejects the write.
 
-**The table name is validated to a plain identifier at construction** (`^[A-Za-z_][A-Za-z0-9_]*$`)
-because it is composed into raw DDL/DML and identifiers cannot be bound. `%q` is Go escaping,
-not Postgres identifier quoting, so validation is the right tool rather than quoting.
+**The constructor checks that the table name is a plain identifier** (`^[A-Za-z_][A-Za-z0-9_]*$`).
+The name goes into raw DDL/DML, and identifiers cannot be bound. `%q` is Go escaping, not Postgres
+identifier quoting, so validation is the right tool rather than quoting.
 
 ### MemorySource and injection
 
@@ -195,53 +200,55 @@ plus `Summary(SummaryOptions)` (ambient, recency-budgeted) and
 `RecallRelevant(query, RecallOptions{TopK, MinScore})` (relevant to this turn). Tool names are
 exported constants and deliberately fixed.
 
-**Memory injection is two transient, self-capping producers** woven into the per-turn slice
-before the user message, **never into `a.history`**. That is the #1010 fix: a snapshot
-re-appended every turn stacks up in both history and the RunStore log. Contrast events, which
-do persist, because each is drained once.
+**Memory injection is two transient, self-capping producers.** They write into the per-turn
+slice before the user message, **never into `a.history`**. Before #1010 they appended a
+snapshot every turn, and the snapshots stacked up in both history and the RunStore log. Events
+are different. They do persist, because each one is drained once.
 
 - `Summary` (InjectSummary, recency-budgeted, #1011)
-- `Recall` (InjectRecall, top-K over `RecallMinScore`) — the `MinScore` floor is the **poison
-  guard**, since a semantic store scores *every* note.
+- `Recall` (InjectRecall, top-K over `RecallMinScore`). A semantic store scores *every* note,
+  so the `MinScore` floor is the **poison guard**.
 
-Each is its own step and is **not routed through `EventInjectionPolicy`**, which is exactly why
-that type was renamed from `InjectionPolicy` (PR 1016): recall is a query result, not an event
-with a name, hint, and window. A unified budget across events + summary + recall is the
-deferred arbiter (#1024); the whole pre-turn transform ordering is implicit and accreted
-(inject-then-compact falls out of compaction living in the Runner), and an explicit context
-pipeline is #1026.
+Each is its own step and is **not routed through `EventInjectionPolicy`**. Recall is a query
+result, not an event with a name, hint, and window. PR 1016 renamed that type from
+`InjectionPolicy` for this reason. A unified budget across events, summary and recall is the
+deferred arbiter (#1024). The order of the pre-turn transforms is implicit and grew by
+accretion. Compaction runs in the Runner, so injection happens before compaction without
+anyone choosing that. An explicit context pipeline is #1026.
 
 ### Compaction
 
 `agent/compaction.go`: `SummarizingCompactor` plus a `TokenEstimator` / `CharTokenEstimator`
-heuristic, hooked as `RunnerConfig.Compactor`. It runs **in the Runner**, as the first
-turn-scoped stage of the step chain before every model call (chakra#7), not in the host, **so the
-eval harness can grade it** — the harness builds a RunnerConfig. It rewrites the turn's working
+heuristic, hooked as `RunnerConfig.Compactor`. It runs **in the Runner**, not in the host, as the
+first turn-scoped stage of the step chain before every model call (chakra#7). The eval harness
+builds a RunnerConfig, **so it can grade compaction**. It rewrites the turn's working
 messages, never the record. `EventCompaction` fires only on a real shrink, with the step. An error
-aborts the turn, mirroring Selector. After step 1, a turn that still doesn't fit after compacting
-ends with `ErrContextBudget` and keeps its messages, rather than summarizing a summary every step.
+aborts the turn, as Selector does. Imagine a turn past step 1 that still doesn't fit after
+compacting. It ends with `ErrContextBudget` and keeps its messages, rather than summarizing a
+summary every step.
 
 ### Embedder
 
 `agent/embedder.go` is a sibling seam to Provider: `Embed([]string) ([]Embedding, error)`.
-**`Embedding` is a defined type `[]float32` with a `Cosine` method**, which gives a future
-SIMD/normalize kernel a home (#1018). `OpenAIEmbedder` is no-SDK net/http against `/embeddings`;
+**`Embedding` is a defined type `[]float32` with a `Cosine` method**. A future SIMD/normalize
+kernel can go there (#1018). `OpenAIEmbedder` is no-SDK net/http against `/embeddings`;
 `StubEmbedder` is deterministic bag-of-words hashing so the semantic path is CI-testable.
 
 ### Sub-agents have no working memory (A7, #1151, PR 1153)
 
-Enforced, not conventional. The memory source lives on the main `multi`; personas get a
-filtered `serverTools` view and `AgentSource.Call` bypasses the injection. Guarded by
-`TestSubAgentCannotReachParentMemory`, which was proven to fail if personas are handed `multi`.
+Enforced, not conventional. The memory source is registered on the main `multi`. Personas get
+a filtered `serverTools` view, and `AgentSource.Call` bypasses the injection.
+`TestSubAgentCannotReachParentMemory` guards this. We checked that it fails if personas are
+handed `multi`.
 
-The principle: a child's location is not guaranteed. In-process `AgentSource` is the degenerate
-co-located case, so shared parent memory assumes a co-location that A2 already forbids. A child
-that needs memory **owns its own setup entirely** — its store, its namespace, configured by
-whoever builds the child, the same encapsulation as a stateful MCP tool owning its DB. Never
+A child may not run in the same place as its parent. In-process `AgentSource` is the degenerate
+co-located case. Shared parent memory would assume co-location, and A2 already forbids that
+assumption. A child that needs memory **owns its own setup entirely**. Whoever builds the child
+configures its store and its namespace, just as a stateful MCP tool owns its DB. Never
 point a `WithMemoryNamespaceFunc(a.currentRunID)` at the *parent's* namespace.
 
-Parent→child transfer is params plus injection. Hierarchical recall across children is deferred
-behind a prefix/hierarchical namespace query the seam lacks today (it is exact-match).
+Parent→child transfer is params plus injection. Hierarchical recall across children is deferred.
+It needs a prefix or hierarchical namespace query, and the seam has only exact match today.
 
 ---
 
@@ -250,57 +257,59 @@ behind a prefix/hierarchical namespace query the seam lacks today (it is exact-m
 The just-in-time-context layer: lossless, pay-on-lookup, complementary to compaction rather
 than a replacement (#966/#971/#972/#973/#977).
 
-`OffloadingSource` wraps a `ToolSource` like `FilterSource` does. An over-threshold *successful*
-result is stored and replaced by a **stub** — a normal `ToolResult` whose text is a preview plus
-a ref — so the RoleTool message, the `tool-end` event, and the persisted log all carry the stub.
-The log stays faithful to what the model actually saw, and the Runner needs no change.
+`OffloadingSource` wraps a `ToolSource` like `FilterSource` does. It stores an over-threshold
+*successful* result and replaces it with a **stub**. The stub is a normal `ToolResult`, and its
+text is a preview plus a ref. The RoleTool message, the `tool-end` event and the persisted log
+all hold the stub. So the log matches what the model actually saw, and the Runner needs no
+change.
 
-Wrap the **aggregate** MultiSource, which the host does when `Config.Offload != nil`, so one
-`read_tool_result` and one store cover every server. **`IsError` stays inline** — truncating an
-error is worse than the size. A per-tool threshold of `0` pins a tool inline. Size is measured
-on `toolResultText`, **text only**, so a large base64 blob will not trip it yet (#979).
+Wrap the **aggregate** MultiSource, so one `read_tool_result` and one store cover every server. The
+host does this when `Config.Offload != nil`. **An `IsError` result is never offloaded.** Truncating
+an error is worse than its size. A per-tool threshold of `0` pins a tool inline. Size is measured on
+`toolResultText`, **text only**, so a large base64 blob will not trip it yet (#979).
 
-`ToolResultStore` (`agent/toolresultstore.go`) is `Put`/`Get` with an in-memory default.
-**Retention is deliberately not in the interface.** The graceful unknown-ref read
-(`read_tool_result` → "no longer available", `IsError:false`) is what makes any backend eviction
-safe, so redis uses native TTL and gorm a caller-driven `PruneExpired`. The dep-free
-`FileToolResultStore` lives in `chakra` itself — stdlib only, one JSON file per ref,
-temp-then-rename, injective ref→filename escaping — and is the natural no-server store for a
-local coding agent, where blobs are files the agent can read directly. The gorm backend supports
-bring-your-own-table via `WithToolResultTableName`, resolved through `db.Table`.
+`ToolResultStore` (`agent/toolresultstore.go`) is `Put`/`Get` with an in-memory default. **Retention
+is deliberately not in the interface.** Imagine the model still holds a stub, and the backend evicts
+its ref. The model calls `read_tool_result` on it and gets "no longer available" with
+`IsError:false`, and the turn carries on. So any backend may evict. Redis uses native TTL, and gorm
+uses a caller-driven `PruneExpired`. The dep-free `FileToolResultStore` is in `chakra` itself. It
+uses only the stdlib, writes one JSON file per ref with temp-then-rename, and escapes ref→filename
+injectively. It suits a local coding agent with no server, because the blobs are files the agent can
+read directly. The gorm backend supports bring-your-own-table via `WithToolResultTableName`,
+resolved through `db.Table`.
 
 `read_tool_result` takes `{ref, offset?, limit?, pattern?, context?}`: a char window or a regex grep
 *into* the blob. Query, don't page. Text-only today.
 
 **`context` is two-sided, and that is not symmetry for its own sake** (#41). Grep returns lines that
-match, and the line a caller can name is often not the line carrying the information. `go test -v`
-prints the assertion *above* the `--- FAIL` marker; plain `go test` prints it *below*. A caller
-grepping the marker needs the opposite side in the two cases and has no way to tell which it is
-looking at, so one knob that always reaches the detail beats two that need knowledge the caller does
+match. A caller can often name one line, but the information is on a different line. `go test -v`
+prints the assertion *above* the `--- FAIL` marker, and plain `go test` prints it *below*. A caller
+grepping the marker needs the opposite side in the two cases, and it can't tell which case it is
+looking at. One knob always reaches the detail. Two knobs would need knowledge the caller does
 not have. Both shapes are pinned by real captured transcripts in `testdata/`.
 
 Grep is also **bounded** now (`DefaultGrepMaxLines`, overridable by `limit`) and says what it cut.
-It used to return every match however many there were, which for a loose pattern over a big
-transcript re-inlines the payload offloading just removed. Context makes that worse by `2N+1`, so
-the bound stopped being optional at the same moment the field was added.
+It used to return every match however many there were. Imagine a loose pattern over a big
+transcript. Grep would put back inline the payload that offloading had just removed. Context
+multiplies that by `2N+1`, so once we added the field, the bound was no longer optional.
 
 **The cap has to be downstream, and in `ext/exec` it is not** (#41, measured). The paragraph below
-about not reinventing truncation is exactly what `ext/exec`'s `capBuffer` does: it keeps 32 KiB
-head+tail and drops the middle *inside* `Source.Call`, so `OffloadingSource` — which only ever sees
-the returned `ToolResult` — never gets the dropped bytes and cannot serve them. Fed a real 42 KB
-`go test ./... -v` transcript with one failure, what survives is the trailing summary word `FAIL`
-while both the assertion and the `--- FAIL: TestX` line are gone: the model is told something broke
-and given nothing to act on. Raising `exec.Config.MaxOutput` so the full transcript reaches the store
-is what makes grep reachable at all. Ordering beats tuning here.
+warns against reinventing truncation, and `ext/exec`'s `capBuffer` does exactly that. It keeps 32
+KiB head+tail and drops the middle *inside* `Source.Call`. `OffloadingSource` only ever sees the
+returned `ToolResult`, so it never gets the dropped bytes and cannot serve them. We fed it a real 42
+KB `go test ./... -v` transcript with one failure. Only the trailing summary word `FAIL` survived,
+and both the assertion and the `--- FAIL: TestX` line were gone. The model learns that something
+broke and gets nothing to act on. Raise `exec.Config.MaxOutput` and the full transcript reaches the
+store. Only then does the model have anything to grep. Ordering beats tuning here.
 
 Deferred: binary offloading (#979), and streaming/handle-based results for hundreds of MB via
-MCP resource links plus a ranged store (#980 — `Put` is not the bottleneck, upstream
-materialization is).
+MCP resource links plus a ranged store (#980). `Put` is not the bottleneck. Upstream
+materialization is.
 
 **A new tool must not reinvent this** (#1284). Writing `list_files` and `search_files`, the obvious
 instinct is to cap the returned bytes so a big repo cannot blow the context window. That is already
 solved, one layer up, for every tool at once. Two truncation mechanisms then disagree about the same
-output, and the tool's cap is the one that also loses information the store would have kept.
+output. The tool's cap cuts first, so it also throws away bytes the store would have kept.
 
 The line is A6. A **result-count** limit belongs to the tool: it bounds the work actually done and
 means something to a caller ("the first 100 matches"). **Context economics** belong to the agent
@@ -314,47 +323,49 @@ layer, where `OffloadingSource` wraps the aggregate and already owns them. So th
 ### Annotation defaults are not symmetric (#1260, PR 1265)
 
 `toolHints` in `agent/runner.go` resolves `readOnlyHint`, `destructiveHint`, and `idempotentHint`
-in one place, and the reason it is one function rather than three reads is that their spec defaults
-disagree with Go's zero value in different directions. Absent `readOnlyHint` means not read-only
+in one function rather than three reads. Their spec defaults disagree with Go's zero value, and in
+different directions. Absent `readOnlyHint` means not read-only
 and absent `idempotentHint` means not idempotent, so both fall to `false`. **Absent
-`destructiveHint` means destructive.** A caller that read the annotation map directly and took the
-zero value would treat every unannotated tool as safe to run unattended.
+`destructiveHint` means destructive.** Imagine a caller reads the annotation map directly and takes
+the zero value. It would treat every unannotated tool as safe to run unattended.
 
-`readOnlyHint` wins over the other two, which the spec says are meaningful only when a tool writes,
-so a read-only tool reports non-destructive and idempotent whatever else it declared. Passing a
-server's self-contradiction through to policy is worse than normalizing it.
+`readOnlyHint` wins over the other two. The spec says those two mean something only when a tool
+writes. So a read-only tool reports non-destructive and idempotent, whatever else it declared.
+Passing a server's self-contradiction through to policy is worse than normalizing it.
 
-The cost of the chosen shape (plain bools resolved by the Runner) is that a hand-built
-`ToolCallInfo{}` reads as non-destructive. That is documented on the field and pinned by testing
-the resolution path rather than hand-set values. A tri-state was considered and rejected: it adds a
-type to a struct heading for the 1.0 freeze.
+We chose plain bools that the Runner resolves. The downside is that a hand-built
+`ToolCallInfo{}` reads as non-destructive. The field's doc says so, and the tests exercise the
+resolution path rather than hand-set values. We considered a tri-state and rejected it, because it
+adds a type to a struct that is heading for the 1.0 freeze.
 
 `ModeReversibleAuto` keys on the result. Against servers that skip `destructiveHint` entirely it
-behaves exactly like `ModeAlwaysAsk`, which is the intended failure direction. Note the host's
-`"auto-edit"` alias moved from `ModeReadOnlyAuto` (where it never auto-allowed an edit) to this
-mode.
+behaves exactly like `ModeAlwaysAsk`. We want it to fail in that direction. The host's
+`"auto-edit"` alias now points at this mode. It used to point at `ModeReadOnlyAuto`, which never
+auto-allowed an edit.
 
 ### Spotlight provenance: only `operator` exempts (#1262, PR 1266)
 
-`SpotlightConfig.Classify` returns one of four labels instead of a bool. The tempting mistake is to
-exempt `server` as well as `operator`: **trusting the relay is not trusting what it relayed.** A
-server the operator runs that returns a third-party document is a courier, not an author. So only
-`operator` — output the process computed rather than passed along — reaches the model unfenced.
+`SpotlightConfig.Classify` returns one of four labels instead of a bool. It is tempting to exempt
+`server` as well as `operator`. We don't, because **trusting the relay is not trusting what it
+relayed.**
+Imagine the operator runs a server, and it returns a third-party document. That server is a
+courier, not an author. So only `operator` output reaches the model unfenced. That label means the
+process computed the output rather than passed it along.
 
 `resolveProvenance` closes the label set *before* the exemption check, so `"Operator"`,
 `"oprator"`, and `""` all fence rather than exempt. The set is deliberately closed rather than
-pass-through: a finer taxonomy is a plausible want, but opening it later is additive while closing
-it later would break callers.
+pass-through. Someone may plausibly want a finer taxonomy. Opening the set later is additive, and
+closing it later would break callers.
 
-The default fence names the origin in prose ("from a source the operator has not vouched for")
-rather than emitting the raw label, so the sentence reads to a model that was never told what
-`world` means.
+The default fence describes the origin in prose ("from a source the operator has not vouched
+for") rather than emitting the raw label. A model was never told what `world` means, and the prose
+still makes sense to it.
 
 ### Provenance is derived from the source, not restated in config (#1268, PR 1274)
 
-`spotlight.tools` shipped in #1262 as the only input, which is correct exactly as long as someone
-maintains it: connect a server and every tool it advertises silently defaults to `world`, so the
-labels stop distinguishing anything and the differentiated fencing never gets used. The host
+`spotlight.tools` shipped in #1262 as the only input. It is correct only while someone maintains
+it. Connect a server, and every tool it advertises silently defaults to `world`. Then the labels
+stop distinguishing anything, and the differentiated fencing never gets used. The host
 already knows what each source is, because it chose the id when it called `Add`.
 
 The derivation table lives in `agent/host/provenance.go`:
@@ -366,61 +377,63 @@ The derivation table lives in `agent/host/provenance.go`:
 | `host`, `runner-control` | `operator` |
 | an extension, or anything unmatched | none → `world` |
 
-**`operator` is a closed allowlist and must stay one.** An extension is arbitrary code that may
-shell out or fetch, so the host has no standing to vouch for it. Deriving `operator` there is the
-one mistake that silently *disables* the mitigation instead of making it noisy. Everything
-unmatched falls through to `world`, which marks.
+**`operator` is a closed allowlist and must remain one.** An extension is arbitrary code that may
+shell out or fetch, so the host has no standing to vouch for it. If the host derived `operator` for
+an extension, the mitigation would be silently *disabled*. Every other mistake here only makes it
+noisy. Everything unmatched falls through to `world`, which marks.
 
 Two things that shaped the implementation:
 
 - **You cannot map a tool name back to its source by matching the name.** A colliding name is
   offered to the model as the qualified `sourceID/name` form, so the classifier sees either shape.
-  `MultiSource.OwnerOf` shares `resolveLocked` with `Call` — `resolveLocked` returns the source id
-  rather than the source for exactly this reason. A classifier that disagreed with the dispatcher
-  would attribute output to a source that never served the call, which is worse than not labelling
-  it. `TestMultiSourceOwnerOfMatchesCall` pins the two against each other through a `Resolver`.
-- **An ambiguous name gets no label rather than a guess.** Picking the first claimant would be a
-  plausible answer that `Call` would not have acted on.
+  `MultiSource.OwnerOf` shares `resolveLocked` with `Call`, and `resolveLocked` returns the source
+  id rather than the source for this reason. Imagine the classifier disagreed with the dispatcher.
+  It would attribute output to a source that never served the call. Not labelling the output is
+  better than that. `TestMultiSourceOwnerOfMatchesCall` pins the two against each other through a
+  `Resolver`.
+- **An ambiguous name gets no label rather than a guess.** Picking the first claimant would give a
+  plausible answer, but `Call` would not have acted on it.
 
-The classifier is bounded by a 2s timeout because `SpotlightConfig.Classify` takes no context and
-an index miss makes `MultiSource` re-list every source, which reaches the network. An unreachable
+The classifier has a 2s timeout. `SpotlightConfig.Classify` takes no context. An index miss makes
+`MultiSource` re-list every source, and that goes over the network. An unreachable
 server must not stall tool dispatch.
 
-#1273 was this: an extension's tools got the `world` fence, which read "fetched from outside this
-system" about code that ran in-process and fetched nothing. The marking was right and the sentence
-was false, which is the worst combination for a safety feature, because a fence whose stated reason
-is wrong teaches the model that its claims are approximate.
+In #1273 an extension's tools got the `world` fence. The fence said "fetched from outside this
+system", but the code ran in-process and fetched nothing. The marking was right and the sentence was
+false. For a safety feature that is the worst combination. A fence that gives a wrong reason
+teaches the model that its claims are approximate.
 
-Fixed by softening the clause to "from a source the operator has not vouched for", which is true of
-a fetched page and of an in-process extension tool alike. The enum stayed at four labels: a fifth
-(`local`, `unvouched`) would reopen the taxonomy #1262 settled for one case, and letting an
-extension declare its own provenance would put a security-relevant claim in the hands of the thing
-being classified, which is exactly why a server does not get to label its own output.
+The fix softens the clause to "from a source the operator has not vouched for". That is true of a
+fetched page and of an in-process extension tool alike. The enum still has four labels. A fifth
+(`local`, `unvouched`) would reopen the taxonomy #1262 settled, for one case. We could let an
+extension declare its own provenance. Then the thing being classified would make a
+security-relevant claim about itself. A server does not get to label its own output for the same
+reason.
 
-The cost is real and small: the `world` fence is now marginally less specific for genuine web
-content, which is the case the strongest strategies target. What carries the weight (UNTRUSTED,
-DATA never instructions) is untouched, and `ProvenanceWorld`'s doc still names web content as the
+The cost is real and small. The `world` fence is now marginally less specific for genuine web
+content, and the strongest strategies target that case. The parts that matter most (UNTRUSTED,
+DATA never instructions) are untouched, and `ProvenanceWorld`'s doc still names web content as the
 motivating case.
 
-**One thing this did NOT buy**, contrary to how it was written up beforehand: the tree's two fence
-texts do not collapse. `fenceCritiqueReason` gives two reasons for not reusing `delimitMark`, that
-the sentence names a tool and that it claims a fetch. This fixes only the second. Collapsing them
-would need `delimitMark` to stop naming a tool or to take a caller-supplied source clause, which is
-a refactor rather than a byproduct, and the two describe different things anyway: a tool result
-versus a policy verdict.
+**The tree's two fence texts still do not collapse.** The write-up before the change said they
+would. `fenceCritiqueReason` gives two reasons for not reusing `delimitMark`. The sentence names a
+tool, and it claims a fetch. This fixes only the second. To collapse them, `delimitMark` would have
+to stop naming a tool or take a caller-supplied source clause. That is a refactor, not a byproduct.
+And the two describe different things anyway. One describes a tool result, and the other a policy
+verdict.
 
-Also corrected in that PR: three comments in `agent/multi_source.go` described the qualified form
-as `sourceID_name` while the code has always joined with `/` — and `Add` rejects `/` in a source id
-*because* it is the separator. The stale docs cost a red test to discover.
+That PR also corrected three comments in `agent/multi_source.go`. They described the qualified
+form as `sourceID_name`, but the code has always joined with `/`. `Add` rejects `/` in a source id
+*because* it is the separator. We found the stale docs only through a red test.
 
 ### Reversal: restore and compensate are different operations (#1267, PRs 1270/1271/1272)
 
-`ext/checkpoint` holds the seam. The design mistake it was rewritten to avoid: putting undo
-in the host is only possible if you first restrict undo to files, which assumes the conclusion. The
-host cannot know how to undo `create_issue`; the tool author can. Files are the first
+`ext/checkpoint` holds the seam. We rewrote it to avoid a design mistake. You can put undo in the
+host only if you first restrict undo to files, and that assumes the conclusion. The host cannot
+know how to undo `create_issue`, but the tool author can. Files are the first
 implementation, not the definition.
 
-The load-bearing split, and the reason `Reversal` has two fields:
+`Reversal` has two fields, because there are two kinds of reversal:
 
 - **Restore** is a true inverse. Local, order-independent, idempotent, unaffected by intervening
   work, near-certain to succeed. The harness runs it unattended.
@@ -428,163 +441,162 @@ The load-bearing split, and the reason `Reversal` has two fields:
   fired), order-dependent, fails on permissions the original never needed, and breaks once
   something depends on the effect. **Never auto-run.**
 
-`Reversal.Reversible()` requires a `Restore`. Counting a compensation would let a tool auto-approve
-under `ModeReversibleAuto` on the strength of an offset nobody verified. Chaining compensations
+`Reversal.Reversible()` requires a `Restore`. If a compensation counted, a tool could auto-approve
+under `ModeReversibleAuto` because of an offset nobody verified. Chaining compensations
 automatically would be a saga orchestrator, which A8 rules out.
 
-Three further things that bit or nearly bit:
+Three more things bit us or nearly did:
 
-- **Restore is idempotent, not atomic.** POSIX has no multi-file rename. Everything stages to temp
-  files beside their destinations first (so a missing blob or unwritable directory fails before the
-  tree is touched), then renames. A failure during the rename phase leaves a mix, and the fix is to
-  run it again — the manifest is never consumed. Claiming atomicity would read as a guarantee while
-  providing none.
-- **Capture runs outside the permission gate**, because extension middleware is applied before it.
-  A call the gate then denies is still captured. Harmless (restoring an unchanged file is a no-op),
-  and the alternative is capturing after the pre-state is gone.
-- **`/undo` reports what it could not undo.** Without that, a turn that edits three files and files
-  an issue reports "3 files restored" and the issue goes unmentioned. A safety net with an
-  unreported hole is worse than none, because it stops being checked. Read-only and denied calls
-  are excluded — neither had anything to undo, and a padded list is one people learn to skip.
+- **Restore is idempotent, not atomic.** POSIX has no multi-file rename. Restore first stages
+  everything to temp files beside their destinations, then renames. So a missing blob or an
+  unwritable directory fails before the tree is touched. A failure during the rename phase leaves a
+  mix. The fix is to run it again, because the manifest is never consumed. Claiming atomicity would
+  read as a guarantee and provide none.
+- **Capture runs outside the permission gate**, because extension middleware runs before the gate.
+  If the gate then denies the call, the call is still captured. That is harmless, because restoring
+  an unchanged file is a no-op. The alternative is capturing after the pre-state is gone.
+- **`/undo` reports what it could not undo.** Imagine a turn edits three files and files an issue.
+  Without the report, `/undo` says "3 files restored" and never mentions the issue. A safety net
+  with an unreported hole is worse than none, because people stop checking it. The report leaves
+  out read-only and denied calls. Neither had anything to undo, and people learn to skip a padded
+  list.
 
 ### The undo proposer runs in a fresh context (#1267, PR 1272)
 
-`ModelProposer` builds its conversation from the gap list alone; the turn's history has no path to
-it. This is a security property, not tidiness: if the turn went wrong through prompt injection,
-running the cleanup inside that context asks the attacker to write the cleanup. The gap list is
-itself untrusted (it carries arguments the model chose, possibly under influence), which is the
-other half of why a proposal reaches a human rather than the dispatcher.
+`ModelProposer` builds its conversation from the gap list alone, and the turn's history has no path
+to it. This is a security property, not tidiness. Imagine the turn went wrong through prompt
+injection. If the cleanup ran inside that context, the attacker would write the cleanup. The gap
+list is itself untrusted, because it holds arguments the model chose, possibly under influence. So
+a proposal goes to a human rather than to the dispatcher.
 
-Open tension for the freeze: `Reversal.Compensate` and the proposer tier both produce a suggested
-call a human approves, differing only in who authored the suggestion. If `Compensate` never gets a
-producer, they collapse into one mechanism with two entry points.
+This is an open question for the freeze. `Reversal.Compensate` and the proposer tier both suggest a
+call, and a human approves it. They differ only in who wrote the suggestion. If `Compensate` never
+gets a producer, they collapse into one mechanism with two entry points.
 
 ### Confining a path is not a check, it is a handle (#1275, PR 1278)
 
-`ext/files` shipped an escape and the fix is worth keeping, because the reasoning generalises
-to anything that takes a path from tool arguments.
+`ext/files` shipped an escape. The fix is worth keeping, because the reasoning applies to anything
+that takes a path from tool arguments.
 
 The first version resolved symlinks on a path's **parent directory** and then appended the basename
-unresolved, so a symlink as the *final* component walked straight out: `workspace/innocent.md ->
-/etc/passwd` passed containment and was then followed by the open. The test meant to cover this used
-a symlinked *parent* (`link/secret`), which is exactly the case parent-resolution catches, so the
-suite was green while the property did not hold. A test that exercises the one member of a class
-that already works reads as coverage of the class.
+unresolved. A symlink as the *final* component walked straight out. `workspace/innocent.md ->
+/etc/passwd` passed containment, and then the open followed it. The test for this used a symlinked
+*parent* (`link/secret`). Parent-resolution catches exactly that case, so the suite was green and
+the property did not hold. A test can exercise the one member of a class that already works, and
+it still reads as coverage of the whole class.
 
 The missing case was not the fault. **Checking a path and opening it by name are two operations, and
-every way out of a directory lives in the gap between them.** A symlink is followed at open time, not
-at check time, so a check on the path text describes a name rather than the file that name will
-reach. And the filesystem can change in between, so even a correct check is a statement about the
-past. Neither is fixable inside a `resolve` function, because both follow from the check being
-separate from the open.
+every way out of a directory is in the gap between them.** The open follows a symlink, and the check
+does not. So a check on the path text describes a name, not the file that name will reach. The
+filesystem can also change in between, so even a correct check describes the past. A `resolve`
+function can fix neither, because the check is separate from the open.
 
 So confinement is an `os.Root` handle. It resolves each component at open time against the directory
-it holds and refuses anything leaving it, collapsing check and use into one act and closing the
-TOCTOU window along with the symlink escape. `files.rel` survives only to produce a readable refusal
-before any syscall and its doc comment says it is not the enforcement, so nobody audits it for
-exhaustiveness it was never meant to have.
+it holds, and refuses anything that leaves it. Check and use become one act. That closes the TOCTOU
+window and the symlink escape together. `files.rel` remains only to produce a readable refusal
+before any syscall. Its doc comment says it is not the enforcement, so nobody audits it for
+completeness it was never meant to have.
 
 A follow-on: the temp file's mode is set with `fchmod` on the descriptor, because chmod by name
 re-resolves that name and is documented as racy even through `os.Root`.
 
-The same handle covers traversal, which is the part that is easy to build separately and get wrong
-(#1284). `fs.WalkDir` over `root.FS()` cannot leave the root, and it does **not** descend into a
-symlinked directory, so neither an escape nor a link cycle is reachable without writing any
-traversal logic. A symlink stays visible in a listing as a name, which is useful; what is refused is
-reading *through* it. Reaching for `filepath.WalkDir` over a joined path is the version that needs
-its own containment argument.
+The same handle covers traversal. Traversal is easy to build separately and get wrong (#1284).
+`fs.WalkDir` over `root.FS()` cannot leave the root, and it does **not** descend into a symlinked
+directory. So we wrote no traversal logic, and still neither an escape nor a link cycle is
+reachable. A listing still shows a symlink as a name, which is useful. Reading *through* it is
+refused. `filepath.WalkDir` over a joined path would need its own containment argument.
 
-One design note that belongs with the rest: `write_file` has **no create-or-overwrite mode**, and
-the absence is the feature. The presence of `expect_hash` alone distinguishes create (refused if the
-path exists) from replace (refused if the hash is stale), so no argument combination lands content
-on a file nobody looked at. A convenience flag would be the escape hatch that made the anchored
-editor decorative, and it is exactly what a model reaches for the moment anchoring feels awkward.
+One more design note: `write_file` has **no create-or-overwrite mode**, on purpose. Without
+`expect_hash` the call is a create, refused if the path exists. With it the call is a replace,
+refused if the hash is stale. So no argument combination writes content to a file nobody looked at.
+A convenience flag would be an escape hatch, and the anchored editor would become decorative. A
+model reaches for such a flag as soon as anchoring feels awkward.
 
 ### The same shape in checkpoint wanted a different answer (#1281, PR 1283)
 
-`checkpoint.Restore` had the same path-then-open fault and did **not** get the same fix, which is
-the more interesting half.
+`checkpoint.Restore` had the same path-then-open fault and did **not** get the same fix. This half
+is the more interesting one.
 
 It renamed and removed at whatever absolute paths the manifest held, without looking at what was
-there. Those paths come from `WriteSpec.Paths(args)`, so they originate in tool arguments, and the
-gap here is not microseconds: capture happens at the top of a turn, the restore happens whenever
-someone types `/undo`. A path has minutes or hours to become a symlink, and then the rename writes
-captured content to the link's target, while a path captured as absent is undone with `os.Remove`,
-which deletes that target outright.
+there. Those paths come from `WriteSpec.Paths(args)`, so they originate in tool arguments. The gap
+here is not microseconds. Capture happens at the top of a turn, and restore happens whenever
+someone types `/undo`. A path has minutes or hours to become a symlink. Then the rename writes
+captured content to the link's target. A path captured as absent is undone with `os.Remove`, and
+that deletes the target outright.
 
-An `os.Root` handle was the wrong instrument, because it answers *containment* and checkpoint has
-no root to be contained by. A checkpointed tool may legitimately write to a cache or temp directory
-outside any one tree, so imposing a workspace root would break honest callers to stop a dishonest
-one. Confining paths stays the **tool's** job; `ext/files` is the worked example.
+An `os.Root` handle was the wrong instrument. It answers *containment*, and checkpoint has no root
+to be contained by. A checkpointed tool may legitimately write to a cache or temp directory outside
+any one tree. A workspace root would break honest callers to stop a dishonest one. Confining paths
+is still the **tool's** job, and `ext/files` is the worked example.
 
-What checkpoint gained instead is an *integrity* check, which needs no root: the manifest records
-what `Add` found (`kindRegular` / `kindAbsent` / `kindUnsupported`, via `Lstat` so a link is
-recorded rather than followed), and `Restore` compares that against what is there now. Restoring
-through something that is not what you captured is not something any caller wants, whatever their
-layout, so refusing costs no legitimate use.
+Checkpoint got an *integrity* check instead, and that needs no root. The manifest records what
+`Add` found: `kindRegular`, `kindAbsent` or `kindUnsupported`. `Add` uses `Lstat`, so it records a
+link rather than following it. `Restore` compares the record against what is there now. No caller
+wants to restore through something other than what was captured, whatever their layout. So
+refusing blocks no legitimate use.
 
 Three consequences worth keeping:
 
-- **Refusals are per path.** One tampered file should not cost the rest of the turn, and the
+- **Refusals are per path.** One tampered file should not block restoring the rest of the turn. The
   staging phase already gives a clean all-or-nothing abort for real errors.
-- **`Restore` returns a `RestoreResult`.** Under per-path refusal a partial restore is a normal
-  outcome, so `error` alone cannot express it and a caller seeing nil would conclude the turn was
-  fully reversed. That is A11's corollary exactly.
-- **Through the `Reversal` seam a refusal is an error**, because that caller is the harness running
+- **`Restore` returns a `RestoreResult`.** With per-path refusal, a partial restore is a normal
+  outcome. `error` alone cannot express it. A caller that saw nil would conclude the turn was fully
+  reversed. That is A11's corollary exactly.
+- **Through the `Reversal` seam a refusal is an error.** The caller there is the harness, running
   unattended with nowhere to put detail. `/undo` calls `Restore` directly and prints each one.
 
 The capture-side and restore-side `Lstat` catch different cases. Restore-side stops writing through
-a link that appeared since. Capture-side stops the blob store acquiring a link target's content,
-which matters if the link is later replaced by an ordinary file: restore would then see something
-perfectly normal and write the wrong content into it.
+a link that appeared since. Capture-side stops the blob store from storing a link target's content.
+Imagine the link is later replaced by an ordinary file. Restore would see something perfectly
+normal and write the wrong content into it.
 
 ### Two extensions compose at the wiring layer, not by importing each other (#1275)
 
-`ext/files` is checkpointable and contains no reversal code, because
-`checkpoint.WriteSpec{Tool, Paths}` is a declaration keyed by **tool name**, supplied by whoever
-builds the host. `files.EditPaths` is deliberately a plain `func(map[string]any) []string` rather
-than a `checkpoint.WriteSpec`, so neither module imports the other.
+`ext/files` is checkpointable and contains no reversal code. `checkpoint.WriteSpec{Tool, Paths}` is
+a declaration keyed by **tool name**, and whoever builds the host supplies it. `files.EditPaths` is
+deliberately a plain `func(map[string]any) []string` rather than a `checkpoint.WriteSpec`, so
+neither module imports the other.
 
-The alternative, an edit tool declaring its own `checkpoint.Reverser`, is the obvious thing to reach
-for and is what C4 exists to prevent: checkpoint's API would become implicitly stabilized for the
-edit tool's benefit with no design decision saying the two must interoperate. This is now enforced
-for `ext/` as well, by `make check-ext-isolation` in CI (#1277); before that, C4's verifier
-was a snippet inside `CONSTRAINTS.md` that walked two trees and that nothing ran.
+The obvious alternative is an edit tool that declares its own `checkpoint.Reverser`. C4 exists to
+prevent that. Checkpoint's API would become implicitly stable for the edit tool's benefit, and no
+design decision would say the two must interoperate. `make check-ext-isolation` now enforces this
+for `ext/` as well, in CI (#1277). Before that, C4's verifier was a snippet inside
+`CONSTRAINTS.md`. It walked two trees, and nothing ran it.
 
 ---
 
 ## Persistence
 
-`RunStore` lives in `agent/runstore.go` per the A6 corollary above. gRPC-style req/resp per
-`stores/STORAGE_SEAMS.md`; an unknown RunID is app state (`Found=false`), never an error.
+`RunStore` is in `agent/runstore.go`, per the A6 corollary above. It uses gRPC-style req/resp per
+`stores/STORAGE_SEAMS.md`, and an unknown RunID is app state (`Found=false`), never an error.
 
-**Atomicity is a contract on the interface**: explicit-ID `CreateRun` and `ForkRun` are
-all-or-nothing, and `NewRunID` is a retry idempotency key. Backends implement it with a native
-primitive each — redis with one atomic Lua script (meta-write last, cluster caveat documented),
-gorm with one transaction (sqlite and Postgres; `make testpg` boots a container on **5435**,
-since the events gorm store owns 5434). The rationale for "native atomicity primitive per
-backend, never hand-rolled claim-last ordering" is documented on both ForkRun implementations.
+**Atomicity is a contract on the interface.** Explicit-ID `CreateRun` and `ForkRun` are
+all-or-nothing, and `NewRunID` is a retry idempotency key. Each backend uses its own native
+primitive. Redis uses one atomic Lua script, with the meta-write last and the cluster caveat
+documented. Gorm uses one transaction, on sqlite and Postgres. `make testpg` boots a container on
+**5435**, because the events gorm store uses 5434. Both ForkRun implementations document why each
+backend uses its native atomicity primitive and never hand-rolled claim-last ordering.
 
-**Runs are flat copy-on-fork lists.** Messages carry no IDs or parent pointers; `Run.ParentID`
-and `ForkPoint` are lineage metadata only and nothing reconstructs history by walking.
-**`ForkPoint` is a message count, not a timestamp** — renamed from the issue's `ForkedAt` for
-exactly that ambiguity. `ForkRunRequest.AtMessage` forks from an earlier point, which is the
-conversation half of checkpoint/rewind. **A partial fork copies no events**, because the audit
-stream is not sliceable by message index. Stored blobs being immutable is what will make #966
-offloading fork-free.
+**Runs are flat copy-on-fork lists.** Messages carry no IDs or parent pointers. `Run.ParentID`
+and `ForkPoint` are lineage metadata only, and nothing reconstructs history by walking them.
+**`ForkPoint` is a message count, not a timestamp.** The issue called it `ForkedAt`, and we renamed
+it because that name was ambiguous. `ForkRunRequest.AtMessage` forks from an earlier point. That
+gives the conversation half of checkpoint/rewind. **A partial fork copies no events**, because the
+audit stream can't be sliced by message index. Stored blobs are immutable, so #966 offloading will
+need no work on fork.
 
-**Stores stamp `Message.Timestamp` on AppendMessages**: zero gets the store clock, caller-set
-wins, the same caller-preserves rule as trace context. The field uses **`omitzero`, not
-`omitempty`** — omitempty does not omit a zero `time.Time`. Providers never map it into request
-bodies. The stamp lives inside the stored JSON body, so there is no schema column and forks copy
-it for free.
+**Stores stamp `Message.Timestamp` on AppendMessages.** A zero timestamp gets the store clock, and
+a caller-set one wins. Trace context follows the same caller-preserves rule. The field uses
+**`omitzero`, not `omitempty`**, because omitempty does not omit a zero `time.Time`. Providers
+never map it into request bodies. The stamp is inside the stored JSON body, so there is no schema
+column and forks copy it for free.
 
 Host wiring is `agent/host/persistence.go`: `WithRunStore` plus `AttachRun` (create-or-resume),
 `Resume` (must-exist), and `Fork`. It persists at the `RunTurn` append site, and `PersistingEmit`
 buffers the event stream into one `AppendEvents` per turn. A failed turn persists its events
-(tool calls, the error) but no messages, since `RunTurn` rolls the history back and the message log
-has to match it; before #71 it persisted nothing, so a restart lost the record of edits a failed
-turn had made. Persistence failures render a warning and never fail the turn.
+(tool calls, the error) but no messages. `RunTurn` rolls the history back, and the message log has
+to match it. Before #71 a failed turn persisted nothing. If it had made edits, a restart lost the
+record of them. Persistence failures render a warning and never fail the turn.
 
 Retention and GC are still open (#999).
 
@@ -594,44 +606,44 @@ Retention and GC are still open (#999).
 
 Design frame: `docs/AGENT_COMPOSITION.md`. Epic 927 is complete.
 
-**The two-axis model.** Multi-agent is not a new engine — it wraps the same stateless Runner.
-Context in is injection (server events, memory recall, handoff context: one seam). Control is
-tools and signals. Observability is the emit stream, which `SubAgentEvent` nests.
+**The two-axis model.** Multi-agent is not a new engine. It wraps the same stateless Runner.
+Context comes in through injection, one seam for server events, memory recall and handoff context.
+Control is tools and signals. Observability is the emit stream, which `SubAgentEvent` nests.
 
 ### AgentSource
 
 Agent-as-tool: a child `*Runner` exposed as a `ToolSource`. `Call` runs the child over its own
 isolated slice, seeded with `{task}`, and returns its final text. Isolation is structural, so
-the Runner never changes, and **supervision falls out of a `MultiSource` of `AgentSource`s**
-via the existing aggregation, collision handling, and Selector.
+the Runner never changes. **A `MultiSource` of `AgentSource`s gives you supervision** through the
+existing aggregation, collision handling, and Selector.
 
 Guards: per-source `MaxDepth` (ctx-threaded, default 3) and an optional ctx-threaded aggregate
-`WithAgentCallBudget` across the whole tree. A refused or failed child is an `IsError` result so
-the parent's turn continues; only an unknown name is a dispatch error.
+`WithAgentCallBudget` across the whole tree. A refused or failed child returns an `IsError` result,
+so the parent's turn continues. Only an unknown name is a dispatch error.
 
-**The LLM decides to call a sub-agent**, by the tool's name and description — the parent code
+**The LLM decides to call a sub-agent**, by the tool's name and description. The parent code
 does not route. The Runner is a dumb dispatcher and parallelizes tool calls within one turn, so
 N sub-agents invoked in one turn run concurrently with ordered results.
 
-**Structured I/O** (#1033, PR 1159): `AgentSourceConfig.InputSchema json.RawMessage` makes the
-tool advertise that schema instead of `{task}`, and `Call` seeds the child with the raw args
-JSON. Structured *output* is orthogonal and needs no new field: `Call` returns
-`result.Structured` when non-empty (the child ran with a `RunnerConfig.ResponseSchema`), else
-`result.Text`.
+**Structured I/O** (#1033, PR 1159). With `AgentSourceConfig.InputSchema json.RawMessage` set, the
+tool advertises that schema instead of `{task}`, and `Call` seeds the child with the raw args
+JSON. Structured *output* is orthogonal and needs no new field. If the child ran with a
+`RunnerConfig.ResponseSchema`, `result.Structured` is non-empty and `Call` returns it. Otherwise
+`Call` returns `result.Text`.
 
-**Colocation is contained, not removed.** `AgentSource` is the in-process implementation of a
-location-independent `ToolSource` contract; a remote sub-agent is a *sibling* implementation,
-largely "a sub-agent published as an MCP server, reached via the existing server-tools
-ToolSource". What in-process adds is carrying composition metadata (depth, budget, cancellation,
-nested event stream) for free; carrying that over the wire is the surface of #1035 / #1036 /
-#1038. Lifecycle is decomposed rather than centralized — there is no `SubagentManager`, and a
-real lifecycle owner only emerges in the async/Task form.
+**Colocation is contained, not removed.** The `ToolSource` contract is location-independent, and
+`AgentSource` is its in-process implementation. A remote sub-agent is a *sibling* implementation.
+It is largely "a sub-agent published as an MCP server, reached via the existing server-tools
+ToolSource". In-process, composition metadata (depth, budget, cancellation, nested event stream)
+comes along for free. #1035 / #1036 / #1038 cover sending it over the wire. Lifecycle is spread
+out rather than centralized. There is no `SubagentManager`, and a real lifecycle owner appears only
+in the async/Task form.
 
 ### SubAgentEvent
 
 `SubAgentEvent{Scope, Depth, Event}` forwards the child's turn-lifecycle emit stream to the
-parent's surface via `AgentSourceConfig.OnEvent`. Scope and depth live on the **envelope** so
-`Event` stays wire-flat (A2). Scope is ctx-threaded, so nested sub-agents compose the path
+parent's surface via `AgentSourceConfig.OnEvent`. Scope and depth go on the **envelope**, so
+`Event` is still wire-flat (A2). Scope is ctx-threaded, so nested sub-agents compose the path
 (`outer/inner`).
 
 This is **not** MCP domain-event subscription. A sub-agent's `subscribe_events` injects into its
@@ -640,38 +652,39 @@ own context, never the parent's. The parent sees the child's *activity*, not its
 ### Async sub-agents (#1035, PR 1161)
 
 `AsyncAgentSource.Call` acks immediately ("sub-agent X started") and runs the child on a
-`core.DetachForBackground` goroutine — not `context.WithoutCancel`, because it outlives the turn
+`core.DetachForBackground` goroutine, not `context.WithoutCancel`. The child outlives the turn
 *and* calls MCP server tools, so it needs the session push. On finish, `OnComplete(name,
 *TurnResult, err)` delivers the result. Depth and budget are checked at spawn.
 
-Host `onAsyncComplete` mirrors `tasks_bg.go`: ingest a `subagent.completed` `IncomingEvent` into
-the injection policy, plus `triggers.OnEvent` and a `HostMessage` notice, so the result is
-drained into the next turn's context or fires a proactive turn.
+Host `onAsyncComplete` works like `tasks_bg.go`. It ingests a `subagent.completed`
+`IncomingEvent` into the injection policy, and also calls `triggers.OnEvent` and posts a
+`HostMessage` notice. The result is then drained into the next turn's context, or it fires a
+proactive turn.
 
-**It is not an MCP task**: no wire, no model-visible poll or cancel, and the ephemeral goroutine
-dies with the process. For poll/cancel/durability use a real `ext/tasks` task. The
+**It is not an MCP task.** It has no wire and no model-visible poll or cancel, and the ephemeral
+goroutine dies with the process. For poll/cancel/durability use a real `ext/tasks` task. The
 Tool-vs-Task-vs-real-Task ladder is in `docs/AGENT_COMPOSITION.md`.
 
 ### FanOutSource (#1033, PR 1155)
 
-A leaf ToolSource whose one tool broadcasts a task to N member `*AgentSource`s concurrently
-(goroutine per member, per-index result slots aggregated in member order) and returns one
-combined result. Because it reuses AgentSource, per-member `MaxDepth`, `WithAgentCallBudget`,
-and scope all apply. A member failure is **isolated** into the aggregate and marked, never a
-dispatch error.
+A leaf ToolSource with one tool. The tool broadcasts a task to N member `*AgentSource`s concurrently
+and returns one combined result. Each member gets a goroutine and a per-index result slot, and the
+slots are aggregated in member order. Because it reuses AgentSource, per-member `MaxDepth`,
+`WithAgentCallBudget`, and scope all apply. A member failure is **isolated** into the aggregate and
+marked, never a dispatch error.
 
 This is broadcast-one-task-to-all (ensemble). Map-style distribution of distinct subtasks was
 not part of #1033 and remains unfiled. It is the substrate for sampling/vote (#1056).
 
-Host: `Config.FanOut []FanOutGroupConfig` → `registerFanOut`, added under `fanout:<name>`, with
-id underscores turned into dashes because the source id bans `_` while the tool name keeps it.
+Host: `Config.FanOut []FanOutGroupConfig` → `registerFanOut`, added under `fanout:<name>`. The
+source id bans `_` and the tool name keeps it, so underscores in the id become dashes.
 
 ### Consensus: seeded draws with a vote (#202)
 
 `Consensus` runs one turn N times and votes on a key the caller supplies. jaala's translator did
 this in its own loop (`frontends/nl/vote.go`), and nothing in it was about Datalog except the key,
-so it moved down. It calls `Runner.RunTurn` and nothing else, so it isn't a workflow engine (A8):
-every draw is the same turn, and what to do with a split vote stays with the caller.
+so it moved down. It calls `Runner.RunTurn` and nothing else, so it isn't a workflow engine (A8).
+Every draw is the same turn, and the caller decides what to do with a split vote.
 
 A few things we found while building it:
 
@@ -683,67 +696,66 @@ A few things we found while building it:
   vote could spend N times the cap.
 - On llama-server, a seed repeats its draw only on a single-slot server with draws run one at a
   time. With the default four slots, a rerun of the same seeds drew differently in 2 of 8 tries,
-  and `Parallel: 2` on one slot in 1 of 8. As far as we can tell, a draw that lands on a
+  and `Parallel: 2` on one slot in 1 of 8. As far as we can tell, a draw that hits a
   different slot's cache samples differently. The live test skips unless the server was started
   with `-np 1`.
 
 ### Team (handoff)
 
-`Team` is the one mode that does not fit agent-as-tool: handoff transfers control rather than
-returning. `NewTeam(TeamConfig{Members, Start, MaxHandoffs, OnHandoff})`; each
-`TeamMember{Name, Config, HandoffTo}` gets `transfer_to_<name>` tools for its allowed targets
+`Team` does not fit agent-as-tool, and no other mode is like it. A handoff transfers control
+rather than returning. `NewTeam(TeamConfig{Members, Start, MaxHandoffs, OnHandoff})` builds it.
+Each `TeamMember{Name, Config, HandoffTo}` gets `transfer_to_<name>` tools for its allowed targets
 only, and terminal agents get none.
 
-`Run` loops: the active agent runs; if a `transfer_to` fired (a per-Run ctx signal), swap the
-active Runner and continue over the **same shared history**; else return the final answer.
-Membership is static — dynamic model-driven composition is #1038. Ping-pong is bounded by
+`Run` loops. The active agent runs. If a `transfer_to` fired (a per-Run ctx signal), `Run` swaps
+the active Runner and continues over the **same shared history**. Otherwise it returns the final
+answer. Membership is static, and dynamic model-driven composition is #1038. Ping-pong is bounded by
 `MaxHandoffs` (`ErrMaxHandoffs`).
 
-Handoff is inject-context plus schedule. The shared-thread swap is one implementation;
+Handoff is inject-context plus schedule. The shared-thread swap is one implementation, and
 per-agent-context plus injection (the actor form) is the general one.
 
 `Team.RunTurn(history, active)` is history-aware and returns all-hops messages plus the ending
 active agent. `Team.Run` delegates to it.
 
-**Per-agent event tagging** (#1033, PR 1159): `TeamConfig.OnEvent` forwards each member's events
-tagged `{Scope: activeAgentName, Depth: 1}` and **replaces** the raw emit — no double-fire; the
-raw emit is the nil-OnEvent fallback.
+**Per-agent event tagging** (#1033, PR 1159). `TeamConfig.OnEvent` forwards each member's events
+tagged `{Scope: activeAgentName, Depth: 1}`. It **replaces** the raw emit, so nothing fires twice.
+The raw emit is the fallback when OnEvent is nil.
 
-**The persistence gotcha**: attributed events cannot tee back through the render path or they
-double-render, so team mode builds a buffer-only `PersistingEmit` — `NewPersistingEmit(store,
-id, nil)`, nil next meaning persist without rendering — exposed via a per-turn `a.teamEventSink`
-that the `OnEvent` closure feeds.
+**The persistence gotcha.** If attributed events tee back through the render path, they render
+twice. So team mode builds a buffer-only `PersistingEmit` with `NewPersistingEmit(store, id, nil)`.
+The nil next means persist without rendering. A per-turn `a.teamEventSink` exposes it, and the
+`OnEvent` closure feeds that sink.
 
 ### AgentPool and runner-control meta-tools (#1166, PR 1169)
 
 `agent.AgentPool` runs named personas in the background on a `core.DetachForBackground`
-goroutine and returns a handle; `NewSpawnSource` exposes `spawn_agent` / `await_agent` /
-`cancel_agent` / `list_agents`. **Pull-based `await_agent` is the distinct value** over the
-auto-injecting `AsyncAgentSource`.
+goroutine and returns a handle. `NewSpawnSource` exposes `spawn_agent` / `await_agent` /
+`cancel_agent` / `list_agents`. `AsyncAgentSource` injects results automatically. **The pool adds
+pull-based `await_agent`.**
 
-The pool is agent-layer, not host, even though the issue first sketched it as host-layer:
-background runs need the unexported `withAgentDepth` / `withAgentScope` / `DetachForBackground`
-plumbing, so it belongs beside `AgentSource`. Host is thin wiring (`Config.RunnerControl`), and
-the Runner is unchanged. This is where "an agent that knows and targets its children" is
-legitimate, in contrast to A's non-referential child. `transfer_to` stays Team's and is not
-duplicated here.
+The issue first sketched the pool as host-layer, but it is agent-layer. Background runs need the
+unexported `withAgentDepth` / `withAgentScope` / `DetachForBackground` plumbing, so the pool
+belongs beside `AgentSource`. The host is thin wiring (`Config.RunnerControl`), and the Runner is
+unchanged. In the pool, an agent may know and target its children. A's child, by contrast, is
+non-referential. `transfer_to` still belongs to Team and is not duplicated here.
 
-### Multi-model falls out
+### Mixing models
 
-Each `Runner` / `AgentSource` / `TeamMember` carries its own Provider, so a heavy supervisor
-delegating to cheap sub-agents needs no special machinery. Within one conversation:
+Each `Runner` / `AgentSource` / `TeamMember` has its own Provider. A heavy supervisor can
+delegate to cheap sub-agents with no special machinery. Within one conversation:
 `ConnectionRegistry` plus `providerSwitch` (`/provider`), `FailoverProvider` (primary/backup),
 and the deferred routing policy (#991).
 
 ### Composition axes (design discussion → #1157)
 
-"Who responds to the user" decomposes into three orthogonal seams, none coupled to the agent:
-the **scheduler** (which agent acts next over shared context — that is Team; the
-user-interaction framing is the co-located projection), the **surface** (channel/mode —
-Observer/HostEvent), and the **interaction mediator** (order/batch/rewrite/route user-facing
-asks — generalize the `ElicitationCoordinator` FIFO). Team's durable value is scheduling
-who-acts-next, not owning the user; in the distributed limit it decouples into the actor form
-(inject and wake).
+"Who responds to the user" splits into three orthogonal seams, and none is coupled to the agent.
+The **scheduler** picks which agent acts next over shared context. Team is the scheduler, and the
+user-interaction framing is its co-located projection. The **surface** is the channel or mode
+(Observer/HostEvent). The **interaction mediator** orders, batches, rewrites and routes
+user-facing asks, and would generalize the `ElicitationCoordinator` FIFO. Team's lasting value is
+scheduling who acts next, not owning the user. In the distributed limit it splits into the actor
+form (inject and wake).
 
 ---
 
@@ -751,149 +763,150 @@ who-acts-next, not owning the user; in the distributed limit it decouples into t
 
 ### A constraint on the answer, and what the turn-end hooks judge (#201)
 
-`ResponseGuided` puts a grammar (or a regex, or a JSON schema) on the turn's answer. It can't
-ride on a step that offers tools, because on llama.cpp a grammar covers the whole completion and
-tool calling is a grammar of its own. So a step without tools carries it directly, and after a
-step with tools the Runner makes one more call, with no tools and the constraint, from the
-conversation as it stood before the free answer. Leaving the draft out of that call's context was
-deliberate. With it in, the last message is the assistant's own, which a chat template reads as a
-prefix to continue, and getting around that needs a made-up user message. The model answers from
+`ResponseGuided` puts a grammar (or a regex, or a JSON schema) on the turn's answer. It can't go
+on a step that offers tools. On llama.cpp a grammar covers the whole completion, and tool calling
+is a grammar of its own. So a step without tools sends the constraint directly. After a step with
+tools, the Runner makes one more call with no tools and the constraint. It sends the conversation
+as it stood before the free answer. We left the draft out of that call's context on purpose. With
+the draft in, the last message is the assistant's own. A chat template reads that as a prefix to
+continue, and getting around it needs a made-up user message. The model answers from
 the same context it drafted from anyway.
 
-The guided text replaces the draft in the record, rather than sitting beside it, since two
-assistant messages in a row is a shape some APIs refuse.
+The guided text replaces the draft in the record, rather than sitting beside it. Some APIs refuse
+two assistant messages in a row.
 
 `TurnEnd` hooks used to run before `ResponseSchema`'s finalizing call. That meant a hook could
 accept prose whose JSON then failed the schema, and the only sign was `StructuredError` after the
 turn was over. Both constraints now finalize first and the hooks judge the result, with the free
-answer on `TurnEndInfo.Draft`. The cost is that a refused answer has already paid for its
+answer on `TurnEndInfo.Draft`. The downside is that a refused answer has already spent a
 finalizing call. Nothing in the repo set `TurnEnd` together with a schema when this changed, so
 only outside callers were affected.
 
 ### Routing one step to another provider (#185)
 
 A request-scoped `StepStage` picks the provider for one call by setting `StepView.Provider`, and
-the next step starts back on `RunnerConfig.Provider`. We kept it to request scope for the same
-reason the tool set is: a routing choice is about one call, and letting a turn stage make it
-sticky would hide who answered what. The host's `stepRoutes` is that stage driven by step ranges,
-and `/provider` still decides every step no route covers. Richer rules (last call was a tool
-result, tokens so far) are easy as custom stages, but we stopped short of putting them in config,
-since a config rule language starts to look like the workflow engine A8 rules out.
+the next step starts back on `RunnerConfig.Provider`. We kept it to request scope, as with the
+tool set. A routing choice is about one call. If a turn stage could make it sticky, you couldn't
+tell who answered what. The host's `stepRoutes` is that stage, driven by step ranges. If no route
+covers a step, `/provider` still decides it. Richer rules (last call was a tool result, tokens so
+far) are easy as custom stages. We stopped short of putting them in config, because a config rule
+language starts to look like the workflow engine A8 rules out.
 
 A few things fell out of it that are easy to trip over:
 
-- The structured or guided finalize stays on `RunnerConfig.Provider`, and its tokens land under
+- The structured or guided finalize always uses `RunnerConfig.Provider`, and its tokens go under
   `""` in `TurnResult.UsageByModel`. With a host route configured, unrouted steps are named after
   the active connection, so the same provider can show up under two keys. The totals still add up.
 - `EventStep` only fires for steps a stage named. The runner tests pin exact event sequences
-  (`TestRunnerSingleStepText` and four more), so an event emitted on every step breaks all of
-  them, and it would add an event per step to every surface for nothing. Any new per-step event
+  (`TestRunnerSingleStepText` and four more). An event emitted on every step would break all of
+  them, and it would send every surface an event per step for nothing. Any new per-step event
   kind runs into the same thing.
-- Switching makes the next call cold. A prompt cache misses on the provider switched to, and the
-  Responses cursor (#157) misses on the way back, because the history now holds a step its server
-  never saw, so it resends in full (`TestRoutedStepMakesTheNextResponsesCallResendInFull`).
+- Switching makes the next call cold. The prompt cache misses on the new provider. On the
+  way back the Responses cursor (#157) misses too. The history now holds a step its server never
+  saw, so it resends in full (`TestRoutedStepMakesTheNextResponsesCallResendInFull`).
   A few long ranges cost less than alternating.
-- A routed step gets that connection's capabilities. Only the guided constraint is re-checked;
-  vision and tools are whatever the routed model does.
+- A routed step gets that connection's capabilities. Only the guided constraint is re-checked.
+  Vision and tools are whatever the routed model supports.
 
 ### Generation parameters: how they reach a turn (#1239)
 
 `GenerationParams` (`agent/provider.go`) carries `Temperature`, `MaxTokens`, and `ToolChoice`.
-Defaults live on `RunnerConfig.Generation`; `TurnRequest.Generation` overrides per turn, **field by
-field, where a zero field inherits**. The corollary is documented on the type: a turn cannot un-set a
-config default back to the provider's own, it can only set a different value.
+Defaults go on `RunnerConfig.Generation`, and `TurnRequest.Generation` overrides per turn, **field
+by field, where a zero field inherits**. The type documents the corollary. A turn cannot un-set a
+config default back to the provider's own. It can only set a different value.
 
-`ResponseSchema` deliberately stays on `RunnerConfig` and out of the struct — it selects a different
-*turn shape* (a finalizing `Generate`) rather than tuning the calls a turn already makes.
+`ResponseSchema` is deliberately on `RunnerConfig` and not in the struct. It selects a different
+*turn shape* (a finalizing `Generate`). The other fields tune calls the turn already makes.
 
-**The trap in the finalizing call.** `finalizeStructured` offers no tools, so a `ToolChoice` carried
-from the turn's params would ask the provider to force a call it has no tool for, which OpenAI
-rejects. `applyTo` is shared with the step loop, so the drop happens at the finalize call site, not
-inside `applyTo`. `TestGenerationToolChoiceDroppedOnFinalize` pins it.
+**The trap in the finalizing call.** `finalizeStructured` offers no tools. If it kept the turn's
+`ToolChoice`, it would ask the provider to force a call with no tool to call, and OpenAI rejects
+that. The step loop also uses `applyTo`, so the finalize call site drops `ToolChoice`, not
+`applyTo`. `TestGenerationToolChoiceDroppedOnFinalize` pins it.
 
 **How this was ever missing.** Before #1239 the step loop built `ProviderRequest{Instructions,
-Messages, Tools}` and nothing else, so three of the four generation parameters the seam defines were
-unreachable from a turn: `Temperature` and `ToolChoice` were set nowhere in non-test code, and
-`MaxTokens` only as a `failover.go` health probe. Both providers had always rendered all three onto
-the wire correctly — the gap was purely loop-side, which is why it stayed invisible. The roadmap's §7
-scorecard credited `ToolChoice` as shipped, which is how #1056 came to be sized against primitives
-that could not actually be driven.
+Messages, Tools}` and nothing else. The seam defines four generation parameters, and a turn could
+reach none of three. Non-test code set `Temperature` and `ToolChoice` nowhere, and set `MaxTokens`
+only as a `failover.go` health probe. Both providers had always rendered all three onto the wire
+correctly. The gap was purely loop-side. Anyone checking a provider saw every parameter rendered,
+and nothing looked missing. The roadmap's §7 scorecard credited `ToolChoice` as
+shipped. #1056 was then sized against that scorecard, on primitives a turn could not actually drive.
 
-**Unsupported parameters are forwarded, not screened.** A provider sends what it is given, and a
-model that rejects a parameter fails the request rather than ignoring it — current Anthropic models
-400 on sampling params. That is deliberate: `ProviderError{StatusCode, Body}` already carries the
-vendor's message verbatim (up to 2048 bytes) and names the offending field, so a capability layer
-would duplicate diagnostics that already exist, and screening by model would need exactly the
-per-model table this project has declined once already (the reason agentchat takes
-`--context-window` rather than inferring one). Revisit only if a *response*-side signal such as
-logprobs (#1053) needs capability negotiation, which degrades to best-effort rather than failing.
+**Unsupported parameters are forwarded, not screened.** A provider sends what it is given. If a
+model rejects a parameter, the request fails rather than ignoring it. Current Anthropic models 400
+on sampling params. That is deliberate. `ProviderError{StatusCode, Body}` already holds the
+vendor's message verbatim (up to 2048 bytes), and the message names the offending field. A
+capability layer would duplicate diagnostics that already exist. Screening by model would need a
+per-model table, and this project has declined one once already. For the same reason, agentchat
+takes `--context-window` rather than inferring one. Revisit only if a *response*-side signal such as
+logprobs (#1053) needs capability negotiation. That would degrade to best-effort rather than
+failing.
 
 ### Tool-name sanitization (PR 1129, `agent/toolname.go`)
 
 OpenAI and Anthropic both constrain a function/tool name to `^[a-zA-Z0-9_-]{1,64}$`. A connected
-MCP server can expose a name that violates it — a dot like `chat.message`, a slash, spaces, or
-over 64 chars — and both providers used to send `td.Name` raw, so the request 400'd and
-**aborted the whole turn**.
+MCP server can expose a name that violates it, with a dot like `chat.message`, a slash, spaces, or
+over 64 chars. Both providers used to send `td.Name` raw. The request 400'd and **aborted the
+whole turn**.
 
 `sanitizeToolName` maps invalid runs to `_`, empty to `tool`, and caps at 64.
 `toolNameMaps(req.Tools)` builds a deterministic, collision-resolved real↔safe bijection. The
 request sends the safe name (tools list, assistant-history `tool_calls`, forced `tool_choice`)
 and the response reverses it via `realToolName` so the Runner still dispatches correctly.
 
-**The map is a pure function of `req.Tools`, re-derived independently in the request builder and
-the response parser — no state is threaded.** The one exception is the streaming structs, which
-carry a `nameMap` field because they outlive the request. **A valid name maps to itself**, so
+**The map is a pure function of `req.Tools`.** The request builder and the response parser each
+derive it on their own, so no state is threaded. The streaming structs are the exception. They
+outlive the request, so they keep a `nameMap` field. **A valid name maps to itself**, so
 the wire shape is unchanged for the common case and existing wire-shape tests were untouched.
 
 ### Shared SSE Recv loop (PR 1131, `agent/sse_stream.go`)
 
-The two providers' `Recv()` bodies were byte-identical except for the payload decode, including
-the subtle partial-event-riding-EOF handling — a bug-drift risk. A shared `sseStream` now owns
-the loop, parameterized by `decode func(payload string) (deltas []Delta, done bool, err error)`.
-Each provider embeds `sseStream` and supplies its own decode: OpenAI handles the `[DONE]`
-sentinel and keeps the tool-call `started` index map; Anthropic returns done on `message_stop`
-and err on an `error` event.
+The two providers' `Recv()` bodies were byte-identical except for the payload decode. Both had the
+subtle handling for a partial event that arrives with EOF. Two copies risked drifting apart. A
+shared `sseStream` now owns the loop, parameterized by `decode func(payload string) (deltas []Delta,
+done bool, err error)`. Each provider embeds `sseStream` and supplies its own decode. OpenAI handles
+the `[DONE]` sentinel and keeps the tool-call `started` index map. Anthropic returns done on
+`message_stop` and err on an `error` event.
 
 `decode` returns `[]Delta` rather than appending to a shared queue, so the loop is the sole queue
-owner. Per-stream state (the `started` map, `nameMap`, `inputTokens`) lives on the concrete
-stream and is captured by the decode method. `buildBody`, the chunk decode, and the `Generate`
-response parse stay per-provider, which is where they genuinely diverge.
+owner. Per-stream state (the `started` map, `nameMap`, `inputTokens`) is on the concrete
+stream, and the decode method captures it. The providers genuinely diverge in `buildBody`, the
+chunk decode, and the `Generate` response parse, so those three remain per-provider.
 
 ### Reasoning / "thinking" display — three distinct paths
 
 1. **Local reasoning models** (deepseek-r1, qwq via LM Studio/Ollama) emit reasoning inline as
    `<think>…</think>` in the text stream. `ConnectionConfig.ThinkingHint{OpenTag, CloseTag}` plus
    `agent.NewThinkingProvider` (PR 1064) wrap the provider to re-tag that text as
-   `DeltaReasoning`. Boundary-safe across split deltas; an empty openTag means
-   reasoning-from-head; an empty closeTag is inert.
+   `DeltaReasoning`. It handles a tag split across deltas. An empty openTag means the stream
+   starts in reasoning, and an empty closeTag is inert.
 2. **Cloud reasoning APIs** (DeepSeek `deepseek-reasoner`, OpenRouter) return reasoning in a
-   `reasoning_content` / `reasoning` delta field, which `OpenAIProvider` **already parses** into
+   `reasoning_content` / `reasoning` delta field. `OpenAIProvider` **already parses** that into
    `DeltaReasoning`. So `{baseUrl:"https://api.deepseek.com", model:"deepseek-reasoner"}` shows
    thinking with no hint configured.
 3. **Native Anthropic** parses `thinking_delta` into `DeltaReasoning` but does not enable it on
    the request side.
 
-OpenAI chat models return no reasoning at all — chat-completions does not surface o-series
-reasoning. The Runner's `consumeStream` turns `DeltaReasoning` into thinking events, and
+OpenAI chat models return no reasoning at all, because chat-completions does not surface
+o-series reasoning. The Runner's `consumeStream` turns `DeltaReasoning` into thinking events, and
 `render.go` streams the reasoning text dimmed under `· thinking:`.
 
 ### Anthropic caching and extended thinking: dropped (#953, constraint A9)
 
-Both are **loop-invisible** provider optimizations. The Runner gets the same `Delta` stream —
-caching is just cheaper, thinking is `DeltaReasoning` we already parse and render — so they
-reshape nothing above the Provider seam.
+Both are **loop-invisible** provider optimizations. The Runner gets the same `Delta` stream with
+or without them. Caching is just cheaper, and thinking is `DeltaReasoning`, which we already parse
+and render. So they change nothing above the Provider seam.
 
-The issue's own premise went stale, which is the cautionary datapoint:
+The issue's own premise went stale, and that is worth remembering.
 `thinking:{type:enabled,budget_tokens:N}` now **400s** on current models. The current shape is
 `{type:adaptive}` plus `output_config.effort`, and **temperature must be omitted, not "set to
-1"** — sampling params 400 on those models. Full interleaved-thinking-with-tools would also
-thread Anthropic *signed thinking blocks* through the neutral `agent.Message` and the Runner,
-which is an A2 violation.
+1"**, because sampling params 400 on those models. Full interleaved-thinking-with-tools would
+also thread Anthropic *signed thinking blocks* through the neutral `agent.Message` and the
+Runner. That violates A2.
 
-The durable line (A9): deep provider features come from **wrapping the vendor's official SDK
-behind the seam**, not from growing the no-SDK provider, which would chase API drift forever.
-Loop-*visible* capabilities (logprob→routing, grammar→structured output) are kept and exposed
-capability-optionally on the seam.
+The rule (A9) is to get deep provider features by **wrapping the vendor's official SDK behind the
+seam**. Growing the no-SDK provider would mean chasing API drift forever. We keep loop-*visible*
+capabilities (logprob→routing, grammar→structured output) and expose them as optional
+capabilities on the seam.
 
 ### Responses API: reasoning continuity without carrying the reasoning (#157)
 
@@ -901,62 +914,63 @@ On a reasoning model, the Chat Completions wire drops the model's reasoning betw
 because there is nowhere to put it. The Responses API offers two ways to keep it: replay the
 encrypted reasoning items yourself (`include: ["reasoning.encrypted_content"]`), or let the server
 store each response and chain the next request with `previous_response_id`. The first would mean
-carrying an opaque blob through `agent.Message`, which A2 rules out. `ResponsesProvider` takes the
+carrying an opaque blob through `agent.Message`, and A2 rules that out. `ResponsesProvider` takes the
 second, so the only state is a response id, and it never leaves the provider.
 
 The provider is stateless per request, so it can't know which conversation a request continues.
-It remembers each response it returned, keyed by a hash of the history it answered plus the
-assistant message the Runner will append for it (`responses_cursor.go`). A request chains only
-when everything before its last assistant message hashes to a remembered id, and then sends just
-the messages after it. Compaction, an edited or forked history, a resume from RunStore, a
-provider switch and an evicted entry all fall out as a miss, and a miss sends full history. That
-makes the cursor unobservable to the loop, which is why it isn't a capability on the seam (A9).
+It remembers each response it returned (`responses_cursor.go`). The key is a hash of the history
+it answered plus the assistant message the Runner will append for it. A request chains only when
+everything before its last assistant message hashes to a remembered id. Then it sends just the
+messages after that one. Compaction, an edited or forked history, a resume from RunStore, a
+provider switch and an evicted entry all produce a miss, and a miss sends full history. So the
+loop can't observe the cursor. A9 keeps loop-invisible optimizations off the seam, so
+the cursor isn't a capability there.
 
-What bit, or nearly did:
+These bit us, or nearly did:
 
 - The hash has to leave out `Timestamp`. RunStore stamps messages on append, so a key that
   included it would miss on every step.
 - `instructions` and `tools` don't carry over from the previous response, so every request
   resends them. Only the input items are chained.
-- Transient per-turn context (recall, summaries) is in the request but not in history, so a turn
-  whose injected context changed misses and resends full history. That is correct, since the
+- Transient per-turn context (recall, summaries) is in the request but not in history. If a turn's
+  injected context changed, the turn misses and resends full history. That is correct, since the
   stored response holds the old context. It also means `OnFullHistory` can fire once per turn when
   memory recall is on.
 - A stored response can expire. The server answers with a 400 or 404 naming
-  `previous_response_id`; the provider drops the entry and resends with full history once.
+  `previous_response_id`. The provider drops the entry and resends with full history once.
 
-It's a no-SDK provider like `OpenAIProvider`, against the line above, because the wire is small
-and wrapping `openai-go` would add a third direct require to the root module (A10). If the
-Responses surface this needs grows much past text, function calls and reasoning summaries, the
-SDK wrapper in a satellite module is the better home.
+It's a no-SDK provider like `OpenAIProvider`, against the rule above. The wire is small, and
+wrapping `openai-go` would add a third direct require to the root module (A10). This provider
+needs text, function calls and reasoning summaries from Responses. If it needs much more, the SDK
+wrapper should go in a satellite module.
 
 ---
 
 ## Host wiring
 
 Reusable host application core in `host/`: config loading (providers, servers, policies,
-skills), meta-tools, App/REPL wiring. Surface-agnostic — a CLI and a web chat both build on it.
+skills), meta-tools, App/REPL wiring. It is surface-agnostic, and a CLI and a web chat both build
+on it.
 
 ### The Extension contract had no lifecycle hook (#1250 / #1267, PR 1271)
 
 `Extension` shipped five seams and all five are *contributions*: tools, middleware, prompt
 sections, commands, context stages. None is a lifecycle hook. The first real extension
-(`ext/checkpoint`) needed to know a turn had begun, and the only workaround available was a
-`ContextStage` that returns its input unchanged and exists for its side effect — a producer that
-produces nothing, which is a hook in disguise.
+(`ext/checkpoint`) needed to know a turn had begun. The only workaround was a `ContextStage` that
+returns its input unchanged and exists for its side effect. A producer that produces nothing is a
+hook in disguise.
 
-So `Extension` gained `TurnStart`. It is called from **both** turn entry points, `RunTurn` in
-`app.go` and `runProactiveTurn` in `events.go`: a trigger firing runs the model over history
-exactly as a user turn does, so an extension that saw only one would scope its state to the wrong
-thing. It runs before history is touched, so a failure aborts cleanly. `BaseExtension` no-ops it.
+So `Extension` gained `TurnStart`. **Both** turn entry points call it, `RunTurn` in `app.go` and
+`runProactiveTurn` in `events.go`. A trigger firing runs the model over history exactly as a user
+turn does. An extension that saw only one entry point would scope its state to the wrong thing. It
+runs before history is touched, so a failure aborts cleanly. `BaseExtension` no-ops it.
 
-This also forced `App` to retain its extensions — they were previously only on `appOptions` and
-dropped after construction.
+`App` now also keeps its extensions. They used to be only on `appOptions`, and were dropped after
+construction.
 
-The general lesson, and #1252's non-goals already state it: a feature that needs a change to how
-turns run has found a bug in the seam, not a reason to work around it. Building the first real
-extension found one on first use, which is an argument for building a real consumer before the 1.0
-freeze rather than after.
+#1252's non-goals already state the general lesson. A feature that needs a change to how turns run
+has found a bug in the seam, not a reason to work around it. The first real extension found one on
+first use. So build a real consumer before the 1.0 freeze, not after.
 
 ### ContextStage is per-turn; the loop it serves is per-step (#1301)
 
@@ -964,292 +978,295 @@ The prediction above held. Building the first `ContextStage` consumer (`ext/lsp`
 more gaps, and the first one changed the design before any code was written.
 
 **Stages run once per turn, at `RunTurn`. A coding agent's edit-check-fix cycle runs across the
-tool-call steps inside one turn.** A model that edits at step 3 and keeps working to step 12 gets
-nothing from a stage for nine steps, because there is no injection point inside a turn except a
-tool result. So diagnostics ship on two paths rather than one, and which path carries which claim
-is decided by what history does to it:
+tool-call steps inside one turn.** Imagine a model edits at step 3 and keeps working to
+step 12. It gets nothing from a stage for nine steps. Inside a turn, the only injection point is a
+tool result. So diagnostics ship on two paths rather than one. What history does to a claim
+decides which path it goes on:
 
-- A tool result is permanent. That suits "this edit introduced these errors", which stays true as
-  a record of the past, and it is the only thing that reaches the model mid-turn.
-- A transient stage is per-turn. That suits "the file currently has these errors", which stops
-  being true the moment one is fixed and would otherwise accumulate one stale block per edit.
+- A tool result is permanent. That suits "this edit introduced these errors". The claim is still
+  true later as a record of the past, and a tool result is the only thing that reaches the model
+  mid-turn.
+- A transient stage is per-turn. That suits "the file currently has these errors". The claim stops
+  being true the moment one is fixed. In history it would pile up one stale block per edit.
 
-The generalisation worth keeping: **a context producer whose value decays within a turn cannot be
-a `ContextStage` alone.** Memory recall does not have this problem because what it retrieves stays
-retrieved. Anything reflecting mutable external state does.
+In general, **if a context producer's value decays within a turn, it cannot be a
+`ContextStage` alone.** Memory recall does not have this problem, because a retrieved memory does
+not change. Anything reflecting mutable external state does.
 
 The other three, all recorded on #1240:
 
 1. **No shutdown seam.** `TurnStart` had no counterpart, and `App.Close` never touched extensions.
    Fixed here by adding `Extension.Close`, called in reverse registration order, exactly once even
-   if `App.Close` is called twice. Reverse because registration order is dependency order, which
-   `surfaces.WorkspaceExtensions` relies on. Note this was a **breaking interface change** for any
-   implementor not embedding `BaseExtension`, which is the argument for doing it before the freeze.
+   if `App.Close` is called twice. Registration order is dependency order, and
+   `surfaces.WorkspaceExtensions` relies on that, so close runs in reverse. This was a **breaking
+   interface change** for any implementor not embedding `BaseExtension`. That is a reason to do it
+   before the freeze.
 2. **An extension cannot observe.** `ToolMiddleware`'s doc says a middleware that merely observes
-   should be an event subscriber, but `App.Subscribe` is a method on an `App` that an `Extension`
-   is constructed before and never receives. So an extension that wants to watch has no sanctioned
-   route. lsp sidesteps it because its middleware genuinely changes the result. The gap is still
-   there for the next one.
-3. **`weaveBeforeUser` is host-private.** Every out-of-tree stage that wants the "closest to the
-   user message is most salient" placement re-implements it. lsp does. It is four lines, so the
-   duplication is cheap and exporting it would widen the surface being frozen, but a second
-   copy means the rule now lives in two places.
+   should be an event subscriber. But `App.Subscribe` is a method on `App`. An `Extension` is
+   constructed before the `App` and never receives it. So an extension that wants to watch has no
+   sanctioned route. lsp sidesteps it because its middleware genuinely changes the result. The gap
+   is still there for the next one.
+3. **`weaveBeforeUser` is host-private.** Some out-of-tree stages want the "closest to the user
+   message is most salient" placement, and each one re-implements it. lsp does. It is four lines,
+   so the duplication is cheap, and exporting it would widen the surface being frozen. But with a
+   second copy, the rule now exists in two places.
 
 ### One server is not the protocol (#1303)
 
-`ext/lsp` shipped having been run against gopls and nothing else. Probing the four other servers
-installed on a dev machine, through the package's own client, found that the diagnostics contract
-was gopls-shaped in a way that was silently wrong.
+`ext/lsp` shipped after running against gopls and nothing else. We then probed the four other
+servers installed on a dev machine, through the package's own client. The diagnostics contract
+turned out to be gopls-shaped, and silently wrong for the others.
 
-**`refresh` took the first publication after a change as the answer.** True for gopls,
-typescript-language-server and pyright, which publish once with what they found. False for
-rust-analyzer, which publishes an **empty set immediately** and its real diagnostics about 2.4s
-later, once cargo has run. So an edit that broke the build came back to the model as "no problems
-reported". A false all-clear defeats the entire point of the post-write report.
+**`refresh` took the first publication after a change as the answer.** gopls,
+typescript-language-server and pyright publish once with what they found, so that works for them.
+rust-analyzer publishes an **empty set immediately**, then its real diagnostics about 2.4s later,
+once cargo has run. So an edit broke the build, and the model was told "no problems reported". A
+false all-clear defeats the entire point of the post-write report.
 
 **And rust-analyzer publishes nothing at all for a `didChange`.** Its cargo check runs on save, and
-we never sent one. The first edit to a file was checked only because opening the document happened
-to trigger a check; every edit after that went unchecked. Writes now send `didChange` and
-`didSave`, which is honest since everything here reads the file from disk after it was written.
+we never sent one. Opening the document happened to trigger a check, so the first edit to a file
+was checked. Every edit after that went unchecked. Writes now send `didChange` and `didSave`. That
+is honest, because everything here reads the file from disk after writing it.
 
-The fix for the provisional publication is to wait rather than take-first, and the shape of the
-wait went through three wrong versions before landing:
+The fix for the provisional publication is to wait rather than take the first. We tried two wrong
+versions of the wait before the one that shipped:
 
-1. **A fixed quiet period, per server, from a quirk table.** Correct, and it taxed every write on
-   that server by three seconds whether or not anything was wrong.
+1. **A fixed quiet period, per server, from a quirk table.** Correct, but it added three seconds
+   to every write on that server whether or not anything was wrong.
 2. **Wait for the server's work-done progress to finish.** The principled version, and wrong twice
-   over. A server reports progress for everything it does, so rust-analyzer's startup indexing is
-   indistinguishable from its cargo check, and "some work finished" was read as "your recheck
-   finished", returning an empty set as the answer. Counting progress *begins* after our change
-   instead of *ends* narrowed it but did not fix it, because startup work overlaps the first write.
-   Then waiting for the server to fall quiet ran to the full eight-second timeout on every write,
-   because rust-analyzer is never quiet.
-3. **What shipped:** an empty result waits a quiet period, extended by a *bounded* grace while the
-   server reports itself busy, and a non-empty result returns immediately.
+   over. A server reports progress for everything it does. So rust-analyzer's startup indexing
+   looks the same as its cargo check. We read "some work finished" as "your recheck finished", and
+   returned an empty set as the answer. Next we counted progress *begins* after our change instead
+   of *ends*. That narrowed the bug but did not fix it, because startup work overlaps the first
+   write. Then we waited for the server to fall quiet. rust-analyzer is never quiet, so every
+   write ran to the full eight-second timeout.
+3. **Shipped.** An empty result waits a quiet period. The wait gets a *bounded* extension while
+   the server reports itself busy. A non-empty result returns immediately.
 
-The last step is what makes the cost acceptable, and it comes from noticing the two cases are not
-symmetric. "Here are three errors" is actionable and complete enough; more can only be added, and
-the next turn's stage carries the full set. "Nothing is wrong" is the ambiguous one, because it is
-also what "I have not looked yet" looks like. So only the empty case pays. Measured on a warm
+The two cases are not symmetric, and the shipped version uses that to keep the cost acceptable.
+"Here are three errors" is actionable and complete enough. More can only be added, and the next
+turn's stage delivers the full set. "Nothing is wrong" is ambiguous, because "I have not looked
+yet" looks the same. So only the empty case waits. Measured on a warm
 rust-analyzer: a broken edit reports in ~130ms, a clean one in ~1.9s, and servers that publish once
 and report no busy work cost ~250ms either way.
 
-The quirk table is gone; `ServerSpec.SettleDelay` remains as the escape hatch.
+The quirk table is gone, and `ServerSpec.SettleDelay` remains as the escape hatch.
 
 Three things worth carrying:
 
 - **`DefaultDiagnosticsTimeout` had to go from 3s to 8s**, and every wrong version above passed its
-  unit tests. The stub does exactly what the test tells it to; only the live probe showed the
+  unit tests. The stub does exactly what the test tells it to. Only the live probe showed the
   8s-per-write regression and the empty-set-as-answer one. A test that re-checks a file it just
-  opened also hides the didSave problem entirely, which is why there is now a live test that warms
-  the server first and then does real write cycles.
-- **"Unchanged content means what we hold is current" is only half true.** Skipping the re-sync when
-  the server already has the bytes is right (clangd does not re-publish for an identical
-  `didChange`), but right after a `didOpen` the server has the content and has said nothing. The
-  first cut of that optimisation reintroduced the same false all-clear from the other direction, and
-  the multi-language live test caught it within a minute of being written. Both halves are needed:
+  opened also hides the didSave problem entirely. So a live test now warms the server first and
+  then does real write cycles.
+- **"Unchanged content means what we hold is current" is only half true.** If the server already has
+  the bytes, skipping the re-sync is right, because clangd does not re-publish for an identical
+  `didChange`. But right after a `didOpen` the server has the content and has said nothing. The
+  first cut of that optimisation brought back the same false all-clear from the other direction.
+  We wrote the multi-language live test, and it caught that within a minute. Both halves are needed:
   unchanged **and** already answered.
-- **positionEncoding negotiation is not dead.** #1301 recorded that gopls declines it and left the
-  impression utf-16 is simply what one gets. rust-analyzer and clangd both answer `utf-8`, so the
+- **positionEncoding negotiation is not dead.** #1301 recorded that gopls declines it. That
+  suggested utf-16 is simply what one gets. rust-analyzer and clangd both answer `utf-8`, so the
   utf-8 branch in `byteColumn` is exercised rather than defensive.
 
-The `SymbolInformation[]` flat shape never appeared: all five servers returned hierarchical
-`DocumentSymbol` with a real `selectionRange`. It stays spec-legal, so `TestServers` asserts a
-non-zero range rather than trusting it, since a flat array decodes into a zero `selectionRange` and
-would resolve every symbol to line 0.
+The `SymbolInformation[]` flat shape never appeared. All five servers returned hierarchical
+`DocumentSymbol` with a real `selectionRange`. The flat shape is still spec-legal. A flat array
+decodes into a zero `selectionRange` and would resolve every symbol to line 0. So `TestServers`
+asserts a non-zero range rather than trusting it.
 
-The general lesson is the same one the eval PRs keep producing: a suite that only ever drives one
-implementation proves the code agrees with that implementation. `TestServers` exists so the next
-server-shaped assumption costs a test run rather than a merged bug.
+The eval PRs keep teaching the same lesson. If a suite only ever drives one implementation, it
+proves only that the code agrees with that implementation. With `TestServers`, the next
+server-shaped assumption fails a test run instead of merging as a bug.
 
 ### An RPC to a subprocess needs its own deadline (#1308)
 
-The lsp suite hung once in CI and hit the 600-second default `go test` timeout, against 44.5s on
-every passing run. Chasing it found a production bug rather than a test one.
+The lsp suite hung once in CI and hit the 600-second default `go test` timeout. Every passing run
+took 44.5s. We chased it and found a production bug, not a test bug.
 
 `conn.call` waits on three things: the reply, the caller's context, and the read loop ending. The
-third is what covers a crashed server, and it does not cover a *wedged* one. A server that reads a
-request, never answers it, and keeps its stdout open leaves the read loop blocked in `readFrame`
-with nothing to fail on, so `done` never closes. That leaves only the caller's context, and
-`source.navigate` passes the Runner's context straight down, which frequently has no deadline. One
+read loop ends when a server crashes. It does not end when a server is *wedged*. Imagine a server
+reads a request, never answers it, and keeps its stdout open. The read loop blocks in `readFrame`
+with nothing to fail on, so `done` never closes. Only the caller's context is left.
+`source.navigate` passes the Runner's context straight down, and that context frequently has no
+deadline. One
 misbehaving language server could hold a turn open forever with nothing logged.
 
-Every call is now bounded, with the caller's deadline winning when it is shorter. The bound lives on
-the `conn` rather than in a package var, per constraint C3.
+Every call is now bounded, and the caller's deadline wins when it is shorter. The bound is a field
+on the `conn` rather than a package var, per constraint C3.
 
-The general form is worth keeping: **a wait that is only bounded by the peer dying is not bounded.**
-Process death is the easy failure to handle and the rare one; the common failure is a peer that is
-still there and no longer answering.
+In general, **a wait that ends only when the peer dies is not bounded.** Process death is the easy
+failure to handle, and the rare one. The common failure is a peer that is still there and no longer
+answering.
 
 The CI step also gained an explicit `-timeout 180s`, so the next hang produces a goroutine dump
-naming the blocked call instead of a bare line at 600s. That is diagnosis rather than a fix, and it
-stays useful whether or not this was the cause: the hang was never reproduced locally across
-repeated `-race` runs and six concurrent ones, so this closes the class rather than a confirmed
-instance.
+naming the blocked call instead of a bare line at 600s. That is diagnosis rather than a fix. It is
+useful whether or not this was the cause. We never reproduced the hang locally, across repeated
+`-race` runs and six concurrent ones. So this closes the class, not a confirmed instance.
 
 ### A workspace is a set of roots, not one (#1314)
 
-Every workspace extension took a single `Root`, and that assumption was wrong about how the tool is
-used. A coding session that stays inside one repository is the exception: the ordinary task changes
-an API in one repo and fixes its callers in another, often in another language. An agent confined to
-one of them edits the API, reports success, and never sees what it broke, because the caller is
-outside both its confinement and its language server.
+Every workspace extension took a single `Root`, and that does not match how the tool is used. Few
+coding sessions remain inside one repository. The ordinary task changes an API in one repo and
+fixes its callers in another, often in another language. Imagine an agent confined to the first
+repo. It edits the API, reports success, and never sees what it broke. The caller is outside both
+its confinement and its language server.
 
-`files` now takes `Roots []string`, with the first primary so a relative path still resolves and a
-single-root workspace behaves exactly as before.
+`files` now takes `Roots []string`. The first root is primary, so a relative path still resolves,
+and a single-root workspace behaves exactly as before.
 
 Three things that fell out of it:
 
-- **Results became absolute paths.** Two repositories both holding `src/main.go` is normal, so a
-  bare relative path names either. The alternative was inventing a qualifier syntax (`repo:path`),
-  which changes every tool's path argument and gives the model a new thing to spell wrong. Absolute
+- **Results became absolute paths.** Two repositories can both hold `src/main.go`, so a bare
+  relative path could name either. The alternative was a new qualifier syntax (`repo:path`). That
+  changes every tool's path argument and gives the model a new thing to spell wrong. Absolute
   in, absolute out, no grammar.
 - **A common parent is not a substitute for listing the roots.** It silently widens confinement to
-  everything else under that parent, which is the property `os.Root` is there to deny. Pinned by
-  `TestParentOfTheRootsIsNotImplicitlyIncluded`.
-- **The listing cap is global, not per root.** Applied per root it would quietly grow every time
-  someone added a repository, so a listing would get larger without anyone changing a limit.
+  everything else under that parent, and `os.Root` is there to deny exactly that.
+  `TestParentOfTheRootsIsNotImplicitlyIncluded` pins it.
+- **The listing cap is global, not per root.** A per-root cap would quietly grow every time
+  someone added a repository. A listing would get larger without anyone changing a limit.
 
-The confinement mechanism did not weaken. It is still one `os.Root` handle per root doing the
-resolution at open time; a path now has to land inside one of them rather than inside the one. The
-symlink-escape test still passes unchanged, which was the assertion worth watching.
+The confinement mechanism did not weaken. Each root still has one `os.Root` handle, and the handle
+resolves at open time. A path now has to resolve inside one of them rather than inside the one. The
+symlink-escape test still passes unchanged. We watched that assertion most closely.
 
-**`lsp` followed, and measuring changed its design.** #1314 assumed a language server is rooted, so
-spanning repositories would mean an instance per root per language: N servers, N indexes, N cold
-starts for a session over N repositories.
+**`lsp` followed, and measuring changed its design.** #1314 assumed a language server is rooted. A
+session over N repositories would then need an instance per root per language. That means N
+servers, N indexes and N cold starts.
 
-Probed instead. gopls, rust-analyzer and typescript-language-server **all** answer correctly for a
-file in a `workspaceFolders` entry that is not the `rootUri`, for both diagnostics and
-documentSymbol. So one instance per language covers every root, and the change collapsed to sending
+We probed instead. Take a file in a `workspaceFolders` entry that is not the `rootUri`. gopls,
+rust-analyzer and typescript-language-server **all** answer correctly for it, for both diagnostics
+and documentSymbol. So one instance per language covers every root. The change shrank to sending
 the folder array and keying state on absolute paths.
 
 That is the second time in this epic that measuring beat the written-down assumption, and both times
 the assumption was mine. Worth the ten minutes every time.
 
-**Cross-language references stay out of reach** and no amount of this fixes them. A Go server cannot
-tell you that a TypeScript file calls the endpoint you renamed. That boundary belongs to the language
-server, so a cross-language rename is `search_files` and judgement.
+**Cross-language references are still out of reach**, and no amount of this fixes them. A Go server
+cannot tell you that a TypeScript file calls the endpoint you renamed. That boundary belongs to the
+language server, so a cross-language rename is `search_files` and judgement.
 
 ### The repo map could not be its own module (#1311)
 
 #1311 specified a new `ext/repomap` drawing symbols from `ext/lsp`. Constraint C4 forbids that
 import, and `make check-ext-isolation` enforces it in CI.
 
-The constraint turned out to be pointing at a real cost rather than a bureaucratic one. Two modules
-means two `pool`s, which means **two language servers over the same tree**, each indexing it, to
+The constraint turned out to point at a real cost, not a bureaucratic one. Two modules means two
+`pool`s. Two pools means **two language servers over the same tree**. Each indexes it, and both
 answer questions about the same files. The map and the diagnostics feature want to share one server.
 So the map is a second contribution from the `ext/lsp` extension, gated by `Config.RepoMap`.
 
-Worth remembering as a shape: when C4 blocks a split, check whether the thing the two would have
-shared is expensive. If it is, C4 is describing the design rather than obstructing it.
+Remember this when C4 blocks a split. Find what the two modules would have shared, and check
+whether it is expensive. If it is, C4 is describing the design rather than obstructing it.
 
 Two smaller decisions:
 
 - **Edges are lexical, definitions are not.** Symbols come from `documentSymbol`, which is accurate
-  and language-agnostic. Edges come from whole-identifier text matching, because a `references`
-  request per symbol is thousands of round trips to order a list nobody reads past the top of.
-  Names shorter than four characters are dropped from the graph: `Get`, `New` and `id` collide
-  across languages and would wire nearly every file to nearly every other.
-- **Indexed once, in the background.** A `PromptSection` is rebuilt every turn, and indexing costs a
-  round trip per file, so building it inline would put a tree scan in front of every turn. The
-  section is empty until the index finishes, and the prompt builder drops empty sections, so an
-  early turn is missing the map rather than blocked on it.
+  and language-agnostic. Edges come from whole-identifier text matching. A `references` request per
+  symbol would take thousands of round trips, and only to order a list nobody reads past the top.
+  The graph drops names shorter than four characters. `Get`, `New` and `id` collide across
+  languages and would wire nearly every file to nearly every other.
+- **Indexed once, in the background.** A `PromptSection` is rebuilt every turn, and indexing takes a
+  round trip per file. Built inline, it would put a tree scan in front of every turn. The section is
+  empty until the index finishes, and the prompt builder drops empty sections. So an early turn
+  goes without the map rather than waiting for it.
 
 The mutation run caught something worth recording. `TestRankIgnoresSubstringMatches` tests
-`mentions` directly, and replacing the *call site* in `rank` with `strings.Contains` still passed
-it. A unit test of a helper is not a test of the caller that uses it, and the end-to-end version is
-what actually pins the behaviour.
+`mentions` directly. We replaced the *call site* in `rank` with `strings.Contains`, and the test
+still passed. A unit test of a helper does not test its caller. The end-to-end test pins the
+behaviour.
 
 ### Running a command, and what an allowlist actually constrains (#1312)
 
-`ext/exec` is the first thing in the tree that runs a command. Two findings from building it
-are worth more than the module.
+`ext/exec` was the first thing in the tree to run a command. We found two things building it, and
+they are worth more than the module.
 
-**The approval gate decided the tool shape.** The obvious design is one `run_command` tool whose
-`name` parameter is an enum over the operator's allowlist. It contains the model exactly as well as
-one tool per command does, and it cannot express what an operator wants, because `toolHints` resolves
-`readOnlyHint` / `destructiveHint` per `ToolDef`. Collapsed into one tool, every command shares one
-`destructiveHint`, so `ModeReversibleAuto` prompts for `go build` and `terraform apply` together or
-for neither. There is no way to recover per-command gating from inside an extension: extension
-middleware runs *before* the host's permission gate and cannot influence it, and `ApprovalRenderer`
-only changes the wording. So the allowlist emits one `ToolDef` each. The cost is a tool list that
-grows linearly, which is #1323.
+**The approval gate decided the tool shape.** The obvious design is one `run_command` tool. Its
+`name` parameter would be an enum over the operator's allowlist. That contains the model exactly as
+well as one tool per command does. But it cannot express what an operator wants. `toolHints`
+resolves `readOnlyHint` / `destructiveHint` per `ToolDef`. In one tool, every command shares one
+`destructiveHint`. So `ModeReversibleAuto` prompts for `go build` and `terraform apply` together, or
+for neither. An extension cannot get per-command gating back. Extension middleware runs *before*
+the host's permission gate and cannot influence it, and `ApprovalRenderer` only changes the
+wording. So the allowlist emits one `ToolDef` per command. The tool list then grows linearly, and
+that is #1323.
 
 **The allowlist names which program starts, not what it does.** `make test` runs whatever the
 Makefile says, `go test` compiles and runs the repo's test code, `npm run build` runs its scripts.
-For any real build command the allowlist states intent and the sandbox does the containing. The
-first framing of this tied it to `ext/files` being able to rewrite the Makefile first, which reads
-as a quirk of running two extensions together; it holds without `ext/files`, because running a build
-in a repository is running that repository's code, as true of a cloned dependency or a PR branch
-under review as of a file an agent just edited.
+For any real build command the allowlist states intent, and the sandbox does the containing. We
+first framed this around `ext/files`, which can rewrite the Makefile first. That makes it read as a
+quirk of running two extensions together. It holds without `ext/files`. Running a build in a
+repository runs that repository's code. That is true of a cloned dependency, of a PR branch under
+review, and of a file an agent just edited.
 
-**Only a tagged live test checks a sandbox profile, and it earned that in one run.** The unit suite
-covers profile *generation* against a golden, which is the half that can be tested anywhere. The
-`exec_live` suite runs the real `sandbox-exec` and caught two things the golden could not:
+**Only a tagged live test checks a sandbox profile, and its first run found two bugs.** The unit
+suite checks profile *generation* against a golden, and that half can be tested anywhere. The
+`exec_live` suite runs the real `sandbox-exec`. It caught two things the golden could not:
 
 - Profile paths were not symlink-resolved. Seatbelt matches the resolved path, so every rule naming
-  `/tmp` or `$TMPDIR` matched nothing on darwin. A read denial sat in the profile looking enforced
-  while permitting the read, which is worse than an absent one.
+  `/tmp` or `$TMPDIR` matched nothing on darwin. A read denial was in the profile and looked
+  enforced, and the read still went through. That is worse than no denial.
 - A real `go build` failed on its build cache before compiling anything, because the write paths
   were spelled unresolved too.
 
 CI is Linux and this backend is darwin-only, so **nothing in CI exercises a real sandbox.** Run
 `go test -tags exec_live ./...` before believing a profile change.
 
-**Seatbelt takes the last matching rule**, which reads backwards: the denials come *after* the
-blanket allow they carve into. A denial placed first is present and inert. `sandbox-exec` is also
-deprecated with an undocumented profile language, so the golden pins what we generate and nothing
-pins that Apple keeps honoring it.
+**Seatbelt takes the last matching rule.** That reads backwards. The denials come *after* the
+blanket allow they carve into, and a denial placed first is present and inert. `sandbox-exec` is
+also deprecated, and its profile language is undocumented. The golden pins what we generate.
+Nothing pins that Apple keeps honoring it.
 
-**Two things the epic said that were wrong.** Sandboxed execution does not go in a `ToolSource`
-wrapper: most tools here are in-process Go functions or MCP calls with no subprocess to confine, and
-confining those means confining the agent process, which is a deployment decision. And the sandbox
-is not the primary defense, the approval gate is. C6 gained a second sanctioned exception for
-extension-owned subprocesses (`gopls`, and `exec`'s own commands), on the property that both come
-from operator config and are unreachable from a tool argument.
+**The epic got two things wrong.** First, sandboxed execution does not go in a `ToolSource`
+wrapper. Most tools here are in-process Go functions or MCP calls, with no subprocess to confine.
+Confining those means confining the agent process, and that is a deployment decision. Second, the
+sandbox is not the primary defense. The approval gate is. C6 gained a second sanctioned exception,
+for extension-owned subprocesses (`gopls`, and `exec`'s own commands). Both come from operator
+config, and a tool argument cannot reach them.
 
-**A find that predates this and nobody had connected:** the Runner re-lists tools **every step**,
-not once per turn, and `RunnerConfig.Selector` narrows the offered set per step as a pure function of
-history. A tool source whose set varies by context is already legal and needs nothing new. That is
-the cheapest answer to #1323, and `FilterSource` is the static version, filtering *calling* as well
-as listing so it is a boundary rather than a presentation hint.
+**This was already true, and nobody had connected it.** The Runner re-lists tools **every step**,
+not once per turn. `RunnerConfig.Selector` narrows the offered set per step, as a pure function of
+history. So a tool source whose set varies by context is already legal and needs nothing new. That
+is the cheapest answer to #1323. `FilterSource` is the static version. It filters *calling* as well
+as listing, so it is a boundary rather than a presentation hint.
 
 ### Sub-agent personas
 
 `Config.SubAgents []SubAgentConfig{Name, Description, Instructions, Allow, MaxDepth}` builds
-specialist personas, each an `agent.AgentSource` over a child Runner sharing the main provider
-and a `FilterSource`-narrowed view of the same server tools, with its own instructions.
+specialist personas. Each is an `agent.AgentSource` over a child Runner with its own instructions.
+The child shares the main provider, and sees the same server tools through a `FilterSource`.
 
 `app.serverTools` is a **server-only snapshot** built in `NewApp`, so a persona never sees the
-meta-tools or its siblings and cannot recurse. `personaRunnerConfig` (`agent/host/subagents.go`)
-is the shared builder used by sub-agent, fan-out, and team-member construction, which keeps all
-three serverTools-only and therefore A7 memory-free.
+meta-tools or its siblings and cannot recurse. Sub-agent, fan-out and team-member construction
+all use one builder, `personaRunnerConfig` (`agent/host/subagents.go`). So all three see only
+serverTools, and are therefore memory-free under A7.
 
-**Latent bug that was fixed with it**: `app.serverTools` used to be built only when `SubAgents`
+**A latent bug was fixed with it.** `app.serverTools` used to be built only when `SubAgents`
 was set, so a fan-out-only or team-only config nil-dereferenced. It is now built when any of
 SubAgents / FanOut / Team is present.
 
-**Team mode is a distinct top-level mode**, validated mutually exclusive with the main agent's
-memory, sub-agents, and fan-out (`validateTeamExclusive` errors) because those attach to one
-agent. Per-member integration is deferred. `a.activeTeamAgent` persists the active member across
-user turns — sticky control-transfer, not re-routing.
+**Team mode is a distinct top-level mode.** The main agent's memory, sub-agents and fan-out each
+attach to one agent. So `validateTeamExclusive` errors if any of them is set with Team.
+Per-member integration is deferred. `a.activeTeamAgent` keeps the active member across user turns.
+Control transfer is sticky, and the next turn is not re-routed.
 
 ### SystemPromptBuilder (#1091, PR 1132, `agent/host/prompt.go`)
 
-The hard-coded `buildInstructions` became a `SystemPromptBuilder`: an ordered `[]PromptSection`
-joined per turn by `Build`, wired as `RunnerConfig.InstructionsFunc` so late-connecting servers'
-skills still appear live. `PromptSection` is a one-method interface and `PromptSectionFunc`
-adapts a plain func, http.HandlerFunc-style.
+The hard-coded `buildInstructions` became a `SystemPromptBuilder`. It holds an ordered
+`[]PromptSection`, and `Build` joins them per turn. It is wired as `RunnerConfig.InstructionsFunc`,
+so skills from late-connecting servers still appear live. `PromptSection` is a one-method interface
+and `PromptSectionFunc` adapts a plain func, http.HandlerFunc-style.
 
-`NewApp` assembles the default via `app.defaultPromptBuilder()` — base `cfg.Instructions`
-section plus `skillsSection` — which is **shared with the test so the two cannot drift** — then
-applies any `WithSystemPromptBuilder` mutator (reorder, `Prepend` a domain guide, replace
-`Sections`). Behavior-preserving: the common non-empty-base output is byte-identical, and an
-empty base no longer emits leading blank lines.
+`NewApp` builds the default with `app.defaultPromptBuilder()`. That is the base `cfg.Instructions`
+section plus `skillsSection`, and **the test uses the same function, so the two cannot drift**.
+Then `NewApp` applies any `WithSystemPromptBuilder` mutator (reorder, `Prepend` a domain guide,
+replace `Sections`). Behavior did not change. The common non-empty-base output is byte-identical,
+and an empty base no longer emits leading blank lines.
 
 `InstructionsFunc` remains the low-level Runner hook; the builder is host-layer composition on
 top. Richer strategies (profile/domain guides, memory-summary-as-a-section) are additive
-`PromptSection`s on this seam, which is why #1091 closed rather than staying open as a gap.
+`PromptSection`s on this seam. Nothing is missing for them, so #1091 closed rather than remaining
+open as a gap.
 
 ### Skills consumption hardening (#1182/#1183, PR 1185, `agent/host/skills.go`)
 
@@ -1258,171 +1275,175 @@ The origin label is the **host-assigned `serverID`, never `serverInfo.name`**.
 
 - **Origin tagging**: every MCP-served skill body carries its origin before it enters context.
   `load_skill` results get an untrusted-origin banner (`wrapSkillOrigin`); eager and catalog
-  injected blocks get a per-server origin header (`originHeader` / `withOriginHeader`) framing
-  them as untrusted server data rather than higher-authority instruction.
-- **Per-origin name resolution**: `load_skill(name, server?)` no longer first-matches across all
-  catalogs, which was a silent cross-origin shadow. `resolveCatalogSkill` resolves within a
-  per-origin namespace; a bare name served by more than one origin returns a disambiguation
-  prompt rather than silently picking one; collisions surface via `HostSessionWarn`
+  injected blocks get a per-server origin header (`originHeader` / `withOriginHeader`). The header
+  frames them as untrusted server data rather than higher-authority instruction.
+- **Per-origin name resolution**: `load_skill(name, server?)` no longer takes the first match
+  across all catalogs. That let one origin silently shadow another. `resolveCatalogSkill` resolves
+  within a per-origin namespace. If more than one origin serves a bare name, it returns a
+  disambiguation prompt rather than silently picking one. `HostSessionWarn` reports collisions
   (`detectSkillCollisionsLocked`).
 
 ### Two-tier skills loading (#910, PR 1073)
 
 Eager full-body injection bloats the system prompt at scale (50 skills × ~100 tok, resent every
-call), so loading is progressive. **The catalog decision is per-server, not per-skill**:
+call), so loading is progressive. **The catalog decision is per-server, not per-skill.**
 `ServerConfig.SkillsMode` (`"eager"` / `"catalog"`) marks a whole skills server. `""` means
-catalog: SEP-2640's 08-21 revision made fetching ahead of need a MUST NOT, so the old auto rule
-(eager below ten skills) went with chakra#50.
+catalog. SEP-2640's 08-21 revision made fetching ahead of need a MUST NOT. So chakra#50 removed
+the old auto rule (eager below ten skills).
 
 Eager injects `skills.InstructionsBlock` (full bodies). Catalog injects `skills.CatalogBlock`
 (one `- name: desc` line per entry, roughly a tenth of the tokens) and collects entries.
 
-**One** `load_skill(name)` FuncSource tool spans all catalog-mode servers: find the entry,
-`ReadAndVerify(url, digest)`, and return the body as a **tool result** — into tool history, not
-re-injected into the prompt, because swinging the prompt is prompt-cache-hostile. Laziness never
+**One** `load_skill(name)` FuncSource tool covers all catalog-mode servers. It finds the entry,
+calls `ReadAndVerify(url, digest)`, and returns the body as a **tool result**. The body goes into
+tool history and is not re-injected into the prompt, because changing the prompt breaks the prompt
+cache. Laziness never
 bypasses digest verification. An unknown name is app state, not an error.
 
-Per-server mode was chosen over a connect-time `SkillsPolicy` hook (embedder-first; the two can
-coexist). Byte-threshold, body caching, and the policy hook are deferred.
+We chose per-server mode over a connect-time `SkillsPolicy` hook, which would be embedder-first.
+The two can coexist. Byte-threshold, body caching, and the policy hook are deferred.
 
-### Server-advertised agents stay fresh through the cache, not the index
+### Server-advertised agents are read through the cache, not the index
 
 `host/server_agents.go` reads every roster and definition through mcpkit's `agentsclient.Cache`,
 one per server. Three things about the wiring were not obvious from the cache's own docs.
 
-**`WatchListChanged` does not apply here.** It opens a `subscriptions/listen` stream, which only
-exists on the 2026-07-28 stateless wire, and chakra's clients use the session wire with a GET
-stream. The notification still arrives there, through `client.WithNotificationCallback`, so the
-callback is installed when each client is built and looks up the server's handler in
-`agentWatchers` by id, since the cache it invalidates does not exist until discovery runs.
+**`WatchListChanged` does not apply here.** It opens a `subscriptions/listen` stream. That stream
+exists only on the 2026-07-28 stateless wire, and chakra's clients use the session wire with a GET
+stream. The notification still arrives there, through `client.WithNotificationCallback`. So the
+callback is installed when each client is built. The cache it invalidates does not exist until
+discovery runs, so the callback looks up the server's handler in `agentWatchers` by id.
 
-**The aggregate memoizes the delegate list, so a roster TTL running out changes nothing by
-itself.** `MultiSource` asks `serverAgentSource.Tools` again only after its index is dropped,
-which happens on `notifications/agents/list_changed`, on `agent_not_found` during a delegation,
-on any server's `tools/list_changed`, and on a call miss. A server that neither declares
-`listChanged` nor removes agents through `agent_not_found` keeps its boot-time delegates until one
-of those fires. That is mostly fine, because definitions (`agents/get`) do honor their TTL on
-every delegation.
+**The aggregate memoizes the delegate list, so a roster TTL running out changes nothing by itself.**
+`MultiSource` asks `serverAgentSource.Tools` again only after it drops its index. It drops the index
+on `notifications/agents/list_changed`, on `agent_not_found` during a delegation, on any server's
+`tools/list_changed`, and on a call miss. Imagine a server that neither declares `listChanged` nor
+removes agents through `agent_not_found`. It keeps its boot-time delegates until one of those fires.
+That is mostly fine, because definitions (`agents/get`) do honor their TTL on every delegation.
 
 **A child is rebuilt only when its definition changes.** Building one per delegation would have
-been less code, but it would have put an `agents.resolve` span on every delegation and broken the
-existing assertions that a warm delegation is not spanned. So the source keeps the definition each
-child was built from and compares. The first resolution of an agent spans the `agents/get`; a
-rebuild after an edit spans only the build, because by the time we know the definition changed the
-get has already happened.
+been less code. But every delegation would get an `agents.resolve` span, and that breaks the
+existing assertions that a warm delegation is not spanned. So the source keeps the definition it
+built each child from, and compares. The first resolution of an agent spans the `agents/get`. A
+rebuild after an edit spans only the build. By the time we know the definition changed, the get
+has already happened.
 
 ### Connections
 
 `ConnectionsConfig` is data, `ConnectionRegistry` is runtime (`agent/host/connections.go`).
-Config is named provider connections mirroring the `llm.json` shape; the registry lazily builds
-and caches providers and holds `SetActive`.
+The config holds named provider connections in the `llm.json` shape. The registry builds and
+caches providers lazily, and holds `SetActive`.
 
 `Type` maps to a base-URL preset. lmstudio / openai / ollama / gemini / openrouter / litellm are
-all OpenAI-wire; **`anthropic` is the exception** — `DefaultProviderBuilder` branches on it to
-build the native `AnthropicProvider` (x-api-key, `/v1/messages`), so a config-selected Anthropic
+all OpenAI-wire. **`anthropic` is the exception.** `DefaultProviderBuilder` branches on it and
+builds the native `AnthropicProvider` (x-api-key, `/v1/messages`). So a config-selected Anthropic
 uses the purpose-built provider rather than a compat shim. openrouter and litellm are
-router-gateway presets; litellm defaults to the proxy's local `:4000/v1`.
+router-gateway presets, and litellm defaults to the proxy's local `:4000/v1`.
 
 **The embedder is a config role, like `Active` is for chat.** `ConnectionsConfig.Embedder` names
 an embedding connection and `ConnectionConfig.Dim` is its vector width.
-`host.BuildEmbedder(conn, tp)` builds an OpenAI-wire `agent.Embedder`. **`anthropic` is rejected
-— there is no embeddings API** (both in `BuildEmbedder` and in registry validation). This is what
-makes semantic memory usable against a cloud embedder with just an API key and no local model.
+`host.BuildEmbedder(conn, tp)` builds an OpenAI-wire `agent.Embedder`. **Both `BuildEmbedder` and
+registry validation reject `anthropic`, because it has no embeddings API.** With an
+embedding connection set, semantic memory runs against a cloud embedder with just an API key and no
+local model.
 
-**Agent roles are a third assignment over the same set.** `ConnectionsConfig.AgentRoles` maps the
-`small` / `medium` / `large` roles a server-advertised agent can hint at to connection names, and
-`ConnectionConfig.Vision` marks the ones that take images. The host feeds them to mcpkit's
-`agentsclient.RoleTable`, which moves up a size when it has to and never down. The table holds
-connection *names* rather than providers, so a role connection is only built when an agent first
-resolves to it, and the table's default is the empty name, meaning the main provider. That keeps
-`/provider` switching in force for every agent that does not hint elsewhere.
+**Agent roles are a third assignment over the same set.** A server-advertised agent can hint at a
+`small`, `medium` or `large` role. `ConnectionsConfig.AgentRoles` maps each role to a connection
+name, and `ConnectionConfig.Vision` marks the connections that take images. The host feeds them to
+mcpkit's `agentsclient.RoleTable`. The table moves up a size when it has to, and never down. It
+holds connection *names* rather than providers, so a role connection is built only when an agent
+first resolves to it. The table's default is the empty name, meaning the main provider. So
+`/provider` switching still applies to every agent that does not hint elsewhere.
 
 ### Commands, events, and observers
 
-`CommandRegistry` plus `App.Dispatch` (`agent/host/commands.go`): slash commands are a registry
-of `Command{Name, Aliases, Help, Run, Complete}` returning a `CmdResult` tagged union.
+`CommandRegistry` plus `App.Dispatch` (`agent/host/commands.go`). Slash commands are a registry
+of `Command{Name, Aliases, Help, Run, Complete}`, and each returns a `CmdResult` tagged union.
 `App.Dispatch(ctx, line)` routes a `/cmd` line and returns `ErrUnknownCommand` for misses.
 `Complete` powers Tab autocompletion. This is host-layer and deliberately not in the CLI.
 
 **`HostEvent` plus `Observer` fan-out, not "UIEvent".** The host emits domain and lifecycle
-events (turn done/failed, session changed, skills loaded, task status) that are meaningful to
-OTel or a logger even with no renderer, which is why they are Host events rather than UI events.
-`WithObserver(o)` fans one-to-many and suppresses the default renderer;
+events (turn done/failed, session changed, skills loaded, task status). OTel or a logger can use
+them with no renderer attached, so they are Host events rather than UI events.
+`WithObserver(o)` fans one-to-many and suppresses the default renderer.
 `NewTerminalRenderer(w)` is one Observer.
 
-**`UIPrompt` was dropped**: a prompt is request/response (an `AskFunc` or elicitation `Confirm`),
+**`UIPrompt` was dropped.** A prompt is request/response (an `AskFunc` or elicitation `Confirm`),
 not fire-and-forget, so it never belonged in the event stream.
 
 ### A process's output belongs to the process, not the call (#214, PR 219)
 
-`exec_command` hands the model a process's output only when it collects it, and a dev server prints
-mostly while no tool call is open and often between turns. So the live view rides a host event
-(`HostProcessOutput`, fed by the optional `ProcessReporter`), keyed by the process id the model
-was given, rather than a runner `agent.Event` scoped to a call. agentweb attaches it to the first
-tool row whose result names that `session_id`, holding anything that arrives before the result.
+`exec_command` hands the model a process's output only when the model collects it. A dev server
+prints mostly while no tool call is open, and often between turns. So the live view goes over a
+host event, `HostProcessOutput`, and not a runner `agent.Event` scoped to a call. The optional
+`ProcessReporter` feeds it, and it is keyed by the process id the model was given. agentweb
+attaches it to the first tool row whose result names that `session_id`. Anything that arrives
+before the result waits until then.
 
 - **The copy is taken at the write, and never moves the model's read position** (`p.read`).
   `TestProcessStreamingLeavesResultsUnchanged` runs the same script with and without a listener;
   making the stream advance `p.read` fails it.
 - **A per-process budget beside `MaxEventLogRetention`, not instead of it.** Retention caps the
-  whole log by count and evicts the oldest events of any kind, so with no RunStore a chatty process
-  can push the conversation's own turn events out of a reload. `ProcessConfig.StreamBudget`
-  (4 MiB, negative for no limit) stops that at the source. Non-runner host events are never
-  written to the RunStore, so none of this is persisted.
-- **The exit waits a fixed 20ms for the tty copier**, copied from `collect`. A tty process that
-  prints right at exit can lose that tail from the stream (not from the model); #218 has it.
+  whole log by count and evicts the oldest events of any kind. Imagine there is no RunStore and a
+  process is chatty. It can push the conversation's own turn events out of a reload.
+  `ProcessConfig.StreamBudget` (4 MiB, negative for no limit) stops that at the source. Non-runner
+  host events are never written to the RunStore, so none of this is persisted.
+- **The exit waits a fixed 20ms for the tty copier**, copied from `collect`. If a tty process
+  prints right at exit, the stream can lose that tail. The model still gets it. #218 tracks this.
 
 ### Session listing and paging
 
-Redis SCAN is unordered; gorm returns newest-first via a correlated subquery. **Pagination lives
-at the store layer.** `App.SessionsPage(ctx, cursor)` threads the cursor, remembering the last
-`NextCursor` on the App so `/sessions more` advances host-side and the opaque cursor never
-reaches the surface. `App.SearchSessions(query)` is a bounded id-substring walk
+Redis SCAN is unordered, and gorm returns newest-first via a correlated subquery. **Pagination is
+done at the store layer.** `App.SessionsPage(ctx, cursor)` threads the cursor. The App remembers
+the last `NextCursor`, so `/sessions more` advances host-side and the opaque cursor never reaches
+the surface. `App.SearchSessions(query)` is a bounded id-substring walk
 (`maxSessionSearchScan`) with no store-side filter, because content search needs an index.
 
 ### oauth login (#1116/#907, PR 1120)
 
-agentchat's interactive authorization-code `"oauth"` auth type (`agent/host/auth.go`):
-`authOption` builds an `ext/auth.OAuthTokenSource` — DCR by default when no `clientIdEnv`, else
-a pinned client — and returns it as a `loginSource`, tracked in `App.oauthSources[id]`.
+agentchat's interactive authorization-code `"oauth"` auth type is in `agent/host/auth.go`.
+`authOption` builds an `ext/auth.OAuthTokenSource`. With no `clientIdEnv` it uses DCR, and
+otherwise a pinned client. It returns the source as a `loginSource`, tracked in
+`App.oauthSources[id]`.
 
-**`App.LoginServer(id)` is `src.Invalidate()` plus `ReconnectServer(id)`**: drop the cached token
-to force a *fresh* auth, then let the next connect re-run the PKCE browser flow. This reuses
+**`App.LoginServer(id)` is `src.Invalidate()` plus `ReconnectServer(id)`.** It drops the cached
+token to force a *fresh* auth, and the next connect re-runs the PKCE browser flow. This reuses
 `Group.Reconnect` and adds no new connection primitive.
 
 The servers view carries a **host-layer `ServerStatus{client.MemberStatus; CanLogin}`**, so
 `CmdResult.Servers` is `[]ServerStatus` rather than `[]client.MemberStatus`. `CanLogin` is a
-config fact the client layer does not carry, so the host wraps rather than pushing auth
-awareness down. Scopes stay empty by default so acquisition follows the server's 401
+config fact the client layer does not have. So the host wraps the status rather than pushing auth
+awareness down. Scopes are empty by default, so acquisition follows the server's 401
 `WWW-Authenticate` challenge.
 
-Deferred: retrofitting a token source onto a server not configured oauth at boot would need
-rebuilding its client, and is unsupported.
+Retrofitting a token source onto a server that was not configured for oauth at boot is
+unsupported. It would need its client rebuilt.
 
-**`WithBrowserOpener` seam** (#1123, PR 1136) injects how the oauth type opens the authorization
-URL (nil means the platform browser), which is what makes the whole login path testable in CI
-with no Docker and no real browser (`agent/host/oauth_login_e2e_test.go`). **Gotcha**: the
-oneauth test AS accepts an arbitrary public client for PKCE but does **not** serve DCR, so pin
+**The `WithBrowserOpener` seam** (#1123, PR 1136) sets how the oauth type opens the authorization
+URL. Nil means the platform browser. A test passes its own opener function, which gets the URL
+in place of a browser, so the whole login path runs in CI with no Docker and no real browser
+(`agent/host/oauth_login_e2e_test.go`). **Gotcha.** The
+oneauth test AS accepts an arbitrary public client for PKCE but does **not** serve DCR. So pin
 `clientIdEnv` rather than relying on the DCR default. The real-Keycloak variant is #1137.
 
 ### OTel metrics (#1023, PR 1141)
 
-The metrics sibling of the SEP-414 spans, through the existing `core.MeterProvider` seam — no new
-seam. `RunnerConfig.MeterProvider` opts in (nil is `NoopMeterProvider`, branch-free zero
-overhead); instruments are built once in `NewRunner` (`agent/metrics.go`) and recorded at the
-same points as the spans.
+These metrics sit beside the SEP-414 spans. They use the existing `core.MeterProvider` seam, so
+there is no new seam. `RunnerConfig.MeterProvider` opts in. Nil means `NoopMeterProvider`, which
+is branch-free and has zero overhead. `NewRunner` builds the instruments once
+(`agent/metrics.go`), and they record at the same points as the spans.
 
 - **Turn end**: `agent.turns` by `agent.finish_reason`, `agent.turn.duration`, `agent.steps`,
   `agent.tokens` by `direction`.
 - **Each tool call**: `agent.tool.calls` by `tool` and `status`, `agent.tool.duration` by `tool`.
 
-`status` ∈ {ok, error, tool_error, denied, cancelled, unavailable}, set on each outcome path and
-emitted by a **single `defer` in `callTool`** so no path double-counts or misses.
+`status` ∈ {ok, error, tool_error, denied, cancelled, unavailable}. Each outcome path sets it, and
+a **single `defer` in `callTool`** emits it, so no path double-counts or misses.
 
-Host threads it via `host.WithMeterProvider` (main Runner plus every sub-agent persona). The
-`mcpkit — agent` Grafana dashboard (uid `mcpkit-agent`) charts turn rate, latency, token
-throughput, and tool failure ratio off Mimir. Note the OTel Prometheus rename: dots become
-underscores, counters gain `_total`, and histograms gain a unit suffix, so
+The host passes it to the main Runner and every sub-agent persona through
+`host.WithMeterProvider`. The `mcpkit — agent` Grafana dashboard (uid `mcpkit-agent`) charts turn
+rate, latency, token throughput, and tool failure ratio off Mimir. OTel's Prometheus export renames
+metrics. Dots become underscores, counters gain `_total`, and histograms gain a unit suffix. So
 `agent.turn.duration` reads as `agent_turn_duration_seconds_bucket`.
 
 Deferred: a memory-tracks metrics seam (embed/recall/compaction counters) and exemplars.
@@ -1430,66 +1451,68 @@ Deferred: a memory-tracks metrics seam (embed/recall/compaction counters) and ex
 ### Critique gate (#1061)
 
 `NewCritiqueGate` asks a model whether a proposed tool call is acceptable under stated principles,
-and denies it if not. Three decisions are load-bearing:
+and denies it if not. Three decisions matter most:
 
-**It is middleware, not a new Runner hook.** The issue proposed a dedicated pre-dispatch gate in
-the Runner. There already is one, and `toolmiddleware.go` says so: ToolMiddleware is *the single
-interception seam*, and a second mechanism at the same point is exactly what that doc exists to
-prevent. A critique pass changes whether a call happens, which is what middleware is for.
+**It is middleware, not a new Runner hook.** The issue proposed a dedicated pre-dispatch gate in the
+Runner. There already is one, and `toolmiddleware.go` says so. ToolMiddleware is *the single
+interception seam*. That doc exists to prevent a second mechanism at the same point. A critique pass
+changes whether a call happens, and deciding that is middleware's job.
 
-**It sits after extensions and before the approval gate.** Like the gate it must judge the
-arguments that will actually execute, so it cannot sit outside middleware that rewrites them.
-Unlike the gate it is automated policy, so it runs first and a call it refuses never reaches the
+**It runs after extensions and before the approval gate.** Like the gate, it must judge the
+arguments that will actually execute. So it cannot run outside middleware that rewrites them.
+Unlike the gate, it is automated policy. So it runs first, and a call it refuses never reaches the
 human. Refusal is `DenyTool`, so the Runner emits `EventToolDenied`, tells the model why, and the
 turn continues.
 
-**It fails closed.** `AllowOnError` defaults false: a critique that could not be completed denies.
-A safety gate that disappears when its provider is down is not a safety gate, and a provider
-outage is not evidence a call is safe. The zero value being the safe one is deliberate.
+**It fails closed.** `AllowOnError` defaults false, so if a critique cannot complete, the call is
+denied. A safety gate that disappears when its provider is down is not a safety gate. A provider
+outage is not evidence a call is safe. We made the zero value the safe one on purpose.
 
-The proposed call reaches the critic inside the **same untrusted fence Spotlight uses**
-(`delimitMark` + a per-call `newMarker`), because the arguments are the part an attacker controls:
-an injected instruction that reached the agent through a tool result can be echoed straight back
-out as an argument, and handing that to the critic as prose hands the attacker a second prompt.
-That narrows the surface without closing it, which is the honest claim.
+The critic sees the proposed call inside the **same untrusted fence Spotlight uses**
+(`delimitMark` + a per-call `newMarker`). An attacker controls the arguments. Imagine an injected
+instruction reaches the agent through a tool result. The agent can echo it straight back out as an
+argument. If the critic got that as prose, the attacker would get a second prompt. The fence
+narrows the surface without closing it. That is the honest claim.
 
-**The critic's output is fenced too, and that is the less obvious half.** Fencing the input and
-leaving the return path open protects nothing. The critic is a model that has just read
-attacker-controlled arguments, so it can be steered into writing an attacker's text as its reason,
-and that reason reaches the agent as `tool call not permitted: ...`. A denial arrives in the
-*policy layer's voice*, which the agent has every reason to trust more than the tool result the
-text came from, so an unfenced refusal is an injection channel with a promotion attached. The
-attacker pays one blocked call for a payload aimed at the next one.
+**The critic's output is fenced too, and that half is less obvious.** Fencing the input and
+leaving the return path open protects nothing. The critic is a model, and it has just read
+attacker-controlled arguments. So an attacker can steer it into writing the attacker's text as its
+reason. That reason reaches the agent as `tool call not permitted: ...`. A denial arrives in the
+*policy layer's voice*. The agent has every reason to trust that voice more than the tool result
+the text came from. So an unfenced refusal is an injection channel, and it promotes the payload as
+well. The attacker gives up one blocked call to aim a payload at the next one.
 
-`fenceCritiqueReason` mints a **fresh** marker rather than reusing the one `critiquePrompt` used,
-because the critic saw that one: a critic that echoes it would close the fence from inside. It
-also does not reuse `delimitMark`, whose sentence names a tool and says the content was fetched
-from outside, neither true of a verdict written in-process. A fence whose explanation is false is
-the failure mode #1273 is about.
+`fenceCritiqueReason` mints a **fresh** marker rather than reusing the one `critiquePrompt` used.
+The critic saw that one, and if it echoed it, it would close the fence from inside.
+`fenceCritiqueReason` also does not reuse `delimitMark`. That sentence names a tool and says the
+content was fetched from outside, and neither is true of a verdict written in-process. #1273 is
+about a fence whose explanation is false.
 
-This is what forced `ToolDeniedError.ModelReason`. A fence is several lines, and `host`
-renders a denial as one truncated line against the call, so pushing the fence through the surface
-showed the user boilerplate and cut the actual reason off. `Reason` is now the legible attributed
-line surfaces show and `ModelReason` is what the model is told; empty means they are the same,
-which is right for every middleware whose reason is its own prose. The two audiences had been
-sharing one string since the type was written, and nothing noticed until a reason needed to be
-untrusted. Caught by `TestCritiqueConfigRefusesARealCall`, which asserts on rendered output.
+Imagine pushing that fence through to the surface as the denial reason. A fence is several lines,
+and `host` renders a denial as one truncated line against the call. So the user saw boilerplate,
+and the actual reason was cut off. We added `ToolDeniedError.ModelReason` for this. Surfaces show
+`Reason`, a legible attributed line. The model is told `ModelReason`. If `ModelReason` is empty,
+the two are the same, and that is right for every middleware whose reason is its own prose. The
+two audiences had shared one string since the type was written. Nothing noticed until a reason
+needed to be untrusted. `TestCritiqueConfigRefusesARealCall` caught it, because it asserts on
+rendered output.
 
-Not built: critiquing the **final answer**. The issue mentions it, and it does not fit
-ToolMiddleware because there is no tool call. It needs a seam that does not exist, and inventing
-one speculatively is what #1288 is a cautionary tale about. Left for whoever has a caller.
+We did not build critique of the **final answer**. The issue mentions it. It does not fit
+ToolMiddleware, because there is no tool call. It needs a seam that does not exist. #1288 is a
+cautionary tale about inventing one speculatively. Whoever has a caller can build it.
 
-Not audited: whether other middleware echo attacker-controlled argument text into their reasons.
-The three `DenyTool` sites in `approval.go` are host-authored constants, so critique is the first
-denial whose reason is not the host's own words, but a third-party middleware could be.
+We have not audited whether other middleware echo attacker-controlled argument text into their
+reasons. The three `DenyTool` sites in `approval.go` are host-authored constants. So critique is
+the first denial whose reason is not the host's own words. A third-party middleware could be
+another.
 
 ---
 
 ## Eval
 
 `eval/`: multi-turn `Scenario` plus `RunScenario`, which threads history and a shared
-`MemorySource` across turns. **One Runner is reused** — it is stateless over history, and the
-store is what persists.
+`MemorySource` across turns. **One Runner is reused.** It is stateless over history, and
+only the store persists.
 
 `eval/longmemeval` `SmokeScenarios()` are **hand-authored, not the LongMemEval dataset**:
 short turns, not ~100k-token histories. The real dataset loader is #1014.
@@ -1497,40 +1520,42 @@ short turns, not ~100k-token histories. The real dataset loader is #1014.
 `MemCase.NewCompactor` and `Scenario.NewMemoryStore` are factories, so the harness can grade
 different implementations through the same scenarios.
 
-A tool denial emits `EventToolDenied` with `Event.Reason`, is fed back as model-visible text, and
-**the turn continues**. It is deliberately not an error, so `eval.NoError` ignores it and
+A tool denial emits `EventToolDenied` with `Event.Reason`. The reason goes back to the model as
+text, and **the turn continues**. It is deliberately not an error, so `eval.NoError` ignores it and
 `eval.NotDenied` is the separate check.
 
 ### AgentDojo is a framework, not a dataset (#1060)
 
 #1060 asked for "an adapter that loads AgentDojo-style cases", which assumes a corpus. There is not
-one. A user task is a Python class whose `utility(output, pre_env, post_env)` inspects environment
-state before and after the run, an injection task pairs a GOAL with a `security(...)` check, and the
-environments are stateful Python objects whose tools mutate them. The scoring **is** code run against
-live state, so nothing exports as data.
+one. A user task is a Python class. Its `utility(output, pre_env, post_env)` inspects environment
+state before and after the run. An injection task pairs a GOAL with a `security(...)` check. The
+environments are stateful Python objects, and their tools mutate them. The scoring **is** code run
+against live state, so nothing exports as data.
 
-So `eval/agentdojo` rebuilds the *shape* in Go, the way `longmemeval`'s `SmokeScenarios` borrows
-LongMemEval's categories without its corpus. Its numbers are ours, not comparable to published ones,
-and the package doc says so. The bridge that would buy comparability is #1298.
+So `eval/agentdojo` rebuilds the *shape* in Go. `longmemeval`'s `SmokeScenarios` does the same with
+LongMemEval's categories, without its corpus. The numbers are ours and not comparable to published
+ones, and the package doc says so. #1298 is the bridge that would make them comparable.
 
-Three things that suite has to get right, all of which a single pass/fail destroys:
+That suite has to get three things right, and a single pass/fail would lose all three:
 
-- **The injection lives in tool output, never in the prompt.** The attacker does not control the
+- **The injection goes in tool output, never in the prompt.** The attacker does not control the
   user's request. A payload delivered through instructions measures instruction-following.
-- **Two axes, scored independently.** The dangerous cell is utility-pass with security-fail: the
-  agent did the job *and* paid the attacker, which reads as clean success to any single verdict. The
-  opposite corner matters too, since an agent that refuses everything has perfect security and no use.
-- **Scorers read post-run state, not the transcript.** An agent that says it will not pay the
-  attacker and then calls `pay` has resisted nothing, and only the state distinguishes the two.
+- **Two axes, scored independently.** Utility-pass with security-fail is the dangerous cell. The
+  agent did the job *and* paid the attacker. Any single verdict reads that as clean success. The
+  opposite corner matters too. An agent that refuses everything has perfect security and no use.
+- **Scorers read post-run state, not the transcript.** Imagine an agent says it will not pay the
+  attacker, then calls `pay`. It has resisted nothing, and only the state shows that.
 
-`SuiteReport.Dimensions()` is the per-dimension rollup #1015 deferred to here. It is a **method over
-data `CaseReport` already carried**, not new fields, which is what the deferral was betting on.
-Inversion (an attack-success rate is `1-Rate` of a resistance dimension) stays in the caller, because
-making `Rate` mean opposite things depending on the scorer name would be worse than the arithmetic.
+#1015 deferred the per-dimension rollup to here, and `SuiteReport.Dimensions()` is it. It is a
+**method over data `CaseReport` already had**, not new fields. When we deferred, we bet the
+existing data would be enough, and it was. Inversion is the caller's job. An attack-success rate
+is `1-Rate` of a resistance dimension. If `Rate` meant opposite things depending on the scorer
+name, that would be worse than the arithmetic.
 
-**What the CI tests do not prove:** a stub provider cannot show that spotlighting changes a real
-model's behaviour. `TestGuardrailChangesTheMeasurement` verifies the *apparatus* distinguishes
-defended from undefended runs, and would pass even if the guardrail were a no-op on real models. The
+**The CI tests do not prove the guardrail works.** A stub provider cannot show that spotlighting
+changes a real model's behaviour. `TestGuardrailChangesTheMeasurement` verifies that the
+*apparatus* tells defended runs from undefended ones. It would pass even if the guardrail were a
+no-op on real models. The
 effect itself is a live-run measurement.
 
 ### The adapter seam (#1015)
@@ -1538,35 +1563,37 @@ effect itself is a live-run measurement.
 External suites are **data sources**, not harnesses. `Adapter.Load` yields `[]SuiteCase`, and
 adding LoCoMo / BFCL / tau-bench must not touch the Runner, the scorers, or `Suite`.
 
-Three things had to change for that, and each was forced by a real shape rather than anticipated:
+Three things had to change for that. In each case a real suite needed the change, and we did not
+anticipate it:
 
-- **Scorers are per-case.** `Suite.Scorers` was one list applied to every case, which can only
-  express properties true of all of them ("did not error"), never the ground truth that makes a
-  benchmark a benchmark. The evidence was `longmemeval/live_test.go`, which hand-rolled its own
-  copy of `Suite.Run` because `Suite` could not take it. That file is now the harness call it
-  should always have been.
+- **Scorers are per-case.** `Suite.Scorers` was one list applied to every case. One list can express
+  only properties true of every case ("did not error"). It can never express a case's ground truth,
+  and a benchmark needs that. `longmemeval/live_test.go` showed the problem. `Suite` could not take
+  it, so it hand-rolled its own copy of `Suite.Run`. That file is now the harness call it should
+  always have been.
 - **`Scenario.History` seeds without running.** A memory benchmark supplies a long prior
   conversation and asks one question about it. Replaying that as `Turns` would call the model once
   per historical message and grade its own invented replies. History is data the agent is told it
-  had; Turns are turns the agent takes.
+  had, and Turns are turns the agent takes.
 - **`SuiteCase.Configure` returns a config rather than mutating one**, so a compaction case's
   `Compactor` cannot leak into the next case. `TestSuiteCaseConfigureIsPerCase` observes the
-  handed-in config through `Configure` rather than through `Result`, because `Result.Case` carries
-  only the turn's name and input — asserting there compares two zero values and passes either way.
+  handed-in config through `Configure` rather than through `Result`. `Result.Case` has only the
+  turn's name and input. An assertion there compares two zero values and passes either way.
 
-**Ungradeable is a failure, not a pass.** `Suite.Run` already failed a case with no scorers. The
-subtler version bit immediately: the abstention smoke case is graded by a `Rubric`, and its only
-deterministic scorer is a `MustNot` that *any* answer satisfies. Reachable from the default build
-for the first time (the adapter is untagged; `live_test.go` never was), it passed against a stub
-answering "stub answer". So `appendRubric` now yields `eval.Ungradeable` without the `eval_llm`
-tag. A case graded only by checks that cannot fail is not graded.
+**Ungradeable is a failure, not a pass.** `Suite.Run` already failed a case with no scorers. A
+subtler version bit immediately. A `Rubric` grades the abstention smoke case, and its only
+deterministic scorer is a `MustNot`. *Any* answer satisfies that `MustNot`. The adapter is untagged,
+and `live_test.go` never was. So the case was reachable from the default build for the first time,
+and it passed against a stub answering "stub answer". So `appendRubric` now yields
+`eval.Ungradeable` without the `eval_llm` tag. A case graded only by checks that cannot fail is not
+graded.
 
-**Aggregation is single-axis on purpose.** `SuiteReport.Passed/Failed` counts whole cases, which
-is right for one-question-per-case and wrong for a suite reporting several independent rates — a
-security suite wants utility and attack-success counted separately, and one of them inverted.
-Deliberately not designed for now: per-scorer verdicts are kept with their names, so a
-per-dimension rollup is an addition over existing data rather than a re-plumb. #1060 is the one
-that will actually stress it, and reshaping is free while the agent track is unreleased.
+**Aggregation is single-axis on purpose.** `SuiteReport.Passed/Failed` counts whole cases. That
+is right for one question per case. It is wrong for a suite that reports several independent
+rates. A security suite wants utility and attack-success counted separately, with one of them
+inverted. We deliberately did not design for that yet. Per-scorer verdicts keep their names, so a
+per-dimension rollup adds to existing data and needs no re-plumbing. #1060 will actually stress
+it, and reshaping costs nothing while the agent track is unreleased.
 
 ---
 
@@ -1574,119 +1601,118 @@ that will actually stress it, and reshaping is free while the agent track is unr
 
 Every module `replace`s each mcpkit module it uses with a relative path into
 `~/newstack/mcpkit/main`, so chakra builds against mcpkit's working tree rather than a tag. The
-first consumer was the agents-wg#22 wire change, which landed in mcpkit the same day chakra
-needed it.
+first consumer was the agents-wg#22 wire change. It merged in mcpkit the same day chakra needed
+it.
 
 - **Relative, not absolute.** `go.mod` expands neither `~` nor environment variables, so an
   absolute path would name one home directory and break CI and every other clone. The relative
-  path holds for any checkout at `<dir>/chakra/<branch>` beside `<dir>/mcpkit/main`, which is why
-  the repo moved to the `chakra/<branch>` layout and CI recreates it.
+  path works for any checkout at `<dir>/chakra/<branch>` beside `<dir>/mcpkit/main`. So the repo
+  moved to the `chakra/<branch>` layout, and CI recreates it.
 - **Not go.work.** A workspace file solves the same problem, but its `use` lines are paths too,
-  so each worktree needs its own copy. The replace costs less while the layout rule holds.
-- **Invisible to importers.** Go ignores `replace` outside the main module, so anyone importing
-  chakra gets the required tag, while chakra's code may already use newer API (the agents port
-  did). Tag mcpkit and repoint the requires before tagging chakra.
+  so each worktree needs its own copy. The replace is cheaper, as long as the layout rule holds.
+- **Invisible to importers.** Go ignores `replace` outside the main module. Anyone importing
+  chakra gets the required tag. But chakra's code may already use newer API, as the agents port
+  did. Tag mcpkit and repoint the requires before tagging chakra.
 - **A sibling session's uncommitted edits look the same as mcpkit main moving.** During PR 219,
-  `~/newstack/mcpkit/main` had another session's release in progress (its go.mod files modified,
-  v0.8.16 not yet tagged), and every module here wanted `go mod tidy`. Leave that checkout alone,
+  another session was releasing from `~/newstack/mcpkit/main`. Its go.mod files were modified, and
+  v0.8.16 was not yet tagged. Every module here wanted `go mod tidy`. Leave that checkout alone,
   build with `GOFLAGS=-mod=mod`, and `git checkout` the go.mod and go.sum files before committing.
-- **Dependabot PRs against the old pins go stale fast.** PR 55 failed because it bumped modules
-  unevenly against v0.5.2: `check_dep_consistency` caught the split, and `otel/log` moved ahead
-  of the `otelslog` bridge. Re-tidying every module against mcpkit main superseded it.
+- **Dependabot PRs against the old pins go stale fast.** PR 55 bumped modules unevenly against
+  v0.5.2, and it failed. `check_dep_consistency` caught the split, and `otel/log` moved ahead of
+  the `otelslog` bridge. Re-tidying every module against mcpkit main superseded it.
 
 ## Testing
 
 - **Run agent tests with `-race`.** The concurrency-shaped tests (`signal_test.go`,
-  `agent_pool_test.go`, `interruptible_test.go`) are the point. It is the default in
-  `GOTESTFLAGS` rather than a per-module opt-in, because those three live in the root module,
-  which was the one place CI ran without it. The whole tree costs about 100s under `-race`.
+  `agent_pool_test.go`, `interruptible_test.go`) exist to catch races. `-race` is the default in
+  `GOTESTFLAGS` rather than a per-module opt-in. Those three tests are in the root module, and the
+  root module was the one place CI ran without `-race`. The whole tree costs about 100s under
+  `-race`.
 - **Host behavioral tests race on a shared sequential StubProvider** when the main turn and a
-  background child both pull from it. So host tests assert *wiring* and the *behavior* is
-  agent-layer-tested with isolated per-child providers. `blockingProvider{}` in
+  background child both pull from it. So host tests assert *wiring*. Agent-layer tests
+  check the *behavior*, with isolated per-child providers. `blockingProvider{}` in
   `runner_test.go` is the "child that blocks until cancelled".
 - **Don't assert what a subprocess printed inside a short yield.** The `ext/exec` helper process is
-  the test binary re-executed, and on a loaded CI runner it took over 100ms to print its first
-  line, which failed PR 219's first CI run on a check the test didn't need. Give a process a
-  second to start, put the line that must arrive later a couple of seconds after it, and assert
-  ordering rather than what landed inside the yield.
+  the test binary re-executed. On a loaded CI runner it took over 100ms to print its first line.
+  PR 219's first CI run failed on that, in a check the test didn't need. Give a process a second
+  to start. Put the line that must arrive later a couple of seconds after that. Assert ordering,
+  not what arrived inside the yield.
 - `make test` covers every module and `make test-examples` the examples. CI runs those same two
-  targets, overriding `GOTESTFLAGS` only to add `-v`, so the module list lives in the `Makefile`
-  and nowhere else. **Adding a module is one edit.** Before the split it was three, in three
-  files, and a module missing from the workflow builds fine locally while never running in CI,
-  which is a gap that reports itself as a pass.
+  targets, and overrides `GOTESTFLAGS` only to add `-v`. So the module list is in the `Makefile`
+  and nowhere else. **Adding a module is one edit.** Before the split it was three edits, in three
+  files. A module missing from the workflow builds fine locally and never runs in CI, so the gap
+  reports itself as a pass.
 
 ### Reading a mutation run (learned on #1275, #1284)
 
 Red-before-green here means mutating the implementation and naming which tests fail.
 
 **A surviving mutation is a signal to diagnose, not a verdict.** Three quite different things
-produce an identical-looking "no test failed", and across #1275 and #1284 all three happened:
+produce the same "no test failed". All three happened across #1275 and #1284:
 
 - **A real test gap.** The one you want to find.
 - **An unreachable mutation.** Reverting `edit_file`'s rename to an unconfined `os.Rename` changed
   nothing, because the earlier `Stat` through the root already refused. That is defence in depth
   working. Tell it apart by mutating the whole path at once and seeing whether the behaviour moves.
 - **A broken or lying harness.** Two "survivors" were really `declared and not used` and
-  `missing return` in the mutation itself, which produces no `--- FAIL` lines and reads exactly like
-  a gap.
+  `missing return` in the mutation itself. A build error produces no `--- FAIL` lines, so it reads
+  exactly like a gap.
 
 So the harness needs two guards of its own, and neither is optional:
 
-- **Assert the mutation applied.** `shasum` the file before and after; if it is unchanged the
+- **Assert the mutation applied.** `shasum` the file before and after. If it is unchanged, the
   pattern did not match and the result is meaningless.
 - **Detect build failures separately**, before parsing for `--- FAIL`.
 
-Even with both, do not trust a surprising survivor. On #1284 a run reported the binary-detection
-mutation as surviving; running the same mutation by hand three times, with and without the `gofmt`
-step, showed the test failing on it exactly as intended. The discrepancy was never explained. The
-tests were right and the tooling around them was not, which is the correct order of trust: hand-verify
-a survivor before you write a test to close a gap that may not exist.
+Even with both, do not trust a surprising survivor. On #1284 a run reported that the
+binary-detection mutation survived. We ran the same mutation by hand three times, with and without
+the `gofmt` step, and the test failed on it exactly as intended. We never explained the
+discrepancy. The tests were right and the tooling around them was not. So trust the tests over the
+tooling. Hand-verify a survivor before you write a test to close a gap that may not exist.
 
 ### A green suite is not evidence of the property you think it is
 
-The failure mutation testing exists to catch, and it turned up four times in one session
-(2026-08-10) in four different disguises. Each looked like coverage of a class and exercised only
-the member that already worked:
+Mutation testing exists to catch one failure. It turned up four times in one session
+(2026-08-10), in four different disguises. Each test looked like coverage of a class and exercised
+only the member that already worked:
 
-- **`ext/files` symlink containment.** The test used a symlinked *parent directory*, which is
-  exactly what parent-resolution catches. A symlink as the *final* component escaped the root, and
-  the suite was green while the property did not hold.
-- **Malformed `edit_file` arguments.** Every case was an *entirely* malformed list, so dropping a
-  bad element left zero hunks and the call still failed, via `ErrNoHunks`, for the wrong reason. A
+- **`ext/files` symlink containment.** The test used a symlinked *parent directory*, and
+  parent-resolution catches exactly that. A symlink as the *final* component escaped the root. The
+  suite was green, and the property did not hold.
+- **Malformed `edit_file` arguments.** Every case was an *entirely* malformed list. Dropping a bad
+  element left zero hunks, so the call still failed, via `ErrNoHunks`, for the wrong reason. A
   list with one good edit and one bad one would have applied the good one and reported success.
 - **`checkpoint` capture through a symlink.** `TestSymlinkAtCaptureIsNotFollowed` leaves the link in
   place at restore time, so the restore-side guard refuses either way. Swapping `Lstat` for `Stat`
   in `capture` survived the entire suite.
-- **`write_file`'s type and boundary checks.** Both sit in front of `os.Root`, which refuses either
-  way, so deleting them broke nothing any test asserted. See below, because this one resolves
-  differently from the other three.
+- **`write_file`'s type and boundary checks.** Both run before `os.Root`, and `os.Root` refuses
+  either way. So deleting them broke nothing any test asserted. This one resolves differently from
+  the other three. See below.
 
-The shape is the same each time: **a second guard downstream makes the test pass regardless of the
-behaviour it names.** So the fix is usually the same too, and it is what to reach for rather than
-adding another case alongside the existing ones. Construct the scenario so the downstream guard is
-absent, which usually means letting the interfering condition resolve before the assertion (replace
-the symlink with a real file; mix a valid element in with the invalid one). If you cannot remove
-the second guard, the test cannot distinguish the two implementations and is not testing what its
-name says.
+The shape is the same each time. **A second guard downstream makes the test pass regardless of the
+behaviour it names.** So the fix is usually the same too. Reach for it before adding another case
+beside the existing ones. Construct the scenario so the downstream guard is absent. That usually
+means letting the interfering condition resolve before the assertion. Replace the symlink with a
+real file, or mix a valid element in with the invalid one. If you cannot remove the second guard,
+the test cannot tell the two implementations apart, and it is not testing what its name says.
 
-### Sometimes the guard is load-bearing for the message, not the behaviour (#1284)
+### Sometimes the guard exists for the message, not the behaviour (#1284)
 
-`write_file` refuses a non-regular target, and distinguishes a path that escapes the workspace from
-one that merely does not exist. Remove either and `os.Root` still refuses the write, so no safety
-property changes and no outcome-based test can see the difference. The obvious conclusion is that
-the guards are redundant. They are not.
+`write_file` refuses a non-regular target. It also tells a path that escapes the workspace apart
+from one that merely does not exist. Remove either check, and `os.Root` still refuses the write. No
+safety property changes, and no outcome-based test can see the difference. The obvious conclusion is
+that the guards are redundant. They are not.
 
-What they change is **what the model is told**. Without the type check, writing to a directory is
-reported as *"already exists, pass expect_hash to replace it"*, which is advice that can never
-work: the model follows it, is refused again, and has burned a turn discovering that the tool
-misdescribed the problem. Without the boundary branch, a symlink pointing out of the workspace
-reads as an ordinary write failure rather than a containment refusal, which points debugging in the
-wrong direction.
+They change **what the model is told**. Without the type check, a write to a directory reports
+*"already exists, pass expect_hash to replace it"*. That advice can never work. The model follows
+it and is refused again. It has wasted a turn finding out that the tool misdescribed the problem.
+Without the boundary branch, a symlink pointing out of the workspace reads as an ordinary write
+failure, not a containment refusal. That sends debugging in the wrong direction.
 
-For a model-facing tool the message *is* part of the contract, because the model's next action is
-computed from it. So those two tests assert the wording rather than the outcome, and say so in a
-doc comment — otherwise the next reader sees an assertion on a string, concludes it is brittle, and
-deletes it.
+For a model-facing tool the message *is* part of the contract, because the model computes its next
+action from it. So those two tests assert the wording rather than the outcome, and a doc comment
+says so. Without the comment, the next reader sees an assertion on a string, decides it is
+brittle, and deletes it.
 
 ---
 
@@ -1694,55 +1720,55 @@ deletes it.
 
 Two from mission #162, both the second-guard shape above in a different costume.
 
-- **Escalation is a no-op when exec is unconfined** (#203), and CI is Linux, where exec is always
-  unconfined. So a test that expects an escalation ask passes on a Mac and sees no ask in CI. The
+- **Escalation is a no-op when exec is unconfined** (#203). CI is Linux, and exec is always
+  unconfined on Linux. So a test that expects an escalation ask passes on a Mac and sees no ask in
+  CI. The
   coding-harness exercise solves it with `standInSandbox`, which supplies a fake confinement on
   Linux so the ask path still runs. Reach for the same thing rather than skipping on Linux.
-- **`t.TempDir()` is writable from inside the sandbox**, because the sandbox lets commands write
-  the temp directory. A live test that checks "the sandbox refused a write outside the workspace"
-  against a `t.TempDir()` path passes for no reason. Set `WritePaths: []string{}` and use a path
+- **`t.TempDir()` is writable from inside the sandbox**, because the sandbox lets commands write the
+  temp directory. Imagine a live test checks "the sandbox refused a write outside the workspace"
+  against a `t.TempDir()` path. It passes for no reason. Set `WritePaths: []string{}` and use a path
   outside every allowed root (the `workspace(t)` helper in `ext/exec` builds one).
 
 ---
 
 ## Examples
 
-Agent examples live under `examples/agents/`: `agent-async`, `multi-agent`, `kitchen-sink`,
-`deep-agent-supervisor`. Skills and tasks-v2 examples stay with their SEP.
+Agent examples are under `examples/agents/`: `agent-async`, `multi-agent`, `kitchen-sink`,
+`deep-agent-supervisor`. Skills and tasks-v2 examples remain with their SEP.
 
-Shared recipes in `examples/agents/common.{just,mk}` (`agent` / `demo` / `test`) that each
-example imports. `demo.sh` resolves model and endpoint from `llm.json` when `MODEL` / `BASE_URL`
+Each example imports the shared recipes in `examples/agents/common.{just,mk}` (`agent` / `demo` /
+`test`). `demo.sh` resolves model and endpoint from `llm.json` when `MODEL` / `BASE_URL`
 are unset.
 
-**`examples/agents/llm.json`** holds named connections in the `ConnectionsConfig` shape with
-**no keys, only `apiKeyEnv` names**, read via `os.Getenv` at runtime. The active connection is a
-local model so `demo` works offline. A model router (OpenRouter/LiteLLM) is just a connection
-with `baseURL` at the gateway. It ships a per-model menu across providers plus dedicated
-embedder connections and an `"embedder"` role, so a copy inherits the full switchable set.
+**`examples/agents/llm.json`** holds named connections in the `ConnectionsConfig` shape. It has **no
+keys, only `apiKeyEnv` names**, and the code reads those with `os.Getenv` at runtime. The active
+connection is a local model so `demo` works offline. A model router (OpenRouter/LiteLLM) is just a
+connection with `baseURL` at the gateway. It ships a per-model menu across providers, plus dedicated
+embedder connections and an `"embedder"` role. A copy of the file gets the full switchable set.
 `llm.local.json` is gitignored and overrides per machine.
 
 ### kitchen-sink
 
-The "every feature wired at once" harness, reusing the chat surface rather than adding a binary.
-Variable-driven (`SESSION_STORE`, `EMBED_*`, `OFFLOAD_THRESHOLD`, `COMPACT_TOKENS`, `EXPORTER`,
-`ACTIVE`), with `allup`/`alldown` across `docker/backends` and `docker/observability`, a
-`preflight.sh` that probes postgres/OTLP/embedder and prints bring-up commands, and a small demo
-MCP server (own go.mod: `greet`, a large-output `report` that trips offloading, and `analyze` for
-a sub-agent).
+The "every feature wired at once" harness. It reuses the chat surface rather than adding a binary.
+Variables drive it (`SESSION_STORE`, `EMBED_*`, `OFFLOAD_THRESHOLD`, `COMPACT_TOKENS`, `EXPORTER`,
+`ACTIVE`). `allup`/`alldown` span `docker/backends` and `docker/observability`. `preflight.sh`
+probes postgres/OTLP/embedder and prints bring-up commands. A small demo MCP server has its own
+go.mod, with `greet`, a large-output `report` that trips offloading, and `analyze` for a
+sub-agent.
 
 `kitchen-sink.json` wires signals, interruptible turns, and the runner-control pool together
 (`analyst` has `canSignal:true`; top-level `signalPolicy:"inject"`, `interruptible:true`,
 `runnerControl:true`), plus a `review_team` fan-out and an async `deep_researcher`.
-`kitchen-sink-team.json` is the triage → billing/technical team config, run via a `CONFIG`
-parameter since team mode has no memory.
+`kitchen-sink-team.json` is the triage → billing/technical team config. Team mode has no memory,
+so it runs through a `CONFIG` parameter.
 
-**Two operational gotchas that bit hard here**, both also covered in
-`surfaces/chat/NOTES.md`:
+**Two operational gotchas bit hard here.** `surfaces/chat/NOTES.md` covers both too:
 
 1. **Server readiness must be a TCP probe, not `curl GET /mcp`.** A GET to an MCP endpoint opens
-   the server's SSE stream and never returns, so a curl-based check hangs the launch forever. Use
+   the server's SSE stream and never returns. So a curl-based check hangs the launch forever. Use
    `(exec 3<>/dev/tcp/host/port)`. `scripts/playground.sh` still has the hanging-curl form.
 2. **Backgrounded demo-server logs must be redirected off the terminal** (`>$LOG 2>&1`). They,
    and mcpkit's per-connection SSE logging, clobber the inline TUI's input region.
 
-**Never commit compiled binaries** — see the root `CLAUDE.md`; this is now gated in CI.
+**Never commit compiled binaries.** The root `CLAUDE.md` says so, and CI now enforces it.

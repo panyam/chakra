@@ -9,7 +9,7 @@ package exec
 // on ubuntu-latest, where the AppArmor restriction on unprivileged user
 // namespaces can block bwrap outright, so the backend would have shipped less
 // proven than the darwin one. A deployed agent on Linux is also the case most
-// likely to be inside a container already, which is what Unconfined is for.
+// likely to be inside a container already. Unconfined exists for that case.
 //
 // Returning nil makes construction fail with an error naming the choices,
 // rather than running a command with no confinement at all.

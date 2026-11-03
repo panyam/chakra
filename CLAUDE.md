@@ -50,15 +50,15 @@ Trackers are `epic`. `~/.claude/skills/retriage/queue.sh` computes the order.
 
 ## The invariants that cause wrong edits when missed
 
-Full text in `CONSTRAINTS.md`. These four are the ones that get violated by accident:
+Full text in `CONSTRAINTS.md`. People violate these five by accident:
 
 - **A6 — mechanism in the client, policy in the agent.** A primitive belongs in `client/` if any
   non-agent consumer would want it (a script, a service, a dashboard poller). It belongs here
   only if it needs a model and a turn to make sense. The tell is the return type: a protocol
   object is client-layer, a model-facing object is agent-layer.
 - **A2 — Runner events are wire-serializable.** Scope, depth, and other envelope metadata go on
-  the envelope, never inside `Event`. This is what forbids threading provider-specific opaque
-  blobs (Anthropic signed thinking blocks, for instance) through `agent.Message`.
+  the envelope, never inside `Event`. So no provider-specific opaque blob (an Anthropic signed
+  thinking block, for instance) can ride through `agent.Message`.
 - **A7 — sub-agents get no ambient parent state.** Memory is not shared downward. A child that
   needs memory owns its own store and namespace entirely. Guarded by
   `TestSubAgentCannotReachParentMemory`.

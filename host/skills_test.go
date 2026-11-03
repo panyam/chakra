@@ -86,8 +86,8 @@ func TestFilterSkillsAllow(t *testing.T) {
 
 // TestBuildInstructions covers the default system prompt: base instructions,
 // then each connected server's instructions, then its skill block, all in config
-// order, skipping empties. This is what makes a late server's eager skills (and
-// instructions) appear on the next turn.
+// order, skipping empties. A late server's eager skills (and instructions)
+// reach the next turn through this build.
 func TestBuildInstructions(t *testing.T) {
 	a := &App{
 		cfg: &Config{Instructions: "base"},

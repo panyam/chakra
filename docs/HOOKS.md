@@ -21,8 +21,8 @@ out, and this page gets updated in the same PR.
 | **Signals and events** | between steps (signals), and between turns (events) | `SignalPolicy`, `Interruptible`, `PreemptGrant`; the host's injection and trigger policies; an extension that implements `Announcer` posts `HostMessage` lines to every surface, one that implements `ProcessReporter` streams a running process's output as `HostProcessOutput` (surfaces only, never the model), and one that implements `TurnEnder` hears that a turn ended (finished, partial or failed) before the surfaces do | separate fields | `signal.go`, `injection.go`, `triggers.go`, `host/events.go` |
 
 Two things are deliberately not hooks. Forking and delegation are tools (a
-sub-agent is a `ToolSource`), so the model decides when they happen, which is
-what A8 asks for. Elicitation is a request/response seam (`ElicitationUI`), not
+sub-agent is a `ToolSource`), so the model decides when they happen, as A8
+asks. Elicitation is a request/response seam (`ElicitationUI`), not
 an event, so it has its own path to the surfaces. A server's sampling request (`sampling/createMessage`) rides the same path:
 the user is asked through it, then the session's provider answers (`host/sampling.go`).
 

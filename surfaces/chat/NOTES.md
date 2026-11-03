@@ -17,7 +17,7 @@ Concretely: the slash-command registry, `ConnectionRegistry`, `HostEvent`/`Obser
 stays **data-only** — an overlay yields a command *line* that the surface dispatches; it never
 calls the host directly.
 
-This is what lets `surfaces/web` render the same `CmdResult` as a side panel.
+Because the result is data, `surfaces/web` can render the same `CmdResult` as a side panel.
 
 ---
 

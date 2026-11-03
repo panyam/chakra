@@ -53,9 +53,9 @@ them or none.
 | `Reversible` | `destructiveHint: false` | auto-allowed from `ModeReversibleAuto` up |
 | neither | nothing declared | asked under every mode below `ModeAlwaysAllow` |
 
-Declaring nothing means destructive, because that is what an absent
-`destructiveHint` means to the spec. A command nobody classified gets asked
-about. The operator who wrote the allowlist is the one who knows which entries
+Declaring nothing means destructive, because the spec reads an absent
+`destructiveHint` as destructive. A command nobody classified gets asked
+about. The operator who wrote the allowlist knows which entries
 are safe to run unattended, and a default that guessed on their behalf would
 guess in the permissive direction.
 
@@ -190,8 +190,8 @@ pointing out of one.
 `exec.Unconfined()` is the opt-out and has to be written in the config. It is
 the right setting for a process an operator already isolated, which is the
 ordinary deployed case: a container the operator built is the boundary, and a
-second fence inside it protects nothing. Selecting it by accident is what the
-design prevents, not selecting it at all.
+second fence inside it protects nothing. The design stops you selecting it by
+accident. It doesn't stop you selecting it on purpose.
 
 Linux has no backend yet. Delegating to `bubblewrap` is the obvious shape and
 could not be verified here, because CI runs on `ubuntu-latest` where the
@@ -243,9 +243,9 @@ issue 1312.
 
 ## What the sandbox is not
 
-It is not the primary defense. The approval gate is. The sandbox earns its
-place under `ModeAlwaysAllow` and the auto modes, which is when these run
-unattended, and as the thing that keeps the allowlist honest.
+It is not the primary defense. The approval gate is. Under `ModeAlwaysAllow`
+and the auto modes these commands run unattended, and the sandbox earns its
+place there. It also keeps the allowlist honest.
 
 `sandbox-exec` has also been deprecated for years with an undocumented profile
 language. The golden test pins what we generate. It cannot pin that Apple keeps
@@ -275,10 +275,9 @@ detects that: `Match` is required to be non-empty and `.*` satisfies it. Keep
 patterns narrow, and prefer a specific subcommand in `Argv` over a bare binary
 plus permissive arguments.
 
-What follows is that for a test or build loop the allowlist is a statement of
-*intent*, useful for review and for the approval prompt, and the sandbox is
-what does the containing. Treating the allowlist as the boundary is the mistake
-this section exists to prevent.
+So for a test or build loop the allowlist states *intent*, useful for review and for the approval
+prompt. The sandbox does the containing. Treating the allowlist as the boundary is the mistake this
+section exists to prevent.
 
 ## Reading the result
 
@@ -292,14 +291,14 @@ group is killed, since a command is normally a launcher whose children do the
 work and outlive it.
 
 Output is cut from the **middle**, at two sizes. `MaxOutput` (1 MiB a stream)
-is what a command may hold in memory, a guard against a runaway process.
-`InlineOutput` (32 KiB a stream) is what the result carries, because a failing
+caps what a command may hold in memory, as a guard against a runaway process.
+`InlineOutput` (32 KiB a stream) caps what the result carries, because a failing
 build usually states the problem in the first lines or the last ones. A cut
 result says how many bytes went missing, because a model that cannot tell a
 truncated run from a complete one reads a passing tail as a passing run.
 
-The 32 KiB view loses a failing assertion in the middle of a long `go test`
-run, which is where it tends to be (#59). A host that offloads large results
+A failing assertion tends to sit in the middle of a long `go test` run (#59),
+and the 32 KiB view loses it there. A host that offloads large results
 sets `InlineOutput` negative, so the whole capture reaches the store and the
 model greps it with `read_tool_result`. A timed-out run keeps the short view
 either way, since offloading leaves error results inline.

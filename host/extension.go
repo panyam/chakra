@@ -228,8 +228,8 @@ type SubAgentHost struct {
 	// ReadOnlyTools is the session's tool set narrowed to tools that declare
 	// readOnlyHint, listed at call time, so it includes extensions applied
 	// after this one. Calls go straight to the tools, outside the main
-	// agent's middleware and permission gate, which is why only tools that
-	// declare they change nothing are in it.
+	// agent's middleware and permission gate, so the set holds only tools
+	// that declare they change nothing.
 	ReadOnlyTools agent.ToolSource
 	// OnEvent forwards a child's events to the surfaces as HostSubAgentEvent.
 	// Pass it as AgentSourceConfig.OnEvent.
@@ -282,9 +282,9 @@ func (BaseExtension) Close() error                      { return nil }
 // which is the only useful behaviour at an approval prompt.
 //
 // The info carries the call as it WILL execute, arguments included, after
-// every middleware has rewritten them (#1248). That property is what makes the
-// prompt honest — the user approves the call that runs, not the one the model
-// proposed — and it is pinned by a test rather than left as a comment.
+// every middleware has rewritten them (#1248). So the user
+// approves the call that runs, not the one the model proposed. A test pins
+// this rather than a comment.
 //
 // Truncation is the renderer's business. The default trims arguments so a
 // large payload cannot flood the prompt; a renderer showing a diff wants the
@@ -309,8 +309,8 @@ type ApprovalRenderer func(context.Context, agent.ToolCallInfo) (string, bool)
 // A chooser should read missing fields as approved, since the user pressed
 // accept on the whole call.
 //
-// The info carries the call as it will execute, after every middleware, which
-// is what the chooser narrows.
+// The info carries the call as it will execute, after every middleware, and
+// the chooser narrows that call.
 type ApprovalChooser func(ctx context.Context, info agent.ToolCallInfo, present agent.ElicitationUI) (agent.Choice, error)
 
 // ApprovalClassifier classifies one pending call from its arguments, or

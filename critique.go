@@ -98,12 +98,11 @@ and what would be acceptable instead.`
 //
 // # Honest limits
 //
-// This is defense in depth, not a guarantee. The critic is a model and can be
-// talked out of a refusal, which is why the proposed call reaches it inside
-// the same untrusted-data fence Spotlight uses for tool output: the arguments
-// may be text the agent copied out of a hostile tool result, so they are not
-// trustworthy input to the critic either. That narrows the attack surface
-// without closing it.
+// This is defense in depth, not a guarantee. Imagine the agent copies text
+// out of a hostile tool result into a call's arguments. The critic is a model,
+// so that text can talk it out of a refusal. The proposed call therefore
+// reaches the critic inside the same untrusted-data fence Spotlight uses for
+// tool output. That narrows the attack surface without closing it.
 //
 // The critic's output is fenced for the same reason its input is. A refusal
 // reaches the agent in the policy layer's voice, so a critic steered into

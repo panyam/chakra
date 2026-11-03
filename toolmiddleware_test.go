@@ -92,8 +92,8 @@ func TestToolMiddlewareOrderIsOutermostFirst(t *testing.T) {
 
 // TestToolMiddlewareDenyStopsTheChain pins that a middleware which declines
 // to call next ends the call: nothing further down runs and the tool never
-// executes. That is what keeps a gate meaningful, since no middleware behind
-// it can rewrite arguments it has already passed on.
+// executes. A gate stays meaningful because no middleware behind it can
+// rewrite arguments it has already passed on.
 func TestToolMiddlewareDenyStopsTheChain(t *testing.T) {
 	deny := ToolMiddleware(func(_ context.Context, _ ToolCallInfo, _ ToolCallFunc) (*core.ToolResult, error) {
 		return nil, DenyTool("nope")
@@ -137,8 +137,8 @@ func TestToolMiddlewareDenyStopsTheChain(t *testing.T) {
 	}
 }
 
-// TestToolMiddlewareRewritesResult pins the result path, which is where
-// marking untrusted tool output lands (#1058) alongside redaction.
+// TestToolMiddlewareRewritesResult pins the result path. Marking untrusted
+// tool output lands there (#1058), alongside redaction.
 func TestToolMiddlewareRewritesResult(t *testing.T) {
 	mark := AfterToolCall(func(_ context.Context, _ ToolCallInfo, res *core.ToolResult) (*core.ToolResult, error) {
 		return &core.ToolResult{Content: []core.Content{{

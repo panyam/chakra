@@ -17,8 +17,8 @@ type TurnEndInfo struct {
 	// Step is the step that produced the answer, and MaxSteps the turn's
 	// cap. A Continue at Step == MaxSteps ends the turn with ErrMaxSteps.
 	Step, MaxSteps int
-	// Text is the model's final answer: with RunnerConfig.ResponseGuided set,
-	// the constrained answer, which is what the turn would return.
+	// Text is the model's final answer. With RunnerConfig.ResponseGuided set,
+	// it is the constrained answer the turn would return.
 	Text string
 	// Draft is the model's free answer when a constraint rewrote it: with
 	// ResponseSchema set, Text is the finalized JSON document and Draft the

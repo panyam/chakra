@@ -78,7 +78,7 @@ func tokenGuard(token string, next http.Handler) http.Handler {
 // Without it, any page the user visits could drive the agent through
 // localhost, and so run its tools. servicekit's CheckRequest allows a call
 // when its Origin is on the allowlist, or, with no Origin (curl, a script),
-// when its Host is, which is what stops DNS rebinding as well. Only the
+// when its Host is. The Host check stops DNS rebinding as well. Only the
 // Connect API is guarded: the shell and its static assets are public and
 // change nothing, so a phone can load the page and only needs --allow-origin
 // for the calls.

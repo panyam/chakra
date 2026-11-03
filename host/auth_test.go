@@ -78,7 +78,8 @@ func TestBearerAuthReachesTheWire(t *testing.T) {
 	// Without the bearer, the guarded server rejects the connection. Under
 	// graceful degradation (docs/AGENT_SERVER_STATE.md) this no longer fails
 	// boot — the agent starts and the server surfaces as not-ready (401 ->
-	// needs-login), which is how we know the un-bearered request was refused.
+	// needs-login). The not-ready state shows the un-bearered request was
+	// refused.
 	cfg.Servers[0].Auth = nil
 	app2, err := NewApp(cfg, &out, strings.NewReader(""), WithProvider(agent.NewStubProvider()))
 	if err != nil {

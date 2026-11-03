@@ -191,8 +191,8 @@ func TestScopeDepthInsideSubAgent(t *testing.T) {
 }
 
 // TestScopeCallBudgetVisible pins that an extension can read the remaining
-// sub-agent budget, which is what lets it back off before exhaustion instead
-// of discovering ErrTreeBudget.
+// sub-agent budget, so it can back off before exhaustion instead of
+// discovering ErrTreeBudget.
 func TestScopeCallBudgetVisible(t *testing.T) {
 	probe := newScopeProbe()
 	src := NewFuncSource()

@@ -33,8 +33,8 @@ type overlayItem struct {
 
 // overlayOutcome is what handleKey reports back to the host surface: dismiss the
 // overlay, dispatch a command Line (and close), or neither (key consumed, stay
-// open). Keeping the surface as the dispatcher is what keeps App.Dispatch
-// data-only — the overlay yields a command string, it does not call the host.
+// open). The surface stays the dispatcher, so App.Dispatch stays data-only.
+// The overlay yields a command string and does not call the host.
 type overlayOutcome struct {
 	Dismiss bool
 	Line    string
@@ -42,7 +42,7 @@ type overlayOutcome struct {
 
 // focusLayer is a modal component that temporarily owns the keyboard above a
 // surface's base view: it consumes keys and renders itself. The overlay is the
-// only implementation today; the seam is what lets both TUI surfaces share the
+// only implementation today. With the seam, both TUI surfaces share the
 // open/route/dismiss glue instead of each special-casing *overlayModel. The
 // fuller model — base view and overlay as peer layers routed uniformly — is the
 // focus-management design-track item (issue 1063 C4).
@@ -55,9 +55,9 @@ type focusLayer interface {
 // modalHost is the shared state a surface needs to carry a stack of modal
 // layers. Both TUI models embed one, so "is a modal open, route keys to the top
 // one, push a nested one, pop back to the parent" is defined once here rather
-// than branched per surface. A stack (not a single layer) is what gives nested
-// overlays back-navigation: opening the tools view from the servers overlay
-// pushes, and Esc pops back to the servers overlay instead of dropping to the
+// than branched per surface. It is a stack rather than a single layer, so
+// nested overlays get back-navigation. Opening the tools view from the
+// servers overlay pushes, and Esc pops back to the servers overlay instead of dropping to the
 // input (issue 1063 C4). The layers are pointers, safe across the value-copies
 // bubbletea makes each Update; blurring/focusing the input stays with the
 // surface that owns it.

@@ -76,8 +76,8 @@ func TestLiveWriteOutsideEveryRootIsDenied(t *testing.T) {
 
 // TestLiveDefaultWritePathsWidenConfinementToTheCaches records the cost of the
 // defaults rather than leaving it to be discovered. A command can write
-// anywhere in the temp directory and the build caches, which is what makes a
-// real toolchain work and is also the surface an operator is accepting.
+// anywhere in the temp directory and the build caches. A real toolchain needs
+// that to work, and an operator who keeps the defaults accepts that exposure.
 func TestLiveDefaultWritePathsWidenConfinementToTheCaches(t *testing.T) {
 	root := workspace(t)
 	inTemp := filepath.Join(os.TempDir(), "mcpkit-exec-live-probe.txt")

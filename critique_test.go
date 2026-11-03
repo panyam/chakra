@@ -298,7 +298,7 @@ func TestCritiqueRefusalFencesTheCriticsReason(t *testing.T) {
 	if !strings.Contains(toModel, payload) {
 		t.Fatalf("the critic's reason must still reach the agent: %q", toModel)
 	}
-	// But not as the whole message, which is what makes it read as policy.
+	// But not as the whole message. On its own, the reason would read as policy.
 	if strings.TrimSpace(toModel) == payload {
 		t.Fatal("the reason reached the agent unfenced, in the policy layer's voice")
 	}

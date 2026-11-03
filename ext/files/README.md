@@ -19,7 +19,7 @@ noticed.
 | Survives | lines moving around | nothing, by design |
 | Misses | a file reformatted underneath | where anything belongs |
 
-Neither substitutes for the other, which is why both are here. An anchor can
+Neither substitutes for the other, so both are here. An anchor can
 still match uniquely in a file that was reformatted after you read it, and
 that is exactly the case where applying it is wrong.
 
@@ -48,8 +48,8 @@ property this exists to deny.
 
 **Results are absolute paths.** Two repositories both holding `src/main.go` is
 normal, so a bare relative path would name either. A relative path on the way
-*in* still resolves against the first root, which is what keeps a single-root
-workspace behaving as it always did.
+*in* still resolves against the first root, so a single-root workspace
+behaves as it always did.
 
 The confinement is a directory handle (`os.Root`), not a string comparison.
 Checking a path and then opening it by name are two separate operations, and

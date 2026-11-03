@@ -9,10 +9,9 @@ import (
 
 // Scenario is a multi-turn eval input: a sequence of user turns that share
 // one conversation and (optionally) one working-memory scratchpad, run in
-// order. It is what the single-turn Case cannot express — memory evals
-// (LongMemEval and kin) build up facts across turns and sessions, then ask
-// a question, so the thing under test is whether earlier turns survive into
-// a later answer.
+// order. Memory evals (LongMemEval and kin) build up facts across turns and
+// sessions, then ask a question, so the thing under test is whether earlier
+// turns survive into a later answer. The single-turn Case cannot express that.
 //
 // RunScenario threads history across turns and keeps one MemorySource for
 // the whole run, so a fact remembered on turn 1 is recallable on turn 5.
@@ -25,11 +24,11 @@ type Scenario struct {
 	// not turns: nothing in it is executed, and the model is never called to
 	// produce it.
 	//
-	// This is what an external suite needs and Turns cannot express. A
-	// memory benchmark supplies a long prior conversation and then asks one
-	// question about it; replaying that conversation as Turns would call the
-	// model once per historical message and would grade the model's own
-	// invented replies rather than the dataset's. The distinction is
+	// Imagine a memory benchmark that supplies a long prior conversation and
+	// then asks one question about it. Replaying that conversation as Turns
+	// would call the model once per historical message, and would grade the
+	// model's own invented replies rather than the dataset's. History carries
+	// that conversation as data instead, which Turns cannot express. The distinction is
 	// "conversation the agent is told it had" versus "turns the agent takes".
 	History []agent.Message
 
@@ -76,7 +75,7 @@ type Scenario struct {
 // error in that turn's Result.Err.
 //
 // A single Runner is built and reused for every turn: the Runner is
-// stateless over the history it is handed, so reuse is what makes the shared
+// stateless over the history it is handed, and reusing it lets the shared
 // MemorySource (held in cfg.Tools) persist across turns.
 func RunScenario(ctx context.Context, cfg agent.RunnerConfig, s Scenario) ([]Result, error) {
 	if s.Instructions != "" {

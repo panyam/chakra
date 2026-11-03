@@ -40,8 +40,8 @@ func TestPipelineDurableAppendsBeforeUser(t *testing.T) {
 
 // TestPipelineTransientWeavesBeforeUserInOrder pins the salience rule: each
 // transient producer inserts just before the user's message, so the last
-// stage registered ends up closest to it. That is why recall follows the
-// summary rather than preceding it.
+// stage registered ends up closest to it. Recall registers after the summary,
+// so it follows the summary rather than preceding it.
 func TestPipelineTransientWeavesBeforeUserInOrder(t *testing.T) {
 	p := contextPipeline{transient: []ContextStage{
 		stubStage("memory.summary", "SUMMARY"),

@@ -38,9 +38,8 @@ go test -tags eval_llm ./eval/longmemeval/ -run TestLive -v
 The default puts each haystack session into a `MemoryStore` and grades whether
 the agent retrieves the right one, which is the stack this repo ships and the
 only mode a small-context model can compete in. `LongContext: true` seeds every
-session into the conversation instead, which is what published baselines mostly
-report and what fails rather than scores when a haystack exceeds the model's
-window.
+session into the conversation instead. Published baselines mostly report this
+mode. When a haystack exceeds the model's window, it fails rather than scores.
 
 Numbers from either mode are ours, not the benchmark authors'. Any comparison
 to published results should say which mode produced it.

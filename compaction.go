@@ -38,9 +38,9 @@ type TokenEstimator interface {
 const DefaultCharsPerToken = 4
 
 // CharTokenEstimator estimates tokens as total text length divided by
-// CharsPerToken. It counts message text plus tool-call argument JSON, which
-// is what actually bloats a long tool-using conversation. Zero CharsPerToken
-// uses DefaultCharsPerToken.
+// CharsPerToken. It counts message text plus tool-call argument JSON, because
+// argument JSON actually bloats a long tool-using conversation. Zero
+// CharsPerToken uses DefaultCharsPerToken.
 type CharTokenEstimator struct {
 	CharsPerToken int
 }

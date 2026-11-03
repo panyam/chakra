@@ -98,7 +98,7 @@ func TestInvalidArgs_RunnerEventsAndRunMarshal(t *testing.T) {
 		t.Fatalf("persisted run did not marshal: %v", err)
 	}
 
-	// And through the real store, which is what a durable backend encodes.
+	// And through the real store, whose records a durable backend encodes.
 	store := NewInMemoryRunStore()
 	ctx := context.Background()
 	if _, err := store.CreateRun(ctx, CreateRunRequest{RunID: "run-1"}); err != nil {

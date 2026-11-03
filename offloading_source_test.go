@@ -211,9 +211,9 @@ func isHexish(b byte) bool {
 
 // The two fixtures under testdata/ are real captured `go test` output from
 // this module, one run with -v and one without, each carrying a single
-// genuine failure. They exist because the position of a failure's detail
-// relative to the line a caller can grep for is not a design choice we
-// made, it is what the tool emits, and it differs between the two modes.
+// genuine failure. They exist because go test decides where a failure's
+// detail sits relative to the line a caller can grep for. We didn't choose
+// it, and it differs between the two modes.
 const (
 	verboseFixture = "testdata/gotest_verbose_fail.txt"
 	plainFixture   = "testdata/gotest_plain_fail.txt"
@@ -222,7 +222,7 @@ const (
 // TestReadToolResult_GrepContextRecoversFailureDetail is the regression for
 // chakra#41. Grepping "--- FAIL" finds which test failed and never why: in
 // -v output the assertion is printed ABOVE that marker, and without -v it is
-// printed BELOW. Context has to reach both, which is why it is two-sided.
+// printed BELOW. So context has to be two-sided to reach both.
 func TestReadToolResult_GrepContextRecoversFailureDetail(t *testing.T) {
 	cases := []struct {
 		name    string

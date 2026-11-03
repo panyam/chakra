@@ -31,8 +31,8 @@ func resolveColorEnabled(flagNoColor bool, look func(string) (string, bool)) boo
 // is disabled, so every Faint/Bold/Reverse/Foreground style across the overlay,
 // status line, and notebook cells renders as plain text deterministically. When
 // color is enabled it leaves the default renderer's auto-detected profile in
-// place, which is what gives termenv's truecolor→256→16→mono degradation for
-// free. Call once at startup, before any surface renders.
+// place, and that profile brings termenv's truecolor→256→16→mono degradation
+// for free. Call once at startup, before any surface renders.
 func applyLipglossProfile(colorEnabled bool) {
 	if !colorEnabled {
 		lipgloss.SetColorProfile(termenv.Ascii)

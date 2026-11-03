@@ -37,8 +37,11 @@ import (
 // Atomicity contract: CreateRun with an explicit RunID and ForkRun are
 // all-or-nothing. On error, no run observable at the requested ID came
 // into existence; a run exists at that ID only because some create or
-// fork fully committed. This is what makes caller-chosen IDs safe
-// idempotency keys for retry loops (see ForkRunRequest). Implementers
+// fork fully committed. Imagine a client calls ForkRun with ID r2 and the
+// call times out. It can't tell whether the fork happened, so it retries
+// with r2. If a run exists at r2, the first call committed in full and the
+// retry can use it. If none exists, the first call left nothing behind and
+// the retry starts clean (see ForkRunRequest). Implementers
 // must uphold it — a partially-forked run that reports Created=false
 // to a retry is a contract violation, not a quirk.
 type RunStore interface {
@@ -51,8 +54,8 @@ type RunStore interface {
 	// ListRuns enumerates stored runs as lightweight RunInfo (no message
 	// bodies), for a session picker or a dashboard. Paged via an opaque
 	// cursor; NextCursor is empty when the last page was returned. A
-	// non-agent consumer (a poller, a UI) wants this too, which is why it
-	// returns protocol/data objects, not model-facing ones.
+	// non-agent consumer (a poller, a UI) wants this too, so it returns
+	// protocol/data objects, not model-facing ones.
 	ListRuns(ctx context.Context, req ListRunsRequest) (ListRunsResponse, error)
 }
 

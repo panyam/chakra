@@ -146,8 +146,8 @@ func TestWorkspaceFileBadDuration(t *testing.T) {
 // Two substitutions keep it runnable in CI. Language servers are dropped
 // because lsp.New spawns them and gopls is not on the runner. Off darwin the
 // sandbox becomes Unconfined, because Linux has no backend yet (#32) and the
-// platform default would refuse. Both are construction concerns; the
-// allowlist, which is what the file is for, is built as written.
+// platform default would refuse. Both are construction concerns. The file
+// exists to declare the allowlist, and the allowlist is built as written.
 func TestDogfoodWorkspaceFileBuilds(t *testing.T) {
 	f, err := LoadWorkspaceFile(filepath.Join("..", "examples", "dogfood", "workspace.json"))
 	if err != nil {

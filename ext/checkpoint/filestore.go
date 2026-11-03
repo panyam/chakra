@@ -17,10 +17,10 @@ import (
 
 // Store is a content-addressed snapshot of files, on disk under one root.
 //
-// Content addressing is what makes repeated checkpoints affordable: a file
-// captured in twenty turns and edited in one is stored twice, not twenty
-// times, because nineteen captures hash to the same blob. That matters because
-// the natural usage is a checkpoint per turn for as long as a session runs.
+// The natural usage is a checkpoint per turn for as long as a session runs.
+// Imagine a file captured in twenty of those turns and edited in one.
+// Nineteen captures hash to the same blob, so the store holds the file twice,
+// not twenty times. Content addressing keeps repeated checkpoints affordable.
 //
 // Layout:
 //
@@ -74,7 +74,7 @@ const (
 	kindRegular kind = "regular"
 
 	// kindAbsent is a path that did not exist. Restoring it deletes whatever
-	// the call went on to create, which is what undoing a creation means.
+	// the call went on to create. That undoes the creation.
 	kindAbsent kind = "absent"
 
 	// kindUnsupported is anything else at capture time: a symlink, a
@@ -82,7 +82,7 @@ const (
 	//
 	// Recorded rather than skipped, because a path the caller asked to protect
 	// and that was silently never protected is the failure A11's corollary is
-	// about. Naming it at /undo time is what lets someone notice.
+	// about. Naming it at /undo time lets someone notice.
 	kindUnsupported kind = "unsupported"
 )
 
@@ -487,7 +487,7 @@ func (s *Store) capture(path string) (entry, error) {
 }
 
 // putFile stores a file's content and returns its hash. An already-stored
-// blob is left alone, which is where the dedup comes from.
+// blob is left alone, so identical content is stored once.
 func (s *Store) putFile(path string) (string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {

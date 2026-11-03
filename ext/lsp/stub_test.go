@@ -42,14 +42,14 @@ func TestMain(m *testing.M) {
 
 // stubScript is what a test tells the stub server to be.
 type stubScript struct {
-	// Encoding is echoed back as the negotiated positionEncoding. Empty means
-	// the field is omitted, which is what gopls does and what makes utf-16 the
-	// operative encoding.
+	// Encoding is echoed back as the negotiated positionEncoding. Empty omits
+	// the field, as gopls does, and that leaves utf-16 as the operative
+	// encoding.
 	Encoding string `json:"encoding,omitempty"`
 
 	// Symbols and Diagnostics are keyed by path relative to the stub's working
-	// directory, which is the first root. The key "*" matches any file, which
-	// is what a multi-root test wants: a file in the second folder has no
+	// directory, which is the first root. The key "*" matches any file. A
+	// multi-root test needs that, because a file in the second folder has no
 	// stable relative name from the first.
 	Symbols     map[string][]documentSymbol `json:"symbols,omitempty"`
 	Definition  []location                  `json:"definition,omitempty"`
@@ -63,8 +63,8 @@ type stubScript struct {
 	NoPublish bool `json:"noPublish,omitempty"`
 
 	// EmptyFirst publishes an empty set immediately and the real one after
-	// PublishDelayMs, which is what rust-analyzer does: the first publication
-	// after a change is a provisional clear, not an answer.
+	// PublishDelayMs, as rust-analyzer does. Its first publication after a
+	// change is a provisional clear, not an answer.
 	EmptyFirst bool `json:"emptyFirst,omitempty"`
 
 	// PublishOnOpenOnly ignores didChange, like clangd given content it
@@ -72,8 +72,8 @@ type stubScript struct {
 	PublishOnOpenOnly bool `json:"publishOnOpenOnly,omitempty"`
 
 	// PublishOnSaveOnly ignores didOpen and didChange entirely and publishes
-	// only on didSave, which is what rust-analyzer does: its cargo check runs
-	// on save and a change alone produces nothing at all.
+	// only on didSave, as rust-analyzer does. Its cargo check runs on save, and
+	// a change alone produces nothing at all.
 	PublishOnSaveOnly bool `json:"publishOnSaveOnly,omitempty"`
 
 	// BusyAroundPublish brackets the delayed publication in work-done progress,
@@ -90,8 +90,8 @@ type stubScript struct {
 	// that isn't open, like a server that only knows about files it was given.
 	SymbolsOnlyWhenOpen bool `json:"symbolsOnlyWhenOpen,omitempty"`
 
-	// IgnoreShutdown makes the server refuse to exit politely, which is what
-	// the kill path in client.close exists for.
+	// IgnoreShutdown makes the server refuse to exit politely, so a test can
+	// reach the kill path in client.close.
 	IgnoreShutdown bool `json:"ignoreShutdown,omitempty"`
 }
 
@@ -172,8 +172,8 @@ func runStubServer(script string) {
 	for {
 		frame, err := readFrame(in)
 		if err != nil {
-			// Closing stdin is what stops a well-behaved server, so a stub
-			// that exits here would never reach the kill path. A wedged
+			// A well-behaved server stops when stdin closes, so a stub that
+			// exits here would never reach the kill path. A wedged
 			// server is one that ignores the pipe closing too.
 			if s.IgnoreShutdown {
 				time.Sleep(time.Hour)

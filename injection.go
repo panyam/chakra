@@ -194,7 +194,7 @@ func HintFromMeta(meta map[string]any) (ContextHint, bool) {
 
 // SetHint installs (or replaces) a server-advertised hint for an event name,
 // e.g. from events/list discovery. A later call for the same name replaces it,
-// which is how a server's revised hint takes effect after list_changed.
+// so a server's revised hint takes effect after list_changed.
 // Host-config entries passed at construction still win over any of these.
 func (p *EventInjectionPolicy) SetHint(name string, h ContextHint) {
 	p.mu.Lock()

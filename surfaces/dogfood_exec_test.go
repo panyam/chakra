@@ -14,7 +14,7 @@ import (
 )
 
 // canSandbox reports whether sandbox-exec can apply a profile here. It cannot
-// inside another sandbox, which is where these tests run when the agent runs
+// inside another sandbox, and these tests run inside one when the agent runs
 // make test through run_test_all: Seatbelt refuses a second profile with
 // "sandbox_apply: Operation not permitted" (#95). The probe denies by default
 // because an allow-everything profile still applies when nested.
@@ -25,7 +25,7 @@ var canSandbox = sync.OnceValue(func() bool {
 
 // dogfoodExec builds the mission exercise's exec allowlist, as checked in, over
 // a fixture module that carries the repo's scripts/test-pkg.sh. It runs under
-// the real sandbox on darwin, which is where the exercise runs. Elsewhere, or
+// the real sandbox on darwin, where the exercise runs. Elsewhere, or
 // already inside a sandbox, it runs unconfined: these tests check the
 // allowlist and test-pkg.sh, and ext/exec's exec_live suite checks the
 // profile itself.

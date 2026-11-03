@@ -36,8 +36,8 @@ func TestEventLog_BoundedEvicts(t *testing.T) {
 
 // TestSubscribe_ReplayThenLive is the E3 async-seam acceptance: a consumer that
 // attaches after events were emitted replays them from offset 0 and then
-// receives live events, until ctx is cancelled. This is what a web Watch RPC
-// drains onto the wire.
+// receives live events, until ctx is cancelled. A web Watch RPC drains this
+// stream onto the wire.
 func TestSubscribe_ReplayThenLive(t *testing.T) {
 	a := &App{events: &eventSpine{log: gocurrent.NewQueue[HostEvent]()}}
 	a.emit(HostEvent{Kind: HostSessionWarn, Err: "0"})

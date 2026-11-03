@@ -19,8 +19,8 @@ import (
 // hands the parts here (agent/CONSTRAINTS.md A6: this is agent-layer because
 // constructing a Runner needs a model + a turn).
 type ServerAgentConfig struct {
-	// Name is the delegate tool name the parent model sees and calls. It is
-	// what the supervisor routes on; the scoped Tools never enter the parent's
+	// Name is the delegate tool name the parent model sees and calls. The
+	// supervisor routes on it; the scoped Tools never enter the parent's
 	// context. Required.
 	Name string
 

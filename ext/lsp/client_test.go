@@ -28,7 +28,7 @@ func TestClientNegotiatesPositionEncoding(t *testing.T) {
 
 // TestClientAcceptsAServerThatDeclinesToNegotiate covers gopls v0.23.0, which
 // omits positionEncoding whether offered utf-8 alone or alongside utf-16. Per
-// spec that means utf-16, which is what byteColumn then has to undo.
+// spec that means utf-16, and byteColumn then has to undo it.
 func TestClientAcceptsAServerThatDeclinesToNegotiate(t *testing.T) {
 	root := workspace(t, map[string]string{"a.go": "package a\n"})
 	c := startStub(t, root, stubScript{})
@@ -342,9 +342,9 @@ func TestSyncSavesSoSaveDrivenServersRecheck(t *testing.T) {
 		t.Fatal("a save-driven server was never told the file was saved on open")
 	}
 
-	// The second pass is the one that matters. The first goes through didOpen,
-	// which saves too, so a version that saved only on open would still look
-	// correct here. Changing the content forces the didChange path.
+	// The first pass goes through didOpen, which saves too, so a version that
+	// saved only on open would still look correct there. This second pass
+	// changes the content, which forces the didChange path and catches it.
 	if err := os.WriteFile(filepath.Join(root, "a.go"), []byte("package a\n\nvar x = 1\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}

@@ -56,8 +56,8 @@ func has(kinds []agent.EventKind, want agent.EventKind) bool {
 }
 
 // blockingToolServer serves a "block" tool that parks until release is closed
-// or its context is cancelled, which is what makes a mid-call interrupt
-// observable without a sleep-based race.
+// or its context is cancelled. While it parks, a test can interrupt it
+// mid-call and observe that without a sleep-based race.
 func blockingToolServer(t *testing.T, release <-chan struct{}) *httptest.Server {
 	t.Helper()
 	srv := testutil.NewTestServer()

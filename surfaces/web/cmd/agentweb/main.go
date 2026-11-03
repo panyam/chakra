@@ -258,9 +258,9 @@ func buildApp(o appOptions) (*host.App, error) {
 			Offload: &host.OffloadConfig{ThresholdBytes: 300, PreviewLen: 120},
 			// Gate the researcher delegate behind an approval "ask" (everything
 			// else auto-runs) so a demo turn raises exactly one elicitation. The
-			// prompt broadcasts to every surface; answering it on any surface
-			// retracts it on the others, which is what this build (issue 1199)
-			// exists to demonstrate.
+			// prompt broadcasts to every surface, and answering it on any surface
+			// retracts it on the others. This build (issue 1199) exists to
+			// demonstrate that retraction.
 			Approval: &host.ApprovalConfig{Mode: "allow", Rules: map[string]string{"researcher": "ask"}},
 		}
 		opts, err := withWorkspace(cfg)

@@ -31,8 +31,8 @@ agentchat if you want a terminal anyway.
 
 - `config.json` holds the host settings: instructions, connections, a step
   budget, offloading, and `read-only-auto` approval. Offloading stores any
-  result over 16 KiB and hands the model a stub, which is how a long failing
-  test run reaches the model whole: it greps the stored copy with
+  result over 16 KiB and hands the model a stub. So when a long test run
+  fails, the model still sees all of it, by grepping the stored copy with
   `read_tool_result`. The store is in memory, so a resumed session's stubs
   point at nothing. `maxSteps` is 40 because a coding
   turn reads, edits, runs a test, reads the failure and fixes it, and the

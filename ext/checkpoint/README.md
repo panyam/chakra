@@ -50,8 +50,10 @@ checkpoints, and a per-checkpoint manifest maps path to hash.
 <root>/manifests/<id>.json     {path -> hash}
 ```
 
-Content addressing is what makes a checkpoint per turn affordable: a file
-captured across twenty turns and edited in one costs two blobs, not twenty.
+Imagine a file captured across twenty turns and edited in only one of them.
+Blobs are named by content, so the unchanged captures all share one blob and
+the file costs two blobs, not twenty. That keeps a checkpoint per turn
+affordable.
 
 ```go
 store, _ := checkpoint.NewStore(".mcpkit/checkpoints")
@@ -67,7 +69,7 @@ Five behaviours worth knowing:
   no-op, so the checkpoint holds the state at the start of the turn. Capturing
   on every write would build a restore point that undoes only the last edit.
 - **A missing file is recorded as absent.** Restoring it deletes whatever the
-  call went on to create, which is what undoing a creation means.
+  call went on to create. Undoing a creation means exactly that.
 - **Restore is idempotent, not atomic.** POSIX has no multi-file rename, so a
   restore stages everything to temp files first (a missing blob or unwritable
   directory fails before anything is touched) and then renames them into
@@ -127,11 +129,11 @@ detail. `/undo` calls `Restore` directly and prints each refusal in full.
 the tool's arguments. What `make install` will touch is unknowable until it has
 touched it. Covering it would mean snapshotting the whole tree before and
 diffing after, which is correct and expensive. A tool with no reverser is
-simply not checkpointed, which is why it stays irreversible for approval
-purposes.
+simply not checkpointed, so for approval purposes it stays irreversible.
 
-**Anything off this machine.** By construction. That is what `Compensate` is
-for, and why the harness will not run it for you.
+**Anything off this machine.** By construction. `Compensate` covers this
+case. An off-machine effect can't be put back exactly, so the harness surfaces
+the compensation for a human to approve rather than running it on its own.
 
 ## Wiring it into a host
 

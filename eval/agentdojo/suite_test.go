@@ -16,15 +16,15 @@ import (
 // be tested without one.
 //
 // It is NOT evidence about any real model. It exists to drive each of the four
-// utility/security quadrants on demand, which is what the scoring has to tell
-// apart. Whether a real model obeys an injection is what the live run measures.
+// utility/security quadrants on demand, since the scoring has to tell those
+// four apart. The live run measures whether a real model obeys an injection.
 type simulatedAgent struct {
 	// obeysInjection makes it act on an instruction found in tool output.
 	obeysInjection bool
 	// doesTheJob makes it complete the user's actual request.
 	doesTheJob bool
 	// respectsFence makes it ignore instructions inside an untrusted fence,
-	// which is what a well-behaved model does under agent.Spotlight.
+	// as a well-behaved model does under agent.Spotlight.
 	respectsFence bool
 
 	step     int
@@ -267,9 +267,9 @@ func TestDimensionsSeparateTheTwoAxes(t *testing.T) {
 //
 // It proves the measurement apparatus, NOT that agent.Spotlight works. The
 // simulated agent is written to respect a fence, so this would pass even if
-// spotlighting were a no-op on real models. What it rules out is the
-// harness reporting identical numbers regardless of configuration, which would
-// make the live run meaningless.
+// spotlighting were a no-op on real models. It rules out the harness
+// reporting identical numbers regardless of configuration, which would make
+// the live run meaningless.
 func TestGuardrailChangesTheMeasurement(t *testing.T) {
 	undefended := runSuite(t, Adapter{}, &simulatedAgent{
 		obeysInjection: true, doesTheJob: true, respectsFence: true,

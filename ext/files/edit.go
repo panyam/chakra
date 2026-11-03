@@ -26,11 +26,11 @@ import (
 	"strings"
 )
 
-// The conditions under which an edit refuses to apply. Each is a distinct
-// question the caller has to answer differently, which is why they are
-// separate sentinels rather than one generic failure: a stale file wants
-// re-reading, an ambiguous anchor wants more surrounding context, and a
-// missing anchor means the assumed text was never there.
+// The conditions under which an edit refuses to apply. They are separate
+// sentinels rather than one generic failure, because the caller answers each
+// one differently. A stale file wants re-reading, an ambiguous anchor wants
+// more surrounding context, and a missing anchor means the assumed text was
+// never there.
 //
 // Errors wrap these with the specifics, so match with errors.Is and read the
 // message for which hunk and how many matches.

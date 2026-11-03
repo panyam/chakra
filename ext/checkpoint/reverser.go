@@ -63,8 +63,8 @@ type Reversal struct {
 	Compensate *agent.ToolCall
 }
 
-// IsZero reports whether the call offered no way to reverse itself, which is
-// what makes a tool irreversible in the sense ApprovalMode cares about.
+// IsZero reports whether the call offered no way to reverse itself. A tool
+// whose call offers none is irreversible in the sense ApprovalMode cares about.
 func (r Reversal) IsZero() bool { return r.Restore == nil && r.Compensate == nil }
 
 // Reversible reports whether this call can be undone automatically, meaning a

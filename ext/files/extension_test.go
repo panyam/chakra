@@ -26,8 +26,8 @@ func TestExtensionContributesToolsAndPrompt(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Named rather than counted. A count says a tool went missing without
-	// saying which, and it fails on the day one is added, which is how it
-	// stops being read.
+	// saying which. It also fails on the day one is added, and a test that
+	// fails on every addition stops being read.
 	got := map[string]bool{}
 	for _, d := range defs {
 		got[d.Name] = true

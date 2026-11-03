@@ -42,8 +42,8 @@ func liveProvider(t *testing.T) agent.Provider {
 func TestLiveLongMemEval(t *testing.T) {
 	provider := liveProvider(t)
 
-	// The whole benchmark is now Suite.Run over an adapter. What used to live
-	// here was a hand-rolled copy of that loop -- run each case, apply its
+	// The whole benchmark is now Suite.Run over an adapter. This used to hold
+	// a hand-rolled copy of that loop -- run each case, apply its
 	// scorers, tally -- written because Suite could not express per-case
 	// scorers or multi-turn scenarios. That duplication was the evidence the
 	// adapter seam was missing (issue 1015).
