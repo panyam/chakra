@@ -190,9 +190,9 @@ func TestEscapingTheRootIsRefused(t *testing.T) {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
 	// The final component is itself the symlink, rather than a directory on
-	// the way to the target. Resolving only the parent directory and then
-	// appending this name passes a containment check and is then followed by
-	// the open, which is how the first version of this leaked.
+	// the way to the target. The first version of this leaked here. It
+	// resolved only the parent directory and appended this name. That passed
+	// the containment check, and then the open followed the symlink.
 	if err := os.Symlink(secret, filepath.Join(root, "innocent.md")); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
@@ -350,8 +350,8 @@ func TestToolsAreDeclared(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Asserted by name rather than by count: a count says a tool went missing
-	// without saying which, and it has to be edited every time one is added,
-	// which is how it stops being read.
+	// without saying which, and it has to be edited every time one is added.
+	// A number that changes that often stops being read.
 	want := map[string]bool{"read_file": true, "edit_file": true, "list_files": true, "search_files": true, "write_file": true, "delete_file": true, "apply_patch": true}
 	got := map[string]bool{}
 	for _, d := range defs {

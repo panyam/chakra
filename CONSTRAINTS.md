@@ -84,11 +84,11 @@ Never thread provider-specific opaque state (e.g. Anthropic signed thinking bloc
 
 ## A10: Dependency weight decides module boundaries; seam interfaces stay with the Runner
 
-Two rules, and the second is the one that gets broken by accident.
+Two rules. People break the second one by accident.
 
 **Seam interfaces live in `chakra`, with the Runner that consumes them.** `Provider`, `ToolSource`, `MemoryStore`, `RunStore`, `ToolResultStore`, `Embedder`, and `Compactor` are all defined where they are used, per the Go convention that an interface belongs to its consumer rather than its implementors. There is no `api` or interface-only package, and there should not be: it would separate every seam from the only code that depends on it, and implementations satisfy these structurally without importing anything.
 
-**A satellite module is for dependency weight, not for layering.** An implementation lives beside its interface in `chakra` when it costs no third-party dependency, and moves to its own module when it needs a driver or SDK. That is why `InMemoryRunStore`, `InMemoryMemoryStore`, `InMemorySemanticStore`, `FileToolResultStore`, and the no-SDK `OpenAIProvider` / `AnthropicProvider` all sit next to their interfaces, while redis, gorm, and pgvector implementations are `store/redis` and `store/gorm` with their own `go.mod`.
+**A satellite module is for dependency weight, not for layering.** An implementation lives beside its interface in `chakra` when it costs no third-party dependency, and moves to its own module when it needs a driver or SDK. So `InMemoryRunStore`, `InMemoryMemoryStore`, `InMemorySemanticStore`, `FileToolResultStore`, and the no-SDK `OpenAIProvider` / `AnthropicProvider` all sit next to their interfaces, while redis, gorm, and pgvector implementations are `store/redis` and `store/gorm` with their own `go.mod`.
 
 The property this protects is that `chakra` is cheap to embed: it pulls mcpkit's own modules and nothing else, so depending on the agent SDK never drags in a database driver or a vendor SDK a consumer does not use. A1 governs the *outward* direction (nothing outside `chakra` may import an LLM SDK or this module); this governs the inward one. A9 depends on it too — "wrap the vendor's official SDK behind the seam" means in a satellite module, not here.
 
@@ -143,8 +143,8 @@ Second sanctioned exception, on the same reasoning: **an extension may spawn the
 owns.** `ext/lsp` starts a language server from `ServerSpec.Command`, and `agent/ext/exec` runs
 the commands in `Config.Commands`. Both come from operator configuration and neither is reachable
 from a tool argument, so no model, and no instruction injected into content a model read, can name
-the process that starts. That property is what the exception rests on, and it is the whole reason
-`exec` refuses to let the model compose a command line. An extension that took a binary path from a
+the process that starts. The exception rests on that property, and it is the whole reason `exec`
+refuses to let the model compose a command line. An extension that took a binary path from a
 tool argument would be a violation of this constraint whatever it called itself.
 
 The corollary is that extension-owned subprocesses are outside whatever sandbox the exec extension

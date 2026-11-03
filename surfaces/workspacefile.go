@@ -247,8 +247,8 @@ type LanguageServerFile struct {
 // LoadWorkspaceFile reads and decodes a workspace file.
 //
 // Unknown fields are an error. A misspelt "readOnly" or "sandbox" would
-// otherwise decode to its zero value, and for this file the zero values are
-// the ones that change what runs and what gets asked about.
+// otherwise decode to its zero value, and in this file the zero values
+// change what runs and what gets asked about.
 func LoadWorkspaceFile(path string) (*WorkspaceFile, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {

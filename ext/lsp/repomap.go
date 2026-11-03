@@ -90,8 +90,8 @@ type fileEntry struct {
 
 // buildRepoMap indexes every root and renders the map.
 //
-// Definitions come from the language server, which is what makes them accurate
-// across languages without a parser per language. Edges are lexical: a file
+// Definitions come from the language server, so they are accurate across
+// languages without a parser per language. Edges are lexical: a file
 // references another if it mentions a name that other file declares. That is an
 // approximation and it is the right one here, because the alternative is a
 // references request per symbol, which is thousands of round trips to rank a
@@ -236,11 +236,11 @@ func lastSegment(name string) string {
 
 // rank scores files by PageRank over the lexical reference graph.
 //
-// A ranking is what makes this a map rather than a listing: a tree of every
-// file under a budget is list_files truncated at an arbitrary point. What a new
-// contributor needs first is what the rest of the code leans on, and that is a
-// question about the graph rather than about file size or recency, which are
-// the cheaper signals and worse proxies.
+// Without a ranking this would be a listing, not a map. A tree of every file
+// under a budget is list_files truncated at an arbitrary point. A new
+// contributor first needs the files the rest of the code leans on. Finding
+// those is a question about the graph rather than about file size or recency,
+// which are the cheaper signals and worse proxies.
 func rank(entries []*fileEntry) {
 	// Which file declares a name. A name declared in several files is ambiguous
 	// and carries no signal about direction, so it is dropped rather than

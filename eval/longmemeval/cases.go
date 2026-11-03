@@ -71,10 +71,10 @@ type MemCase struct {
 
 	// NewCompactor, when set, runs the scenario under the Compactor it builds
 	// (given the run's provider, since a SummarizingCompactor needs a model to
-	// summarize the head). Nil runs with no compaction. It is how a
-	// CatCompaction case proves a fact survives the compaction boundary — and
-	// because it hands over a Compactor, not a token budget, a case can plug
-	// ANY compaction strategy, not just SummarizingCompactor. The Compactor
+	// summarize the head). Nil runs with no compaction. A CatCompaction case
+	// sets it to prove a fact survives the compaction boundary. It hands over a
+	// Compactor rather than a token budget, so a case can plug in ANY
+	// compaction strategy, SummarizingCompactor or another. The Compactor
 	// itself decides per turn whether to compact (Compact is a no-op under
 	// budget), so this only chooses the strategy, not the trigger.
 	NewCompactor func(provider agent.Provider) (agent.Compactor, error)
@@ -189,9 +189,9 @@ func (c MemCase) SuiteCase() eval.SuiteCase {
 	sc := eval.SuiteCase{Scenario: s}
 
 	sc.Scorers = func(p agent.Provider) []eval.Scorer {
-		// The judge needs a model, which is why Scorers takes the provider
-		// rather than being a plain slice: a rubric cannot be built until the
-		// suite's provider is known. appendRubric is a no-op without the
+		// The judge needs a model, so a rubric cannot be built until the
+		// suite's provider is known. Scorers takes the provider for that reason
+		// rather than being a plain slice. appendRubric is a no-op without the
 		// eval_llm build tag, where eval.Judge does not exist.
 		return appendRubric(c.Deterministic(), p, c.Rubric)
 	}
@@ -200,8 +200,8 @@ func (c MemCase) SuiteCase() eval.SuiteCase {
 		// A compaction case is about the harness, not the model: it proves a
 		// fact survives the compaction boundary, so it has to run under a
 		// Compactor. Building it needs the provider (a SummarizingCompactor
-		// summarizes with a model), which is why Configure receives the
-		// config rather than being a static override.
+		// summarizes with a model). Configure receives the config, which
+		// carries the provider, so it cannot be a static override.
 		sc.Configure = func(cfg agent.RunnerConfig) (agent.RunnerConfig, error) {
 			compactor, err := c.NewCompactor(cfg.Provider)
 			if err != nil {

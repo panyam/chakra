@@ -79,7 +79,7 @@ signals (1165, the mechanism, no barrier break), **B** runner-control meta-tools
 (1166, agent-layer pool + host wiring), **C** the interruptible turn (1167, the
 gated exception). Sequence was A -> C (C needs a signal to react to); B was
 independent. A was the keystone: it forced the signal-payload design B and C both
-consume, and it is what the interaction mediator (1157) needs. **All three
+consume, and the interaction mediator (1157) needs it. **All three
 shipped (PRs 1168/1169/1170); epic 1036 closed.**
 
 ### A note on the third channel — observability (not an axis)
@@ -193,9 +193,9 @@ flowchart TB
 
 ## Why the Runner doesn't change
 
-The turn is a pure fan-out-then-join because that is what makes everything else
-composable: resume, fork, per-turn eval, and history compaction all wrap `Run`
-precisely because it has no hidden state and no mid-turn re-entry. A live
+The turn stays a pure fan-out-then-join so everything else can compose around
+it. Resume, fork, per-turn eval, and history compaction all wrap `Run`. They can
+do that only because it has no hidden state and no mid-turn re-entry. A live
 scheduler *inside* the loop — result-watching, sibling cancellation, dynamic
 spawning — would forfeit that (nondeterministic ordering, the turn no longer a
 function of its inputs) and break A2 (events must project 1:1 onto a wire). So
@@ -242,9 +242,11 @@ Consequences:
   is carrying the composition metadata ctx threads for free in-process
   (depth/budget, cancellation, the nested event stream) over the wire — the
   surface of async sub-agents (1035), upward signals (1036), and dynamic
-  composition (1038). Enforcing the no-shared-memory rule now, while everything
-  is co-located, is what keeps the local and remote implementations
-  interchangeable from the parent's side.
+  composition (1038). Imagine a child that reads its parent's memory while
+  co-located. Moved behind the wire, it would lose that access and behave
+  differently. Enforcing the no-shared-memory rule now, while everything is
+  co-located, keeps the local and remote implementations interchangeable from
+  the parent's side.
 
 Decision captured in issue 1151; enforced by constraint A7.
 
@@ -291,8 +293,8 @@ Two layers, split on A6:
 Invocation is not new wire surface: the child's scoped tool calls go back over
 the existing `tools/call`. The WG's server-side `delegateTool` (run the agent on
 the server) is the alternative path; the bridge is the host-side-execution path,
-which is what composes with the rest of this model (depth/budget/scope/signal
-plumbing all apply to the delegate unchanged). Observability spans for the
+and it composes with the rest of this model, since depth/budget/scope/signal
+plumbing all apply to the delegate unchanged. Observability spans for the
 extension itself are issue 1145; the child Runner already carries the standard
 SEP-414 spans/metrics.
 

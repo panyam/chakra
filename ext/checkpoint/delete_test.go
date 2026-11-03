@@ -10,8 +10,8 @@ import (
 	"github.com/panyam/chakra"
 )
 
-// deleteExt builds an extension that checkpoints delete_file, which is how the
-// surfaces wire it: the same WriteSpec shape as write_file and edit_file,
+// deleteExt builds an extension that checkpoints delete_file the way the
+// surfaces wire it, with the same WriteSpec shape as write_file and edit_file,
 // keyed by tool name.
 func deleteExt(t *testing.T) (*Extension, string) {
 	t.Helper()

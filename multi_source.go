@@ -202,8 +202,8 @@ func (m *MultiSource) Call(ctx context.Context, name string, args map[string]any
 // It exists so a caller can key policy on where a tool came from — the host
 // derives spotlight provenance this way — and it takes args because resolution
 // does: an ambiguous bare name goes through the Resolver, which may inspect
-// them. Passing the same name and args Call would receive is what makes the
-// answer the one Call would act on, rather than a plausible guess at it.
+// them. Given the same name and args Call would receive, OwnerOf names the
+// source Call would act on, rather than a plausible guess at it.
 //
 // found is false for an unknown tool, for an ambiguity no Resolver settled,
 // and for a listing error. Callers get a single "no answer" signal because

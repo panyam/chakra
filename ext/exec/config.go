@@ -186,8 +186,8 @@ type CommandSpec struct {
 	// ModeReversibleAuto.
 	//
 	// The zero value declares the command destructive, so a command nobody
-	// classified is asked about. The operator who wrote the allowlist is the
-	// one who knows which entries are safe to run unattended, and a default
+	// classified is asked about. Only the operator who wrote the allowlist
+	// knows which entries are safe to run unattended, and a default
 	// that guessed on their behalf would guess in the permissive direction.
 	Reversible bool
 

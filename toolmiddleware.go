@@ -23,8 +23,8 @@ import (
 // subscriber instead.
 //
 // The shape is the familiar wrapping one, matching client.Client's own call
-// middleware: receive the call, do work, and invoke next to continue. What
-// you do around that invocation is the whole vocabulary.
+// middleware: receive the call, do work, and invoke next to continue.
+// Everything a middleware does happens around that invocation.
 //
 //   - Rewrite arguments: edit info.Call.Args, then call next.
 //   - Transform the result: call next, then edit what it returned.

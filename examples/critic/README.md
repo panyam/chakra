@@ -6,8 +6,8 @@ primary agent's turns and injects **one graded steering note** per review
 denies (that is the separate approval ladder), and the primary decides whether
 to act on the note.
 
-**The point of this example is what it does NOT add.** There is no new SDK
-"role." The whole thing is built from primitives that already ship:
+**This example adds nothing to the SDK, and that is the point.** There is no
+new SDK "role." The whole thing is built from primitives that already ship:
 
 | Piece | Public primitive |
 |---|---|

@@ -65,8 +65,8 @@ type Profile struct {
 
 	// Fallback names are read only when no directory in the startup chain
 	// has a Names, Override or Local file. A lazily read subdirectory uses
-	// them when it has none of its own. This is how Claude Code treats
-	// AGENTS.md beside CLAUDE.md.
+	// them when it has none of its own. Claude Code treats AGENTS.md beside
+	// CLAUDE.md the same way.
 	Fallback []string `json:"fallback,omitempty"`
 
 	// GlobalDir holds the user's own file, read before everything else with
@@ -80,7 +80,7 @@ type Profile struct {
 	Markers []string `json:"markers,omitempty"`
 
 	// PrimaryOnly reads the startup chain for the first workspace root only,
-	// which is what a tool with one working directory does.
+	// as a tool with one working directory does.
 	PrimaryOnly bool `json:"primaryOnly,omitempty"`
 
 	Subdirs Subdirs `json:"subdirs,omitempty"`

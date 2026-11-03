@@ -179,9 +179,9 @@ Ranked, not complete: use list_files and search_files for the rest.
 references another if it mentions a name that other file declares, matched as a
 whole identifier. Reference edges from the server would be more accurate and
 cost a request per symbol, which is thousands of round trips to order a list
-nobody reads past the top of. Ranking is PageRank over that graph, because what
-a new contributor needs first is what the rest of the code leans on, and that is
-a question about the graph rather than about file size or recency.
+nobody reads past the top of. Ranking is PageRank over that graph. A new
+contributor needs the files the rest of the code leans on first, and that is a
+question about the graph rather than about file size or recency.
 
 **It lives here rather than in its own extension** because it needs the same
 servers this extension already runs. A separate module could not import this one
@@ -236,10 +236,10 @@ server now comes back as a refusal the model can act on.
 
 ## Closing
 
-This is the first extension to own a subprocess, which is why `host.Extension`
-grew `Close`. `App.Close` calls it in reverse registration order. A server that
-ignores `shutdown` and keeps running after its stdin closes is killed, because
-a host that blocks forever on Close is worse than one that leaves an orphan.
+This is the first extension to own a subprocess. Nothing before it needed shutting down, so
+`host.Extension` grew `Close`. `App.Close` calls it in reverse registration order. A server that
+ignores `shutdown` and keeps running after its stdin closes is killed, because a host that blocks
+forever on Close is worse than one that leaves an orphan.
 
 ## Wiring it with the file tools
 

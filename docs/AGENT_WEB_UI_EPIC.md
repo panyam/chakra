@@ -116,8 +116,8 @@ and the Solid/DockView frontend assets. A thin `cmd/agentweb serve` over it, mir
 ### E1 (1194) — Session event log on `gocurrent.Queue` (`host`) — SHIPPED
 Make a per-session `gocurrent.Queue[HostEvent]` the retained event substrate: `emit` appends every
 event to it *and* keeps delivering synchronously to the local observers (`emitMu` retained), so the
-terminal rendering contract is unchanged. The log is what a web surface (E3) subscribes onto (replay
-from offset 0 + live) and the barrier seam E2 builds on. The async subscriber adapter
+terminal rendering contract is unchanged. A web surface (E3) subscribes onto the log (replay from
+offset 0 + live), and E2 builds its barrier seam on it. The async subscriber adapter
 moved to E3 — see "Do we still need Observer?" for why async local delivery races the terminal contract.
 - Accept: a subscriber attached after events were emitted replays them from offset 0 and is notified of
   live ones; `emit` still delivers to local observers synchronously and in order; `just test-agent`
@@ -210,8 +210,8 @@ the placeholder shell + `/static` + the Connect handlers on one listener.
 - **Deviations from the brief**: (1) `Watch` is an idiomatic **Connect server-streaming RPC**, not a
   `@panyam/massrelay` room. massrelay is the E4 *frontend* consumption transport (WebSocket fan-out, as
   in diffpp); its `AppMessage{Kind, Payload}` shape is exactly this `Frame`, so E4 bridges Frame → room
-  1:1. Keeping the server side a plain Connect stream is what makes the whole bridge testable in-process
-  with a Go Connect client (no WebSocket, no browser). (2) `Watch` sends an empty-`kind` ready sentinel
+  1:1. Because the server side stays a plain Connect stream, a Go Connect client can test the whole
+  bridge in-process (no WebSocket, no browser). (2) `Watch` sends an empty-`kind` ready sentinel
   as its first frame: the Connect protocol flushes response headers on the first `Send`, so without it a
   client attaching to an idle session blocks on `Watch` until the first event; the sentinel opens the
   stream promptly. Clients skip an empty-kind frame. (3) The shell is a minimal inline HTML page, not a

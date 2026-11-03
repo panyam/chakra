@@ -64,8 +64,8 @@ func (c *capBuffer) String() string {
 //
 // The count is stated because a model that cannot tell truncated output from
 // complete output will read a passing tail as a passing run. It covers both
-// drops, the capture's and the view's, so the number is what the run printed
-// and the reader did not get.
+// drops, the capture's and the view's, so the number counts every byte the
+// run printed that the reader did not get.
 func (c *capBuffer) View(max int) (string, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

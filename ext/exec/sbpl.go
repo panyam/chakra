@@ -89,8 +89,8 @@ func sbplString(s string) string {
 }
 
 // dedupe sorts and removes duplicates so the profile is stable regardless of
-// the order roots and cache paths were configured in, which is what makes a
-// golden test worth having.
+// the order roots and cache paths were configured in. That stability lets a
+// golden test pin the profile.
 func dedupe(in []string) []string {
 	if len(in) == 0 {
 		return nil

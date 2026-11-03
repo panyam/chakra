@@ -10,8 +10,8 @@ import (
 // TestEventLog_RetainsForLateReplay is the E1 substrate acceptance: emit
 // records every event on the retained log, so a subscriber that attaches after
 // events were emitted replays them from offset 0 and is notified of live ones.
-// This is what lets a web surface (issue 1196) join a running session and see
-// its history.
+// A web surface (issue 1196) relies on this to join a running session and
+// see its history.
 func TestEventLog_RetainsForLateReplay(t *testing.T) {
 	a := &App{events: &eventSpine{log: gocurrent.NewQueue[HostEvent]()}}
 	a.emit(HostEvent{Kind: HostSessionWarn, Err: "0"})

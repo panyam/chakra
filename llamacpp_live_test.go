@@ -133,7 +133,7 @@ func TestLlamaCppServerHonorsSeedAndGuided(t *testing.T) {
 // tool and holds its answer to a GBNF grammar against a real llama-server,
 // the shape jaala's translator needs: tools while the model works, the
 // grammar on the answer. The control runs the same turns without the grammar
-// and shows the model leaving it, so the grammar is what keeps the answer in.
+// and shows the model leaving it, so the grammar keeps the answer in.
 func TestLlamaCppRunnerGuidedAnswerWithTools(t *testing.T) {
 	url := os.Getenv("CHAKRA_LLAMACPP_URL")
 	if url == "" {

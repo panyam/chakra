@@ -138,14 +138,14 @@ type Config struct {
 
 	// SkillDirs are local folders of skills (<folder>/<name>/SKILL.md) that
 	// join the skill catalog beside MCP-served skills. WithSkillDirs adds
-	// more, which is how a surface adds workspace folders.
+	// more, and a surface uses it to add workspace folders.
 	SkillDirs []SkillDir `json:"skillDirs,omitempty"`
 
 	// Roots are the workspace directories the host declares to MCP servers,
 	// which a server reads with roots/list (as file:// URIs). Empty means the
 	// host advertises no roots capability, so servers see a host without a
-	// workspace rather than one with an empty list. WithRoots adds more, which
-	// is how a surface passes its workspace roots.
+	// workspace rather than one with an empty list. WithRoots adds more, and a
+	// surface passes its workspace roots through it.
 	Roots []string `json:"roots,omitempty"`
 
 	// Offload configures tool-result offloading. Nil means off: tool
@@ -480,9 +480,9 @@ func parseProvenance(s string) agent.Provenance {
 // The args are trimmed so a large payload does not flood the prompt. That trim
 // lives HERE and not in the calling path on purpose: it is the right default
 // for an unknown tool, whose arguments are an opaque blob, and the wrong one
-// for a tool whose arguments are the thing being reviewed. Applying it to
-// everything is what made an edit unreviewable, so a renderer that claims a
-// call decides its own truncation.
+// for a tool whose arguments are the thing being reviewed. Applied to
+// everything, it trimmed an edit until it could not be reviewed. So a
+// renderer that claims a call decides its own truncation.
 func approvalPrompt(info agent.ToolCallInfo) string {
 	args := strings.TrimSpace(string(info.Call.Args.Raw()))
 	if len(args) > 200 {
@@ -836,8 +836,8 @@ func LoadConfig(path string) (*Config, error) {
 // the semantics are the standard library's, pinned by tests: a scalar present
 // in the overlay overrides the base, a map merges by key (base entries the
 // overlay omits survive), a slice present in the overlay REPLACES the base
-// slice wholesale, and a key the overlay omits is left untouched. That last
-// rule is what lets a one-line overlay (just active) leave servers and
+// slice wholesale, and a key the overlay omits is left untouched. By that
+// last rule, a one-line overlay (just active) leaves servers and
 // connections intact.
 func LoadConfigWithOverlay(path string) (*Config, error) {
 	raw, err := os.ReadFile(path)

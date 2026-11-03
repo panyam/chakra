@@ -75,8 +75,8 @@ type OffloadingSource struct {
 
 // readToolResultArgs is the read_tool_result input. Offset/Limit take a
 // character window over the flattened result; Pattern greps it line by
-// line (a Go regexp) — querying *into* a huge output, which is where the
-// win is, rather than paging the whole thing back.
+// line (a Go regexp). Querying *into* a huge output beats paging the whole
+// thing back.
 type readToolResultArgs struct {
 	Ref     string `json:"ref"`
 	Offset  int    `json:"offset,omitempty"`
@@ -317,9 +317,9 @@ func grepLines(lines []string, re *regexp.Regexp, ctx, limit int, ref, pattern s
 	return strings.Join(out, "\n")
 }
 
-// contentRef names a stored result by its content, so the same output stored
-// twice, which is what re-reading an unchanged file produces, lands on one ref
-// and the second stub can say it was seen before. 48 bits of SHA-256, the
+// contentRef names a stored result by its content. Re-reading an unchanged
+// file stores the same output twice, and both land on one ref, so the second
+// stub can say it was seen before. 48 bits of SHA-256, the
 // width ext/files uses for its file hashes: enough that two different results
 // in one store don't collide by accident.
 func contentRef(text string) string {

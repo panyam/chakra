@@ -7,9 +7,9 @@ import (
 	"testing"
 )
 
-// workspace makes a root and returns its symlink-resolved absolute path, which
-// is what the source compares against. On darwin t.TempDir is under /var,
-// itself a symlink to /private/var.
+// workspace makes a root and returns its symlink-resolved absolute path,
+// because the source compares against resolved paths. On darwin t.TempDir is
+// under /var, itself a symlink to /private/var.
 func workspace(t *testing.T) string {
 	t.Helper()
 	dir, err := filepath.EvalSymlinks(t.TempDir())

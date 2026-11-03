@@ -11,8 +11,8 @@ import (
 
 // TestSmokeAdapterYieldsEveryCase pins that the adapter maps the whole smoke
 // set onto the harness, and that each case carries its own scorers. Under the
-// previous suite shape neither was expressible, which is why this package ran
-// its own loop.
+// previous suite shape neither was expressible, so this package ran its own
+// loop.
 func TestSmokeAdapterYieldsEveryCase(t *testing.T) {
 	cases, err := SmokeAdapter{}.Load()
 	if err != nil {
@@ -50,8 +50,8 @@ func TestSmokeAdapterNamesCarryCategory(t *testing.T) {
 
 // TestSmokeAdapterRunsThroughSuite is the end of the seam: an adapter's cases
 // go straight into eval.Suite with no per-suite glue. It runs against a stub
-// provider, so it asserts the plumbing rather than memory quality (that is
-// what the live, tagged benchmark is for).
+// provider, so it asserts the plumbing rather than memory quality (the live,
+// tagged benchmark measures that).
 func TestSmokeAdapterRunsThroughSuite(t *testing.T) {
 	cases, err := SmokeAdapter{}.Load()
 	if err != nil {

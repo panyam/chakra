@@ -24,7 +24,7 @@ type AgentHop struct {
 // reach the code reading it. Empty at the top level.
 //
 // Read it as a stack trace rather than a graph path. Each entry is a frame,
-// which is why a cycle needs no special handling: an agent that reaches itself
+// so a cycle needs no special handling. An agent that reaches itself
 // appears twice, exactly as recursion shows repeated frames, and the per-source
 // depth cap (DefaultMaxAgentDepth) bounds how far that can go.
 type AgentPath []AgentHop
@@ -49,7 +49,7 @@ func (p AgentPath) Contains(name string) bool {
 }
 
 // Child returns the path extended by one hop, without mutating the receiver.
-// This is what each source calls when it invokes a sub-agent.
+// Each source calls it when it invokes a sub-agent.
 func (p AgentPath) Child(name string) AgentPath {
 	out := make(AgentPath, len(p), len(p)+1)
 	copy(out, p)

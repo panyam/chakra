@@ -10,8 +10,8 @@ import (
 // TestHostToolsDeclareReadOnly pins which host-local tools carry readOnlyHint
 // (#99), so the listing tools stop prompting under reversible-auto while the
 // ones that change subscriptions, triggers or tasks still ask. load_skill
-// stays unannotated on purpose: in catalog mode the approval gate on it is
-// what keeps an untrusted skill body out of context (see the README's skills
+// stays unannotated on purpose: in catalog mode the approval gate on it
+// keeps an untrusted skill body out of context (see the README's skills
 // trust model).
 func TestHostToolsDeclareReadOnly(t *testing.T) {
 	app := &App{skills: newSkillSet()}

@@ -55,8 +55,8 @@ type WorkspaceConfig struct {
 	// It is separate from Roots because a snapshot store inside a workspace is
 	// a directory the agent can read, search, and edit, and one that grows
 	// with every write. With several roots there is also no obvious one to
-	// pick. Naming a location outside them all is the cleaner arrangement and
-	// is what a caller should usually do.
+	// pick. Naming a location outside them all is cleaner, and a caller
+	// should usually do it.
 	CheckpointStore string
 
 	// NoCheckpoint drops the snapshot-and-restore safety net, leaving the file
@@ -148,9 +148,9 @@ type WorkspaceConfig struct {
 // the file *after* the write and /undo restores the damage.
 //
 // Nothing catches that. Both orders construct, both run, and the difference
-// only shows up as an /undo that appears to work and does not, which is why
-// the two extensions are built together here instead of being left to each
-// surface to register in whatever order reads well.
+// only shows up as an /undo that appears to work and does not. So the two
+// extensions are built together here instead of being left to each surface
+// to register in whatever order reads well.
 //
 // # Why the two are coupled
 //
@@ -294,8 +294,8 @@ var fileWrites = []string{"write_file", "edit_file", "delete_file", files.PatchT
 // reversible-auto runs them unasked. files cannot say this itself: whether
 // /undo can take a write back depends on the checkpoint this wiring adds, and
 // --no-checkpoint leaves the writes unwrapped, so they stay destructive.
-// A checkpoint restore is a true inverse, which is what A11 asks of anything
-// that runs unattended.
+// A11 asks for a true inverse before anything runs unattended, and a
+// checkpoint restore is one.
 type restorable struct{ host.Extension }
 
 func (r restorable) Tools() (agent.ToolSource, error) {

@@ -82,9 +82,9 @@ func TestLiveDiagnosticsReportARealCompileError(t *testing.T) {
 	}
 }
 
-// TestLiveNavigationResolvesBySymbolName is the one that would catch a wrong
-// assumption about documentSymbol: the stub answers with whatever shape the
-// test wrote, while gopls names methods and functions its own way.
+// TestLiveNavigationResolvesBySymbolName would catch a wrong assumption about
+// documentSymbol that the stub tests cannot. The stub answers with whatever
+// shape the test wrote, while gopls names methods and functions its own way.
 func TestLiveNavigationResolvesBySymbolName(t *testing.T) {
 	root, spec := liveWorkspace(t)
 	ext, err := New(Config{Roots: []string{root}, Servers: []ServerSpec{spec}, DiagnosticsTimeout: 30 * time.Second})

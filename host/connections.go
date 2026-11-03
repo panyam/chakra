@@ -129,8 +129,8 @@ type ConnectionConfig struct {
 	ReasoningEffort string `json:"reasoningEffort,omitempty"`
 
 	// Temperature overrides whether this connection's model takes a
-	// temperature, which is what agent.Capabilities.Temperature reports for
-	// it. Nil keeps the type's default: true for the OpenAI-wire types,
+	// temperature, and agent.Capabilities.Temperature reports that answer.
+	// Nil keeps the type's default: true for the OpenAI-wire types,
 	// false for "openai-responses" and "anthropic". Set false for OpenAI's
 	// reasoning models on an OpenAI-wire connection (gpt-5 and later, the o
 	// series), and true for a non-reasoning model on "openai-responses". The

@@ -12,8 +12,8 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// pokeExt offers a tool that calls back into the test while step 1 runs,
-// which is when a user would steer.
+// pokeExt offers a tool that calls back into the test while step 1 runs. A
+// user would steer at that point.
 type pokeExt struct {
 	BaseExtension
 	onCall func()

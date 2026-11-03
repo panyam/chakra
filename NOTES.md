@@ -24,9 +24,9 @@ The tell is the natural return type. A protocol object (`core.DetailedTask`, `ev
 `InputResponses`) is client-layer. A model-facing object (`core.ToolResult`, injected context,
 a proactive turn) is agent-layer.
 
-This is why task polling, `BackgroundTask`, and `StreamChan` live in `client/` while
-`EventInjectionPolicy`, `TriggerPolicy`, and the Runner live here. It is also why `RunStore`,
-`ToolResultStore`, and `MemoryStore` live in `chakra` rather than a root `stores/`: they
+By that test, task polling, `BackgroundTask`, and `StreamChan` live in `client/`, while
+`EventInjectionPolicy`, `TriggerPolicy`, and the Runner live here. The same test keeps `RunStore`,
+`ToolResultStore`, and `MemoryStore` in `chakra` rather than a root `stores/`. They
 traffic in `agent.Message` / `core.ToolResult` / `MemoryItem`, so hoisting them would force a
 root→agent dependency.
 
@@ -43,7 +43,8 @@ dispatch.
 
 `Runner.RunTurn(ctx, TurnRequest)` is the real entry point; `Run` is a shim. The Runner is a
 deterministic fan-out-then-join pure function over history. It is stateless, so one Runner can
-be reused across turns, and that is what makes resume / fork / eval / compaction composable.
+be reused across turns. With no state held between turns, resume / fork / eval / compaction
+compose.
 
 **Per-tool-call cancellation** rides `TurnRequest.Control <-chan Control`. `Control{}` with an
 empty CallID cancels every in-flight call in one send; `Control{CallID}` targets one. A
@@ -261,9 +262,10 @@ error is worse than the size. A per-tool threshold of `0` pins a tool inline. Si
 on `toolResultText`, **text only**, so a large base64 blob will not trip it yet (#979).
 
 `ToolResultStore` (`agent/toolresultstore.go`) is `Put`/`Get` with an in-memory default.
-**Retention is deliberately not in the interface.** The graceful unknown-ref read
-(`read_tool_result` → "no longer available", `IsError:false`) is what makes any backend eviction
-safe, so redis uses native TTL and gorm a caller-driven `PruneExpired`. The dep-free
+**Retention is deliberately not in the interface.** Imagine a backend evicts a ref the model still
+holds a stub for. The model calls `read_tool_result` on it and gets "no longer available" with
+`IsError:false`, and the turn carries on. So any backend may evict: redis uses native TTL and gorm
+a caller-driven `PruneExpired`. The dep-free
 `FileToolResultStore` lives in `chakra` itself — stdlib only, one JSON file per ref,
 temp-then-rename, injective ref→filename escaping — and is the natural no-server store for a
 local coding agent, where blobs are files the agent can read directly. The gorm backend supports
@@ -290,8 +292,8 @@ head+tail and drops the middle *inside* `Source.Call`, so `OffloadingSource` —
 the returned `ToolResult` — never gets the dropped bytes and cannot serve them. Fed a real 42 KB
 `go test ./... -v` transcript with one failure, what survives is the trailing summary word `FAIL`
 while both the assertion and the `--- FAIL: TestX` line are gone: the model is told something broke
-and given nothing to act on. Raising `exec.Config.MaxOutput` so the full transcript reaches the store
-is what makes grep reachable at all. Ordering beats tuning here.
+and given nothing to act on. Raise `exec.Config.MaxOutput` and the full transcript reaches the
+store. Only then does the model have anything to grep. Ordering beats tuning here.
 
 Deferred: binary offloading (#979), and streaming/handle-based results for hundreds of MB via
 MCP resource links plus a ranged store (#980 — `Put` is not the bottleneck, upstream
@@ -300,7 +302,7 @@ materialization is).
 **A new tool must not reinvent this** (#1284). Writing `list_files` and `search_files`, the obvious
 instinct is to cap the returned bytes so a big repo cannot blow the context window. That is already
 solved, one layer up, for every tool at once. Two truncation mechanisms then disagree about the same
-output, and the tool's cap is the one that also loses information the store would have kept.
+output. The tool's cap cuts first, so it also throws away bytes the store would have kept.
 
 The line is A6. A **result-count** limit belongs to the tool: it bounds the work actually done and
 means something to a caller ("the first 100 matches"). **Context economics** belong to the agent
@@ -517,7 +519,7 @@ no root to be contained by. A checkpointed tool may legitimately write to a cach
 outside any one tree, so imposing a workspace root would break honest callers to stop a dishonest
 one. Confining paths stays the **tool's** job; `ext/files` is the worked example.
 
-What checkpoint gained instead is an *integrity* check, which needs no root: the manifest records
+Checkpoint gained an *integrity* check instead, and that needs no root. The manifest records
 what `Add` found (`kindRegular` / `kindAbsent` / `kindUnsupported`, via `Lstat` so a link is
 recorded rather than followed), and `Restore` compares that against what is there now. Restoring
 through something that is not what you captured is not something any caller wants, whatever their
@@ -724,7 +726,7 @@ auto-injecting `AsyncAgentSource`.
 The pool is agent-layer, not host, even though the issue first sketched it as host-layer:
 background runs need the unexported `withAgentDepth` / `withAgentScope` / `DetachForBackground`
 plumbing, so it belongs beside `AgentSource`. Host is thin wiring (`Config.RunnerControl`), and
-the Runner is unchanged. This is where "an agent that knows and targets its children" is
+the Runner is unchanged. In the pool, "an agent that knows and targets its children" is
 legitimate, in contrast to A's non-referential child. `transfer_to` stays Team's and is not
 duplicated here.
 
@@ -815,9 +817,9 @@ inside `applyTo`. `TestGenerationToolChoiceDroppedOnFinalize` pins it.
 Messages, Tools}` and nothing else, so three of the four generation parameters the seam defines were
 unreachable from a turn: `Temperature` and `ToolChoice` were set nowhere in non-test code, and
 `MaxTokens` only as a `failover.go` health probe. Both providers had always rendered all three onto
-the wire correctly — the gap was purely loop-side, which is why it stayed invisible. The roadmap's §7
-scorecard credited `ToolChoice` as shipped, which is how #1056 came to be sized against primitives
-that could not actually be driven.
+the wire correctly. The gap was purely loop-side, so anyone checking a provider saw every
+parameter rendered and nothing looked missing. The roadmap's §7 scorecard credited `ToolChoice` as
+shipped. #1056 was then sized against that scorecard, on primitives a turn could not actually drive.
 
 **Unsupported parameters are forwarded, not screened.** A provider sends what it is given, and a
 model that rejects a parameter fails the request rather than ignoring it — current Anthropic models
@@ -857,7 +859,7 @@ and err on an `error` event.
 `decode` returns `[]Delta` rather than appending to a shared queue, so the loop is the sole queue
 owner. Per-stream state (the `started` map, `nameMap`, `inputTokens`) lives on the concrete
 stream and is captured by the decode method. `buildBody`, the chunk decode, and the `Generate`
-response parse stay per-provider, which is where they genuinely diverge.
+response parse stay per-provider, because the providers genuinely diverge in those three.
 
 ### Reasoning / "thinking" display — three distinct paths
 
@@ -910,7 +912,8 @@ assistant message the Runner will append for it (`responses_cursor.go`). A reque
 when everything before its last assistant message hashes to a remembered id, and then sends just
 the messages after it. Compaction, an edited or forked history, a resume from RunStore, a
 provider switch and an evicted entry all fall out as a miss, and a miss sends full history. That
-makes the cursor unobservable to the loop, which is why it isn't a capability on the seam (A9).
+makes the cursor unobservable to the loop. A9 keeps loop-invisible optimizations off the seam, so
+the cursor isn't a capability there.
 
 What bit, or nearly did:
 
@@ -1027,7 +1030,7 @@ wait went through three wrong versions before landing:
 3. **What shipped:** an empty result waits a quiet period, extended by a *bounded* grace while the
    server reports itself busy, and a non-empty result returns immediately.
 
-The last step is what makes the cost acceptable, and it comes from noticing the two cases are not
+The last step keeps the cost acceptable. It comes from noticing the two cases are not
 symmetric. "Here are three errors" is actionable and complete enough; more can only be added, and
 the next turn's stage carries the full set. "Nothing is wrong" is the ambiguous one, because it is
 also what "I have not looked yet" looks like. So only the empty case pays. Measured on a warm
@@ -1041,8 +1044,8 @@ Three things worth carrying:
 - **`DefaultDiagnosticsTimeout` had to go from 3s to 8s**, and every wrong version above passed its
   unit tests. The stub does exactly what the test tells it to; only the live probe showed the
   8s-per-write regression and the empty-set-as-answer one. A test that re-checks a file it just
-  opened also hides the didSave problem entirely, which is why there is now a live test that warms
-  the server first and then does real write cycles.
+  opened also hides the didSave problem entirely. So a live test now warms the server first and
+  then does real write cycles.
 - **"Unchanged content means what we hold is current" is only half true.** Skipping the re-sync when
   the server already has the bytes is right (clangd does not re-publish for an identical
   `didChange`), but right after a `didOpen` the server has the content and has said nothing. The
@@ -1249,7 +1252,8 @@ empty base no longer emits leading blank lines.
 
 `InstructionsFunc` remains the low-level Runner hook; the builder is host-layer composition on
 top. Richer strategies (profile/domain guides, memory-summary-as-a-section) are additive
-`PromptSection`s on this seam, which is why #1091 closed rather than staying open as a gap.
+`PromptSection`s on this seam. Nothing is missing for them, so #1091 closed rather than staying
+open as a gap.
 
 ### Skills consumption hardening (#1182/#1183, PR 1185, `agent/host/skills.go`)
 
@@ -1326,8 +1330,9 @@ router-gateway presets; litellm defaults to the proxy's local `:4000/v1`.
 **The embedder is a config role, like `Active` is for chat.** `ConnectionsConfig.Embedder` names
 an embedding connection and `ConnectionConfig.Dim` is its vector width.
 `host.BuildEmbedder(conn, tp)` builds an OpenAI-wire `agent.Embedder`. **`anthropic` is rejected
-— there is no embeddings API** (both in `BuildEmbedder` and in registry validation). This is what
-makes semantic memory usable against a cloud embedder with just an API key and no local model.
+— there is no embeddings API** (both in `BuildEmbedder` and in registry validation). With an
+embedding connection set, semantic memory runs against a cloud embedder with just an API key and no
+local model.
 
 **Agent roles are a third assignment over the same set.** `ConnectionsConfig.AgentRoles` maps the
 `small` / `medium` / `large` roles a server-advertised agent can hint at to connection names, and
@@ -1345,8 +1350,8 @@ of `Command{Name, Aliases, Help, Run, Complete}` returning a `CmdResult` tagged 
 `Complete` powers Tab autocompletion. This is host-layer and deliberately not in the CLI.
 
 **`HostEvent` plus `Observer` fan-out, not "UIEvent".** The host emits domain and lifecycle
-events (turn done/failed, session changed, skills loaded, task status) that are meaningful to
-OTel or a logger even with no renderer, which is why they are Host events rather than UI events.
+events (turn done/failed, session changed, skills loaded, task status). OTel or a logger can use
+them with no renderer attached, so they are Host events rather than UI events.
 `WithObserver(o)` fans one-to-many and suppresses the default renderer;
 `NewTerminalRenderer(w)` is one Observer.
 
@@ -1400,8 +1405,9 @@ Deferred: retrofitting a token source onto a server not configured oauth at boot
 rebuilding its client, and is unsupported.
 
 **`WithBrowserOpener` seam** (#1123, PR 1136) injects how the oauth type opens the authorization
-URL (nil means the platform browser), which is what makes the whole login path testable in CI
-with no Docker and no real browser (`agent/host/oauth_login_e2e_test.go`). **Gotcha**: the
+URL (nil means the platform browser). A test passes its own opener function, which gets the URL
+in place of a browser, so the whole login path runs in CI with no Docker and no real browser
+(`agent/host/oauth_login_e2e_test.go`). **Gotcha**: the
 oneauth test AS accepts an arbitrary public client for PKCE but does **not** serve DCR, so pin
 `clientIdEnv` rather than relying on the DCR default. The real-Keycloak variant is #1137.
 
@@ -1435,7 +1441,7 @@ and denies it if not. Three decisions are load-bearing:
 **It is middleware, not a new Runner hook.** The issue proposed a dedicated pre-dispatch gate in
 the Runner. There already is one, and `toolmiddleware.go` says so: ToolMiddleware is *the single
 interception seam*, and a second mechanism at the same point is exactly what that doc exists to
-prevent. A critique pass changes whether a call happens, which is what middleware is for.
+prevent. A critique pass changes whether a call happens, and deciding that is middleware's job.
 
 **It sits after extensions and before the approval gate.** Like the gate it must judge the
 arguments that will actually execute, so it cannot sit outside middleware that rewrites them.
@@ -1467,13 +1473,13 @@ also does not reuse `delimitMark`, whose sentence names a tool and says the cont
 from outside, neither true of a verdict written in-process. A fence whose explanation is false is
 the failure mode #1273 is about.
 
-This is what forced `ToolDeniedError.ModelReason`. A fence is several lines, and `host`
-renders a denial as one truncated line against the call, so pushing the fence through the surface
-showed the user boilerplate and cut the actual reason off. `Reason` is now the legible attributed
-line surfaces show and `ModelReason` is what the model is told; empty means they are the same,
-which is right for every middleware whose reason is its own prose. The two audiences had been
-sharing one string since the type was written, and nothing noticed until a reason needed to be
-untrusted. Caught by `TestCritiqueConfigRefusesARealCall`, which asserts on rendered output.
+Imagine pushing that fence through to the surface as the denial reason. A fence is several lines,
+and `host` renders a denial as one truncated line against the call, so the user saw boilerplate and
+the actual reason was cut off. That forced `ToolDeniedError.ModelReason`. `Reason` is now the
+legible attributed line surfaces show and `ModelReason` is what the model is told; empty means they
+are the same, which is right for every middleware whose reason is its own prose. The two audiences
+had been sharing one string since the type was written, and nothing noticed until a reason needed to
+be untrusted. Caught by `TestCritiqueConfigRefusesARealCall`, which asserts on rendered output.
 
 Not built: critiquing the **final answer**. The issue mentions it, and it does not fit
 ToolMiddleware because there is no tool call. It needs a seam that does not exist, and inventing
@@ -1524,7 +1530,8 @@ Three things that suite has to get right, all of which a single pass/fail destro
   attacker and then calls `pay` has resisted nothing, and only the state distinguishes the two.
 
 `SuiteReport.Dimensions()` is the per-dimension rollup #1015 deferred to here. It is a **method over
-data `CaseReport` already carried**, not new fields, which is what the deferral was betting on.
+data `CaseReport` already carried**, not new fields. The deferral bet that the existing data
+would be enough, and it was.
 Inversion (an attack-success rate is `1-Rate` of a resistance dimension) stays in the caller, because
 making `Rate` mean opposite things depending on the scorer name would be worse than the arithmetic.
 
@@ -1565,8 +1572,8 @@ tag. A case graded only by checks that cannot fail is not graded.
 is right for one-question-per-case and wrong for a suite reporting several independent rates — a
 security suite wants utility and attack-success counted separately, and one of them inverted.
 Deliberately not designed for now: per-scorer verdicts are kept with their names, so a
-per-dimension rollup is an addition over existing data rather than a re-plumb. #1060 is the one
-that will actually stress it, and reshaping is free while the agent track is unreleased.
+per-dimension rollup is an addition over existing data rather than a re-plumb. #1060 will actually
+stress it, and reshaping is free while the agent track is unreleased.
 
 ---
 
@@ -1579,8 +1586,8 @@ needed it.
 
 - **Relative, not absolute.** `go.mod` expands neither `~` nor environment variables, so an
   absolute path would name one home directory and break CI and every other clone. The relative
-  path holds for any checkout at `<dir>/chakra/<branch>` beside `<dir>/mcpkit/main`, which is why
-  the repo moved to the `chakra/<branch>` layout and CI recreates it.
+  path holds for any checkout at `<dir>/chakra/<branch>` beside `<dir>/mcpkit/main`. So the repo
+  moved to the `chakra/<branch>` layout, and CI recreates it.
 - **Not go.work.** A workspace file solves the same problem, but its `use` lines are paths too,
   so each worktree needs its own copy. The replace costs less while the layout rule holds.
 - **Invisible to importers.** Go ignores `replace` outside the main module, so anyone importing
@@ -1662,8 +1669,8 @@ the member that already worked:
   differently from the other three.
 
 The shape is the same each time: **a second guard downstream makes the test pass regardless of the
-behaviour it names.** So the fix is usually the same too, and it is what to reach for rather than
-adding another case alongside the existing ones. Construct the scenario so the downstream guard is
+behaviour it names.** So the fix is usually the same too. Reach for it before adding another case
+alongside the existing ones. Construct the scenario so the downstream guard is
 absent, which usually means letting the interfering condition resolve before the assertion (replace
 the symlink with a real file; mix a valid element in with the invalid one). If you cannot remove
 the second guard, the test cannot distinguish the two implementations and is not testing what its
@@ -1676,7 +1683,7 @@ one that merely does not exist. Remove either and `os.Root` still refuses the wr
 property changes and no outcome-based test can see the difference. The obvious conclusion is that
 the guards are redundant. They are not.
 
-What they change is **what the model is told**. Without the type check, writing to a directory is
+They change **what the model is told**. Without the type check, writing to a directory is
 reported as *"already exists, pass expect_hash to replace it"*, which is advice that can never
 work: the model follows it, is refused again, and has burned a turn discovering that the tool
 misdescribed the problem. Without the boundary branch, a symlink pointing out of the workspace

@@ -52,16 +52,16 @@ const (
 )
 
 // AskFunc presents a yes/no approval prompt and returns the user's choice.
-// ElicitationCoordinator.Confirm satisfies it, which is how the "ask" outcome
-// reuses the existing FIFO UI seam instead of introducing a second one. A nil
+// ElicitationCoordinator.Confirm satisfies it, so the "ask" outcome reuses
+// the existing FIFO UI seam instead of introducing a second one. A nil
 // AskFunc makes every ask resolve to a refusal (fail-closed).
 type AskFunc func(ctx context.Context, info ToolCallInfo) (bool, error)
 
 // ChooseFunc answers an ask with more than yes or no: it may approve part of
 // a call, such as some of an edit's hunks. It runs where the AskFunc would and
 // replaces it for any call it claims, so the user is still asked once. It does
-// its own presenting, which is why it is a separate seam rather than a richer
-// AskFunc: the gate cannot know what a "part" of an arbitrary call is.
+// its own presenting, because the gate cannot know what a "part" of an
+// arbitrary call is. So it is a separate seam rather than a richer AskFunc.
 type ChooseFunc func(ctx context.Context, info ToolCallInfo) (Choice, error)
 
 // Choice is a ChooseFunc's answer about one call.
@@ -274,9 +274,9 @@ func (t *TieredApproval) DefaultMode() ApprovalMode {
 // and continues the turn.
 //
 // It rewrites arguments only when a ChooseFunc narrows a call to the part the
-// user approved. Every other rewrite is left to earlier middleware, which is
-// what lets this one run last and still see exactly what will execute; the one
-// exception is the user's own answer, and what runs is what they chose.
+// user approved. Every other rewrite is left to earlier middleware, so this
+// one can run last and still see exactly what will execute. The one exception
+// is the user's own answer, and what runs is what they chose.
 func (t *TieredApproval) WrapToolCall(ctx context.Context, info ToolCallInfo, next ToolCallFunc) (*core.ToolResult, error) {
 	if t.classify != nil {
 		if c, ok := t.classify(ctx, info); ok {

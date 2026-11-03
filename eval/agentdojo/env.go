@@ -10,8 +10,8 @@
 // whose utility() inspects environment state before and after the run, an
 // injection task pairs a GOAL with a security() check, and the environments are
 // stateful Python objects whose tools mutate them. None of that exports as
-// data, so there is nothing to load. What is portable is the shape, and this
-// package rebuilds that shape in Go against mcpkit's own tools, the same way
+// data, so there is nothing to load. The shape still ports, so this package
+// rebuilds it in Go against mcpkit's own tools, the same way
 // longmemeval's SmokeScenarios borrows LongMemEval's categories without its
 // corpus.
 //

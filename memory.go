@@ -58,8 +58,7 @@ type MemoryStore interface {
 	// of relevance is the implementation's business — the substring default
 	// filters and returns Score 1, a semantic store ranks by embedding
 	// similarity, a pgvector backend does ANN — but the contract (ranked,
-	// scored, top-k) is the same, which is why recall never branches on the
-	// backend.
+	// scored, top-k) is the same, so recall never branches on the backend.
 	ListMemories(ctx context.Context, req ListMemoriesRequest) (ListMemoriesResponse, error)
 
 	// DeleteMemory removes an item by Key. Deleted reports whether a
@@ -98,9 +97,9 @@ type ListMemoriesResponse struct {
 }
 
 // ScoredMemory pairs a stored MemoryItem with its per-query relevance Score.
-// Score is a property of the QUERY, not of the stored fact (the same item
-// scores differently against different queries), which is why it lives here
-// on the result and not on MemoryItem — that keeps MemoryItem the durable,
+// Score is a property of the QUERY, not of the stored fact. The same item
+// scores differently against different queries. So Score lives here on the
+// result and not on MemoryItem, and MemoryItem stays the durable,
 // query-independent fact. Room to grow: a future ranking/reranker stage can
 // add per-signal provenance (similarity vs recency vs importance) here
 // without touching the store or the item.
@@ -108,7 +107,7 @@ type ListMemoriesResponse struct {
 // Direction is contractual and scale is not. Higher always means more
 // relevant, in every backend: the semantic stores report cosine similarity,
 // and the pgvector backend converts distance with 1 - (embedding <=> query)
-// specifically so it agrees. What differs is the range. A matching store (the
+// specifically so it agrees. The range varies by backend. A matching store (the
 // in-memory default, Redis) reports a flat 1 for every hit because it has no
 // graded notion of relevance, and every store reports 0 on the "list
 // everything" path where there is no query to rank against.

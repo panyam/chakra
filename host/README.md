@@ -137,8 +137,8 @@ covers servers that still use it.
 
 ## Input transforms
 
-An extension can rewrite what the user typed before the turn is built, which is
-where `@main.go` expanding to the file's contents would live:
+An extension can rewrite what the user typed before the turn is built. A
+transform that expands `@main.go` to the file's contents would live there:
 
 ```go
 func (e *Extension) InputTransforms() []host.InputTransform {
@@ -181,8 +181,8 @@ re-reads its skills, and the next load asks again. A skill whose files are
 
 `Config.SkillDirs` (or `WithSkillDirs`) adds folders of skills, each in
 `<folder>/<name>/SKILL.md`, to the same catalog. Each folder has a label that
-plays the part of a server id: it names the source in the catalog, it is what
-`load_skill`'s `server` argument takes when two sources share a skill name, and
+plays the part of a server id: it names the source in the catalog, it goes in
+`load_skill`'s `server` argument when two sources share a skill name, and
 it can't equal a configured server's id.
 
 - A skill whose frontmatter is malformed (no description, a name that isn't

@@ -177,8 +177,8 @@ func TestMiddlewareReportsATimeoutRatherThanStaleDiagnostics(t *testing.T) {
 }
 
 // TestStageInjectsCurrentDiagnosticsBeforeTheUser is the across-turn half. The
-// block is the live picture, which is why it goes in the transient phase and
-// never into history: "the file has these errors" stops being true the moment
+// block goes in the transient phase and never into history, because it shows
+// the live picture. "The file has these errors" stops being true the moment
 // one is fixed.
 func TestStageInjectsCurrentDiagnosticsBeforeTheUser(t *testing.T) {
 	root := workspace(t, map[string]string{"a.go": "package a\n"})

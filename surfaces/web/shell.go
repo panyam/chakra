@@ -73,8 +73,8 @@ func specFor(layout string) pageSpec {
 var shellTemplate = template.Must(template.New("shell").Parse(shellHTML))
 
 // shellHandler serves the server-rendered shell. The layout is chosen from the
-// ?layout= query (default dockview; mobile is the narrow-screen variant), which
-// is how the topbar's layout <select> switches surfaces. Non-root paths that
+// ?layout= query (default dockview; mobile is the narrow-screen variant), and
+// the topbar's layout <select> switches surfaces through it. Non-root paths that
 // fall through the mux 404 here.
 func shellHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {

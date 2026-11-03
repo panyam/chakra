@@ -20,10 +20,10 @@ import (
 //
 // Declared rather than detected, because capture happens BEFORE the call, when
 // the pre-state still exists. There is no filesystem watcher and no
-// after-the-fact diff. That is what keeps a checkpoint proportional to what a
-// turn touched instead of to the size of the tree, and it is also why a shell
-// command cannot be covered: what `make install` will touch is unknowable
-// until it has touched it.
+// after-the-fact diff. So a checkpoint grows with the files a turn touched,
+// not with the size of the tree. The same choice means a shell command cannot
+// be covered. Nobody can know which files `make install` will touch until it
+// has touched them.
 type WriteSpec struct {
 	// Tool is the tool name to intercept, as the model calls it.
 	Tool string

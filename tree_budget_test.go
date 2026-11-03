@@ -92,7 +92,7 @@ func TestTreeBudget_TokenCapAbortsTurn(t *testing.T) {
 // budget, the parent's step 1 (delegate) + the child's steps 2 & 3 exhaust it;
 // then the parent cannot continue either.
 func TestTreeBudget_SharedAcrossSubAgents(t *testing.T) {
-	// child spins forever if allowed; the shared budget is what stops it.
+	// child spins forever if allowed; the shared budget stops it.
 	childTurns := make([]StubTurn, 10)
 	for i := range childTurns {
 		childTurns[i] = spinTurn()

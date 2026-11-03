@@ -252,7 +252,7 @@ func (e *Extension) recheck(ctx context.Context, paths []string) string {
 }
 
 // injectDiagnostics weaves the current problem set in just before the user's
-// message, which is where the transient phase puts its most salient block.
+// message. The transient phase puts its most salient block there.
 //
 // It reports nothing when there is nothing wrong, rather than an explicit "no
 // problems". A clean tree is the normal state, and a block asserting it every

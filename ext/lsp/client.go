@@ -62,10 +62,10 @@ const (
 
 // documentSymbol is one entry of the file outline.
 //
-// Range covers the whole declaration and SelectionRange covers just the name,
-// which is the distinction that makes name-addressed navigation work: a
-// request aimed anywhere in a function body is ambiguous, while one aimed at
-// the identifier is what an editor would send with the cursor on it.
+// Range covers the whole declaration and SelectionRange covers just the name.
+// Name-addressed navigation needs that distinction. A request aimed anywhere
+// in a function body is ambiguous, while one aimed at the identifier matches
+// what an editor would send with the cursor on it.
 type documentSymbol struct {
 	Name           string           `json:"name"`
 	Kind           int              `json:"kind"`
@@ -97,9 +97,9 @@ type client struct {
 	open  map[string]int
 
 	// sent is the content hash last given to the server; answered is the hash
-	// the diagnostics we hold correspond to. They differ while a change is in
-	// flight, which is what tells "the server already agrees with us" apart
-	// from "the server has not replied yet".
+	// the diagnostics we hold correspond to. When the two match, the server
+	// already agrees with us. When they differ, a change is in flight and the
+	// server has not replied yet.
 	sent     map[string][32]byte
 	answered map[string][32]byte
 
@@ -185,10 +185,10 @@ func (c *client) initialize(ctx context.Context) error {
 		"capabilities": map[string]any{
 			// utf-8 first, so a server that negotiates gives us byte offsets
 			// and the conversion in offsetFor becomes a no-op. gopls declines
-			// and we get utf-16, which is why the conversion exists at all.
+			// and we get utf-16, so the conversion still has to exist.
 			"general": map[string]any{"positionEncodings": []string{"utf-8", "utf-16"}},
-			// Asking for progress is what lets refresh wait exactly as long as
-			// the server is working instead of guessing a quiet period.
+			// With progress reports, refresh can wait exactly as long as the
+			// server is working instead of guessing a quiet period.
 			"window": map[string]any{"workDoneProgress": true},
 			"textDocument": map[string]any{
 				"synchronization":    map[string]any{"didSave": true},
@@ -400,8 +400,8 @@ func (c *client) save(uri, text string) error {
 // point of the post-write report is to tell the model it broke something.
 //
 // So each publication restarts a settle timer and the last set wins. The
-// timeout still bounds the whole wait, which is what stops a server that
-// publishes continuously from holding a turn open.
+// timeout still bounds the whole wait, so a server that publishes
+// continuously cannot hold a turn open.
 //
 // A timeout with nothing published returns false rather than the diagnostics
 // we happen to be holding. Stale problems presented as the result of the edit
@@ -419,8 +419,8 @@ func (c *client) refresh(ctx context.Context, abs string, timeout time.Duration)
 	if !changed && c.hasAnswered(abs) {
 		// The server has this exact content and has already reported on it,
 		// so nothing further is coming and what we hold is current. Waiting
-		// would report a timeout for a file we can already answer about,
-		// which is what clangd does when handed content it already has.
+		// would report a timeout for a file we can already answer about.
+		// That happens with clangd when it is handed content it already has.
 		//
 		// Both halves are load-bearing. Unchanged content alone is not
 		// enough: right after a didOpen the server has the content and has

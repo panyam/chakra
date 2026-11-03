@@ -37,9 +37,8 @@ type AsyncAgentSourceConfig struct {
 	OnEvent func(SubAgentEvent)
 
 	// OnComplete is called on the child's goroutine when it finishes, with the
-	// sub-agent name, its result (nil on error), and any run error. Required —
-	// it is how the result rejoins the conversation: a host wires it to its
-	// injection seam (Ingest as a subagent.completed event), so the parent picks
+	// sub-agent name, its result (nil on error), and any run error. Required.
+	// A host wires it to its injection seam (Ingest as a subagent.completed event), so the parent picks
 	// the result up on a later turn. Without it the result is dropped.
 	OnComplete func(name string, result *TurnResult, err error)
 }

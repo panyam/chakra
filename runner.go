@@ -196,8 +196,8 @@ type RunnerConfig struct {
 	// TurnResult.Structured. It does so before the TurnEnd hooks, which judge
 	// the document, so a refusal re-runs the finalizing call on the next
 	// answer. Tools and a response schema are never sent in
-	// the same request (many endpoints forbid it), which is why this is a
-	// separate finalizing call rather than a field on the loop's requests.
+	// the same request (many endpoints forbid it), so the schema goes on a
+	// separate finalizing call rather than on the loop's requests.
 	// Empty means no structured coercion.
 	ResponseSchema core.RawJSON
 
@@ -751,7 +751,7 @@ func (m usageByModel) add(name string, u *Usage) {
 }
 
 // addDelta credits what a finalizing call added to the turn's usage to the
-// configured provider, which is the one that makes it.
+// configured provider, since that provider makes the call.
 func (m usageByModel) addDelta(before, after Usage) {
 	m.add("", &Usage{
 		InputTokens:       after.InputTokens - before.InputTokens,

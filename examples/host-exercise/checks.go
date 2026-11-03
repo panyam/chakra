@@ -43,8 +43,8 @@ var checks = []check{
 		cfg.Servers[0].Events = []host.EventConfig{{Name: demoEvent}}
 	}, checkEventHint},
 	{"agent-delegable", "the server's agent can be delegated to", nil, checkAgentDelegable},
-	// The workspace is this exercise's own folder, which is what a surface
-	// started in a repo would declare.
+	// The workspace is this exercise's own folder. A surface started in a repo
+	// would declare its own folder the same way.
 	{"roots", "a server asking roots/list sees the workspace roots", func(cfg *host.Config) {
 		cfg.Roots = []string{"."}
 	}, checkRoots},

@@ -303,7 +303,7 @@ func renderPatchApproval(args map[string]any) (string, bool) {
 }
 
 // writeTargetExists reports whether path names something write_file already
-// has on disk, which is what decides between a create and a replacement.
+// has on disk. The answer decides between a create and a replacement.
 //
 // The tools refuse a write to a directory with their own message, so a
 // directory is not what this answers: only a non-directory counts. A path that

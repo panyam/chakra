@@ -579,8 +579,8 @@ func (s *Source) write(args map[string]any) *core.ToolResult {
 // but a delete has no harmless mode, so it only removes content that still
 // hashes to what the caller read.
 //
-// Undo is ext/checkpoint's job. It snapshots the file before dispatch, which
-// is why surfaces declares delete_file with the same WriteSpec as the writes.
+// Undo is ext/checkpoint's job. It snapshots the file before dispatch, so
+// surfaces declares delete_file with the same WriteSpec as the writes.
 func (s *Source) delete(args map[string]any) *core.ToolResult {
 	path, ok := args["path"].(string)
 	if !ok || path == "" {
@@ -671,16 +671,16 @@ func parseHunks(raw any) ([]Hunk, error) {
 // to an os.Root method.
 //
 // It does not enforce containment and must not be relied on to: os.Root does
-// that, at open time, per component. What this adds is a readable refusal for
-// the two shapes a model actually produces by mistake, before any syscall.
+// that, at open time, per component. This adds a readable refusal, before any
+// syscall, for the two shapes a model actually produces by mistake.
 // Anything subtler, notably a symlink pointing out of the root, is caught by
 // the open itself.
 // resolve maps a caller-supplied path to the root that contains it and the
 // path relative to that root, refusing anything that falls outside every root.
 //
 // An absolute path is matched against each root in turn. A relative path
-// resolves against the primary root, which is what keeps a single-root
-// workspace behaving exactly as it did before there were several.
+// resolves against the primary root, so a single-root workspace behaves
+// exactly as it did before there were several.
 //
 // Matching is on the cleaned path text, which decides only WHICH root handle
 // to use. The handle then does the real containment work at open time, so a

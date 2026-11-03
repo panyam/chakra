@@ -22,7 +22,7 @@ unstaged together, with untracked files listed after it, since `git diff`
 leaves them out. With `base` it's the working tree against where HEAD forked
 from `base` (their merge base), so commits `base` gained since don't show up.
 With `commit` it's that one commit. `Source.Diff` returns the same text to Go
-callers, which is what review (#152) uses.
+callers, and review (#152) uses it.
 
 Every call runs `git` with the repository's pager, colour, external diff and
 textconv drivers and fsmonitor hook turned off, and pathspecs taken

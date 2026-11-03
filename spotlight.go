@@ -11,7 +11,7 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// Provenance labels where a tool's output came from, which is what decides
+// Provenance labels where a tool's output came from, and that origin decides
 // how much of a fence it needs. It replaces a trusted/untrusted bool because
 // that bit collapsed four situations whose right mitigation differs, leaving
 // only the choice between over-fencing the safe ones (which costs task
@@ -45,8 +45,8 @@ const (
 	// than "fetched": an extension's tools are in-process code, so they are
 	// not fetched from anywhere, and they are arbitrary in-process code, so
 	// the host has no standing to call them operator either. Both belong
-	// behind a fence and the fence has to describe both, which is why its
-	// wording says unvouched-for rather than fetched (issue 1273).
+	// behind a fence and the fence has to describe both, so its wording says
+	// unvouched-for rather than fetched (issue 1273).
 	ProvenanceWorld Provenance = "world"
 
 	// ProvenanceAgent is output produced by another agent in this tree. It

@@ -312,8 +312,8 @@ func (s *RunStore) ListRuns(ctx context.Context, req agent.ListRunsRequest) (age
 // read side is AccessShare), so appends to the source never wait on a
 // fork. Races don't need the transaction either — a racing append gets
 // a seq above every existing row, and the seq-ordered LIMIT copies a
-// deterministic prefix, so it lands cleanly after the cut. What the
-// transaction buys is the RunStore all-or-nothing contract: a crash
+// deterministic prefix, so it lands cleanly after the cut. The
+// transaction buys the RunStore all-or-nothing contract. A crash
 // mid-fork rolls back to nothing (no claim row over a partial copy for
 // a retry to trust), and two replicas retrying the same NewRunID
 // resolve to one complete fork plus one clean Created=false. The

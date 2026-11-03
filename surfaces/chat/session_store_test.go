@@ -10,8 +10,8 @@ import (
 )
 
 // The RunStore-spec mapping moved to agent/surfaces.RunStoreFromSpec; its
-// table + reopen tests live in agent/surfaces/runstore_test.go. What stays
-// here is the tool-result store mapping, which is agentchat-local.
+// table + reopen tests live in agent/surfaces/runstore_test.go. Only the
+// tool-result store mapping stays here, because it is agentchat-local.
 
 func TestBuildToolResultStoreSpecs(t *testing.T) {
 	// memory / empty -> nil (host uses its in-memory default)

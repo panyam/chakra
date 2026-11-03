@@ -13,8 +13,8 @@ import (
 // Transient HTTP failures from a model endpoint are retried before they
 // become a turn error: a 429 from a tokens-per-minute limit, an overloaded or
 // briefly unavailable server. The endpoint usually says how long to wait, and
-// waiting that long is what every vendor's own client does, so a turn doesn't
-// end over a five-second limit window (#203).
+// every vendor's own client waits that long, so a turn doesn't end over a
+// five-second limit window (#203).
 const (
 	// maxSendAttempts bounds one request: the first try plus five retries.
 	maxSendAttempts = 6

@@ -60,8 +60,8 @@ const (
 
 // CmdResult is the structured outcome of a command, rendered by the
 // surface (terminal today, a web client later) rather than printed by the
-// command. Only the fields for the result's Kind are set. Keeping command
-// output as data — not io.Writer prints — is what lets every surface reuse
+// command. Only the fields for the result's Kind are set. Commands return
+// data rather than printing to an io.Writer, so every surface can reuse
 // one command set (the web-version unlock; see the render-seam follow-up
 // issue 992, which folds these into the unified HostEvent stream).
 type CmdResult struct {

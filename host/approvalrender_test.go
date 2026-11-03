@@ -53,8 +53,9 @@ func TestRendererTextReachesTheAsk(t *testing.T) {
 	}
 }
 
-// TestDecliningFallsBackToTheDefault is what lets a renderer claim a subset
-// without reproducing the generic format for everything else.
+// TestDecliningFallsBackToTheDefault pins that a renderer returning false
+// gets the default prompt, so a renderer can claim a subset without
+// reproducing the generic format for everything else.
 func TestDecliningFallsBackToTheDefault(t *testing.T) {
 	a := appWith(t, rendererExt{name: "x", renderers: []ApprovalRenderer{
 		func(context.Context, agent.ToolCallInfo) (string, bool) { return "", false },

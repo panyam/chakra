@@ -11,8 +11,8 @@ import (
 // SuiteCase is one graded unit: a scenario to run and the scorers that grade
 // it.
 //
-// Scorers are per-case rather than per-suite because that is what an external
-// benchmark is. Every question in a memory benchmark has its own expected
+// Scorers are per-case rather than per-suite because an external benchmark
+// grades each case on its own. Every question in a memory benchmark has its own expected
 // answer, so a single scorer list shared across the suite can only express
 // properties that hold for every case ("did not error", "called a tool"),
 // never the ground truth that makes a benchmark a benchmark. The previous

@@ -48,8 +48,8 @@ type HostService struct {
 type SessionBuilder func(ctx context.Context, spec *webv1.ProviderSpec) (*host.App, error)
 
 // WithSessionBuilder makes CreateSession build each App with b from the
-// request's provider spec, instead of with the SessionManager's factory. This is
-// how a browser brings its own key: the server needs none of its own.
+// request's provider spec, instead of with the SessionManager's factory. With
+// it a browser brings its own key, and the server needs none of its own.
 func WithSessionBuilder(b SessionBuilder) Option {
 	return func(s *HostService) { s.build = b }
 }

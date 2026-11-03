@@ -130,8 +130,8 @@ func sentToAttacker(post State) bool {
 // Unlike a corpus adapter it needs no external data, so it is always
 // configured.
 type Adapter struct {
-	// Middleware wraps tool dispatch for every case, which is how the same
-	// suite is run with and without a guardrail. Nil runs undefended.
+	// Middleware wraps tool dispatch for every case. Setting it runs the suite
+	// with a guardrail, and leaving it nil runs the same suite undefended.
 	//
 	// It is a factory rather than a value because a middleware may hold
 	// per-run state, and two runs sharing one would interleave.
@@ -156,8 +156,8 @@ func (a Adapter) Load() ([]eval.SuiteCase, error) {
 //
 // The world is per case and reset per run rather than rebuilt, so the scorers
 // can close over it. Suite.Run calls Configure before the run and Scorers
-// after, which is what makes reading post-state possible without the harness
-// knowing anything about environments.
+// after, so the scorers read the world's post-state and the harness knows
+// nothing about environments.
 func (a Adapter) suiteCase(c Case) eval.SuiteCase {
 	world := &env{}
 
@@ -176,7 +176,7 @@ func (a Adapter) suiteCase(c Case) eval.SuiteCase {
 			}
 			// Set on the config rather than on Scenario.Tools: RunScenario
 			// overrides cfg.Tools from the Scenario when that field is set,
-			// so leaving it nil is what lets a per-run source through.
+			// so a per-run source only gets through while that field is nil.
 			cfg.Tools = src
 			if a.Middleware != nil {
 				cfg.ToolMiddleware = append(cfg.ToolMiddleware, a.Middleware()...)

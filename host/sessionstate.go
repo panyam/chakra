@@ -64,7 +64,7 @@ func (s *sessionState) currentRunID() string {
 }
 
 // rememberCursor records where the last /sessions page ended, so "more" can
-// advance. The store's cursor is opaque, which is why the host holds it.
+// advance. The store's cursor is opaque, so the host has to hold it.
 func (s *sessionState) rememberCursor(c string) {
 	s.cursorMu.Lock()
 	defer s.cursorMu.Unlock()
