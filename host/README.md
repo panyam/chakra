@@ -105,6 +105,36 @@ the plain ask is the fallback.
 A surface that only shows accept and decline answers such a form with no
 fields, and a chooser should read that as approving the whole call.
 
+## Sampling requests from servers
+
+A connected MCP server can ask the host's model for a completion
+(`sampling/createMessage`). The host only advertises that it can when the config
+turns it on:
+
+```json
+"sampling": {"enabled": true, "connection": "openai", "maxTokens": 1000, "reviewResponse": false}
+```
+
+Each request is put to the user through the same queue as approval asks, naming
+the server and showing its system prompt and messages, unless the approval mode
+is `allow`. A headless `agentchat exec` answers no. A declined request comes back
+to the server as an error and never reaches the model.
+
+- `connection` picks the model connection. Empty uses the session's chat
+  provider. The request's model preferences are hints and don't choose it.
+- `maxTokens` caps the reply, whatever the request asks for.
+- `reviewResponse` shows the reply before it goes back, so nothing the model
+  wrote reaches a server unseen.
+- Only text content is supported; a message with an image or audio is refused
+  with an error naming it.
+
+Each answered request posts a line with its token use and the session's running
+total. It isn't charged to a turn's tree budget, because the request arrives on
+the server's connection, outside any turn the host can attribute it to.
+
+Sampling is marked deprecated by SEP-2577 in mcpkit (removal deferred), so this
+covers servers that still use it.
+
 ## Input transforms
 
 An extension can rewrite what the user typed before the turn is built, which is

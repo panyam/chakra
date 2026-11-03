@@ -8,13 +8,6 @@ the same version.
 ## [Unreleased]
 
 ### Added
-- `RunnerConfig.ResponseGuided` and `TurnRequest.ResponseGuided` hold a turn's answer to a grammar, regex or JSON schema the server enforces. A step with no tools carries it on its own request; after a step with tools, one constrained call with no tools writes the answer and replaces the free draft in the record. Refused before any call when the provider can't send the kind asked for (#201).
-- `TurnEndInfo.Draft` and `TurnEndInfo.StructuredError` (#201).
-- `Consensus`: run a turn several times with seeds 0..n-1 and vote on a caller-supplied key, with the winner, the agreement, a split flag, and whether the draws were seeded at all. Draws share the Runner's tree budget and can run in parallel; events arrive as `DrawEvent` (#202).
-- `NewResponsesProvider`, a provider for OpenAI's Responses API. It chains tool steps with `previous_response_id` so a reasoning model keeps its reasoning between steps, and sends full history, reported through `ResponsesConfig.OnFullHistory`, when the history no longer matches a stored response (compaction, fork, resume, provider switch) (#157).
-- `Capabilities.Temperature`: whether a provider expects its model to take `ProviderRequest.Temperature`. True on `OpenAIProvider` unless `OpenAIConfig.NoTemperature` (OpenAI's reasoning models refuse one), false on `ResponsesProvider` unless `ResponsesConfig.Temperature`, false on `AnthropicProvider`. `FailoverProvider` intersects it and the wrappers pass it through. It only changes what is reported; a set Temperature is still forwarded (#191).
-- Host: `ConnectionConfig.Temperature` overrides that default per connection (#191).
-- Host: an `openai-responses` connection type, with `reasoningEffort`. Its full-history notices arrive as `session-warn` events (#157).
 - `StepView.Provider` and `StepView.ProviderName`: a request-scoped `StepStage` can send one model call to another provider, and name it. The next step starts back on `RunnerConfig.Provider`. A guided step checks the routed provider can send the constraint (#185).
 - `EventStep`, with `Event.Model` and `Event.Usage`: one per named step, after its deltas. Steps no stage names emit none (#185).
 - `TurnResult.UsageByModel`: the turn's usage split by step name, nil when no stage named a step (#185).
@@ -22,8 +15,30 @@ the same version.
 - agentweb: a model picker in the header beside the model label, listing the session's connections; `GetStatusResponse` gains `providers` and `active_provider` (#185).
 - Coding harness: `--route-to`, `--route-from` and `--route-model`, with tokens per model on the metrics line and in the parity table (#185).
 
-### Changed
-- **Breaking:** with `ResponseSchema` set, `TurnEnd` hooks now run after the finalizing call and judge the JSON document (`TurnEndInfo.Text`), with the prose answer on `TurnEndInfo.Draft` and validation errors on `TurnEndInfo.StructuredError`. Before, they judged the prose and the document was made only from an accepted answer. A refused answer now costs its finalizing call. `TurnResult.Text` is still the prose (#201).
+## [v0.2.3] - 2026-11-03
+
+### Added
+- Runner: `TurnEnd` hooks, a hook point when the model answers without calling a tool. A hook accepts the answer or refuses it with a note, and the loop takes another step. With `ResponseSchema` or `ResponseGuided` set, hooks judge the constrained answer, with the model's free answer on `TurnEndInfo.Draft` (PRs 188, 210).
+- Runner: `ResponseGuided` on `RunnerConfig` and `TurnRequest` holds a turn's answer to a grammar, regex or JSON schema the server enforces. A step with no tools carries it, and after a step with tools one constrained call with no tools writes the answer. `TurnEndInfo.Draft` and `TurnEndInfo.StructuredError` let hooks see the free answer and a document's validation errors (PR 210).
+- `Consensus` draws a turn several times with seeds 0..n-1 and votes on a key the caller supplies, reporting the winner, agreement, whether the vote split, and whether the draws were seeded at all. Draws share the Runner's tree budget and report events as `DrawEvent` (PR 211).
+- `NewResponsesProvider` for OpenAI's Responses API. It chains tool steps with `previous_response_id`, so a reasoning model keeps its reasoning between steps, and sends full history when the history no longer matches a stored response, saying why through `ResponsesConfig.OnFullHistory` (PR 198).
+- `Capabilities.Temperature`: whether a provider expects its model to take a temperature. True on `OpenAIProvider` unless `OpenAIConfig.NoTemperature`, false on `ResponsesProvider` unless `ResponsesConfig.Temperature`, and false on Anthropic. It's advisory, and a set temperature is still forwarded (PR 207).
+- `agent.PlanTool` (`update_plan`) and `EventPlan`, so a model can publish its plan and surfaces can show it. `host.NewPlanExtension()` and `"plan": true` in a workspace file turn it on (PRs 199, 206).
+- `agentchat exec`: one headless task with `--json`, `--output-schema`, `--output-last-message` and exit codes that tell failures apart. The Runner now validates a structured answer against its schema, retries once with the errors, and reports `TurnResult.StructuredError` (PR 189).
+- Host: `App.Submit` steers a running turn. Input sent mid-turn reaches the next model call, in agentweb, the TUI and notebook mode (PR 190).
+- Host: skills from local folders (`.agents/skills`, `.claude/skills`, `~/.agents/skills`) join the skill catalog beside MCP-served ones (PR 192).
+- Host: `Config.Roots` declares the workspace roots to MCP servers through `roots/list`, with `list_changed` from `App.SetRoots` on the session wire (PR 197).
+- Host: `openai-responses` connection type with `reasoningEffort`, and `ConnectionConfig.Temperature` to override the temperature default per connection. Full-history notices arrive as `session-warn` events (PRs 198, 207).
+- `ext/agentsmd` loads `AGENTS.md` and its relatives, with codex, claude and chakra presets (PR 183).
+- `ext/files`: `apply_patch`, a multi-file patch tool in the `*** Begin Patch` format (PR 193).
+- `ext/git`: read-only status, diffs against a base and log; opt-in commit, branch and worktree tools; a per-turn diff for `/diff`; and a review sub-agent that returns structured findings. The host gains `host.TurnEnder` and `host.SubAgentUser` (PRs 194, 196).
+- Surfaces show the loaded instruction files and name the model in the status line, and agentweb can serve the coding agent (PR 186).
+- `examples/terminal-bench`: chakra as a Harbor agent, `make tbench` and a side-by-side report against Codex (PR 204). `make coding-harness-parity` runs chakra over `openai-responses`, matching Codex's wire (PR 200).
+
+### Fixed
+- The OpenAI, Responses and Anthropic providers retry 429 and 5xx responses, waiting as long as the endpoint asks, instead of failing the turn on the first one (PR 208).
+- The static Linux `agentchat` carries fallback root certificates for containers that have none (PR 208).
+- With exec unconfined, the shell tool no longer offers escalation that headless `exec` would deny (PR 208).
 
 ## [v0.2.2] - 2026-11-03
 

@@ -391,6 +391,14 @@ func (r *ConnectionRegistry) Active() string {
 	return r.active
 }
 
+// ModelOf returns the model id the named connection is configured with, or
+// "" when it names none or no such connection exists.
+func (r *ConnectionRegistry) ModelOf(name string) string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.conns[name].Model
+}
+
 // ActiveModel returns the model id the active connection is configured
 // with, or "" when it names none.
 func (r *ConnectionRegistry) ActiveModel() string {

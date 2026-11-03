@@ -23,7 +23,8 @@ out, and this page gets updated in the same PR.
 Two things are deliberately not hooks. Forking and delegation are tools (a
 sub-agent is a `ToolSource`), so the model decides when they happen, which is
 what A8 asks for. Elicitation is a request/response seam (`ElicitationUI`), not
-an event, so it has its own path to the surfaces.
+an event, so it has its own path to the surfaces. A server's sampling request (`sampling/createMessage`) rides the same path:
+the user is asked through it, then the session's provider answers (`host/sampling.go`).
 
 ## A turn, end to end
 

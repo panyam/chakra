@@ -3,8 +3,8 @@ module github.com/panyam/chakra/examples/host-exercise
 go 1.26.9
 
 require (
-	github.com/panyam/chakra v0.2.2
-	github.com/panyam/chakra/host v0.2.2
+	github.com/panyam/chakra v0.2.3
+	github.com/panyam/chakra/host v0.2.3
 	github.com/panyam/mcpkit v0.8.15
 	github.com/panyam/mcpkit/experimental/ext/agents v0.8.15
 	github.com/panyam/mcpkit/experimental/ext/events v0.8.15

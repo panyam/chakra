@@ -143,6 +143,16 @@ type App struct {
 	// steer queues input sent while a turn runs; see Submit.
 	steer steerQueue
 
+	// confirm puts a yes/no question to the user through the same queue as
+	// approval asks and elicitations; sampling uses it.
+	confirm func(ctx context.Context, message string) (bool, error)
+
+	// chatProvider is the session's model, as the Runner sees it.
+	chatProvider agent.Provider
+
+	// sampling totals what servers' sampling requests have cost this session.
+	sampling samplingState
+
 	// stepStages are the extensions' before-each-model-call stages, in
 	// registration order, appended after the host's own.
 	stepStages []agent.StepStage
@@ -357,6 +367,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	// Elicitations broadcast to every surface via the event log and resolve on
 	// the first responder; the local UI is one responder (barrierElicit).
 	coord := agent.NewElicitationCoordinator(app.barrierElicit(elicUI))
+	app.confirm = coord.Confirm
 	for _, sc := range cfg.Servers {
 		app.skills.track(sc.ID)
 	}
@@ -433,6 +444,9 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 		}
 		if app.roots != nil {
 			copts = append(copts, client.WithRootsHandler(app.roots.list))
+		}
+		if cfg.Sampling != nil && cfg.Sampling.Enabled {
+			copts = append(copts, client.WithSamplingHandler(app.samplingHandler(sc.ID)))
 		}
 		authOpt, loginSrc, err := authOption(sc, o.browserOpener)
 		if err != nil {
@@ -648,6 +662,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 		transient: app.memoryStages(),
 	}
 
+	app.chatProvider = provider
 	runnerCfg := agent.RunnerConfig{
 		Provider:         provider,
 		Tools:            runnerTools,
