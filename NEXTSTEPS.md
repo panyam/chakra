@@ -5,17 +5,16 @@ Maintained by /checkpoint: one thread per branch, pruned when the branch merges.
 
 ## At a glance
 
-- Mission #162 (`mission_coding_harness`) is active, 20/28 tickets closed. `make coding-harness-exercise` (scripted) last passed 2026-11-03 at 7fe109d (#216), run with `-mod=mod` because of the stale mcpkit pins (see Across threads). Live, parity and Terminal-Bench have not run since #208. Next ready: #195 (P1).
+- Mission #162 (`mission_coding_harness`) is active, 20/28 tickets closed. `make coding-harness-exercise` (scripted) last passed 2026-11-03 at 7fe109d (#216). Live, parity and Terminal-Bench have not run since #208. Next ready: #195 (P1).
 - Mission #142 (`mission_api_v1`) is paused, not closed; its exercise is `make api-report` (#143).
 - main — mission #162 — next: pick #214 (no credits needed) or #195's credit pre-flight; the live runs wait on credits.
-- This run: dropped feat/step-routing-185 (PR #216 merged, mission log on #162); its routed live comparison moved into main's "Waiting on credits". Closed mission #172 (8/8; the rest is panyam/jaala#496).
+- This run: dropped feat/step-routing-185 (PR #216 merged, mission log on #162); its routed live comparison moved into main's "Waiting on credits". Closed mission #172 (8/8; the rest is panyam/jaala#496). Synced go.mod files to mcpkit v0.8.16 (fb9b8c6).
 
 ## Across threads
 
 - The checkout lives at `~/newstack/chakra/<branch>`; every go.mod replaces mcpkit with `../../mcpkit/main` (one more `../` per module depth). Worktrees go at `~/newstack/chakra/<name>`. See CLAUDE.md Traps and NOTES.md "Tracking mcpkit main".
 - `make host-exercise` needs no model; `make host-exercise-live` and `make dogfood-web` need one (`DOGFOOD_ACTIVE=deepseek` has been the working default). CI runs one client wire; run the host and root modules with `MCPKIT_CLIENT_MODE=stateless` too before trusting a change to server-sent data.
 - Live coding-harness runs, as of 2026-11-03: OpenAI returns `429 credit_balance_exhausted`, and DeepSeek fails the harness's structured finalize because it refuses `json_schema` (#215 item 1). Nothing live runs on the harness until one of those clears.
-- main's go.mod pins went stale on 2026-11-03: mcpkit main now requires v0.8.16, so `go run`/`go test` in a module stop at "go: updates to go.mod needed" until `make sync-mcpkit` (or tidy.yml's PR) lands. `-mod=mod` gets a one-off run through; put go.mod back afterwards.
 
 ## main
 
