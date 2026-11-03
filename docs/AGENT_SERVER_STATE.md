@@ -1,26 +1,28 @@
 # Agent server state: async, graceful-degrade connection
 
-Status: design agreed, phased implementation. Establishes the async graceful-degrade
-half of root `CONSTRAINTS.md` **C6** (MCP server lifecycle decoupled from the agent).
+Status: design agreed, phased implementation. Root `CONSTRAINTS.md` **C6** decouples the
+MCP server lifecycle from the agent. This doc establishes the async graceful-degrade half
+of C6.
 
 ## Problem
 
-`NewApp` today connects to every configured server synchronously and **fail-fast**:
-the loop in `host/app.go` does `client.NewClient(sc.URL)` + `c.Connect()`, and any
-connect error tears the App down and returns. One down / unreachable / needs-auth server
-aborts the whole agent boot. And because the system prompt is baked once (see below), a
-server that is absent at boot has no path to integrate when it later comes up.
+`NewApp` today connects to every configured server synchronously and **fail-fast**. The
+loop in `host/app.go` does `client.NewClient(sc.URL)` + `c.Connect()`, and any connect
+error tears the App down and returns. So one server that is down, unreachable or needs auth
+aborts the whole agent boot. The system prompt is also baked once (see below). So when a
+server is absent at boot and comes up later, it has no path to integrate.
 
 Every real MCP client (Claude Code, Cursor) boots regardless of individual server health and
 shows each server as `connected` / `failed` / `needs-login`. That is the target.
 
 ### Why eager skills are the hard part
 
-`RunnerConfig.Instructions` is documented as "the system prompt sent on every step"
-(`runner.go`), and it is assembled **once** in `NewApp` — `cfg.Instructions` plus each
-eager server's skill block appended at construction. The Runner replays that same system
-prompt on every step; it is never recomputed. So a server whose eager skills belong in the
-system prompt cannot integrate after boot without changing how the system prompt is produced.
+`runner.go` documents `RunnerConfig.Instructions` as "the system prompt sent on every
+step". `NewApp` assembles it **once**, at construction. It takes `cfg.Instructions` and
+appends each eager server's skill block. The Runner replays that same system prompt on
+every step and never recomputes it. Picture a server whose eager skills belong in the
+system prompt. It cannot integrate after boot unless the system prompt is produced
+differently.
 
 ## Goals
 
@@ -37,23 +39,25 @@ system prompt cannot integrate after boot without changing how the system prompt
 
 ## Decisions (locked)
 
-1. **Eager skills → dynamic system prompt.** `RunnerConfig` gains an `InstructionsFunc`
-   recomputed at the top of each turn; the host assembles `cfg.Instructions` + eager blocks
-   from the currently-`Ready` servers. Keeps eager in the top-level system prompt (full
-   authority) while tracking the Ready-set. Chosen over demoting eager to an injected
-   `RoleSystem` message because a dynamic system prompt is a generally useful primitive
-   (dynamic date/context, not just skills).
-2. **`client.Group` from the start.** The connection lifecycle (async connect, per-server
-   state, backoff reconnect) is client-layer — a script / dashboard / `cmd/testclient` would
-   want it, per the agent-vs-client layering rule — so it lives in `client/`, not the host.
-   The host consumes it and owns only the registration *reaction*.
+1. **Eager skills → dynamic system prompt.** `RunnerConfig` gains an `InstructionsFunc`,
+   recomputed at the top of each turn. The host uses it to assemble `cfg.Instructions` +
+   eager blocks from the currently-`Ready` servers. Eager skills remain in the top-level
+   system prompt with full authority, and the prompt tracks the Ready-set. The alternative
+   was to demote eager skills to an injected `RoleSystem` message. The dynamic system prompt
+   won because it is a generally useful primitive, for a dynamic date or context and not
+   only for skills.
+2. **`client.Group` from the start.** The connection lifecycle covers async connect,
+   per-server state and backoff reconnect. A script, a dashboard or `cmd/testclient` would
+   want it too. The agent-vs-client layering rule puts it in the client layer, so it lives
+   in `client/`, not the host. The host consumes it and owns only the registration
+   *reaction*.
 3. **Fail-fast escape is per-server `required`.** `required: true` blocks boot until that
-   server is `Ready` (bounded by a timeout → fail listing the laggards). Non-required servers
-   connect in the background and never block boot.
+   server is `Ready`. A timeout bounds the wait, and on timeout boot fails and lists the
+   laggards. Non-required servers connect in the background and never block boot.
 
 ## Core model — per-server state machine
 
-A `serverConn` per configured server: `{id, cfg, client, state, lastErr, srcHandle, retry}`.
+Each configured server gets a `serverConn`: `{id, cfg, client, state, lastErr, srcHandle, retry}`.
 
 ```
 Disabled                          (config off)
@@ -64,64 +68,70 @@ Failed/NeedsLogin → Connecting    (Group.Reconnect: wake backoff / un-park pos
 Ready      → Failed               (live connection dropped → de-register, retry)
 ```
 
-**`Group.Reconnect(id)` forces a stuck member to retry now** (issue 1095): a `Failed`
-member is looping in backoff and Reconnect short-circuits the sleep; a `NeedsLogin`
-member's `run` loop **parks on a buffered wake channel** (it does not return the goroutine)
-so a Reconnect after the user logs in resumes it with no relaunch-race. `Reconnect` is a
-no-op for `Ready` (live-drop reconnect is the client's own concern), `Connecting`, and
-unknown ids. The agentchat `/mcp` overlay's reconnect action and `/servers reconnect <name>`
-both route through `App.ReconnectServer` → this.
+**`Group.Reconnect(id)` forces a stuck member to retry now** (issue 1095). A `Failed`
+member is looping in backoff, and Reconnect cuts the sleep short. A `NeedsLogin` member's
+`run` loop **parks on a buffered wake channel** and does not return the goroutine. So when
+the user logs in, a Reconnect resumes it with no relaunch race. `Reconnect` is a no-op for
+`Ready`, since live-drop reconnect is the client's own concern. It is also a no-op for
+`Connecting` and for unknown ids. The agentchat `/mcp` overlay's reconnect action routes
+through `App.ReconnectServer` to `Reconnect`, and so does `/servers reconnect <name>`.
 
-**Login re-runs the flow (issues 1116/907).** A server configured with the interactive
-authorization-code auth type (`"auth": {"type": "oauth"}`) carries an `ext/auth.OAuthTokenSource`.
-When it hits `NeedsLogin`, the overlay's login action (or `/servers login <name>`) calls
-`App.LoginServer(id)` = drop the cached token (`OAuthTokenSource.Invalidate`) + `ReconnectServer(id)`,
-so the next connect re-runs the PKCE browser flow as a *fresh* login (distinct from plain
-reconnect, which may reuse a cached token). Only oauth-typed servers are loginable; the
-server status carries a host-layer `CanLogin` flag so a surface knows when to offer it.
+**Login re-runs the flow (issues 1116/907).** Some servers are configured with the
+interactive authorization-code auth type (`"auth": {"type": "oauth"}`), and each of them
+carries an `ext/auth.OAuthTokenSource`. When one hits `NeedsLogin`, the overlay's login
+action calls `App.LoginServer(id)`, and so does `/servers login <name>`. `LoginServer`
+drops the cached token (`OAuthTokenSource.Invalidate`) and then calls
+`ReconnectServer(id)`. So the next connect re-runs the PKCE browser flow as a *fresh*
+login. A plain reconnect differs, because it may reuse a cached token. Only oauth-typed
+servers are loginable. The server status carries a host-layer `CanLogin` flag, so a
+surface knows when to offer login.
 
 Each transition emits a **`HostServerStateChanged`** event so surfaces update live. On
-`→ Ready`: `multi.Add(id, src)`, register that server's catalog skills + `load_skill`,
-`startEventStreams` for it, and (phase 2) recompute the eager system-prompt block.
+`→ Ready` the host calls `multi.Add(id, src)`, registers that server's catalog skills +
+`load_skill`, and calls `startEventStreams` for it. In phase 2 it also recomputes the eager
+system-prompt block.
 
-**On `→ Failed` (server drops mid-conversation): keep the tool defs, fail calls
-gracefully.** The tool set does not shrink mid-turn — the model keeps seeing the tools it
-knew about, so it is not surprised. Calls that land while the server is down are handled
-below.
+**When a server drops mid-conversation (`→ Failed`), the host keeps the tool defs and
+fails calls gracefully.** The tool set does not shrink mid-turn. The model still sees the
+tools it knew about, so nothing surprises it. The next section covers calls made while the
+server is down.
 
 ## Tool calls to a non-Ready server (SHIPPED, reactive)
 
-Because tool defs stay registered, the model can call a tool whose server is unreachable.
-The implementation is **reactive**, not a proactive pre-call gate — and deliberately so:
+Tool defs remain registered, so the model can call a tool on an unreachable server. The
+implementation is **reactive**, not a proactive pre-call gate, and that is deliberate.
 `client.Client` **auto-reconnects transparently** (`retryWithReconnect`) and exposes no
-disconnect signal, so a live drop is not cleanly observable before a call. A blip heals
-itself; only a persistent failure surfaces, and it surfaces exactly where it matters — when
-a call is actually made.
+disconnect signal. So the host can't cleanly observe a live drop before a call. A blip
+heals itself. Only a persistent failure surfaces, and it surfaces at the point that
+matters, when a call is actually made.
 
-- **Model-visible miss.** Each server's source is wrapped by `availabilitySource` (in the
-  host). When a call returns a **transient (network-level) error** — the client tried to
-  reconnect and could not — the wrapper maps it to **`agent.ErrNotAvailableNow`** with a
+- **Model-visible miss.** The host wraps each server's source in `availabilitySource`.
+  Suppose a call returns a **transient (network-level) error**, meaning the client tried to
+  reconnect and could not. The wrapper maps it to **`agent.ErrNotAvailableNow`**, with a
   message naming the server and tool ("tool `create_issue` is temporarily unavailable —
   server `atlassian` is not reachable right now; retry, use another approach, or tell the
-  user"). The Runner recognizes the sentinel, emits a distinct **`EventToolUnavailable`**
-  carrying `Reason` (NOT `Error`, so error-keyed eval scorers don't miscount — the same care
-  as `EventToolDenied` / `EventToolCancelled`), and feeds the message back. The turn
-  continues; the model adapts. Same "non-fatal tool outcome → model-visible → continue"
-  family as approval-denial and cancellation. A tool that *ran* and failed (`IsError` result)
-  or a server-side JSON-RPC / 4xx error is not transient and falls through unchanged.
+  user"). The Runner recognizes the sentinel and emits a distinct
+  **`EventToolUnavailable`**. The event carries `Reason`, NOT `Error`, so error-keyed eval
+  scorers don't miscount. `EventToolDenied` and `EventToolCancelled` take the same care.
+  The Runner then feeds the message back. The turn continues, and the model adapts.
+  Approval-denial and cancellation belong to the same "non-fatal tool outcome →
+  model-visible → continue" family. Two kinds of error are not transient and pass through
+  unchanged. One is a tool that *ran* and failed (an `IsError` result). The other is a
+  server-side JSON-RPC / 4xx error.
 
-**Rejected:** blocking the turn indefinitely (queue-and-wait) — it couples turn latency to
-reconnect timing and hangs on servers that may never come up.
+**Blocking the turn indefinitely (queue-and-wait) was rejected.** It couples turn latency
+to reconnect timing, and it hangs on servers that may never come up.
 
-**Deferred (not needed yet):** a proactive health poll that marks a server down *before* a
-call hits it (so `/servers` reflects a drop eagerly) and the bounded-wait-for-`Connecting`
-window. These compose additively on top of the reactive path — a `Group` health-poll option
-would feed the same status + retry, and the `availabilitySource` stays as-is.
+**Two things are deferred, since nothing needs them yet.** One is a proactive health poll
+that marks a server down *before* a call hits it, so `/servers` shows a drop eagerly. The
+other is the bounded-wait-for-`Connecting` window. Both compose additively on top of the
+reactive path. A `Group` health-poll option would feed the same status + retry, and
+`availabilitySource` would not change.
 
 ## `client.Group` (client-layer primitive)
 
-Holds N clients, connects them concurrently, exposes per-connection state and a change
-stream, and runs backoff reconnect. Sketch:
+`client.Group` holds N clients and connects them concurrently. It exposes per-connection
+state and a change stream, and runs backoff reconnect. Here is a sketch.
 
 ```go
 type ConnState int // Connecting, Ready, Failed, NeedsLogin, Disabled
@@ -137,8 +147,8 @@ func (g *Group) Events() <-chan StateChange             // Ready/Failed/... tran
 func (g *Group) Close() error
 ```
 
-`WaitRequired` is what `NewApp` blocks on for required servers; optional servers keep
-connecting in the background while the agent is already usable.
+`NewApp` blocks on `WaitRequired` for required servers. Optional servers keep connecting in
+the background while the agent is already usable.
 
 ## Dynamic system prompt (`RunnerConfig.InstructionsFunc`)
 
@@ -150,43 +160,46 @@ connecting in the background while the agent is already usable.
 InstructionsFunc func(context.Context) string
 ```
 
-Recomputed **per turn** (not per step) so the prompt is stable within a turn and the
-provider cache only breaks when the value actually changes (i.e. when the Ready-set
-changes — rare after startup). The host sets it to assemble `cfg.Instructions` + the eager
-blocks of currently-`Ready` servers.
+It is recomputed **per turn**, not per step. So the prompt is stable within a turn, and
+the provider cache breaks only when the value actually changes. That happens when the
+Ready-set changes, which is rare after startup. The host sets it to assemble
+`cfg.Instructions` + the eager blocks of currently-`Ready` servers.
 
 ## Status surface
 
 - **`/servers`** command → a `CmdServers` result (id, url, state, tool count, skills,
   lastErr), rendered like Claude Code's server list.
-- Status line gains a `servers N/M` counter (reuses the status-line machinery from the
-  #1074 work).
+- The status line gains a `servers N/M` counter, built on the status-line machinery from
+  the #1074 work.
 - `HostServerStateChanged` drives live updates on both surfaces.
 
 ## Reconnect & auth
 
-- Backoff retry per `serverConn` for never-connected / failed servers (the client already
-  reconnects a *live* dropped connection; initial-failure retry is the new part).
-- `NeedsLogin` is terminal-until-user-acts — surface it, don't retry-hammer. Phase 3 adds a
-  `/login <server>` that drives the ext/auth OAuth flow.
+- Each `serverConn` retries with backoff when its server never connected or failed. The
+  client already reconnects a *live* dropped connection, so initial-failure retry is the
+  new part.
+- `NeedsLogin` is terminal until the user acts. Surface it, and don't hammer it with
+  retries. Phase 3 adds a `/login <server>` that drives the ext/auth OAuth flow.
 
 ## Phasing
 
 1. **Async connect + state + `/servers` + graceful boot + per-server `required`.** SHIPPED
-   (`client.Group`). Flips C6's noted target toward done.
-2. **Seamless late integration.** SHIPPED. `RunnerConfig.InstructionsFunc` + host recompute of
-   eager/catalog blocks from the ready-set (skills), ready-observer subscription (events), and
-   the reactive `ErrNotAvailableNow` miss for a call to an unreachable server. A returning
-   server wires its tools/skills/events back in with no restart.
+   (`client.Group`). It moves C6's noted target toward done.
+2. **Seamless late integration.** SHIPPED. It added `RunnerConfig.InstructionsFunc`, and
+   the host now recomputes eager/catalog blocks from the ready-set for skills. Events use a
+   ready-observer subscription. A call to an unreachable server gets the reactive
+   `ErrNotAvailableNow` miss. A returning server wires its tools/skills/events back in with
+   no restart.
 3. **Interactive re-auth** (`NeedsLogin` → `/login`). Not started.
 
-Deferred (additive, not blocking): a proactive `Group` health poll (eager `/servers`
-drop status + bounded-wait-for-`Connecting`); `SystemPromptBuilder` (issue 1091).
+Two additive items are deferred, and neither blocks anything. One is a proactive `Group`
+health poll, for eager `/servers` drop status and bounded-wait-for-`Connecting`. The other
+is `SystemPromptBuilder` (issue 1091).
 
 ## Resolved
 
-- **`WaitRequired` timeout: default 30s.** `0` = wait indefinitely, for the "hang until this
-  server is up, however long it takes" case; a non-zero value fails with the required servers
-  that didn't reach `Ready` in time.
-- **A `Ready` server that drops keeps its tool defs; calls fail gracefully** (see the tool-call
-  section above) rather than shrinking the tool set mid-turn.
+- **`WaitRequired` times out after 30s by default.** `0` waits indefinitely, for the "hang
+  until this server is up, however long it takes" case. A non-zero value fails and names
+  the required servers that didn't reach `Ready` in time.
+- **When a `Ready` server drops, it keeps its tool defs, and calls fail gracefully.** The
+  tool set doesn't shrink mid-turn. The tool-call section above covers this.

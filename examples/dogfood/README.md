@@ -1,17 +1,18 @@
 # dogfood
 
-The exercise for the dogfood mission (issue 57): agentchat working as a coding
-agent on this repository. It finds code, edits it, runs the tests, reads the
-failures and fixes them, with `/undo` available if a change goes wrong.
+This is the exercise for the dogfood mission (issue 57). In it, agentchat works
+as a coding agent on this repository. It finds code, edits it, runs the tests,
+reads the failures and fixes them, with `/undo` available if a change goes
+wrong.
 
 ```bash
 make dogfood-web DOGFOOD_ACTIVE=deepseek   # then open http://localhost:8090/
 ```
 
-The browser is where the exercise runs for now. `make dogfood` runs the same
-setup in the agentchat TUI, which is parked: it hangs on parallel tool calls
-and drops keystrokes (issue 66). `DOGFOOD_UI=plain` gets a line-based
-agentchat if you want a terminal anyway.
+For now the exercise runs in the browser. `make dogfood` runs the same setup in
+the agentchat TUI, but the TUI is parked. It hangs on parallel tool calls and
+drops keystrokes (issue 66). `DOGFOOD_UI=plain` gets a line-based agentchat if
+you want a terminal anyway.
 
 ## What you need
 
@@ -29,15 +30,16 @@ agentchat if you want a terminal anyway.
 
 ## What is in the files
 
-- `config.json` holds the host settings: instructions, connections, a step
-  budget, offloading, and `read-only-auto` approval. Offloading stores any
-  result over 16 KiB and hands the model a stub. So when a long test run
-  fails, the model still sees all of it, by grepping the stored copy with
-  `read_tool_result`. The store is in memory, so a resumed session's stubs
-  point at nothing. `maxSteps` is 40 because a coding
-  turn reads, edits, runs a test, reads the failure and fixes it, and the
-  agent's default of 8 ran out halfway through that on the first run. Under that mode reads, searches and the test, vet
-  and build commands run without asking, while edits and writes ask.
+- `config.json` holds the host settings. Those are the instructions, the
+  connections, a step budget, offloading, and `read-only-auto` approval.
+  Offloading stores any result over 16 KiB and hands the model a stub. So when
+  a long test run fails, the model still sees all of it, by grepping the stored
+  copy with `read_tool_result`. The store is in memory, so a resumed session's
+  stubs point at nothing. A coding turn reads, edits, runs a test, reads the
+  failure and fixes it. The agent's default of 8 steps ran out halfway through
+  that on the first run, so `maxSteps` is 40. Under `read-only-auto`, reads,
+  searches and the test, vet and build commands run without asking. Edits and
+  writes ask.
 - `workspace.json` holds what the CLI flags cannot express. That is the exec
   allowlist (`run_test`, `run_test_one`, `run_test_all`, `run_vet`,
   `run_build`), gopls, and the repo map. The model picks one of those tools and
@@ -45,14 +47,13 @@ agentchat if you want a terminal anyway.
   `run_test_one`, but it can never compose a command line.
 
 The workspace root is the repo itself, from `--workspace`. Checkpoints and
-sessions live under `~/.agentchat/dogfood` (override with `DOGFOOD_DIR`) so
+sessions live under `~/.agentchat/dogfood` (override with `DOGFOOD_DIR`), so
 they sit outside anything the agent can edit.
 
-That store persists, and agentweb's default session resumes from it, so a
-second run starts with the first run's turns in context. That's what you want
-when using it, and not what you want for a repeatable exercise. For a clean run,
-give each one its own directory, which starts both the session and the
-checkpoints empty:
+That store persists, and agentweb's default session resumes from it. So a
+second run starts with the first run's turns in context. You want that when
+using the agent, but not for a repeatable exercise. For a clean run, give each
+run its own directory. Both the session and the checkpoints then start empty:
 
 ```bash
 make dogfood-web DOGFOOD_DIR=$(mktemp -d)

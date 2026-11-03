@@ -1,14 +1,15 @@
 # agent-async
 
-An agent managing its own asynchronous work **through conversation**, not
-config: it subscribes to an event stream, installs a standing "when X happens,
-do Y" trigger, runs a task tool, and is later woken by the event to act. The
-control is all host meta-tools (`subscribe_events`, `create_trigger`,
-`list_tasks`, ...) the model calls like any other tool.
+An agent manages its own asynchronous work **through conversation**, not
+config. It subscribes to an event stream, installs a standing "when X happens,
+do Y" trigger and runs a task tool. Later the event wakes it and it acts. All
+of the control goes through host meta-tools (`subscribe_events`,
+`create_trigger`, `list_tasks`, ...), and the model calls them like any other
+tool.
 
-This is the agent module's scriptable-loop story: the whole flow runs
-deterministically against a scripted `StubProvider` — no LLM, no network — so
-it is both a runnable demo and a golden-transcript test.
+This example shows the agent module's scriptable loop. The whole flow runs
+deterministically against a scripted `StubProvider`, with no LLM and no
+network. So the example is both a runnable demo and a golden-transcript test.
 
 ## Run it
 
@@ -20,9 +21,9 @@ just demo qwen2.5-7b-instruct   # a live model improvising against the same serv
 
 ## One config, three surfaces
 
-`config.json` is the single host config both live surfaces load — the CLI
-(`agentchat`) and the browser (`agentweb`). Start the demo MCP server, then
-point either surface at it:
+Both live surfaces load the single host config `config.json`. One surface is
+the CLI (`agentchat`) and the other is the browser (`agentweb`). Start the demo
+MCP server, then point either surface at it:
 
 ```bash
 just serve   # the app-domain MCP server (events + tasks + send_email) on :8788
@@ -30,10 +31,10 @@ just chat    # agentchat CLI against config.json (another terminal)
 just web     # agentweb browser surface against config.json (another terminal)
 ```
 
-`config.json` carries the model connection, `metaTools`, and the server. The
-one piece it cannot hold is the scripted `StubProvider` that makes `just agent`
-deterministic, so `runScenario` loads the same `config.json` and only overrides
-the server URL to the in-process test server and injects the stub. The live
+`config.json` holds the model connection, `metaTools`, and the server. It
+cannot hold the scripted `StubProvider`, and `just agent` needs that stub to
+be deterministic. So `runScenario` loads the same `config.json`, points the
+server URL at the in-process test server, and injects the stub. The live
 surfaces use the config verbatim.
 
 ## What happens
@@ -52,21 +53,23 @@ The quarterly report is ready — 42 pages.
 Welcomed ada@example.com.
 ```
 
-The model set up the standing behavior in the first turn; when `user.created`
-fired later, the trigger woke the agent and it emailed the new user — no code
+The model set up the standing behavior in the first turn. Later `user.created`
+fired, the trigger woke the agent, and the agent emailed the new user. No code
 path was hardcoded for that.
 
 ## How it's built
 
-- `scenario.go` — the app-domain MCP server (`user.created` events, `send_email`,
-  a task-backed `long_report`), the scripted model turns, and `runScenario`
-  wiring the reusable host (`host`) to it.
-- `main.go` — dual-mode entry (stub vs `--model`) plus a concurrency-safe
-  transcript writer (the proactive trigger turn writes from the event goroutine).
+- `scenario.go` holds the app-domain MCP server (`user.created` events,
+  `send_email`, a task-backed `long_report`), the scripted model turns, and
+  `runScenario`. `runScenario` wires the reusable host (`host`) to the server.
+- `main.go` is a dual-mode entry (stub vs `--model`). It also has a
+  concurrency-safe transcript writer, because the proactive trigger turn
+  writes from the event goroutine.
 
-The host is `github.com/panyam/chakra/host` — the same App that backs the
-agentchat CLI, imported here to drive it programmatically.
+The host is `github.com/panyam/chakra/host`. The agentchat CLI runs on the same
+App, and this example imports the host to drive that App programmatically.
 
-Background-detach on genuinely long tasks (the task runs past its grace window
-and notifies via a `task.completed` event) is exercised in the agentchat
-tests; here the report finishes fast to keep the demo deterministic.
+On a genuinely long task, the task runs past its grace window, detaches into
+the background, and notifies via a `task.completed` event. The agentchat tests
+exercise that path. Here the report finishes fast to keep the demo
+deterministic.

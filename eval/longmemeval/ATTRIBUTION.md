@@ -1,17 +1,17 @@
 # Attribution
 
-The scenarios in this package are **hand-authored** by the mcpkit project, in
-the spirit of and adapting the task categories from **LongMemEval**:
+The mcpkit project **hand-authored** the scenarios in this package. They adapt
+the task categories from **LongMemEval**, in its spirit:
 
 > LongMemEval: Benchmarking Chat Assistants on Long-Term Interactive Memory.
 > https://github.com/xiaowu0162/LongMemEval
 
-We borrow the *shape* of the benchmark — the five skill categories
-(information extraction, multi-session reasoning, knowledge updates, temporal
-reasoning, abstention) — and grade with our own `eval` harness, which is
-the differentiator. We do **not** vendor the LongMemEval dataset: the cases in
-`cases.go` are original, short scenarios written to exercise the same skills
-against mcpkit's working-memory tools.
+We borrow the *shape* of the benchmark, meaning its five skill categories:
+information extraction, multi-session reasoning, knowledge updates, temporal
+reasoning and abstention. We grade with our own `eval` harness, and that
+harness is the differentiator. We do **not** vendor the LongMemEval dataset.
+The cases in `cases.go` are original, short scenarios. They exercise the same
+skills against mcpkit's working-memory tools.
 
 `SmokeScenarios()` is deliberately a coarse regression signal, not a
 published-comparable score.
@@ -19,7 +19,7 @@ published-comparable score.
 ## The dataset loader
 
 `DatasetAdapter` reads the **actual** released corpus and adapts each question
-into an `eval.Scenario`. The data is **not vendored**: point
+into an `eval.Scenario`. The data is **not vendored**. Point
 `LONGMEMEVAL_DATA_PATH` at a downloaded file, the same way the conformance
 suites point at an external checkout via `MCPCONFORMANCE_*_PATH`.
 
@@ -34,17 +34,18 @@ export LONGMEMEVAL_LIMIT=20          # a full pass is 500 x ~115k tokens
 go test -tags eval_llm ./eval/longmemeval/ -run TestLive -v
 ```
 
-**Two modes, measuring different systems, not comparable to each other.**
-The default puts each haystack session into a `MemoryStore` and grades whether
-the agent retrieves the right one, which is the stack this repo ships and the
-only mode a small-context model can compete in. `LongContext: true` seeds every
-session into the conversation instead. Published baselines mostly report this
-mode. When a haystack exceeds the model's window, it fails rather than scores.
+There are **two modes**. They measure different systems, so their numbers
+can't be compared with each other. The default mode puts each haystack session
+into a `MemoryStore` and grades whether the agent retrieves the right one. This
+repo ships that stack, and a small-context model can only compete in this mode.
+`LongContext: true` seeds every session into the conversation instead.
+Published baselines mostly report this mode. When a haystack exceeds the
+model's window, the case fails rather than scores.
 
 Numbers from either mode are ours, not the benchmark authors'. Any comparison
 to published results should say which mode produced it.
 
-The companion sibling benchmarks named in issue 974 — BFCL relevance
-detection (exercises the approval gate via `NotDenied`) and tau-bench user
-simulation (exercises the elicitation / MRTR input loop) — are separate
-follow-ups and are not adapted here.
+Issue 974 also names two sibling benchmarks. BFCL relevance detection would
+exercise the approval gate via `NotDenied`, and tau-bench user simulation would
+exercise the elicitation / MRTR input loop. Both are separate follow-ups and
+are not adapted here.

@@ -1,14 +1,14 @@
 # Terminal-Bench
 
-Mission #162's comparison against Codex (and later Claude Code) on a public benchmark (#195):
-[Terminal-Bench 2](https://github.com/harbor-framework/terminal-bench-2), run by
-[Harbor](https://github.com/harbor-framework/harbor), its official harness. Every agent runs under
-the same harness on the same tasks, graded by tests it never sees.
+Mission #162's comparison against Codex (and later Claude Code) on a public benchmark (#195). The
+benchmark is [Terminal-Bench 2](https://github.com/harbor-framework/terminal-bench-2), and its
+official harness [Harbor](https://github.com/harbor-framework/harbor) runs it. Every agent runs
+under the same harness on the same tasks. Tests grade each run, and the agent never sees them.
 
 `chakra_agent.py` adds chakra as a Harbor installed agent. Harbor copies a static Linux build of
 `agentchat` into the task container and runs `agentchat exec` there. The container is the sandbox,
-so chakra runs with approvals off and its exec sandbox unconfined, which matches how Harbor runs
-Codex (`--dangerously-bypass-approvals-and-sandbox`). Codex and Claude Code are Harbor's built-in
+so chakra runs with approvals off and its exec sandbox unconfined. Harbor runs Codex the same way
+(`--dangerously-bypass-approvals-and-sandbox`). Codex and Claude Code are Harbor's built-in
 agents.
 
 ```
@@ -38,9 +38,9 @@ The task images are amd64 only, so on Apple Silicon they run under emulation, an
 builds `agentchat` for amd64 to match.
 
 Chakra's turn is capped at 400 model calls, so the task's time budget ends a run, as it does for
-Codex; chakra's default cap of 8 would end most tasks early. The adapter reads token usage, steps,
-tool calls and denied asks from the JSON lines `agentchat exec --json` writes, so they show up in
-Harbor's results next to the other agents'.
+Codex. Chakra's default cap of 8 would end most tasks early. `agentchat exec --json` writes JSON
+lines, and the adapter reads token usage, steps, tool calls and denied asks from them. So those
+numbers show up in Harbor's results next to the other agents'.
 
 Things that bit the first runs (2026-11):
 
