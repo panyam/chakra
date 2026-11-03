@@ -7,6 +7,4 @@ package main
 // this map is empty.
 //
 // Live runs are not held to this list; they print the same table to compare.
-var expectedFailures = map[string]string{
-	"plan_published": "#148",
-}
+var expectedFailures = map[string]string{}

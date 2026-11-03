@@ -109,3 +109,14 @@ func TestAHostMessageStartsItsOwnLine(t *testing.T) {
 		t.Errorf("rendered %q", got)
 	}
 }
+
+// A plan renders as a checklist under the model's line, whatever was mid-line.
+func TestAPlanRendersAsAChecklist(t *testing.T) {
+	var b strings.Builder
+	r := newRenderer(&b, false)
+	r.handle(agent.Event{Kind: agent.EventTextDelta, Text: "starting"})
+	r.handle(agent.Event{Kind: agent.EventPlan, Plan: &agent.Plan{Steps: []agent.PlanStep{{Step: "read", Status: agent.PlanCompleted}, {Step: "fix", Status: agent.PlanInProgress}, {Step: "test", Status: agent.PlanPending}}}})
+	if got := b.String(); got != "starting\nplan:\n  [x] read\n  [~] fix\n  [ ] test\n" {
+		t.Errorf("rendered %q", got)
+	}
+}

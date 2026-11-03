@@ -863,6 +863,10 @@ func (r *Runner) dispatch(ctx context.Context, step int, calls []ToolCall, tools
 					cancel()
 				}()
 			}
+			callCtx = withToolEmit(callCtx, func(ev Event) {
+				ev.Step = step
+				locked(ev)
+			})
 			toolCtx, toolSpan := r.cfg.TracerProvider.StartSpan(callCtx, "agent.tool",
 				core.Attribute{Key: "agent.tool.name", Value: call.Name})
 			locked(Event{Kind: EventToolBegin, Step: step, ToolCall: &call})

@@ -89,6 +89,12 @@ func (r *renderer) handle(e agent.Event) {
 		fmt.Fprintf(r.out, "%s\n", r.dim("  ⊘ "+e.ToolCall.Name+" unavailable: "+snippet(e.Reason, 120)))
 	case agent.EventSignal:
 		fmt.Fprintf(r.out, "%s\n", r.dim("  ▲ signal "+string(e.Signal.Kind)+" from "+e.Signal.Source+": "+snippet(e.Signal.Note, 120)))
+	case agent.EventPlan:
+		r.breakLine()
+		fmt.Fprintf(r.out, "%s\n", r.dim("plan:"))
+		for _, l := range strings.Split(strings.TrimRight(e.Plan.String(), "\n"), "\n") {
+			fmt.Fprintf(r.out, "%s\n", r.dim("  "+l))
+		}
 	case agent.EventTurnContinued:
 		r.breakLine()
 		fmt.Fprintf(r.out, "%s\n", r.dim("  ↻ not done yet: "+snippet(e.Reason, 120)))
