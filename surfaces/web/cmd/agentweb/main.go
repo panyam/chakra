@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/ext/agentsmd"
 	"github.com/panyam/chakra/host"
 	agentsurfaces "github.com/panyam/chakra/surfaces"
 	web "github.com/panyam/chakra/surfaces/web"
@@ -42,6 +43,7 @@ func main() {
 	sessionStore := flag.String("session-store", "", "session persistence backend: memory | sqlite://path.db | redis://host:port | postgres://user:pass@host:port/db (empty = off, sessions live only in memory)")
 	var workspace repeatedPath
 	flag.Var(&workspace, "workspace", "expose file tools (read/edit/write/list/search) confined to these directories, plus checkpoint /undo. Repeatable: a session that spans repositories passes each one. The first is primary (empty = off; there is no default directory on purpose)")
+	instructions := flag.String("instructions", "", "with --workspace, how AGENTS.md and the like load: chakra, codex, claude, or off (default: the workspace config's \"instructions\", else chakra)")
 	workspaceConfig := flag.String("workspace-config", "", "with --workspace, a JSON file adding the exec allowlist (commands the agent may run, sandboxed), language servers, and the repo map. See examples/dogfood/workspace.json")
 	noCheckpoint := flag.Bool("no-checkpoint", false, "with --workspace, skip the file snapshot taken before each write, disabling /undo and /checkpoints")
 	checkpointStore := flag.String("checkpoint-store", "", "with --workspace, where snapshots live (empty = under the first workspace directory). Worth setting so the store sits outside what the agent can read and edit")
@@ -74,6 +76,10 @@ func main() {
 		workspaceConfig: *workspaceConfig,
 		checkpointStore: *checkpointStore,
 		noCheckpoint:    *noCheckpoint,
+		instructions:    *instructions,
+	}
+	if err := checkInstructions(opts.instructions); err != nil {
+		log.Fatalf("agentweb: %v", err)
 	}
 	factory := func(ctx context.Context) (*host.App, error) {
 		return buildApp(opts)
@@ -173,6 +179,17 @@ type appOptions struct {
 	workspaceConfig string
 	checkpointStore string
 	noCheckpoint    bool
+	instructions    string
+}
+
+// checkInstructions refuses an --instructions value no preset has, at
+// startup rather than on the first session.
+func checkInstructions(name string) error {
+	if name == "" || name == "off" {
+		return nil
+	}
+	_, err := agentsmd.Preset(name)
+	return err
 }
 
 // buildApp builds one App: the factory the SessionManager calls for the default
@@ -196,6 +213,17 @@ func buildApp(o appOptions) (*host.App, error) {
 		wsCfg := agentsurfaces.WorkspaceConfig{Roots: o.workspace, NoCheckpoint: o.noCheckpoint, CheckpointStore: o.checkpointStore}
 		if err := wsCfg.LoadFile(o.workspaceConfig); err != nil {
 			return nil, err
+		}
+		switch o.instructions {
+		case "":
+		case "off":
+			wsCfg.NoInstructions = true
+		default:
+			p, err := agentsmd.Preset(o.instructions)
+			if err != nil {
+				return nil, err
+			}
+			wsCfg.Instructions, wsCfg.NoInstructions = &p, false
 		}
 		wsCfg.Offloading = cfg.Offload != nil
 		wsExts, err := agentsurfaces.WorkspaceExtensions(wsCfg)

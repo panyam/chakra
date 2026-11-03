@@ -8,9 +8,9 @@
 // and prints PASS or FAIL per behaviour. It exits non-zero only when the
 // results differ from expectedFailures.
 //
-// --live uses a real model from config.json instead and prints a metrics line;
-// --serve serves the agent in the browser on a copy of the fixture (or
-// --workspace) for working with it by hand.
+// --live uses a real model from config.json instead and prints a metrics line.
+// To use the agent by hand, run agentweb over the same config and workspace
+// files: make coding-harness-web does that on a fresh copy of the fixture.
 package main
 
 import (
@@ -20,14 +20,11 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"text/tabwriter"
 	"time"
-
-	"github.com/panyam/chakra/surfaces/web"
 )
 
 type options struct {
@@ -44,8 +41,6 @@ type options struct {
 
 func main() {
 	var o options
-	serve := flag.String("serve", "", "serve the agent in the browser on this address (e.g. localhost:8091) instead of running the exercise")
-	workspace := flag.String("workspace", "", "with --serve, the directory to work in (default: a fresh copy of the fixture)")
 	flag.BoolVar(&o.live, "live", false, "use a real model from config.json instead of the scripted one")
 	flag.StringVar(&o.active, "active", "", "the config.json connection to use (default: the config's active)")
 	flag.StringVar(&o.model, "model", "", "override the connection's model")
@@ -60,13 +55,7 @@ func main() {
 		log.SetOutput(io.Discard)
 	}
 
-	var err error
-	if *serve != "" {
-		err = serveUI(*serve, *workspace, o)
-	} else {
-		err = runExercise(o)
-	}
-	if err != nil {
+	if err := runExercise(o); err != nil {
 		fmt.Fprintln(os.Stderr, "coding-harness:", err)
 		os.Exit(1)
 	}
@@ -255,34 +244,4 @@ func (m metrics) String() string {
 		s += " turn_error=" + m.TurnError
 	}
 	return s
-}
-
-// serveUI serves the coding agent in agentweb's browser UI.
-func serveUI(addr, workspace string, o options) error {
-	root := workspace
-	if root == "" {
-		tmp, err := os.MkdirTemp("", "coding-harness-")
-		if err != nil {
-			return err
-		}
-		if tmp, err = filepath.EvalSymlinks(tmp); err != nil {
-			return err
-		}
-		root = filepath.Join(tmp, "repo")
-		if err := copyTree(filepath.Join("testdata", "fixture"), root); err != nil {
-			return err
-		}
-	}
-	root, err := filepath.Abs(root)
-	if err != nil {
-		return err
-	}
-	ckpt, err := os.MkdirTemp("", "coding-harness-checkpoints-")
-	if err != nil {
-		return err
-	}
-	p := profile{dir: ".", root: root, active: o.active, model: o.model, checkpoints: ckpt, instructions: o.instructions}
-	mgr := web.NewSessionManager(p.build)
-	fmt.Printf("coding-harness on http://%s/ working in %s\n", addr, root)
-	return http.ListenAndServe(addr, web.HandlerWithSessions(mgr))
 }

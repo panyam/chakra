@@ -63,6 +63,10 @@ type Extension struct {
 	seenDocs  []doc           // the global and chain files in the prompt
 	subdirs   map[string]bool // every subdirectory scanned so far
 	frozen    map[string][]doc
+
+	announce func(string)
+	told     map[string]string // the text the user was last told about, by path
+	pending  []string          // lines to announce once mu is released
 }
 
 // New validates cfg and builds the extension. Nothing is read until the
@@ -94,7 +98,52 @@ func New(cfg Config) (*Extension, error) {
 		l:       loader{p: cfg.Profile, roots: roots, home: home, r: reader{cache: map[string]cachedFile{}}},
 		subdirs: map[string]bool{},
 		frozen:  map[string][]doc{},
+		told:    map[string]string{},
 	}, nil
+}
+
+// SetAnnounce implements host.Announcer. The extension posts a line when it
+// loads the startup files, finds one in a subdirectory, and (under
+// ChangesNotice) sees one change, appear or go, so the user can tell what the
+// model is following without reading its context.
+func (e *Extension) SetAnnounce(fn func(string)) {
+	e.mu.Lock()
+	e.announce = fn
+	e.mu.Unlock()
+}
+
+// unlock releases mu and then posts the lines queued while it was held, so
+// a surface that reacts to an announcement can't deadlock against us.
+func (e *Extension) unlock() {
+	lines, fn := e.pending, e.announce
+	e.pending = nil
+	e.mu.Unlock()
+	if fn == nil {
+		return
+	}
+	for _, l := range lines {
+		fn(l)
+	}
+}
+
+func (e *Extension) say(format string, args ...any) {
+	e.pending = append(e.pending, fmt.Sprintf(format, args...))
+}
+
+// rel shows a path relative to the primary root when it is inside it.
+func (e *Extension) rel(p string) string {
+	if r, err := filepath.Rel(e.l.roots[0], p); err == nil && r != ".." && !strings.HasPrefix(r, ".."+string(filepath.Separator)) {
+		return r
+	}
+	return p
+}
+
+func (e *Extension) rels(docs []doc) string {
+	names := make([]string, len(docs))
+	for i, d := range docs {
+		names[i] = e.rel(d.path)
+	}
+	return strings.Join(names, ", ")
 }
 
 // Name identifies the extension.
@@ -105,7 +154,7 @@ func (e *Extension) Name() string { return "agentsmd" }
 func (e *Extension) PromptSections() []host.PromptSection {
 	return []host.PromptSection{host.PromptSectionFunc(func(context.Context) string {
 		e.mu.Lock()
-		defer e.mu.Unlock()
+		defer e.unlock()
 		e.load()
 		return e.prompt
 	})}
@@ -127,7 +176,7 @@ func (e *Extension) Middleware() []agent.ToolMiddleware {
 			for _, p := range paths {
 				e.touch(p)
 			}
-			e.mu.Unlock()
+			e.unlock()
 		}
 		return res, err
 	}}
@@ -147,7 +196,7 @@ func (e *Extension) StepStages() []agent.StepStage {
 			e.mu.Lock()
 			e.load()
 			text := e.block()
-			e.mu.Unlock()
+			e.unlock()
 			if text != "" {
 				v.Messages = append(slices.Clip(v.Messages), agent.Message{Role: agent.RoleSystem, Text: text})
 			}
@@ -164,10 +213,21 @@ func (e *Extension) load() {
 	e.loaded = true
 	e.chainDirs = e.l.chainDirs()
 	e.seenDocs = append(e.l.global(), e.l.chain(e.chainDirs)...)
-	body, n := render(e.seenDocs, e.cfg.Profile.MaxBytes, nil)
+	body, n, skipped := render(e.seenDocs, e.cfg.Profile.MaxBytes, nil)
 	e.promptN = n
 	if body != "" {
 		e.prompt = promptHeader + "\n\n" + body
+	}
+	for _, d := range e.seenDocs {
+		e.told[d.path] = d.text
+	}
+	switch {
+	case len(e.seenDocs) == 0:
+		e.say("No instruction files found.")
+	case len(skipped) > 0:
+		e.say("Instruction files loaded: %s. Over the %d-byte limit, not loaded: %s.", e.rels(e.seenDocs), e.cfg.Profile.MaxBytes, strings.Join(skipped, ", "))
+	default:
+		e.say("Instruction files loaded: %s.", e.rels(e.seenDocs))
 	}
 }
 
@@ -202,8 +262,15 @@ func (e *Extension) touch(path string) {
 			continue
 		}
 		e.subdirs[d] = true
+		docs := e.l.subdir(d)
 		if e.cfg.Profile.Changes == ChangesFreeze {
-			e.frozen[d] = e.l.subdir(d)
+			e.frozen[d] = docs
+		}
+		for _, doc := range docs {
+			e.told[doc.path] = doc.text
+		}
+		if len(docs) > 0 {
+			e.say("Instruction files found in %s: %s.", e.rel(d), e.rels(docs))
 		}
 	}
 }
@@ -268,6 +335,11 @@ func (e *Extension) block() string {
 		dirs = append(dirs, d)
 	}
 	sort.Strings(dirs) // a parent sorts before its children
+	defer func() {
+		if e.cfg.Profile.Changes == ChangesNotice {
+			e.announceChanges(dirs)
+		}
+	}()
 	for _, d := range dirs {
 		var sub []doc
 		if e.cfg.Profile.Changes == ChangesFreeze {
@@ -292,8 +364,49 @@ func (e *Extension) block() string {
 			remaining = -1 // the prompt used it all
 		}
 	}
-	body, _ := render(docs, remaining, gone)
+	body, _, _ := render(docs, remaining, gone)
 	return blockHeader + "\n\n" + body
+}
+
+// announceChanges tells the user about each file whose text differs from
+// what they were last told, including files that appeared or went. Called
+// with mu held, under ChangesNotice.
+func (e *Extension) announceChanges(dirs []string) {
+	now := map[string]string{}
+	for _, d := range append(e.l.global(), e.l.chain(e.chainDirs)...) {
+		now[d.path] = d.text
+	}
+	for _, dir := range dirs {
+		for _, d := range e.l.subdir(dir) {
+			now[d.path] = d.text
+		}
+	}
+	var changed, added, gone []string
+	for p, text := range now {
+		old, ok := e.told[p]
+		switch {
+		case !ok:
+			added = append(added, e.rel(p))
+		case old != text:
+			changed = append(changed, e.rel(p))
+		}
+		e.told[p] = text
+	}
+	for p := range e.told {
+		if _, ok := now[p]; !ok {
+			gone = append(gone, e.rel(p))
+			delete(e.told, p)
+		}
+	}
+	for _, l := range []struct {
+		what  string
+		paths []string
+	}{{"changed", changed}, {"added", added}, {"replaced or deleted", gone}} {
+		if len(l.paths) > 0 {
+			sort.Strings(l.paths)
+			e.say("Instruction files %s during this session: %s.", l.what, strings.Join(l.paths, ", "))
+		}
+	}
 }
 
 func joinLabel(a, b string) string {
@@ -303,10 +416,10 @@ func joinLabel(a, b string) string {
 	return a + "; " + b
 }
 
-// render writes docs under the byte cap: max <= 0 with max == 0 meaning no
-// cap and max < 0 meaning nothing fits. It returns the text and how many
-// bytes of file text it used.
-func render(docs []doc, max int, gone []string) (string, int) {
+// render writes docs under the byte cap: max == 0 means no cap and max < 0
+// means nothing fits. It returns the text, how many bytes of file text it
+// used, and the paths left out.
+func render(docs []doc, max int, gone []string) (string, int, []string) {
 	var b strings.Builder
 	var skipped []string
 	used := 0
@@ -346,7 +459,7 @@ func render(docs []doc, max int, gone []string) (string, int) {
 		}
 		b.WriteString("Not loaded, over the size limit for instruction files: " + strings.Join(skipped, ", ") + ". Read them with your file tools if they matter to the task.")
 	}
-	return b.String(), used
+	return b.String(), used, skipped
 }
 
 // truncate cuts s to at most n bytes without splitting a UTF-8 sequence.

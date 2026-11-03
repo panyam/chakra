@@ -175,6 +175,17 @@ type Extension interface {
 	Close() error
 }
 
+// Announcer is an optional interface an Extension implements to post
+// informational lines to every surface, shown where the user reads the
+// conversation (a HostMessage event). The host calls SetAnnounce once, while
+// applying extensions and before any turn, with a function that is safe to
+// call from any goroutine. Use it for what the user should know happened and
+// the model's context doesn't show them, such as which instruction files
+// were loaded.
+type Announcer interface {
+	SetAnnounce(announce func(message string))
+}
+
 // BaseExtension implements every optional Extension seam as a no-op, so an
 // extension embeds it and overrides only what it contributes. It deliberately
 // does not supply Name: an unnamed extension is never what a caller meant.
@@ -423,6 +434,9 @@ func (a *App) applyExtensions(exts []Extension) ([]agent.ToolMiddleware, error) 
 		a.promptBuilder.Sections = append(a.promptBuilder.Sections, ext.PromptSections()...)
 		a.context.transient = append(a.context.transient, ext.ContextStages()...)
 		a.stepStages = append(a.stepStages, ext.StepStages()...)
+		if an, ok := ext.(Announcer); ok {
+			an.SetAnnounce(func(msg string) { a.emit(HostEvent{Kind: HostMessage, Message: msg}) })
+		}
 		a.approvalRenderers = append(a.approvalRenderers, ext.ApprovalRenderers()...)
 		a.approvalChoosers = append(a.approvalChoosers, ext.ApprovalChoosers()...)
 		a.approvalClassifiers = append(a.approvalClassifiers, ext.ApprovalClassifiers()...)

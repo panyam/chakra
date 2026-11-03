@@ -181,8 +181,8 @@ coding-harness-exercise-live: ## The same exercise with a real model, plus a met
 
 CH_ADDR ?= localhost:8091
 
-coding-harness-web: ## The coding agent in the browser on a fresh copy of the fixture (CH_WORKSPACE=dir to use another)
-	@cd examples/coding-harness && go run . --serve $(CH_ADDR) --active $(CH_ACTIVE) $(if $(CH_MODEL),--model $(CH_MODEL)) $(if $(CH_WORKSPACE),--workspace $(CH_WORKSPACE)) $(if $(CH_INSTRUCTIONS),--instructions $(CH_INSTRUCTIONS))
+coding-harness-web: ## agentweb over the coding agent's config, on a fresh copy of the fixture (CH_WORKSPACE=dir, CH_INSTRUCTIONS=codex)
+	@CH_ADDR=$(CH_ADDR) CH_ACTIVE=$(CH_ACTIVE) CH_WORKSPACE=$(CH_WORKSPACE) CH_INSTRUCTIONS=$(CH_INSTRUCTIONS) bash scripts/coding-harness-web.sh
 
 coding-harness-parity: ## codex exec vs the coding harness, same fixture and model, side by side (needs codex and OPENAI_API_KEY; PARITY_MODEL=gpt-5.5, PARITY_INSTRUCTIONS=codex)
 	@bash scripts/coding-harness-parity.sh
