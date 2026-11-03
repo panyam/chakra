@@ -44,7 +44,7 @@ func main() {
 	sessionStore := flag.String("session-store", "", "session persistence backend: memory | sqlite://path.db | redis://host:port | postgres://user:pass@host:port/db (empty = off, sessions live only in memory)")
 	var workspace repeatedPath
 	flag.Var(&workspace, "workspace", "expose file tools (read/edit/write/list/search) confined to these directories, plus checkpoint /undo. Repeatable: a session that spans repositories passes each one. The first is primary (empty = off; there is no default directory on purpose)")
-	instructions := flag.String("instructions", "", "with --workspace, how AGENTS.md and the like load: chakra, codex, claude, or off (default: the workspace config's \"instructions\", else chakra)")
+	instructions := flag.String("instructions", "", "with --workspace, how AGENTS.md and the like load: chakra, codex, claude, cursor, or off (default: the workspace config's \"instructions\", else chakra)")
 	workspaceConfig := flag.String("workspace-config", "", "with --workspace, a JSON file adding the exec allowlist (commands the agent may run, sandboxed), language servers, and the repo map. See examples/dogfood/workspace.json")
 	noCheckpoint := flag.Bool("no-checkpoint", false, "with --workspace, skip the file snapshot taken before each write, disabling /undo and /checkpoints")
 	checkpointStore := flag.String("checkpoint-store", "", "with --workspace, where snapshots live (empty = under the first workspace directory). Worth setting so the store sits outside what the agent can read and edit")

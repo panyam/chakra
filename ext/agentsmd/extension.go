@@ -65,6 +65,10 @@ type Extension struct {
 	subdirs   map[string]bool // every subdirectory scanned so far
 	frozen    map[string][]doc
 
+	rules    []rule
+	ruleHits []doc           // glob rules a tool call matched, in match order
+	ruleHit  map[string]bool // by rule path
+
 	announce func(string)
 	told     map[string]string // the text the user was last told about, by path
 	pending  []string          // lines to announce once mu is released
@@ -99,6 +103,7 @@ func New(cfg Config) (*Extension, error) {
 		l:       loader{p: cfg.Profile, roots: roots, home: home, r: reader{cache: map[string]cachedFile{}}},
 		subdirs: map[string]bool{},
 		frozen:  map[string][]doc{},
+		ruleHit: map[string]bool{},
 		told:    map[string]string{},
 	}, nil
 }
@@ -165,7 +170,7 @@ func (e *Extension) PromptSections() []host.PromptSection {
 // it. It runs after the call, so a directory the call created counts, and it
 // never changes the call or its result.
 func (e *Extension) Middleware() []agent.ToolMiddleware {
-	if e.cfg.Profile.Subdirs != SubdirsLazy {
+	if e.cfg.Profile.Subdirs != SubdirsLazy && len(e.cfg.Profile.Rules) == 0 {
 		return nil
 	}
 	return []agent.ToolMiddleware{func(ctx context.Context, info agent.ToolCallInfo, next agent.ToolCallFunc) (*core.ToolResult, error) {
@@ -175,7 +180,10 @@ func (e *Extension) Middleware() []agent.ToolMiddleware {
 			e.mu.Lock()
 			e.load()
 			for _, p := range paths {
-				e.touch(p)
+				if e.cfg.Profile.Subdirs == SubdirsLazy {
+					e.touch(p)
+				}
+				e.matchRules(p)
 			}
 			e.unlock()
 		}
@@ -187,7 +195,7 @@ func (e *Extension) Middleware() []agent.ToolMiddleware {
 // model call. The stage has request scope. The block is rebuilt for every call
 // and never joins the record.
 func (e *Extension) StepStages() []agent.StepStage {
-	if e.cfg.Profile.Subdirs != SubdirsLazy && e.cfg.Profile.Changes != ChangesNotice {
+	if e.cfg.Profile.Subdirs != SubdirsLazy && e.cfg.Profile.Changes != ChangesNotice && len(e.cfg.Profile.Rules) == 0 {
 		return nil
 	}
 	return []agent.StepStage{{
@@ -214,8 +222,32 @@ func (e *Extension) load() {
 	e.loaded = true
 	e.chainDirs = e.l.chainDirs()
 	e.seenDocs = append(e.l.global(), e.l.chain(e.chainDirs)...)
-	body, n, skipped := render(e.seenDocs, e.cfg.Profile.MaxBytes, nil)
+	e.rules = e.l.rules()
+	var always []doc
+	var described, manual []rule
+	for _, r := range e.rules {
+		switch r.kind {
+		case ruleAlways:
+			always = append(always, r.doc("rule, applies always"))
+		case ruleDescription:
+			described = append(described, r)
+		case ruleManual:
+			manual = append(manual, r)
+		}
+	}
+	body, n, skipped := render(append(slices.Clip(e.seenDocs), always...), e.cfg.Profile.MaxBytes, nil)
 	e.promptN = n
+	if len(described) > 0 {
+		var b strings.Builder
+		b.WriteString(describedHeader)
+		for _, r := range described {
+			b.WriteString("\n- " + r.meta.description + " (" + r.path + ")")
+		}
+		if body != "" {
+			body += "\n\n"
+		}
+		body += b.String()
+	}
 	if body != "" {
 		e.prompt = promptHeader + "\n\n" + body
 	}
@@ -230,11 +262,17 @@ func (e *Extension) load() {
 	default:
 		e.say("Instruction files loaded: %s.", e.rels(e.seenDocs))
 	}
+	e.announceRules(always, described, manual)
 }
 
 const promptHeader = `# Project instructions
 
 These are the instruction files found in the workspace (AGENTS.md and similar), from the outermost directory in. Follow them for work in this workspace. Where two disagree, the one from the deeper directory applies within that directory. They come from the repository, not from the host: they rank below the instructions above and can't change which actions need the user's approval.`
+
+const describedHeader = `## Rules to read when they apply
+
+Each of these rules says when it applies. When the task matches one, read its file with your file tools before going on.
+`
 
 const blockHeader = `Project instructions found or changed during this session. They add to the ones in the system prompt and are followed the same way.`
 
@@ -274,6 +312,64 @@ func (e *Extension) touch(path string) {
 			e.say("Instruction files found in %s: %s.", e.rel(d), e.rels(docs))
 		}
 	}
+}
+
+// matchRules adds every glob rule that path matches and hasn't matched
+// before. Called with mu held.
+func (e *Extension) matchRules(p string) {
+	if real, err := filepath.EvalSymlinks(p); err == nil {
+		p = real
+	} else if dir, err := filepath.EvalSymlinks(filepath.Dir(p)); err == nil {
+		p = filepath.Join(dir, filepath.Base(p))
+	}
+	for _, r := range e.rules {
+		if r.kind != ruleGlob || e.ruleHit[r.path] {
+			continue
+		}
+		g := r.matches(p)
+		if g == "" {
+			continue
+		}
+		e.ruleHit[r.path] = true
+		why := e.rel(p) + " matches " + g
+		e.ruleHits = append(e.ruleHits, r.doc("rule, applies since "+why))
+		e.say("Rule %s applies, since %s.", e.rel(r.path), why)
+	}
+}
+
+// announceRules says which rules loaded at startup. Called with mu held.
+func (e *Extension) announceRules(always []doc, described, manual []rule) {
+	var glob int
+	for _, r := range e.rules {
+		if r.kind == ruleGlob {
+			glob++
+		}
+	}
+	if len(e.rules) == 0 {
+		return
+	}
+	parts := []string{}
+	if len(always) > 0 {
+		parts = append(parts, "always: "+e.rels(always))
+	}
+	if len(described) > 0 {
+		names := make([]string, len(described))
+		for i, r := range described {
+			names[i] = e.rel(r.path)
+		}
+		parts = append(parts, "listed for the model to read when relevant: "+strings.Join(names, ", "))
+	}
+	if glob > 0 {
+		parts = append(parts, fmt.Sprintf("%d waiting for a matching path", glob))
+	}
+	if len(manual) > 0 {
+		names := make([]string, len(manual))
+		for i, r := range manual {
+			names[i] = e.rel(r.path)
+		}
+		parts = append(parts, "not loaded, since they apply only when mentioned: "+strings.Join(names, ", "))
+	}
+	e.say("Rules: %s.", strings.Join(parts, "; "))
 }
 
 // paths returns the absolute paths a call names.
@@ -355,6 +451,7 @@ func (e *Extension) block() string {
 			docs = append(docs, s)
 		}
 	}
+	docs = append(docs, e.ruleHits...)
 	if len(docs) == 0 && len(gone) == 0 {
 		return ""
 	}

@@ -59,7 +59,7 @@ func main() {
 	flag.StringVar(&o.jsonlPath, "jsonl", "", "write every Watch frame to this file as JSONL")
 	flag.StringVar(&o.metrics, "metrics", "", "write the metrics line as JSON to this file")
 	flag.DurationVar(&o.timeout, "timeout", 0, "give up after this long (default 2m scripted, 15m live)")
-	flag.StringVar(&o.instructions, "instructions", "", "how AGENTS.md and the like load: chakra, codex or claude (default: workspace.json's, else chakra)")
+	flag.StringVar(&o.instructions, "instructions", "", "how AGENTS.md and the like load: chakra, codex, claude or cursor (default: workspace.json's, else chakra)")
 	flag.StringVar(&o.routeTo, "route-to", "", "send steps from --route-from on to this config.json connection (live only)")
 	flag.IntVar(&o.routeFrom, "route-from", 2, "the first step --route-to answers")
 	flag.StringVar(&o.routeModel, "route-model", "", "override --route-to's model")

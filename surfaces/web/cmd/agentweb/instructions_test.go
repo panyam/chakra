@@ -66,7 +66,7 @@ func TestInstructionsFlagReachesTheSession(t *testing.T) {
 		}
 	}
 
-	if err := checkInstructions("cursor"); err == nil {
+	if err := checkInstructions("no-such-agent"); err == nil {
 		t.Error("an unknown preset passed the startup check")
 	}
 }

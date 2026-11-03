@@ -260,7 +260,7 @@ func TestWorkspaceFileInstructions(t *testing.T) {
 	}
 
 	for _, bad := range []string{
-		`{"instructions": {"preset": "cursor"}}`,
+		`{"instructions": {"preset": "no-such-agent"}}`,
 		`{"instructions": {"preset": "codex", "maxSize": 10}}`,
 	} {
 		if err := (&WorkspaceConfig{}).LoadFile(writeWorkspaceFile(t, bad)); err == nil {

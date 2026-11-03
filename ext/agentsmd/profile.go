@@ -97,6 +97,14 @@ type Profile struct {
 	// notes for human maintainers cost no context.
 	StripComments bool `json:"stripComments,omitempty"`
 
+	// Rules are rule folders or single rule files, relative to each workspace
+	// root, such as ".cursor/rules" or ".claude/rules". A folder is read
+	// recursively for .md and .mdc files. Each rule's frontmatter says when
+	// it applies: always, once a tool call names a path matching its globs,
+	// or, from its description alone, when the model judges it relevant (see
+	// rules.go). Rules are read once, when the first turn starts.
+	Rules []string `json:"rules,omitempty"`
+
 	// MaxBytes caps the text of every file loaded, together. A file that
 	// crosses the cap is cut, and later ones are named as skipped. Zero or
 	// less means no cap.
@@ -117,8 +125,12 @@ const DefaultPreset = "chakra"
 //     CLAUDE.local.md in every directory above the working directory,
 //     AGENTS.md only when there is no CLAUDE.md, subdirectory files once the
 //     agent touches a file there, @path imports and stripped HTML comments,
-//     no size cap. Claude Code re-reads its files after a compaction. This
-//     preset reads them once, so the two match until a session compacts.
+//     no size cap, and the rules in .claude/rules. Claude Code re-reads its
+//     files after a compaction. This preset reads them once, so the two
+//     match until a session compacts.
+//   - cursor follows Cursor: AGENTS.md from the git root down, nested
+//     AGENTS.md once the agent touches a directory, then the legacy
+//     .cursorrules file and the rules in .cursor/rules, read once.
 //   - chakra is Codex's file rules with lazy subdirectories and change
 //     notices, over every workspace root.
 var Presets = map[string]Profile{
@@ -144,6 +156,16 @@ var Presets = map[string]Profile{
 		Changes:       ChangesFreeze,
 		Imports:       true,
 		StripComments: true,
+		Rules:         []string{".claude/rules"},
+	},
+	"cursor": {
+		Names:       []string{"AGENTS.md"},
+		Walk:        WalkMarker,
+		Markers:     []string{".git"},
+		PrimaryOnly: true,
+		Subdirs:     SubdirsLazy,
+		Changes:     ChangesFreeze,
+		Rules:       []string{".cursorrules", ".cursor/rules"},
 	},
 	"chakra": {
 		Names:    []string{"AGENTS.md", "CLAUDE.md"},
@@ -171,11 +193,12 @@ func Preset(name string) (Profile, error) {
 	p.Names = append([]string(nil), p.Names...)
 	p.Fallback = append([]string(nil), p.Fallback...)
 	p.Markers = append([]string(nil), p.Markers...)
+	p.Rules = append([]string(nil), p.Rules...)
 	return p, nil
 }
 
 func (p Profile) validate() error {
-	if len(p.Names) == 0 && p.Override == "" && p.Local == "" && len(p.Fallback) == 0 {
+	if len(p.Names) == 0 && p.Override == "" && p.Local == "" && len(p.Fallback) == 0 && len(p.Rules) == 0 {
 		return fmt.Errorf("agentsmd: profile names no files")
 	}
 	switch p.Walk {
