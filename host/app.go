@@ -133,6 +133,10 @@ type App struct {
 	// approvalClassifiers, also in registration order; see classifyApproval.
 	approvalClassifiers []ApprovalClassifier
 
+	// stepStages are the extensions' before-each-model-call stages, in
+	// registration order, appended after the host's own.
+	stepStages []agent.StepStage
+
 	// toolOrigins records what each source id IS, so spotlight provenance is
 	// derived from where a tool came from rather than restated in config.
 	// Recorded where sources are added, because that is the only place the
@@ -650,6 +654,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 		return nil, err
 	}
 	runnerCfg.ToolMiddleware = append(runnerCfg.ToolMiddleware, extMW...)
+	runnerCfg.StepStages = append(runnerCfg.StepStages, app.stepStages...)
 
 	// Critique goes after extensions and before the gate. Like the gate it
 	// must judge the arguments that will actually execute, so it cannot sit

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/ext/agentsmd"
 	"github.com/panyam/chakra/ext/checkpoint"
 	"github.com/panyam/chakra/ext/exec"
 	"github.com/panyam/chakra/ext/files"
@@ -96,6 +97,16 @@ type WorkspaceConfig struct {
 	// whole capture with no store behind it is up to 2 MiB in context. A
 	// PerTool entry that pins a run_ tool inline has the same effect.
 	Offloading bool
+
+	// Instructions is how the repository's instruction files (AGENTS.md and
+	// the like) are found and loaded. Nil uses agentsmd.DefaultPreset; set it
+	// from agentsmd.Preset to copy another tool's rules. They load whenever
+	// there are roots, because a repository that wrote "never edit the tests"
+	// meant it for every agent working there.
+	Instructions *agentsmd.Profile
+
+	// NoInstructions skips the instruction files altogether.
+	NoInstructions bool
 }
 
 // WorkspaceExtensions builds the file and checkpoint extensions for cfg, plus
@@ -211,6 +222,22 @@ func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 			return nil, fmt.Errorf("workspace lsp: %w", lspErr)
 		}
 		exts = append(exts, lx)
+	}
+
+	if !cfg.NoInstructions {
+		profile := cfg.Instructions
+		if profile == nil {
+			p, err := agentsmd.Preset(agentsmd.DefaultPreset)
+			if err != nil {
+				return nil, err
+			}
+			profile = &p
+		}
+		ax, err := agentsmd.New(agentsmd.Config{Roots: cfg.Roots, Profile: *profile})
+		if err != nil {
+			return nil, fmt.Errorf("workspace instructions: %w", err)
+		}
+		exts = append(exts, ax)
 	}
 
 	return exts, nil
