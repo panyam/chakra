@@ -186,7 +186,7 @@ CH_ADDR ?= localhost:8091
 coding-harness-web: ## agentweb over the coding agent's config, on a fresh copy of the fixture (CH_WORKSPACE=dir, CH_INSTRUCTIONS=codex)
 	@CH_ADDR=$(CH_ADDR) CH_ACTIVE=$(CH_ACTIVE) CH_MODEL=$(CH_MODEL) CH_WORKSPACE=$(CH_WORKSPACE) CH_INSTRUCTIONS=$(CH_INSTRUCTIONS) bash scripts/coding-harness-web.sh
 
-coding-harness-parity: ## codex exec vs the coding harness, same fixture and model, side by side (needs codex and OPENAI_API_KEY; PARITY_MODEL=gpt-5.5, PARITY_INSTRUCTIONS=codex)
+coding-harness-parity: ## codex exec vs the coding harness, same fixture and model, side by side (needs codex and OPENAI_API_KEY; PARITY_MODEL=gpt-5.5, PARITY_ACTIVE=openai, PARITY_INSTRUCTIONS=codex)
 	@bash scripts/coding-harness-parity.sh
 
 # ---------------------------------------------------------------------------
