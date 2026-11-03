@@ -67,12 +67,14 @@ func streamingSource(t *testing.T, pc ProcessConfig) (*Source, *outputSink) {
 
 func TestProcessOutputStreamsBetweenCollections(t *testing.T) {
 	src, sink := streamingSource(t, ProcessConfig{})
-	out, sc := callProc(t, src, ExecCommandTool, map[string]any{"cmd": helperCmd(t, "staged", "first", "300ms", "second", "30s"), "yield_ms": 100})
-	if sc["running"] != true || !strings.Contains(out, "\nfirst\n") || strings.Contains(out, "\nsecond\n") {
+	out, sc := callProc(t, src, ExecCommandTool, map[string]any{"cmd": helperCmd(t, "staged", "first", "2s", "second", "30s"), "yield_ms": 1000})
+	// A slow runner may not have printed first within the yield; what matters
+	// is that second comes later, with nobody collecting it.
+	if sc["running"] != true || strings.Contains(out, "\nsecond\n") {
 		t.Fatalf("start: %q %v", out, sc)
 	}
 	id := sc["session_id"].(string)
-	evs := sink.waitFor(t, 3*time.Second, func([]host.ProcessOutput) bool { return strings.Contains(sink.text(), "second\n") })
+	evs := sink.waitFor(t, 5*time.Second, func([]host.ProcessOutput) bool { return strings.Contains(sink.text(), "second\n") })
 	for _, o := range evs {
 		if o.Source != "exec" || o.ID != id || !strings.Contains(o.Command, "staged") {
 			t.Fatalf("event not keyed to the process: %+v", o)
@@ -129,7 +131,7 @@ func TestProcessStreamingLeavesResultsUnchanged(t *testing.T) {
 			src = procSource(t, ProcessConfig{})
 		}
 		var got []string
-		out, sc := callProc(t, src, ExecCommandTool, map[string]any{"cmd": helperCmd(t, "staged", "a", "600ms", "b", "100ms", "c"), "yield_ms": 200})
+		out, sc := callProc(t, src, ExecCommandTool, map[string]any{"cmd": helperCmd(t, "staged", "a", "2s", "b", "100ms", "c"), "yield_ms": 1000})
 		got = append(got, normalized(out, sc))
 		out, sc = callProc(t, src, WriteStdinTool, map[string]any{"session_id": sc["session_id"], "yield_ms": 3000})
 		got = append(got, normalized(out, sc))

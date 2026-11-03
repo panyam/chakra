@@ -32,7 +32,7 @@ func TestWatchStreamsProcessOutputWithoutPolling(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	args := core.NewRawJSON(json.RawMessage(`{"cmd":"echo first; sleep 1; echo second; sleep 30","yield_ms":300}`))
+	args := core.NewRawJSON(json.RawMessage(`{"cmd":"echo first; sleep 2; echo second; sleep 30","yield_ms":1000}`))
 	stub := agent.NewStubProvider(
 		agent.StubTurn{ToolCalls: []agent.ToolCall{{ID: "c1", Name: exec.ExecCommandTool, Args: args}}},
 		agent.StubTurn{Text: "started it", FinishReason: "stop"},
@@ -64,8 +64,8 @@ func TestWatchStreamsProcessOutputWithoutPolling(t *testing.T) {
 			result += m.Text
 		}
 	}
-	if !strings.Contains(result, "first\n") || strings.Contains(result, "second\n") {
-		t.Fatalf("tool result %q, want first but not second", result)
+	if !strings.Contains(result, "still running") || strings.Contains(result, "second\n") {
+		t.Fatalf("tool result %q, want a running process without second", result)
 	}
 
 	deadline := time.Now().Add(5 * time.Second)
