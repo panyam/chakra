@@ -95,7 +95,7 @@ func TestSkillsFromAFolderJoinTheCatalog(t *testing.T) {
 		t.Fatalf("skills-loaded events = %+v", loaded)
 	}
 	section := app.skillsSection(context.Background())
-	for _, want := range []string{"repository's skills folder", "(source \"project\")", "- go-testing: How to run", "- release: Cut a release. (asks to use: Bash(git tag *); not granted"} {
+	for _, want := range []string{"repository's skills folder", "(source \"project\")", "- go-testing: How to run", "- release: Cut a release. (allowed-tools: Bash(git tag *); granted for the rest of the turn if the user approves loading it)"} {
 		if !strings.Contains(section, want) {
 			t.Errorf("catalog lacks %q:\n%s", want, section)
 		}

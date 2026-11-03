@@ -206,8 +206,18 @@ name. It can't equal a configured server's id.
 - A folder marked `Own` is introduced as the user's own. Any other folder is
   repository content, followed for work there and ranked below the host's
   instructions.
-- `allowed-tools` frontmatter is shown in the catalog and grants nothing yet
-  (#187).
+- `allowed-tools` frontmatter grants tools for the rest of the turn once the
+  skill loads (#187). `Bash(git tag *)` grants `shell` calls whose argv starts
+  `git tag`. `Read`, `Write`, `Edit`, `Glob` and `Grep` grant chakra's file
+  tools, and a chakra tool name grants that tool. Other entries, path-scoped
+  ones included, are shown in the ask and ignored.
+- A project or server skill grants only after a person approves the load. The
+  ask lists the grants, and the load asks even where `load_skill` would
+  otherwise run unasked. A skill from an `Own` folder grants whenever it loads.
+  An approval covers the skill's exact files, so an edited skill asks again.
+- A grant only replaces an ask. A deny rule, a forbidden command and an
+  escalation out of the sandbox still win. Under `allow` mode a grant changes
+  nothing.
 
 Surfaces fill these in from the workspace; see `surfaces.WorkspaceSkillDirs`.
 

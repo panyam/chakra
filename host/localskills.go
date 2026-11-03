@@ -183,7 +183,7 @@ func sha256Digest(b []byte) string {
 }
 
 // allowedTools returns a skill's allowed-tools frontmatter as text, or "".
-// It is shown in the catalog and grants nothing yet (#187).
+// skillgrants.go maps it onto the tools it grants (#187).
 func allowedTools(e skills.SkillEntry) string {
 	switch v := e.Frontmatter["allowed-tools"].(type) {
 	case string:
@@ -209,7 +209,11 @@ func localCatalogBlock(d SkillDir, entries []skills.SkillEntry) string {
 	for _, e := range entries {
 		b.WriteString("- " + e.Name() + ": " + e.Description())
 		if t := allowedTools(e); t != "" {
-			b.WriteString(" (asks to use: " + t + "; not granted, approvals apply as usual)")
+			if d.Own {
+				b.WriteString(" (allowed-tools: " + t + "; granted for the rest of the turn once loaded)")
+			} else {
+				b.WriteString(" (allowed-tools: " + t + "; granted for the rest of the turn if the user approves loading it)")
+			}
 		}
 		b.WriteString("\n")
 	}
