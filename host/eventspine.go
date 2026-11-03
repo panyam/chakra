@@ -12,15 +12,15 @@ import (
 // of the log the RunStore already holds.
 //
 // The three belong together because replay is stitched from two sources that
-// must agree. log covers [persisted, len) in memory; the RunStore covers
-// [0, persisted). Reading them as a consistent pair is what rules out both the
-// duplicate and the gap a two-step read would race — see Subscribe, which takes
-// that snapshot under turnMu.
+// must agree. log covers [persisted, len) in memory, and the RunStore covers
+// [0, persisted). A two-step read of them would race, and could replay an
+// event twice or skip one. Reading them as a consistent pair rules out both.
+// Subscribe takes that snapshot under turnMu.
 //
-// The Queue itself stays reachable as log rather than being wrapped in
-// delegating methods. Its barrier semantics (Resolve, AwaitResolution) carry
-// the multi-surface ask protocol, and hiding them behind pass-throughs would
-// obscure the contract callers actually reason about.
+// The Queue itself is reachable as log rather than wrapped in delegating
+// methods. Its barrier semantics (Resolve, AwaitResolution) implement the
+// multi-surface ask protocol. Hiding them behind pass-throughs would obscure
+// the contract that callers actually reason about.
 type eventSpine struct {
 	log *gocurrent.Queue[HostEvent]
 
@@ -31,20 +31,20 @@ type eventSpine struct {
 	observers []Observer
 
 	// persisted is the log offset through which this run's events have been
-	// written to the RunStore. Advanced at the turn-end persist site once
-	// AppendEvents succeeds; read lock-free by Subscribe. Stays 0 when no
-	// RunStore is configured, so replay falls back to the whole window.
+	// written to the RunStore. The turn-end persist site advances it once
+	// AppendEvents succeeds, and Subscribe reads it lock-free. It is 0 when
+	// no RunStore is configured, so replay falls back to the whole window.
 	persisted atomic.Int64
 }
 
 // emit records an event on the retained log and delivers it synchronously to
-// every local observer, returning the offset it landed at.
+// every local observer, returning the event's offset in the log.
 //
-// The append happens before the fan-out and outside the lock: the log is the
-// source of truth a web surface subscribes onto, so it must record the event
-// even if an observer blocks. The synchronous fan-out preserves the terminal
-// rendering contract — a caller reading the renderer's io.Writer sees the event
-// once emit returns.
+// The append happens before the fan-out and outside the lock. A web surface
+// subscribes onto the log as its source of truth, so the log must record the
+// event even if an observer blocks. The synchronous fan-out preserves the
+// terminal rendering contract. A caller reading the renderer's io.Writer sees
+// the event once emit returns.
 func (s *eventSpine) emit(ev HostEvent) (offset int) {
 	offset = s.log.Append(ev)
 	s.mu.Lock()

@@ -10,8 +10,8 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// TestRendererSubAgentGutter pins the border-left tree gutter (issue 1063 B4):
-// depth drives the number of gutter segments, the scope is tagged, and a tool
+// TestRendererSubAgentGutter pins the border-left tree gutter (issue 1063 B4).
+// Depth drives the number of gutter segments, the scope is tagged, and a tool
 // call shows name + compact args.
 func TestRendererSubAgentGutter(t *testing.T) {
 	var out strings.Builder
@@ -35,9 +35,9 @@ func TestRendererSubAgentGutter(t *testing.T) {
 	}
 }
 
-// TestEnvColorEnabled pins the surface-agnostic env decision (issue 1063 E2):
-// NO_COLOR present (any value) or TERM=dumb turns color off; a normal terminal
-// keeps it on.
+// TestEnvColorEnabled pins the surface-agnostic env decision (issue 1063 E2).
+// NO_COLOR present (any value) or TERM=dumb turns color off, and a normal
+// terminal keeps it on.
 func TestEnvColorEnabled(t *testing.T) {
 	cases := []struct {
 		name       string
@@ -67,7 +67,8 @@ func TestEnvColorEnabled(t *testing.T) {
 }
 
 // TestRendererColorOffStripsANSI pins that a color-off renderer emits no ANSI
-// escapes, the property --no-color / NO_COLOR / TERM=dumb all resolve to.
+// escapes. --no-color, NO_COLOR and TERM=dumb all resolve to a color-off
+// renderer.
 func TestRendererColorOffStripsANSI(t *testing.T) {
 	var out strings.Builder
 	r := newRenderer(&out, false)
@@ -97,9 +98,9 @@ func TestRendererToolCancelledDistinctFromError(t *testing.T) {
 	}
 }
 
-// A host message that arrives while the model's text is mid-line, as a
-// TurnEnder's announcement does before the turn's end marker, starts on a line
-// of its own.
+// Imagine a host message arriving while the model's text is mid-line. A
+// TurnEnder's announcement does this before the turn's end marker. The
+// message starts on a line of its own.
 func TestAHostMessageStartsItsOwnLine(t *testing.T) {
 	var b strings.Builder
 	r := newRenderer(&b, false)

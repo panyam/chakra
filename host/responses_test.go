@@ -28,9 +28,9 @@ func TestDefaultProviderBuilder_OpenAIResponses(t *testing.T) {
 	}
 }
 
-// Switching between two Responses connections mid-session hands the new one
-// a history it has no stored response for, so it sends the full history and
-// the App reports that as a session-warn event.
+// Imagine switching between two Responses connections mid-session. The new
+// connection gets a history with no stored response, so it sends the full
+// history. The App reports that as a session-warn event.
 func TestAppReportsResponsesFullHistory(t *testing.T) {
 	var mu sync.Mutex
 	var reqs []map[string]any

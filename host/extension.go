@@ -10,39 +10,38 @@ import (
 
 // Extension contributes capability to an App across every seam at once.
 //
-// It exists because App had no way to *add* anything. All the other
-// AppOptions replace something already pluggable — the provider, the stores,
-// the observer, the prompt builder — so a caller who wanted their own tools
-// plus the harness behaviour around them had nowhere to put it. That absence
-// is why App accumulated a feature per field instead of a registry per seam.
+// It exists because App had no way to *add* anything. Every other AppOption
+// replaces something already pluggable, such as the provider, the stores, the
+// observer or the prompt builder. Imagine a caller who wants their own tools
+// plus the harness behaviour around them. No option took that, so App grew a
+// feature per field instead of a registry per seam.
 //
 // Most of this is not a new mechanism. ToolSource, ToolMiddleware,
 // PromptSection, Command, and ContextStage all already existed and were
-// already wired. An Extension's job is to let one package contribute across
-// them as a unit, because a feature is not a handful of independent
-// contributions — it is one thing with several facets that have to agree.
-// Memory's recall tool and its pre-turn producer share a store; a checkpoint
-// middleware and its /undo command share a snapshot directory; a file tool and
-// the way its approval reads describe the same operation. Registering those
-// separately would put the coherence in the caller's head and leave their
-// ordering unstated.
+// already wired. An Extension lets one package contribute across them as a
+// unit. A feature is one thing with several facets, and the facets have to
+// agree. Memory's recall tool and its pre-turn producer share a store. A
+// checkpoint middleware and its /undo command share a snapshot directory. A
+// file tool and its approval text describe the same operation. Registering
+// those separately would leave the caller to keep them coherent, and nothing
+// would state their ordering.
 //
-// Two seams were added because building real extensions found the contract
-// short: TurnStart, which checkpoint needed and no contribution seam could
-// express, and ApprovalRenderers, which the coding surface needed because the
-// ask text was the one part of the approval ladder a caller could not reach.
+// Building real extensions showed two gaps in the contract, so two seams were
+// added. Checkpoint needed TurnStart, and no contribution seam could express
+// it. The coding surface needed ApprovalRenderers, because a caller could
+// reach every part of the approval ladder except the ask text.
 //
-// Every method except Name is optional: return nil for the seams you do not
+// Every method except Name is optional. Return nil for the seams you do not
 // use. Embed BaseExtension to no-op all of them and override only what you
 // need.
 //
 // # Ordering
 //
 // Extensions are applied in the order given to WithExtension, and within one
-// extension each seam keeps the order its slice declares. Three orderings are
-// load-bearing:
+// extension each seam keeps the order its slice declares. Three of these
+// orderings matter.
 //
-//   - Middleware lands before the host's own permission gate, so a gate still
+//   - Middleware runs before the host's own permission gate, so a gate still
 //     sees the arguments an extension rewrote. See
 //     agent.RunnerConfig.ToolMiddleware, where a gate belongs last.
 //   - Context stages append after the built-in producers, so an extension's
@@ -51,23 +50,22 @@ import (
 //   - Input transforms run before the user message is built, each over the
 //     previous one's output, so context stages sit beside the expanded text.
 //
-// # What stays host-owned
+// # What the host owns
 //
-// The permission gate is not an extension and should not become one. Its
-// position is load-bearing rather than incidental: it must run last so it
-// decides on the arguments every other middleware has already rewritten. An
-// extension that could claim that slot could also take it from the gate,
-// which is the one ordering nobody should be able to change by registration
-// order. So TieredApproval stays wired by the host, after extension
-// middleware, and an extension that wants to refuse a call returns
-// agent.DenyTool from its own middleware instead.
+// The permission gate is not an extension and should not become one. It must
+// run last, so that it decides on the arguments after every other middleware
+// has rewritten them. Suppose an extension could claim that slot. It could
+// then take the slot from the gate, and registration order would decide what
+// runs last. Nobody should be able to change that ordering. So the host wires
+// TieredApproval itself, after extension middleware. An extension that wants
+// to refuse a call returns agent.DenyTool from its own middleware instead.
 //
 // # Naming
 //
-// Tools register into the same MultiSource as everything else, so a tool name
-// that collides with another source's resolves through the existing
-// disambiguation rather than a rule invented here. Commands collide loudly:
-// registering a name the registry already holds is an error, because a
+// Tools register into the same MultiSource as everything else. When a tool
+// name collides with another source's, the existing disambiguation resolves
+// it, and this file adds no rule of its own. Commands collide loudly.
+// Registering a name the registry already holds is an error, because a
 // silently shadowed /command is worse than a failed startup.
 type Extension interface {
 	// Name identifies the extension in errors, diagnostics, and stage names.
@@ -76,8 +74,8 @@ type Extension interface {
 	Name() string
 
 	// Tools returns the extension's tool source, or nil for none. An error
-	// fails App construction: an extension that cannot build its tools is not
-	// something to start up half-configured.
+	// fails App construction, so an App never starts half-configured with an
+	// extension that couldn't build its tools.
 	Tools() (agent.ToolSource, error)
 
 	// Middleware wraps tool dispatch. Applied before the host's permission
@@ -99,46 +97,47 @@ type Extension interface {
 
 	// StepStages run before every model call of the main agent, after the
 	// host's own stages, ordered by scope as agent.StepStage describes. Use
-	// one for context that must track what happens inside a turn (a file the
-	// last tool call surfaced) rather than what was true when it began; a
-	// ContextStage runs once per turn and can't. Pick the scope by how long
-	// what it adds should live; see docs/HOOKS.md, Record or view.
+	// one when the context must track what happens inside a turn, such as a
+	// file the last tool call surfaced. A ContextStage runs once per turn, so
+	// it only sees what was true when the turn began. Pick the scope by how
+	// long the added context should live. See docs/HOOKS.md, Record or view.
 	StepStages() []agent.StepStage
 
 	// ApprovalRenderers supply the question a user is asked before a gated
 	// tool call runs, for the tools this extension owns.
 	//
-	// The ask text was the one part of the approval ladder a caller could not
-	// influence: mode, per-tool rules, remembering, and the ask transport are
-	// all configurable, while the wording was fixed. That is fine until a
-	// tool's arguments ARE the thing being reviewed. For an edit, the default
-	// renders a JSON blob trimmed to 200 characters, which makes a real change
-	// unreviewable by construction, so the user is answering a question they
-	// cannot actually evaluate.
+	// A caller can configure the mode, per-tool rules, remembering and the ask
+	// transport. Before this seam, the wording of the ask was fixed. That
+	// works until the user has to review the tool's arguments themselves. For
+	// an edit, the default renders a JSON blob trimmed to 200 characters. A
+	// real change doesn't fit in that, so the user answers a question they
+	// can't actually evaluate.
 	//
 	// Consulted in registration order; the first renderer to claim a call
 	// wins, and the built-in format is the fallback. See ApprovalRenderer.
 	ApprovalRenderers() []ApprovalRenderer
 
-	// ApprovalChoosers answer an ask about a call with more than yes or no,
-	// for the tools this extension owns: an edit whose hunks can be approved
-	// one at a time, say. A chooser that claims a call replaces the yes/no
-	// prompt for it, so the user is still asked once, and the call that runs
-	// is narrowed to what they approved. The gate keeps its place after every
-	// middleware; the chooser runs inside it. See ApprovalChooser.
+	// ApprovalChoosers answer an ask about a call with more than yes or no, for
+	// the tools this extension owns. For example, a chooser can let the user
+	// approve an edit's hunks one at a time. A chooser that claims a call
+	// replaces the yes/no prompt for it, so the user is still asked once, and
+	// the call that runs is narrowed to what they approved. The gate keeps its
+	// place after every middleware; the chooser runs inside it. See
+	// ApprovalChooser.
 	ApprovalChoosers() []ApprovalChooser
 
-	// ApprovalClassifiers judge each call to the tools this extension owns
-	// from its arguments: read-only, reversible, destructive or forbidden, the
-	// remember key that an approval of it covers, and why. The gate consults
-	// them before anything else, so one tool can let "git status" through
-	// while asking about "git push". Consulted in registration order; the
-	// first to claim a call wins. See ApprovalClassifier.
+	// ApprovalClassifiers judge each call to the tools this extension owns from
+	// its arguments. A verdict says whether the call is read-only, reversible,
+	// destructive or forbidden, which remember key an approval of it covers,
+	// and why. The gate consults them before anything else, so one tool can let
+	// "git status" through while asking about "git push". Consulted in
+	// registration order; the first to claim a call wins. See
+	// ApprovalClassifier.
 	ApprovalClassifiers() []ApprovalClassifier
 
 	// InputTransforms rewrite the user's message before the turn is built
 	// (issue 27), in registration order, each over the previous one's output.
-	// The result is the user message history keeps and the model reads. A
+	// History keeps the result as the user message, and the model reads it. A
 	// ContextStage can't do this, since it adds a block beside the message
 	// rather than changing it. An error aborts the turn before any model call.
 	InputTransforms() []InputTransform
@@ -147,29 +146,29 @@ type Extension interface {
 	// and before history is touched, so a failure leaves nothing half-done.
 	// An error aborts the turn.
 	//
-	// It exists because the other seams are all contributions and none of
-	// them is a lifecycle hook. An extension whose state is scoped to a turn
-	// — a checkpoint to restore to, a per-turn budget, a counter — had
-	// nowhere to learn a turn had begun, and the nearest workaround was a
+	// The other seams are all contributions, and none of them is a lifecycle
+	// hook. Some extensions keep state scoped to a turn, such as a checkpoint
+	// to restore to, a per-turn budget or a counter. Without this seam they
+	// had nowhere to learn that a turn had begun. The nearest workaround was a
 	// ContextStage that produces no context and exists for its side effect.
 	// A stage that lies about being a producer is worse than a seam that
 	// admits what it is.
 	//
-	// Proactive turns (a trigger firing) call this too: they run the model
-	// over history exactly as a user turn does, so an extension that skipped
-	// them would hold state scoped to the wrong thing.
+	// Proactive turns, such as a trigger firing, call this too. They run the
+	// model over history exactly as a user turn does, so an extension that
+	// skipped them would hold state scoped to the wrong thing.
 	TurnStart(ctx context.Context) error
 
 	// Close releases what the extension owns, and is called by App.Close in
 	// reverse registration order so an extension is torn down before whatever
 	// it was registered after.
 	//
-	// TurnStart had no counterpart until an extension owned something the
-	// runtime could not clean up for it. A directory handle survives being
-	// forgotten and a snapshot directory is meant to outlive the process, so
-	// the first two extensions needed nothing here. A subprocess is different:
-	// agent/ext/lsp spawns a language server, and one that outlives the App
-	// holds a workspace lock and a share of memory nothing can account for.
+	// TurnStart had no counterpart until an extension owned something that
+	// the runtime could not clean up for it. A directory handle survives being
+	// forgotten, and a snapshot directory is meant to outlive the process, so
+	// the first two extensions needed nothing here. A subprocess is different.
+	// ext/lsp spawns a language server. If the server outlives the App, it
+	// holds a workspace lock and memory that nothing accounts for.
 	//
 	// Errors are collected and reported rather than aborting the sweep, since
 	// one extension that cannot close is not a reason to leak the rest.
@@ -199,14 +198,14 @@ type ProcessReporter interface {
 }
 
 // TurnEnder is an optional interface an Extension implements to hear that a
-// turn the host ran is over, whether it finished, stopped partway (the step
-// cap or the context budget) or failed. result is nil when the turn failed
+// turn the host ran is over, whether it finished, stopped partway (the step cap
+// or the context budget) or failed. result is nil when the turn failed
 // outright, and err is nil when it finished. The host calls it with the turn
 // lock held, after the turn's messages are kept and before HostTurnDone or
-// HostTurnFailed, so a HostMessage an Announcer posts from it lands before
-// the surface's end-of-turn marker. Use it for work bracketed by TurnStart,
-// such as reporting what changed on disk during the turn; it can't change
-// the turn.
+// HostTurnFailed. So if an Announcer posts a HostMessage from it, the message
+// reaches the surface before the end-of-turn marker. Use it for work bracketed
+// by TurnStart, such as reporting what changed on disk during the turn; it
+// can't change the turn.
 type TurnEnder interface {
 	TurnEnd(ctx context.Context, result *agent.TurnResult, err error)
 }
@@ -248,7 +247,8 @@ type Asker interface {
 
 // BaseExtension implements every optional Extension seam as a no-op, so an
 // extension embeds it and overrides only what it contributes. It deliberately
-// does not supply Name: an unnamed extension is never what a caller meant.
+// does not supply Name, because a caller never means to register an unnamed
+// extension.
 //
 //	type coding struct{ host.BaseExtension }
 //
@@ -277,23 +277,21 @@ func (BaseExtension) Close() error                      { return nil }
 // The bool is "this call is mine". False means the next renderer gets a look
 // and the built-in format is the fallback, so a renderer can claim a subset of
 // its own tools, or claim conditionally, without having to reproduce the
-// default for everything else. There is no error return on purpose: a
-// renderer that cannot do its job returns false and the user still gets asked,
-// which is the only useful behaviour at an approval prompt.
+// default for everything else. There is no error return on purpose. A
+// renderer that cannot do its job returns false, and the user still gets
+// asked. At an approval prompt, asking anyway is the only useful behaviour.
 //
-// The info carries the call as it WILL execute, arguments included, after
-// every middleware has rewritten them (#1248). So the user
-// approves the call that runs, not the one the model proposed. A test pins
-// this rather than a comment.
+// The info holds the call as it WILL execute. Every middleware has already
+// rewritten its arguments (#1248), so the user approves the call that runs,
+// not the one the model proposed. A test pins this rather than a comment.
 //
 // Truncation is the renderer's business. The default trims arguments so a
-// large payload cannot flood the prompt; a renderer showing a diff wants the
+// large payload cannot flood the prompt. A renderer showing a diff wants the
 // opposite and is trusted to decide.
 //
-// The context is the turn's. It is here so a renderer can read state it needs
-// to render honestly — showing what a whole-file write would replace means
-// reading the file that is there now — rather than being restricted to what
-// the arguments happen to carry.
+// The context is the turn's. A renderer uses it to read state beyond what the
+// arguments hold, so the question it renders is honest. For example, to show
+// what a whole-file write would replace, it reads the file that is there now.
 type ApprovalRenderer func(context.Context, agent.ToolCallInfo) (string, bool)
 
 // ApprovalChooser decides a pending call that would otherwise get a yes/no
@@ -301,9 +299,9 @@ type ApprovalRenderer func(context.Context, agent.ToolCallInfo) (string, bool)
 //
 // The bool in agent.Choice.Claimed works like ApprovalRenderer's: false passes
 // the call to the next chooser, and the plain ask is the fallback. A chooser
-// presents its own question through present, which is the same serialized
-// elicitation seam the plain ask uses, so its form waits its turn behind any
-// other dialog and reaches every surface the same way.
+// presents its own question through present. The plain ask uses the same
+// serialized elicitation seam, so the chooser's form waits its turn behind
+// any other dialog and reaches every surface the same way.
 //
 // A surface that only shows accept and decline answers a form with no content.
 // A chooser should read missing fields as approved, since the user pressed
@@ -340,11 +338,11 @@ func WithExtension(exts ...Extension) AppOption {
 // renderApproval produces the question to ask about a pending call, giving
 // each registered renderer a look before falling back to the built-in format.
 //
-// First claim wins, in registration order, matching how middleware is ordered
-// rather than how Commands collide. Commands can refuse a duplicate because a
-// name is known at registration; a renderer decides per call, so two claiming
-// the same one cannot be detected until it happens, and failing a turn at that
-// point would be worse than picking the first.
+// The first claim wins, in registration order. Middleware is ordered the same
+// way. Commands differ, because a command's name is known at registration and
+// a duplicate can be refused then. A renderer decides per call, so two
+// renderers claiming the same call can't be detected until it happens. Failing
+// a turn at that point would be worse than picking the first.
 //
 // A renderer that returns an empty string is treated as having declined,
 // because an empty approval prompt asks the user to confirm nothing.
@@ -395,8 +393,8 @@ func (a *App) classifyApproval(ctx context.Context, info agent.ToolCallInfo) (ag
 //
 // Called with turnMu held and before history is touched, so an extension that
 // cannot start its turn aborts before anything is half-applied. A failure
-// names the extension: a turn that dies on someone else's bookkeeping should
-// say whose.
+// names the extension, so a turn that dies on someone else's bookkeeping says
+// whose.
 func (a *App) startExtensionTurns(ctx context.Context) error {
 	for _, ext := range a.extensions {
 		if err := ext.TurnStart(ctx); err != nil {
@@ -441,20 +439,21 @@ func (a *App) transformInput(ctx context.Context, input string) (string, error) 
 
 // closeExtensions closes every extension, in reverse registration order.
 //
-// Reverse because registration order is dependency order everywhere else: an
-// extension registered later was built knowing the earlier ones were there,
-// which is the ordering surfaces.WorkspaceExtensions relies on when it puts
-// checkpoint ahead of the tools it snapshots. Tearing down forwards would
-// close a dependency out from under its dependent.
+// Registration order is dependency order everywhere else. An extension
+// registered later was built knowing the earlier ones were there.
+// surfaces.WorkspaceExtensions relies on this when it puts checkpoint ahead
+// of the tools it snapshots. Tearing down forwards would close a dependency
+// out from under its dependent, so the order is reversed.
 //
-// Every extension is closed even after one fails, and the failures are logged
+// Every extension is closed even after one fails. The failures are logged
 // rather than returned, because App.Close is the last thing a surface does and
 // has nowhere to report to. One extension that cannot close is not a reason to
 // leak the others.
-// Each extension is closed exactly once even if App.Close is called twice,
-// which a surface does by hand often enough (a deferred Close plus an explicit
-// one on a shutdown path) that leaving it to every implementation to guard
-// would make Close the one seam nobody could write simply.
+//
+// Each extension is closed exactly once, even if App.Close is called twice.
+// Surfaces do that by hand often, with a deferred Close plus an explicit one
+// on a shutdown path. If every implementation had to guard against it, nobody
+// could write Close simply.
 func (a *App) closeExtensions() {
 	exts := a.extensions
 	a.extensions = nil
@@ -467,11 +466,11 @@ func (a *App) closeExtensions() {
 
 // applyExtensions wires every extension into the seams it contributes to.
 //
-// Called during construction, after the built-in producers exist so an
-// extension's contributions land after theirs, and before the Runner is built
-// so extension middleware reaches RunnerConfig. Middleware is returned rather
-// than applied because the caller must still append the permission gate after
-// it.
+// Called during construction. The built-in producers already exist, so an
+// extension's contributions go after theirs. The Runner isn't built yet, so
+// extension middleware reaches RunnerConfig. Middleware is returned rather
+// than applied, because the caller must still append the permission gate
+// after it.
 func (a *App) applyExtensions(exts []Extension, provider agent.Provider) ([]agent.ToolMiddleware, error) {
 	var mw []agent.ToolMiddleware
 	seen := map[string]bool{}

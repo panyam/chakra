@@ -12,24 +12,24 @@ import (
 //
 // Operator means the process computed the output rather than relaying it, and
 // the host can only honestly claim that for its own in-repo, non-relaying
-// tools. An extension is arbitrary code that may shell out or fetch, so it is
-// never vouched for by derivation — config has to say so explicitly. Getting
-// this backwards is the one mistake that silently disables the mitigation
-// rather than making it noisy.
+// tools. An extension is arbitrary code that may shell out or fetch, so
+// derivation never vouches for it, and config has to say so explicitly.
+// Getting this backwards silently disables the mitigation. Other mistakes
+// here only make it noisy.
 const (
 	sourceHost          = "host"
 	sourceRunnerControl = "runner-control"
 )
 
 // Prefixes the host uses when adding sources that are themselves agents. A
-// sub-agent's output is a relay of whatever it read, so it is marked, but it
-// is worth distinguishing from open-web content when a Mark renders it.
+// sub-agent's output relays whatever it read, so it is marked. When a Mark
+// renders it, it is still worth telling apart from open-web content.
 var agentSourcePrefixes = []string{"subagent:", "fanout:", "serveragents:"}
 
-// ownerLookupTimeout bounds the source lookup a classification does. Short
-// because the index is memoized and the common path does no I/O at all; the
-// timeout only bites when a re-list has to reach a server that is not
-// answering, and marking is the right answer in that case anyway.
+// ownerLookupTimeout bounds the source lookup a classification does. It is
+// short because the index is memoized, and the common path does no I/O at
+// all. The timeout only fires when a re-list has to reach a server that is
+// not answering. Marking is the right answer in that case anyway.
 const ownerLookupTimeout = 2 * time.Second
 
 // recordOrigin notes what a source id is, for provenance derivation. Called
@@ -46,10 +46,10 @@ func (a *App) recordOrigin(id string, p agent.Provenance) {
 // honest claim to make.
 //
 // The recorded map wins, then the built-in allowlist, then the agent prefixes.
-// Anything else — an extension, a source added by a path that forgot to
-// record — falls through to "" and the caller defaults it to world. Unknown
-// resolving to marked is the safe direction; the alternative is a source
-// nobody classified reaching the model unfenced.
+// Anything else returns "", such as an extension or a source added by a path
+// that forgot to record it. The caller then defaults it to world. Resolving
+// an unknown source to marked is the safe direction. Otherwise a source
+// nobody classified would reach the model unfenced.
 func (a *App) derivedProvenance(id string) agent.Provenance {
 	if p, ok := a.toolOrigins[id]; ok {
 		return p
@@ -70,20 +70,18 @@ func (a *App) derivedProvenance(id string) agent.Provenance {
 // derivation from the source the call resolves to, then world.
 //
 // It resolves through MultiSource.OwnerOf rather than matching the tool name
-// itself, because the name the model called may be the qualified
-// "sourceID_name" form that collision handling produces. Re-deriving that
-// mapping here would be a second copy of resolution logic that drifts from the
-// one Call uses.
+// itself. Collision handling can qualify a name into the "sourceID_name"
+// form, and the model may call that form. Re-deriving that mapping here would
+// copy the resolution logic, and the copy would drift from the one Call uses.
 //
-// Evaluated per call rather than snapshotted at construction, so a server
-// connected later, or an extension registered after the middleware was built,
-// is classified rather than silently treated as unknown.
+// It is evaluated per call rather than snapshotted at construction. So it
+// classifies a server connected later, or an extension registered after the
+// middleware was built, instead of silently treating it as unknown.
 //
-// The lookup is bounded by ownerLookupTimeout because agent.SpotlightConfig's
-// Classify takes no context, and a miss against the memoized index makes
-// MultiSource re-list every source — which reaches the network. An unreachable
-// server must not be able to stall tool dispatch; a timeout resolves to world,
-// which marks.
+// ownerLookupTimeout bounds the lookup. agent.SpotlightConfig's Classify
+// takes no context, and a miss against the memoized index makes MultiSource
+// re-list every source over the network. An unreachable server must not be
+// able to stall tool dispatch. A timeout resolves to world, and world marks.
 func (a *App) classifyTool(labels map[string]agent.Provenance) func(agent.ToolCallInfo) agent.Provenance {
 	return func(info agent.ToolCallInfo) agent.Provenance {
 		if p, ok := labels[info.Call.Name]; ok {

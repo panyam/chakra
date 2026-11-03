@@ -11,8 +11,8 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// fullExt contributes to every seam at once, which is the point of the
-// contract: a feature is one thing with five facets, not five registrations.
+// fullExt contributes to every seam at once. The contract exists for this
+// case. A feature is one thing with five facets, not five registrations.
 type fullExt struct {
 	BaseExtension
 	name    string
@@ -121,9 +121,10 @@ func TestExtensionContributesEverySeam(t *testing.T) {
 		t.Fatalf("stage order = %v, want ext.note last", names)
 	}
 
-	// Middleware and input transform: the tool ran, its result reached the
-	// model rewritten, and the input the model saw was the expansion, not the
-	// raw text. Both are asserted from the requests, so this runs first.
+	// This checks the middleware and the input transform. The tool ran, its
+	// result reached the model rewritten, and the model saw the expansion as
+	// its input, not the raw text. Both are asserted from the requests, so
+	// this runs first.
 	if err := app.RunTurn(context.Background(), "ping"); err != nil {
 		t.Fatal(err)
 	}
@@ -135,8 +136,8 @@ func TestExtensionContributesEverySeam(t *testing.T) {
 	if got := lastUserText(t, stub.Requests()[0]); got != "ping [expanded]" {
 		t.Fatalf("model saw user message %q, want the expansion %q", got, "ping [expanded]")
 	}
-	// Find by role: the context stage adds a message, so a fixed index would
-	// couple this assertion to how many producers happen to be configured.
+	// Find by role. The context stage adds a message, so a fixed index would
+	// tie this assertion to the number of configured producers.
 	var toolText string
 	for _, m := range stub.Requests()[1].Messages {
 		if m.Role == agent.RoleTool {
@@ -149,7 +150,7 @@ func TestExtensionContributesEverySeam(t *testing.T) {
 }
 
 // TestExtensionContextStageReachesTheModel pins that a context stage's block
-// lands in the per-turn view, before the user's message.
+// appears in the per-turn view, before the user's message.
 func TestExtensionContextStageReachesTheModel(t *testing.T) {
 	stub := agent.NewStubProvider(agent.StubTurn{Text: "ok"})
 	app := extApp(t, stub, &fullExt{name: "full"})
@@ -178,11 +179,11 @@ func (stageOnlyExt) ContextStages() []ContextStage {
 	}}}
 }
 
-// TestContextStageIsUnaffectedWhenNoTransformIsRegistered pins that the input
-// transform is applied where it belongs — to the user's message, ahead of the
-// pipeline — and not somewhere that would alter a stage's view of an
-// unexpanded turn. An extension that registers a stage and no transform must
-// see exactly the text the user typed.
+// TestContextStageIsUnaffectedWhenNoTransformIsRegistered pins where the
+// input transform applies. It rewrites the user's message ahead of the
+// pipeline, and nothing else. So with no transform registered, a stage sees
+// the turn unexpanded. An extension that registers a stage and no transform
+// must see exactly the text the user typed.
 func TestContextStageIsUnaffectedWhenNoTransformIsRegistered(t *testing.T) {
 	stub := agent.NewStubProvider(agent.StubTurn{Text: "ok"})
 	app := extApp(t, stub, stageOnlyExt{})
@@ -204,8 +205,8 @@ func TestContextStageIsUnaffectedWhenNoTransformIsRegistered(t *testing.T) {
 	}
 }
 
-// TestExtensionContextStageIsTransient pins that a stage's block is per-turn:
-// writing it into history would re-inject it every turn afterwards.
+// TestExtensionContextStageIsTransient pins that a stage's block is per-turn.
+// Writing it into history would re-inject it every turn afterwards.
 func TestExtensionContextStageIsTransient(t *testing.T) {
 	stub := agent.NewStubProvider(agent.StubTurn{Text: "one"}, agent.StubTurn{Text: "two"})
 	app := extApp(t, stub, &fullExt{name: "full"})
@@ -248,9 +249,9 @@ func TestExtensionDuplicateNameFails(t *testing.T) {
 }
 
 // TestExtensionCommandCollisionFails pins that an extension cannot shadow a
-// built-in command. Register overwrites silently, so this has to be refused
-// before it reaches the registry — a shadowed /command fails at use, far from
-// the cause.
+// built-in command. Register overwrites silently, so construction has to
+// refuse the extension before it reaches the registry. Otherwise the shadowed
+// /command fails when someone uses it, far from the cause.
 func TestExtensionCommandCollisionFails(t *testing.T) {
 	ts := startTestServer(t)
 	_, err := NewApp(testConfig(ts.URL), &strings.Builder{}, strings.NewReader(""),
@@ -286,8 +287,8 @@ func (e *turnExt) TurnStart(context.Context) error {
 }
 
 // TestTurnStartRunsOncePerTurn is the wiring acceptance for the lifecycle
-// seam. Extension had no per-turn hook before this, so an extension whose
-// state is scoped to a turn had to abuse a ContextStage for its side effect.
+// seam. Extension had no per-turn hook before this. An extension with
+// turn-scoped state had to abuse a ContextStage for its side effect.
 func TestTurnStartRunsOncePerTurn(t *testing.T) {
 	ext := &turnExt{}
 	stub := agent.NewStubProvider(agent.StubTurn{Text: "one"}, agent.StubTurn{Text: "two"})
@@ -304,8 +305,8 @@ func TestTurnStartRunsOncePerTurn(t *testing.T) {
 }
 
 // TestTurnStartErrorAbortsBeforeHistory pins that a failed start leaves
-// nothing half-done: the user's message must not be in history if the turn
-// never ran.
+// nothing half-done. If the turn never ran, the user's message must not be
+// in history.
 func TestTurnStartErrorAbortsBeforeHistory(t *testing.T) {
 	ext := &turnExt{fail: errors.New("no space left")}
 	stub := agent.NewStubProvider(agent.StubTurn{Text: "unreachable"})
@@ -340,10 +341,10 @@ func (e *closeExt) Close() error {
 }
 
 // TestExtensionCloseRunsInReverseRegistrationOrder pins the teardown half of
-// the lifecycle. Registration order is dependency order (see
-// surfaces.WorkspaceExtensions, where checkpoint precedes the tools it
-// snapshots), so closing forwards would tear a dependency out from under its
-// dependent.
+// the lifecycle. Registration order is dependency order. In
+// surfaces.WorkspaceExtensions, for example, checkpoint comes before the
+// tools that it snapshots. Closing forwards would tear a dependency out from
+// under its dependent.
 func TestExtensionCloseRunsInReverseRegistrationOrder(t *testing.T) {
 	var order []string
 	app := extApp(t, agent.NewStubProvider(agent.StubTurn{Text: "ok"}),
@@ -359,9 +360,9 @@ func TestExtensionCloseRunsInReverseRegistrationOrder(t *testing.T) {
 	}
 }
 
-// TestExtensionCloseContinuesPastAFailure pins that one extension that cannot
-// close does not leak the others. App.Close is the last thing a surface does
-// and has nowhere to report to, so the sweep finishes and logs.
+// TestExtensionCloseContinuesPastAFailure pins that a failed Close on one
+// extension does not leak the others. A surface calls App.Close last, and
+// App.Close has nowhere to report to, so the sweep finishes and logs.
 func TestExtensionCloseContinuesPastAFailure(t *testing.T) {
 	var order []string
 	app := extApp(t, agent.NewStubProvider(agent.StubTurn{Text: "ok"}),
@@ -376,9 +377,9 @@ func TestExtensionCloseContinuesPastAFailure(t *testing.T) {
 	}
 }
 
-// TestExtensionCloseHappensOnce pins that a surface calling Close twice, which
-// a deferred Close plus an explicit one does routinely, closes each extension
-// once rather than making every implementation guard itself.
+// TestExtensionCloseHappensOnce pins that each extension closes once when a
+// surface calls Close twice. A deferred Close plus an explicit one does that
+// routinely, and every implementation should not have to guard itself.
 func TestExtensionCloseHappensOnce(t *testing.T) {
 	var order []string
 	app := extApp(t, agent.NewStubProvider(agent.StubTurn{Text: "ok"}), &closeExt{name: "only", order: &order})

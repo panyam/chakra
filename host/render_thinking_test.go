@@ -8,7 +8,7 @@ import (
 )
 
 // TestRenderer_ThinkingStreamsText pins that reasoning deltas render as the
-// reasoning text (dimmed), not a row of dots — so a reasoning model's
+// reasoning text (dimmed), not a row of dots. So a reasoning model's
 // chain-of-thought is readable in plain and TUI output.
 func TestRenderer_ThinkingStreamsText(t *testing.T) {
 	var b strings.Builder

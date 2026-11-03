@@ -7,9 +7,10 @@ import (
 	gocurrent "github.com/panyam/gocurrent"
 )
 
-// TestEventLog_RetainsForLateReplay is the E1 substrate acceptance: emit
-// records every event on the retained log, so a subscriber that attaches after
-// events were emitted replays them from offset 0 and is notified of live ones.
+// TestEventLog_RetainsForLateReplay is the E1 substrate acceptance. emit
+// records every event on the retained log. So when a subscriber attaches after
+// events were emitted, it replays them from offset 0 and is notified of live
+// ones.
 // A web surface (issue 1196) relies on this to join a running session and
 // see its history.
 func TestEventLog_RetainsForLateReplay(t *testing.T) {
@@ -39,9 +40,9 @@ func TestEventLog_RetainsForLateReplay(t *testing.T) {
 }
 
 // TestEmit_DeliversToLocalObserversSynchronously pins the terminal rendering
-// contract that the log must not break: emit delivers to registered observers
-// synchronously and in order (the event is present the instant emit returns, no
-// wait), and the same events land on the retained log.
+// contract, and the log must not break it. emit delivers to registered
+// observers synchronously and in order. The event is present the instant emit
+// returns, with no wait, and the same events go onto the retained log.
 func TestEmit_DeliversToLocalObserversSynchronously(t *testing.T) {
 	rec := &recordObserver{}
 	a := &App{events: &eventSpine{log: gocurrent.NewQueue[HostEvent](), observers: []Observer{rec}}}

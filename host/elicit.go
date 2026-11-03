@@ -15,12 +15,12 @@ import (
 )
 
 // terminalElicitationUI renders elicitations as line prompts. At any prompt
-// the user can type /d (decline) or /c (cancel); those become the result
-// action, not errors, matching the coordinator contract. Schema-driven:
-// enum properties become numbered choices, booleans y/n, numbers parsed,
-// everything else free text. Properties prompt in sorted order because the
-// schema's JSON object carries none. URL-mode requests print the URL and
-// wait for completion.
+// the user can type /d (decline) or /c (cancel). Those become the result
+// action, not errors, as the coordinator contract requires. The schema
+// drives the prompts. Enum properties become numbered choices, booleans
+// become y/n, numbers are parsed, and everything else is free text.
+// Properties prompt in sorted order because the schema's JSON object has no
+// order. URL-mode requests print the URL and wait for completion.
 func terminalElicitationUI(in *bufio.Reader, out io.Writer) agent.ElicitationUI {
 	return func(ctx context.Context, req core.ElicitationRequest) (core.ElicitationResult, error) {
 		fmt.Fprintf(out, "\n? %s\n", req.Message)

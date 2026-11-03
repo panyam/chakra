@@ -14,8 +14,8 @@ import (
 	"github.com/panyam/mcpkit/server"
 )
 
-// samplingServer has one tool, "summarize", that asks the client to sample
-// and returns what came back, or the error.
+// samplingServer has one tool, "summarize". It asks the client to sample and
+// returns the reply, or the error.
 func samplingServer(t *testing.T, maxTokens int) *httptest.Server {
 	t.Helper()
 	srv := server.NewServer(core.ServerInfo{Name: "sampling-srv", Version: "0.0.1"})
@@ -56,9 +56,9 @@ func (l *askLog) ui(_ context.Context, req core.ElicitationRequest) (core.Elicit
 	return core.ElicitationResult{Action: "accept", Content: map[string]any{"confirm": yes}}, nil
 }
 
-// runSampling runs one turn that calls summarize, with the stub answering
-// the sampling request in between, and returns the tool's result text and
-// the stub so a test can read what the model was sent.
+// runSampling runs one turn that calls summarize. The stub answers the
+// sampling request in between. It returns the tool's result text, and the
+// stub, so a test can read what the model was sent.
 func runSampling(t *testing.T, cfg *Config, asks *askLog, reply string) (string, *agent.StubProvider) {
 	t.Helper()
 	stub := agent.NewStubProvider(

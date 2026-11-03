@@ -11,10 +11,11 @@ import (
 	"github.com/panyam/mcpkit/server"
 )
 
-// A tool a server adds after connect reaches the model's tool list on either
-// wire. The session wire delivers tools/list_changed on the GET stream; the
-// stateless wire only on a subscriptions/listen stream, which the host didn't
-// open before #112, so a stateless server's new tool stayed invisible.
+// Suppose a server adds a tool after connect. The tool reaches the model's
+// tool list on either wire. The session wire delivers tools/list_changed on
+// the GET stream. The stateless wire delivers it only on a
+// subscriptions/listen stream. The host didn't open that stream before #112,
+// so a stateless server's new tool stayed invisible.
 func TestToolAddedAfterConnectIsOffered(t *testing.T) {
 	srv := server.NewServer(core.ServerInfo{Name: "tools-lc", Version: "0.0.1"})
 	registerSearch(srv)

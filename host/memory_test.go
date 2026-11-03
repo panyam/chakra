@@ -51,7 +51,7 @@ func TestAppWorkingMemoryAcrossTurns(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// the recall tool result fed back on the 4th model call carries the value.
+	// the 4th model call gets the recall tool result back, with the value.
 	// request[3].Messages holds the full history, so match the recall call by
 	// its id (c2) rather than taking the first RoleTool (the earlier remember).
 	fed := toolMsgByID(t, stub.Requests()[3].Messages, "c2").Text
@@ -81,7 +81,7 @@ func TestAppMemorySummaryInjection(t *testing.T) {
 
 	const marker = "Working memory"
 
-	// injection ON: the second turn's first model call carries a RoleSystem summary
+	// injection ON: the second turn's first model call has a RoleSystem summary
 	on := script()
 	var out strings.Builder
 	appOn, err := NewApp(memoryConfig(ts.URL, true), &out, strings.NewReader(""), WithProvider(on))
@@ -153,7 +153,7 @@ func TestAppMemorySummaryBudget(t *testing.T) {
 		}
 	}
 
-	// turn 3's request (index 4) carries the budgeted summary: newest only
+	// turn 3's request (index 4) has the budgeted summary: newest only
 	msgs := stub.Requests()[4].Messages
 	if !hasSystemContaining(msgs, "new: second") {
 		t.Fatal("budgeted summary should include the newest note")
@@ -163,10 +163,10 @@ func TestAppMemorySummaryBudget(t *testing.T) {
 	}
 }
 
-// TestAppInjectsRelevantRecall is the 940 PR2 payoff: with InjectRecall on
+// TestAppInjectsRelevantRecall is the 940 PR2 payoff. With InjectRecall on
 // and a semantic store, the model receives the note relevant to the user's
-// message as background context WITHOUT calling the recall tool — and the
-// injected block is transient (never written into a.history).
+// message as background context. It does so WITHOUT calling the recall tool.
+// The injected block is transient and never written into a.history.
 func TestAppInjectsRelevantRecall(t *testing.T) {
 	ts := startTestServer(t)
 	stub := agent.NewStubProvider(agent.StubTurn{Text: "you use Go"})
@@ -216,10 +216,10 @@ func countSystemContaining(msgs []agent.Message, sub string) int {
 	return n
 }
 
-// TestMemorySummaryIsTransient proves the injected summary never lands in the
-// persistent history and never accumulates: over three turns with a fact
-// remembered on turn 1, a.history holds zero summaries and every later turn's
-// model request carries exactly one (not a growing stack).
+// TestMemorySummaryIsTransient proves the injected summary never enters the
+// persistent history and never accumulates. The test runs three turns and
+// remembers a fact on turn 1. a.history holds zero summaries, and every later
+// turn's model request has exactly one, not a growing stack.
 func TestMemorySummaryIsTransient(t *testing.T) {
 	ts := startTestServer(t)
 	stub := agent.NewStubProvider(
@@ -229,7 +229,7 @@ func TestMemorySummaryIsTransient(t *testing.T) {
 			Args: core.NewRawJSON(json.RawMessage(`{"key":"lang","value":"Go"}`)),
 		}}},
 		agent.StubTurn{Text: "saved"},
-		// turns 2 and 3: plain replies — each should see exactly one summary
+		// turns 2 and 3: plain replies; each should see exactly one summary
 		agent.StubTurn{Text: "reply2"},
 		agent.StubTurn{Text: "reply3"},
 	)
@@ -247,11 +247,11 @@ func TestMemorySummaryIsTransient(t *testing.T) {
 	}
 
 	const marker = "Working memory"
-	// the durable history never carries a summary
+	// the durable history never has a summary
 	if n := countSystemContaining(app.history, marker); n != 0 {
 		t.Fatalf("a.history holds %d summary messages, want 0 (must be transient)", n)
 	}
-	// turns 2 and 3 (requests[2], [3]) each carry exactly one — no accumulation
+	// turns 2 and 3 (requests[2], [3]) each have exactly one, so no accumulation
 	for _, i := range []int{2, 3} {
 		if n := countSystemContaining(stub.Requests()[i].Messages, marker); n != 1 {
 			t.Fatalf("request[%d] carried %d summaries, want exactly 1", i, n)

@@ -19,9 +19,9 @@ func skillEntry(name, uri string, desc ...string) skills.SkillEntry {
 	return skills.SkillEntry{URI: uri, Frontmatter: fm}
 }
 
-// SEP-2640: a host MUST NOT fetch a skill's files ahead of need, so the
+// SEP-2640 says a host MUST NOT fetch a skill's files ahead of need, so the
 // default is catalog at any skill count (#50). Eager below ten skills used to
-// be the default; it is now only what a config that asks for it gets.
+// be the default. Now a config gets eager only by asking for it.
 func TestResolveSkillsMode(t *testing.T) {
 	if got := resolveSkillsMode(""); got != "catalog" {
 		t.Fatalf("default mode = %q, want catalog", got)
@@ -143,7 +143,7 @@ func TestSetInstructions(t *testing.T) {
 }
 
 // TestWithInstructionsHeader pins the origin label and untrusted framing on
-// server instructions, and that empty instructions stay empty.
+// server instructions, and that empty instructions are left empty.
 func TestWithInstructionsHeader(t *testing.T) {
 	if got := withInstructionsHeader("s", ""); got != "" {
 		t.Fatalf("empty instructions must stay empty: %q", got)
@@ -211,7 +211,7 @@ func TestOriginHeaderAndWrap(t *testing.T) {
 		t.Fatalf("origin header must name the server and mark it untrusted: %q", h)
 	}
 
-	// empty block stays empty (skillsSection skips it); non-empty gets the header.
+	// empty block is left empty (skillsSection skips it); non-empty gets the header.
 	if got := withOriginHeader("s", ""); got != "" {
 		t.Fatalf("empty block must stay empty: %q", got)
 	}
@@ -288,8 +288,9 @@ func TestResolveCatalogSkill(t *testing.T) {
 }
 
 func TestLoadSkillCollisionNoSilentShadow(t *testing.T) {
-	// Two servers serve "deploy"; client is nil so any attempt to read (silent
-	// shadow) would panic — proving the handler stops at disambiguation.
+	// Two servers serve "deploy". client is nil, so any attempt to read (a
+	// silent shadow) would panic. A pass shows the handler stops at
+	// disambiguation.
 	app := &App{skills: &skillSet{
 		blocks: map[string]string{},
 		catalog: map[string][]catalogSkill{

@@ -18,10 +18,10 @@ import (
 
 // commandOptions are the client options for a server launched from
 // ServerConfig.Command. The process gets an environment built by commandEnv
-// rather than the agent's, and a crash is handled by reconnecting without
-// replaying: the call that hit it fails (availabilitySource reports it as not
-// available now), and the next call starts a fresh process. Replaying would
-// re-run a tool that may already have run before the crash.
+// rather than the agent's. After a crash the client reconnects without
+// replaying. The call that hit the crash fails (availabilitySource reports it
+// as not available now), and the next call starts a fresh process. Replaying
+// would re-run a tool that may already have run before the crash.
 func commandOptions(sc ServerConfig, logger *slog.Logger) []client.ClientOption {
 	cmdOpts := []client.CommandOption{client.WithCleanEnv(), client.WithEnv(commandEnv(sc)...)}
 	if sc.Dir != "" {
@@ -42,9 +42,10 @@ func commandOptions(sc ServerConfig, logger *slog.Logger) []client.ClientOption 
 	return opts
 }
 
-// commandEnv is the whole environment a command server starts with: PATH and
-// HOME from the agent, the EnvPass names the agent has, then Env, which wins.
-// Sorted so the child's environment doesn't depend on map order.
+// commandEnv builds the whole environment a command server starts with. It
+// takes PATH and HOME from the agent, then the EnvPass names the agent has,
+// then Env, which wins. The result is sorted so the child's environment
+// doesn't depend on map order.
 func commandEnv(sc ServerConfig) []string {
 	vars := map[string]string{}
 	for _, name := range append([]string{"PATH", "HOME"}, sc.EnvPass...) {
@@ -64,8 +65,8 @@ func commandEnv(sc ServerConfig) []string {
 }
 
 // stderrLog writes a command server's stderr to the host logger a line at a
-// time, tagged with the server, so a server's own diagnostics aren't lost and
-// don't land on the terminal the surface draws.
+// time, tagged with the server. A server's own diagnostics aren't lost, and
+// they don't end up on the terminal the surface draws.
 type stderrLog struct {
 	logger *slog.Logger
 	server string

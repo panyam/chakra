@@ -76,10 +76,10 @@ func blockingToolServer(t *testing.T, release <-chan struct{}) *httptest.Server 
 	return ts
 }
 
-// TestInterruptToolCallsNoTurnRunning pins the between-turns guard. A control
-// send with nothing draining would otherwise sit buffered and cancel the next
-// turn's first tool call, which agent.TurnRequest.Control warns about
-// explicitly, so RunTurn clears the channel and this must report false.
+// TestInterruptToolCallsNoTurnRunning pins the between-turns guard. Imagine a
+// control send with nothing draining. It would sit buffered and cancel the
+// next turn's first tool call, and agent.TurnRequest.Control warns about this
+// explicitly. So RunTurn clears the channel, and this must report false.
 func TestInterruptToolCallsNoTurnRunning(t *testing.T) {
 	ts := startTestServer(t)
 	app, err := NewApp(testConfig(ts.URL), &strings.Builder{}, strings.NewReader(""),
@@ -100,14 +100,14 @@ func TestInterruptToolCallsNoTurnRunning(t *testing.T) {
 	}
 }
 
-// TestInterruptToolCallsCancelsCallAndTurnContinues is the wiring acceptance:
+// TestInterruptToolCallsCancelsCallAndTurnContinues is the wiring acceptance.
 // App.RunTurn must drive agent.Runner.RunTurn with a live control channel, so
 // a surface can cancel one in-flight tool call and still get an answer. Before
 // this wiring the host called Runner.Run, which takes no control channel, and
 // the only interrupt available was cancelling ctx and losing the whole turn.
 //
 // The per-call cancellation semantics themselves are covered at the agent
-// layer (TestRunTurnControlCancelsOneCallTurnContinues and friends); this
+// layer (TestRunTurnControlCancelsOneCallTurnContinues and friends). This test
 // asserts the host actually reaches them.
 func TestInterruptToolCallsCancelsCallAndTurnContinues(t *testing.T) {
 	release := make(chan struct{})

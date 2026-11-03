@@ -17,10 +17,10 @@ import (
 // onServerEvents reads a server's event types for their advertised hints and
 // opens one events/stream per configured event, when the server has just
 // become ready. Each stream delivers on its own buffered channel
-// (eventsclient.StreamChan), gets a per-stream adapter goroutine tagging
-// occurrences with the server id, and merges into one consumer feed via
-// gocurrent's FanIn. Per-stream buffers isolate backpressure: one noisy stream
-// drops its own events (warned), never a sibling's.
+// (eventsclient.StreamChan). A per-stream adapter goroutine tags occurrences
+// with the server id, and gocurrent's FanIn merges the streams into one
+// consumer feed. Per-stream buffers isolate backpressure, so one noisy stream
+// drops its own events (with a warning) and never a sibling's.
 func (a *App) onServerEvents(sc ServerConfig) {
 	if a.streams.fanIn == nil {
 		return
@@ -34,10 +34,10 @@ func (a *App) onServerEvents(sc ServerConfig) {
 	a.subscribeConfigured(sc)
 }
 
-// subscribeConfigured opens the server's configured event streams. Called
-// from the ready-observer, so a server that connects after boot has its
-// streams subscribed with no restart, and again after events/list_changed,
-// so a configured event type the server adds later gets subscribed too.
+// subscribeConfigured opens the server's configured event streams. The
+// ready-observer calls it, so a server that connects after boot gets its
+// streams with no restart. It runs again after events/list_changed, so a
+// configured event type that the server adds later gets subscribed too.
 // openSubscription is idempotent (dedup by server:name), and a failure
 // degrades to a warning.
 func (a *App) subscribeConfigured(sc ServerConfig) {
@@ -163,9 +163,9 @@ func adaptEvent(serverID string, ev events.Event) agent.IncomingEvent {
 
 // discoverEventHints lists the server's event types and installs the context
 // hint each one advertises in its _meta (#81), so a server-declared hint
-// applies with no host configuration. A hint in host config still wins. A
-// server whose events/list fails just keeps whatever hints it had: hints are
-// advisory, and a host that can't read them still delivers the events.
+// applies with no host configuration. A hint in host config still wins. If a
+// server's events/list fails, the server keeps whatever hints it had. Hints
+// are advisory, and a host that can't read them still delivers the events.
 func (a *App) discoverEventHints(serverID string, c *client.Client) {
 	defs, err := eventsclient.List(a.streams.ctx, c)
 	if err != nil {
@@ -190,6 +190,7 @@ func (a *App) watchEventTypes(sc ServerConfig, c *client.Client) {
 	})
 }
 
-// eventsListChanged is the notification a server sends when its event types
-// change. mcpkit's events package broadcasts it by this literal.
+// eventsListChanged is a notification method. A server sends it when its
+// event types change, and mcpkit's events package broadcasts it by this
+// literal.
 const eventsListChanged = "notifications/events/list_changed"

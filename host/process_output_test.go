@@ -35,7 +35,7 @@ func (l *processLog) On(ev HostEvent) {
 	}
 }
 
-// TestProcessOutputReachesSurfacesNotTheModel checks the wiring: a
+// TestProcessOutputReachesSurfacesNotTheModel checks the wiring. A
 // ProcessReporter's output arrives as HostProcessOutput, during a turn and
 // between turns, and never in what the model is sent.
 func TestProcessOutputReachesSurfacesNotTheModel(t *testing.T) {

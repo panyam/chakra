@@ -11,10 +11,9 @@ import (
 	"github.com/panyam/mcpkit/client"
 )
 
-// Config is agentchat's JSON configuration. Secrets are never inlined:
-// apiKeyEnv / authTokenEnv name environment variables to read at startup,
-// following the same indirection convention the rest of the repo's example
-// configs use.
+// Config is agentchat's JSON configuration. Secrets are never inlined.
+// Instead apiKeyEnv / authTokenEnv name environment variables to read at
+// startup. The rest of the repo's example configs use the same indirection.
 type Config struct {
 	// Model configures the OpenAI-compatible endpoint.
 	Model ModelConfig `json:"model"`
@@ -25,63 +24,70 @@ type Config struct {
 	// MaxSteps caps model calls per turn. Zero uses the agent default.
 	MaxSteps int `json:"maxSteps,omitempty"`
 
-	// StepBudgetWithin is how few steps a turn must have left before the
-	// model is told its remaining step budget on each call (see
-	// agent.StepBudgetStage). Zero uses the default, a quarter of MaxSteps
-	// and at least 3. Negative turns the note off.
+	// StepBudgetWithin is a threshold on the steps a turn has left. Once a
+	// turn has that many steps left or fewer, each call tells the model its
+	// remaining step budget (see agent.StepBudgetStage). Zero uses the default, a
+	// quarter of MaxSteps and at least 3. Negative turns the note off.
 	StepBudgetWithin int `json:"stepBudgetWithin,omitempty"`
 
 	// MaxTreeSteps and MaxTreeTokens cap the AGGREGATE model steps / tokens
-	// across a turn's whole sub-agent tree (parent + sub-agents + fan-out
-	// members + handoff rounds), not just per-Runner MaxSteps. Zero means
-	// unbounded. The safety rail for deep or chatty multi-agent trees.
+	// across a turn's whole sub-agent tree. The tree counts the parent, its
+	// sub-agents, fan-out members and handoff rounds, so these caps reach
+	// further than per-Runner MaxSteps. Zero means unbounded. They guard
+	// against deep or chatty multi-agent trees.
 	MaxTreeSteps  int `json:"maxTreeSteps,omitempty"`
 	MaxTreeTokens int `json:"maxTreeTokens,omitempty"`
 
-	// MaxEventLogRetention bounds the in-memory session event log (the
-	// gocurrent.Queue emit appends to and Subscribe replays). Zero (the
-	// default) keeps the log unbounded, preserving the pre-bound behavior for
-	// embedders that never need eviction. A positive value caps the retained
-	// window to that many entries, evicting the oldest as the session runs so
-	// a long-lived process bounds its memory. Eviction is lossless for a
-	// persisted session: Subscribe deep-replays turns already written to the
-	// RunStore, so a subscriber attaching after eviction still sees full
-	// history. Set it generously enough that a single turn never exceeds the
-	// window (agentchat defaults to 100000 via --max-event-log).
+	// MaxEventLogRetention bounds the in-memory session event log. The log
+	// is a gocurrent.Queue, emit appends to it, and Subscribe replays it.
+	// Zero is the default and keeps the log unbounded, as it was before this
+	// bound existed, for embedders that never need eviction. A positive value
+	// caps the retained window to that many entries. The oldest are evicted
+	// as the session runs, so a long-lived process bounds its memory.
+	// Eviction is lossless for a persisted session. Subscribe deep-replays
+	// turns already written to the RunStore, so a subscriber attaching after
+	// eviction still sees full history. Set it generously enough that a
+	// single turn never exceeds the window (agentchat defaults to 100000 via
+	// --max-event-log).
 	MaxEventLogRetention int `json:"maxEventLogRetention,omitempty"`
 
-	// Interruptible opts the main agent's turn into breaking the fan-out join
-	// barrier when a sub-agent raises a Signal mid-flight (issue 1167): the first
-	// signal cancels the remaining in-flight calls and the model re-plans with
-	// the partial results, instead of waiting for every sub-agent. Only useful
-	// with signalling sub-agents (SubAgents + CanSignal). False (the default)
-	// keeps the pure fan-out-then-join. Pairs with SignalPolicy: leave it unset
-	// (inject) so the turn re-plans rather than aborts.
+	// Interruptible lets a sub-agent's mid-flight Signal break the main
+	// agent's fan-out join barrier (issue 1167). The first signal cancels the
+	// remaining in-flight calls, and the model re-plans with the partial
+	// results instead of waiting for every sub-agent. Only useful with
+	// signalling sub-agents (SubAgents + CanSignal). False (the default)
+	// keeps the pure fan-out-then-join. Leave SignalPolicy unset (inject)
+	// alongside it, so the turn re-plans rather than aborts.
 	Interruptible bool `json:"interruptible,omitempty"`
 
 	// RunnerControl, when true, gives the main agent the runner-control
 	// meta-tools (issue 1166): spawn_agent / await_agent / cancel_agent /
 	// list_agents, over the configured sub-agent personas. The model can run a
-	// persona in the background, get a handle, and await or cancel it — the
-	// model-driven, handle-based counterpart to calling a persona as a blocking
-	// tool. Only meaningful alongside SubAgents. False (the default) omits them.
+	// persona in the background, get a handle, and await or cancel it. Calling
+	// a persona as a tool blocks, and these tools give the model a
+	// handle-based alternative. Only meaningful alongside SubAgents. False (the
+	// default) omits them.
 	RunnerControl bool `json:"runnerControl,omitempty"`
 
-	// SignalPolicy selects how the main agent reacts to an upward Signal a
-	// signalling sub-agent raises (issue 1165), read at the dispatch join:
-	//   - "" / "inject" — inject the signal as context and continue (default).
-	//   - "abort_on_escalate" — end the turn when a child raises "escalate".
+	// SignalPolicy selects how the main agent reacts when a signalling
+	// sub-agent raises an upward Signal (issue 1165). The dispatch join reads
+	// it. The values are
+	//   - "" / "inject", which injects the signal as context and continues
+	//     (default).
+	//   - "abort_on_escalate", which ends the turn when a child raises
+	//     "escalate".
 	// Either way the signal is injected so the main model sees it. Only meaningful
 	// alongside a sub-agent with CanSignal.
 	SignalPolicy string `json:"signalPolicy,omitempty"`
 
 	// AllowPreempt lets a sub-agent's advisory "preempt" signal actually break
-	// the interruptible barrier (cancel the other in-flight sub-agents) instead
-	// of only being injected for the model to weigh (issue 1176). False (the
-	// default) is safe: a preempt cannot cancel siblings, so a rogue or
-	// prompt-injected sub-agent cannot unilaterally kill the parallel work — the
-	// main model decides on re-plan. Only meaningful with Interruptible +
-	// signalling sub-agents; "escalate" is unaffected (it always breaks).
+	// the interruptible barrier and cancel the other in-flight sub-agents
+	// (issue 1176). Without it the signal is only injected for the model to
+	// weigh. False (the default) is safe. A preempt cannot cancel siblings, so
+	// a rogue or prompt-injected sub-agent cannot unilaterally kill the
+	// parallel work, and the main model decides on re-plan. Only meaningful
+	// with Interruptible + signalling sub-agents. "escalate" always breaks the
+	// barrier, whatever this is set to.
 	AllowPreempt bool `json:"allowPreempt,omitempty"`
 
 	// Servers lists the MCP servers to connect.
@@ -96,27 +102,28 @@ type Config struct {
 	// Auto-implied when any server has events or triggers configured.
 	MetaTools bool `json:"metaTools,omitempty"`
 
-	// TaskGraceSec is how long a task-backed tool call stays inline before
-	// detaching to the background (completion arrives as injected context
-	// and a transcript line; /tasks manages running tasks). Zero uses the
-	// 10s default; negative disables detaching (wait inline forever).
+	// TaskGraceSec is how long a task-backed tool call runs inline before it
+	// detaches to the background. Its completion then arrives as injected
+	// context and a transcript line, and /tasks manages running tasks. Zero
+	// uses the 10s default. Negative disables detaching, so the call waits
+	// inline forever.
 	TaskGraceSec int `json:"taskGraceSec,omitempty"`
 
-	// Approval configures the tool-call permission ladder. Nil means the
-	// gate is off: every tool call the model makes runs (the pre-approval
-	// behavior). Set it to gate calls behind a mode and per-tool rules,
-	// with "ask" prompts routed through the terminal elicitation UI.
 	// Sampling, when enabled, lets connected MCP servers ask the session's
-	// model for completions (sampling/createMessage), each one put to the
-	// user unless the approval mode runs everything. See SamplingConfig.
+	// model for completions (sampling/createMessage). Each request is put to
+	// the user unless the approval mode runs everything. See SamplingConfig.
 	Sampling *SamplingConfig `json:"sampling,omitempty"`
 
+	// Approval configures the tool-call permission ladder. Nil means the
+	// gate is off, so every tool call the model makes runs, as before the
+	// gate existed. Set it to gate calls behind a mode and per-tool rules.
+	// The terminal elicitation UI shows the "ask" prompts.
 	Approval *ApprovalConfig `json:"approval,omitempty"`
 
 	// Spotlight marks untrusted tool output as data before the model reads
-	// it, the mitigation for indirect prompt injection (a fetched page whose
-	// text is shaped like instructions). Nil leaves tool output unmarked,
-	// which is the behavior before this existed.
+	// it. This mitigates indirect prompt injection, such as a fetched page
+	// whose text is shaped like instructions. Nil leaves tool output
+	// unmarked, as it was before this existed.
 	//
 	// It runs outside the approval gate, so a denied call is never marked
 	// and the gate still decides on unmarked arguments.
@@ -125,30 +132,32 @@ type Config struct {
 	// Critique judges each proposed tool call against stated principles
 	// before it runs, and refuses the ones that violate them. Nil is off.
 	//
-	// It is the self-critique layer between the two guardrails either side of
-	// it: Spotlight marks untrusted input going in, the approval ladder gates
-	// what the user permits going out. Costs one model call per gated call.
+	// Two other guardrails sit on either side of it. Spotlight marks untrusted
+	// input going in, and the approval ladder gates what the user permits
+	// going out. Critique adds a self-critique layer between them. It costs
+	// one model call per gated call.
 	Critique *CritiqueConfig `json:"critique,omitempty"`
 
 	// Connections is a named registry of model connections with one
 	// active. When set it supersedes Model for the chat provider and
-	// enables runtime /provider switching; Model stays as the
+	// enables runtime /provider switching. Model remains the
 	// single-connection quick-start path. See ConnectionsConfig.
 	Connections *ConnectionsConfig `json:"connections,omitempty"`
 
-	// SkillDirs are local folders of skills (<folder>/<name>/SKILL.md) that
-	// join the skill catalog beside MCP-served skills. WithSkillDirs adds
-	// more, and a surface uses it to add workspace folders.
+	// SkillDirs are local folders of skills, laid out as
+	// <folder>/<name>/SKILL.md. Their skills join the skill catalog beside
+	// MCP-served skills. WithSkillDirs adds more, and a surface uses it to add
+	// workspace folders.
 	SkillDirs []SkillDir `json:"skillDirs,omitempty"`
 
-	// Roots are the workspace directories the host declares to MCP servers,
-	// which a server reads with roots/list (as file:// URIs). Empty means the
-	// host advertises no roots capability, so servers see a host without a
-	// workspace rather than one with an empty list. WithRoots adds more, and a
-	// surface passes its workspace roots through it.
+	// Roots lists workspace directories, and the host declares them to MCP
+	// servers. A server reads them with roots/list, as file:// URIs. Empty
+	// means the host advertises no roots capability, so servers see a host
+	// without a workspace rather than one with an empty list. WithRoots adds
+	// more, and a surface passes its workspace roots through it.
 	Roots []string `json:"roots,omitempty"`
 
-	// Offload configures tool-result offloading. Nil means off: tool
+	// Offload configures tool-result offloading. Nil means off, and tool
 	// results flow into the conversation verbatim. Set it to store
 	// over-threshold results out of band and hand the model a compact
 	// stub plus a read_tool_result tool. The backing ToolResultStore is
@@ -156,33 +165,35 @@ type Config struct {
 	// omitted), the same split as WithRunStore.
 	Offload *OffloadConfig `json:"offload,omitempty"`
 
-	// Memory enables model-managed working memory: a remember/recall/forget
-	// scratchpad the model reads and writes across turns. Nil means off.
+	// Memory enables model-managed working memory. The model reads and
+	// writes a scratchpad across turns with remember/recall/forget. Nil means
+	// off.
 	// The backing MemoryStore is supplied by the surface via
 	// WithMemoryStore (in-memory when omitted), the same split as
 	// WithRunStore and WithToolResultStore.
 	Memory *MemoryConfig `json:"memory,omitempty"`
 
-	// Compaction enables history compaction: when the conversation exceeds
-	// MaxTokens, the head is summarized (by the chat provider) and a recent
-	// tail is kept verbatim, before each turn. Nil means off — history is
-	// sent verbatim. Lossy; complementary to Offload (lossless).
+	// Compaction enables history compaction. Before each turn, if the
+	// conversation exceeds MaxTokens, the chat provider summarizes the head
+	// and a recent tail is kept verbatim. Nil means off, and history is sent
+	// verbatim. Compaction is lossy and complements Offload, which is
+	// lossless.
 	Compaction *CompactionConfig `json:"compaction,omitempty"`
 
 	// SubAgents declares specialist personas the main agent can delegate to
 	// as tools (AgentSource). Each runs over the SAME provider and a filtered
-	// view of the SAME server tools, with its own instructions — a persona,
-	// not a separately-configured agent. Empty means no sub-agents.
+	// view of the SAME server tools, with its own instructions. So each is a
+	// persona, not a separately-configured agent. Empty means no sub-agents.
 	SubAgents []SubAgentConfig `json:"subAgents,omitempty"`
 
-	// FanOut declares parallel-ensemble tools: each group is a single tool the
-	// main agent calls once to broadcast a task to all its member personas
-	// concurrently, receiving one aggregated result (agent.FanOutSource).
-	// Empty means no fan-out tools.
+	// FanOut declares parallel-ensemble tools (agent.FanOutSource). Each
+	// group is a single tool. The main agent calls it once, the task goes to
+	// all the group's member personas concurrently, and the main agent gets
+	// back one aggregated result. Empty means no fan-out tools.
 	FanOut []FanOutGroupConfig `json:"fanOut,omitempty"`
 
 	// Team, when set, drives the conversation as a handoff Team (agent.Team)
-	// instead of the single main agent — control transfers between members and
+	// instead of the single main agent. Control transfers between members and
 	// persists across user turns. Mutually exclusive with SubAgents, FanOut, and
 	// Memory (NewApp errors if combined). Nil means single-agent mode.
 	Team *HostTeamConfig `json:"team,omitempty"`
@@ -211,38 +222,41 @@ type SubAgentConfig struct {
 	MaxDepth int `json:"maxDepth,omitempty"`
 
 	// InputSchema, when set, gives the persona a TYPED input tool instead of the
-	// default {task} — the parent must pass arguments matching this JSON schema,
+	// default {task}. The parent must pass arguments matching this JSON schema,
 	// and the persona is seeded with them (structured input, 1033). Empty keeps
 	// {task: string}.
 	InputSchema json.RawMessage `json:"inputSchema,omitempty"`
 
 	// ResponseSchema, when set, makes the persona return a JSON value coerced to
-	// this schema instead of free text (structured output, 1033) — the parent
-	// gets typed output back. Empty returns text.
+	// this schema instead of free text (structured output, 1033), so the
+	// parent gets typed output back. Empty returns text.
 	ResponseSchema json.RawMessage `json:"responseSchema,omitempty"`
 
 	// CanSignal, when true, gives the persona the signal_parent control tool
-	// (issue 1165), so it can raise an upward Signal to the main agent —
-	// "escalate" or "custom" (reporting only its own state; it has no knowledge
-	// of sibling agents). The main agent reacts per Config.SignalPolicy
-	// (inject-and-continue by default). False (the default) keeps the persona
-	// server-tools-only. Ignored for async personas (a detached child has no
-	// live parent dispatch to signal).
+	// (issue 1165). With it the persona can raise an upward Signal, either
+	// "escalate" or "custom", to the main agent. The signal reports only the
+	// persona's own state, since it has no knowledge of sibling agents. The
+	// main agent reacts per Config.SignalPolicy (inject-and-continue by
+	// default). False (the default) limits the persona to server tools.
+	// Async personas ignore it, because a detached child has no live parent
+	// dispatch to signal.
 	CanSignal bool `json:"canSignal,omitempty"`
 
 	// Async, when true, builds the persona as the spawn-and-continue Task form
-	// (agent.AsyncAgentSource, 1035): the delegate tool acks immediately and the
-	// child runs in the background, its result injected as context on a later
-	// turn — for long-running subtasks the parent should not block on. False
-	// (the default) is the blocking Tool form (answer this turn).
+	// (agent.AsyncAgentSource, 1035). The delegate tool acks immediately and
+	// the child runs in the background. Its result is injected as context on a
+	// later turn. Use it for a long-running subtask that the parent should not
+	// block on. False (the default) is the blocking Tool form, which answers
+	// this turn.
 	Async bool `json:"async,omitempty"`
 }
 
-// FanOutGroupConfig declares one parallel-ensemble tool: the main agent calls
-// Name once and the task is broadcast to every Member persona concurrently, the
-// results aggregated in member order (agent.FanOutSource). Members are built
-// exactly like SubAgents (shared provider, serverTools-only, own instructions)
-// but are not also exposed as individual delegate tools — the group is one tool.
+// FanOutGroupConfig declares one parallel-ensemble tool (agent.FanOutSource).
+// The main agent calls Name once. The task goes to every Member persona
+// concurrently, and the results are aggregated in member order. Members are
+// built exactly like SubAgents (shared provider, serverTools-only, own
+// instructions). They are not also exposed as individual delegate tools, so
+// the group is one tool.
 type FanOutGroupConfig struct {
 	// Name is the tool the main agent calls to fan out. Required.
 	Name string `json:"name"`
@@ -250,16 +264,16 @@ type FanOutGroupConfig struct {
 	// Description tells the main agent when to fan out to this group.
 	Description string `json:"description,omitempty"`
 
-	// Members are the personas the task is broadcast to. At least one required.
+	// Members are the personas that receive the task. At least one required.
 	Members []SubAgentConfig `json:"members,omitempty"`
 }
 
 // HostTeamConfig declares a handoff Team that drives the whole conversation
 // instead of the single main agent (agent.Team). Control transfers between
-// members and stays where it was transferred across user turns. Setting Team
-// replaces the single-agent loop, so it may NOT be combined with SubAgents,
-// FanOut, or Memory on the main agent (NewApp errors); team members are
-// serverTools-only personas.
+// members. The next user turn starts with whichever member last received
+// control. Setting Team replaces the single-agent loop, so it may NOT be
+// combined with SubAgents, FanOut, or Memory on the main agent (NewApp
+// errors). Team members are serverTools-only personas.
 type HostTeamConfig struct {
 	// Members are the agents. At least one; Start must name one.
 	Members []TeamMemberConfig `json:"members,omitempty"`
@@ -272,15 +286,15 @@ type HostTeamConfig struct {
 	MaxHandoffs int `json:"maxHandoffs,omitempty"`
 }
 
-// TeamMemberConfig is one Team agent: a persona (SubAgentConfig — shared
-// provider, serverTools filtered by Allow, own instructions) plus the members
-// it may hand off to.
+// TeamMemberConfig is one Team agent. It combines a persona with the members
+// it may hand off to. The persona is a SubAgentConfig, with the shared
+// provider, serverTools filtered by Allow, and its own instructions.
 type TeamMemberConfig struct {
 	SubAgentConfig
 
-	// HandoffTo lists the member names this agent may transfer control to. Each
-	// becomes a transfer_to_<name> tool offered only to this agent. Empty means
-	// a terminal agent that must answer rather than transfer.
+	// HandoffTo names the members that this agent may transfer control to.
+	// Each becomes a transfer_to_<name> tool offered only to this agent. Empty
+	// means a terminal agent that must answer rather than transfer.
 	HandoffTo []string `json:"handoffTo,omitempty"`
 }
 
@@ -292,8 +306,8 @@ type CompactionConfig struct {
 	// Required (must be > 0); NewApp fails if it is not set.
 	MaxTokens int `json:"maxTokens"`
 
-	// KeepRecent is how many trailing messages stay verbatim. Zero uses the
-	// agent default (6).
+	// KeepRecent is how many trailing messages are kept verbatim. Zero uses
+	// the agent default (6).
 	KeepRecent int `json:"keepRecent,omitempty"`
 }
 
@@ -312,12 +326,12 @@ func (c *CompactionConfig) build(provider agent.Provider) (agent.Compactor, erro
 type MemoryConfig struct {
 	// InjectSummary, when true, prepends a summary of the current
 	// scratchpad as a RoleSystem message before each turn, so the model
-	// stays aware of what it saved without a recall call. It costs tokens
-	// proportional to the injected slice, so it is opt-in; when false the
+	// knows what it saved without a recall call. The summary costs tokens in
+	// proportion to the injected slice, so it is opt-in. When false the
 	// model still reaches memory through the recall tool on demand.
 	InjectSummary bool `json:"injectSummary,omitempty"`
 
-	// SummaryMaxItems bounds how many notes the injected summary carries,
+	// SummaryMaxItems caps the number of notes in the injected summary,
 	// keeping the newest. Zero means no item cap (the whole scratchpad).
 	// Only meaningful with InjectSummary.
 	SummaryMaxItems int `json:"summaryMaxItems,omitempty"`
@@ -328,32 +342,32 @@ type MemoryConfig struct {
 	SummaryMaxChars int `json:"summaryMaxChars,omitempty"`
 
 	// InjectRecall, when true, injects the notes RELEVANT to the current
-	// user message as a RoleSystem message before each turn, so the model
-	// "just knows" what matters without a recall call — the auto-push (RAG)
-	// half of semantic recall. Complementary to InjectSummary (ambient,
-	// recency-budgeted): a deployment usually picks one. Backend-agnostic,
-	// but only useful with a relevance-ranking store (a semantic store);
-	// over the substring default it injects notes literally containing the
-	// query words.
+	// user message as a RoleSystem message before each turn. The model then
+	// "just knows" what matters without a recall call. This is the auto-push
+	// (RAG) half of semantic recall. InjectSummary is the ambient,
+	// recency-budgeted alternative, and a deployment usually picks one.
+	// InjectRecall works with any backend, but it is only useful with a
+	// relevance-ranking store such as a semantic store. Over the substring
+	// default it injects notes that literally contain the query words.
 	InjectRecall bool `json:"injectRecall,omitempty"`
 
 	// RecallTopK caps how many relevant notes InjectRecall injects. Zero
 	// uses the agent default (5).
 	RecallTopK int `json:"recallTopK,omitempty"`
 
-	// RecallMinScore drops recalled notes scoring below it (the poison guard
-	// — a semantic store scores every note, so a floor keeps low-TopK recall
-	// from injecting the least-irrelevant notes when nothing truly matches).
-	// Zero means no floor.
+	// RecallMinScore drops recalled notes scoring below it. It guards against
+	// poisoning. A semantic store scores every note, so when nothing truly
+	// matches, low-TopK recall would still inject the least-irrelevant notes.
+	// The floor stops that. Zero means no floor.
 	RecallMinScore float64 `json:"recallMinScore,omitempty"`
 
 	// SessionScoped, when true, namespaces working memory by the active run
-	// id, so each session (RunStore run) gets its own scratchpad and recall
-	// never crosses sessions — a /sessions resume or fork carries its own
-	// memory on a durable backend. Opt-in: the default is one shared
-	// scratchpad across all sessions, which is often the point of persistent
-	// memory. A no-op without a RunStore (the run id is always "", so every
-	// turn shares the default namespace).
+	// id. Each session (RunStore run) gets its own scratchpad, and recall
+	// never crosses sessions. On a durable backend, a /sessions resume or
+	// fork keeps its own memory. It is opt-in. By default all sessions share
+	// one scratchpad, and that sharing is often why memory is persistent. It
+	// is a no-op without a RunStore. The run id is then always "", so every
+	// turn shares the default namespace.
 	SessionScoped bool `json:"sessionScoped,omitempty"`
 }
 
@@ -370,13 +384,13 @@ func (c *MemoryConfig) recallOptions() agent.RecallOptions {
 // OffloadConfig is the host's view of tool-result offloading; it maps to
 // an agent.OffloadConfig. Its presence enables offloading.
 type OffloadConfig struct {
-	// ThresholdBytes is the model-visible size at or above which a
-	// successful result is offloaded. Zero uses the agent default
-	// (4 KB).
+	// ThresholdBytes is the offload threshold. A successful result is
+	// offloaded when its model-visible size is at or above it. Zero uses the
+	// agent default (4 KB).
 	ThresholdBytes int `json:"thresholdBytes,omitempty"`
 
-	// PreviewLen is how many leading characters the stub carries inline.
-	// Zero uses the agent default.
+	// PreviewLen is how many leading characters of the result the stub
+	// shows inline. Zero uses the agent default.
 	PreviewLen int `json:"previewLen,omitempty"`
 
 	// PerTool overrides ThresholdBytes for named tools; a value <= 0
@@ -397,12 +411,13 @@ func (c *OffloadConfig) toAgent() agent.OffloadConfig {
 // an agent.TieredApproval whose "ask" outcome is presented through the same
 // terminal UI as elicitation (via ElicitationCoordinator.Confirm).
 type ApprovalConfig struct {
-	// Mode is the default disposition for calls no rule covers: "ask"
-	// (default), "read-only-auto" (auto-allow tools that declare the
-	// readOnlyHint annotation, ask for the rest), "reversible-auto" (also
-	// auto-allow a write the tool declares non-destructive, ask on the rest),
-	// or "allow" (run everything, "yolo"). An unknown value falls back to
-	// "ask".
+	// Mode is the default disposition, and it applies to any call that no
+	// rule covers. The values are "ask" (default), "read-only-auto",
+	// "reversible-auto", and "allow". "read-only-auto" auto-allows tools that
+	// declare the readOnlyHint annotation and asks for the rest.
+	// "reversible-auto" also auto-allows a write when the tool declares it
+	// non-destructive, and asks on the rest. "allow" runs everything
+	// ("yolo"). An unknown value falls back to "ask".
 	Mode string `json:"mode,omitempty"`
 
 	// Rules pins per-tool overrides that win over Mode: tool name ->
@@ -426,26 +441,29 @@ type SpotlightConfig struct {
 	// "server" (relayed by a server the operator runs), "world" (fetched
 	// from outside), or "agent" (produced by a sub-agent).
 	//
-	// An entry here OVERRIDES what the host derives from the tool's source,
-	// so most deployments need none: a connected server's tools are already
-	// "server" and a sub-agent's are already "agent". Reach for it to vouch
-	// for something the host will not vouch for on its own — an extension's
-	// tools, or a server that returns only output you compute.
+	// The host derives a label from the tool's source, and an entry here
+	// OVERRIDES it. Most deployments need no entries. A connected server's
+	// tools are already "server" and a sub-agent's are already "agent". Add
+	// an entry to vouch for something the host will not vouch for on its
+	// own, such as an extension's tools, or a server that returns only output
+	// you compute.
 	//
-	// Prefer listing as little as possible as "operator": marking output
-	// that did not need it costs a few tokens, while vouching for output
-	// that did costs the whole mitigation. An unrecognised label is treated
-	// as "world" rather than rejected, so a typo fences output instead of
-	// exposing it.
+	// List as little as possible as "operator". Suppose a tool's output did
+	// not need marking. Marking it anyway costs a few tokens. Now suppose
+	// you vouch for output that did need marking. That output reaches the
+	// model unfenced, and the mitigation is lost. An unrecognised label is
+	// treated as "world" rather than rejected, so a typo fences output
+	// instead of exposing it.
 	Tools map[string]string `json:"tools,omitempty"`
 }
 
 // build turns the config into the middleware, or nil when spotlighting is off.
 //
 // The classifier is always installed, even with no Tools entries, because
-// derivation from the tool's source is the default rather than an opt-in. Nil
-// would fall back to labelling everything world, which still marks but throws
-// away the distinction Mark exists to act on.
+// derivation from the tool's source is the default rather than an opt-in.
+// With a nil classifier everything would be labelled world. Output would
+// still be marked, but every tool would get the same label, and Mark exists
+// to act on the difference between labels.
 func (c *SpotlightConfig) build(a *App) agent.ToolMiddleware {
 	if c == nil {
 		return nil
@@ -477,12 +495,12 @@ func parseProvenance(s string) agent.Provenance {
 // approvalPrompt is the fallback rendering, used for any call no registered
 // ApprovalRenderer claimed.
 //
-// The args are trimmed so a large payload does not flood the prompt. That trim
-// lives HERE and not in the calling path on purpose: it is the right default
-// for an unknown tool, whose arguments are an opaque blob, and the wrong one
-// for a tool whose arguments are the thing being reviewed. Applied to
-// everything, it trimmed an edit until it could not be reviewed. So a
-// renderer that claims a call decides its own truncation.
+// The args are trimmed so a large payload does not flood the prompt. The trim
+// is HERE, not in the calling path, on purpose. An unknown tool's arguments
+// are an opaque blob, and trimming them is the right default. Some tools'
+// arguments are the thing being reviewed, and trimming those is wrong. When
+// the trim applied to everything, it cut an edit until it could not be
+// reviewed. So a renderer that claims a call decides its own truncation.
 func approvalPrompt(info agent.ToolCallInfo) string {
 	args := strings.TrimSpace(string(info.Call.Args.Raw()))
 	if len(args) > 200 {
@@ -584,9 +602,9 @@ type ModelConfig struct {
 	// Empty means unauthenticated (local servers).
 	APIKeyEnv string `json:"apiKeyEnv,omitempty"`
 
-	// Backup, when set, wraps the model in a FailoverProvider: a call
-	// that fails cleanly on the primary retries here once, and the
-	// primary is benched for a cooldown. See /health in the REPL.
+	// Backup, when set, wraps the model in a FailoverProvider. If a call
+	// fails cleanly on the primary, it retries here once, and the primary
+	// is benched for a cooldown. See /health in the REPL.
 	Backup *BackupModelConfig `json:"backup,omitempty"`
 }
 
@@ -610,10 +628,10 @@ type ServerConfig struct {
 
 	// Command launches the server as a subprocess that speaks MCP on stdin
 	// and stdout, the shape .mcp.json files use. The client's stdio transport
-	// owns the process (A12's sanctioned exception): it starts when the server
-	// connects, is replaced by a fresh one on the call after a crash, and ends
-	// when the App closes. The name resolves against the agent's PATH. Set
-	// exactly one of URL and Command.
+	// owns the process, as A12 allows. The process starts when the server
+	// connects. After a crash, the next call replaces it with a fresh one. It
+	// ends when the App closes. The name resolves against the agent's PATH.
+	// Set exactly one of URL and Command.
 	Command string `json:"command,omitempty"`
 
 	// Args are Command's arguments.
@@ -652,11 +670,11 @@ type ServerConfig struct {
 	// (a FilterSource capability boundary, not a display preference).
 	Allow []string `json:"allow,omitempty"`
 
-	// Required makes boot block until this server is connected: NewApp waits
-	// for it (up to the required-timeout) instead of returning while it is
-	// still connecting. Use it for a server the agent is useless without.
+	// Required makes boot block until this server is connected. NewApp waits
+	// for it, up to the required-timeout, instead of returning while it is
+	// still connecting. Use it when the agent is useless without the server.
 	// Non-required servers (the default) connect in the background and never
-	// block boot — the agent is usable immediately and their tools wire in as
+	// block boot. The agent is usable immediately, and their tools wire in as
 	// they become ready. See docs/AGENT_SERVER_STATE.md.
 	Required bool `json:"required,omitempty"`
 
@@ -665,25 +683,26 @@ type ServerConfig struct {
 	// false opts out even when the server advertises skills.
 	Skills *bool `json:"skills,omitempty"`
 
-	// SkillsMode selects how enabled skills enter context: "catalog" (the
-	// default: only name + description; bodies fetched on demand via the
-	// load_skill tool) or "eager" (full SKILL.md bodies in the system prompt).
-	// Eager fetches every skill at connect, which SEP-2640 forbids ("Hosts
-	// MUST NOT retrieve a skill's files ahead of need"), so it is an opt-in
-	// that accepts that violation, for a server you trust and a host that
-	// wants the bodies up front. Ignored when Skills is false.
+	// SkillsMode selects how enabled skills enter context. "catalog" is the
+	// default and shows only name + description. The load_skill tool fetches
+	// a body on demand. "eager" puts the full SKILL.md bodies in the system
+	// prompt. Eager fetches every skill at connect, and SEP-2640 forbids that
+	// ("Hosts MUST NOT retrieve a skill's files ahead of need"). So eager is
+	// an opt-in that accepts the violation, for a server you trust and a host
+	// that wants the bodies up front. Ignored when Skills is false.
 	//
-	// Mode is also the trust lever for a lower-trust skills server. Skills are
-	// data, not code (ext/skills is enforced no-exec), so the risk they carry
-	// is context-poisoning: a skill body is text the model reads as guidance.
-	// "eager" splices that text into the system prompt at connect time, with no
+	// Mode also controls how much a lower-trust skills server can do. Skills
+	// are data, not code, and ext/skills enforces no-exec. So their risk is
+	// context-poisoning. The model reads a skill body as guidance. "eager"
+	// splices that text into the system prompt at connect time, with no
 	// per-skill gate. "catalog" is the safer default for a server you do not
-	// fully trust: a skill enters context only when the model calls load_skill,
-	// and load_skill is an ordinary tool, so it flows through the same approval
-	// ladder as every other call (set Approval.Rules["load_skill"] = "ask" to
-	// confirm each activation; the prompt shows the requested skill name). The
-	// fetched body also lands in tool history rather than the system prompt, so
-	// it carries less authority. Reserve "eager" for servers you trust.
+	// fully trust. A skill enters context only when the model calls
+	// load_skill. load_skill is an ordinary tool, so it goes through the same
+	// approval ladder as every other call. Set Approval.Rules["load_skill"] =
+	// "ask" to confirm each activation, and the prompt shows the requested
+	// skill name. The fetched body also goes into tool history rather than the
+	// system prompt, so it has less authority. Reserve "eager" for servers you
+	// trust.
 	SkillsMode string `json:"skillsMode,omitempty"`
 
 	// SkillsAllow, when non-empty, restricts this server to the named skills
@@ -699,16 +718,17 @@ type ServerConfig struct {
 	Events []EventConfig `json:"events,omitempty"`
 
 	// Agents controls experimental server-advertised agent discovery
-	// (experimental/ext/agents). Nil or true auto-detects: a server that
-	// advertises the io.modelcontextprotocol/agents extension has its roster
-	// (agents/list) pulled and each agent added as a lazy delegate tool the
-	// main agent can call; a server without the capability is skipped
-	// silently. False opts out even when the server advertises it. Resolution
-	// (agents/get: instructions + scoped tools) is deferred to first
-	// delegation, so scoped tool schemas never enter the supervisor's context
-	// (progressive disclosure, mirroring catalog-mode skills). The delegated
-	// agent runs as a local child Runner whose tool calls loop back to the
-	// advertising server — an agent.AgentSource like any other sub-agent.
+	// (experimental/ext/agents). Nil or true auto-detects. Suppose a server
+	// advertises the io.modelcontextprotocol/agents extension. The host pulls
+	// its roster (agents/list) and adds each agent as a lazy delegate tool
+	// that the main agent can call. A server without the capability is
+	// skipped silently. False opts out even when the server advertises it.
+	// Resolution waits for the first delegation. Only then does agents/get
+	// fetch the instructions and scoped tools, so scoped tool schemas never
+	// enter the supervisor's context. This is progressive disclosure, as with
+	// catalog-mode skills. The delegated agent runs as a local child Runner,
+	// and its tool calls loop back to the advertising server. It is an
+	// agent.AgentSource like any other sub-agent.
 	Agents *bool `json:"agents,omitempty"`
 }
 
@@ -719,23 +739,23 @@ type EventConfig struct {
 
 	// Hint overrides how occurrences reach the model (priority,
 	// aggregation window, template, retention, sensitivity). Without it, the
-	// hint the server declares on the event type in events/list applies, and
-	// is re-read when the server announces events/list_changed.
+	// server's hint applies. The server declares that hint on the event type
+	// in events/list, and the host re-reads it when the server announces
+	// events/list_changed.
 	Hint *agent.ContextHint `json:"hint,omitempty"`
 }
 
-// TriggerConfig declares one proactive-turn binding, mediated by the
-// anti-nag policy (one firing per binding until user engagement plus the
-// cooldown, session budget on top).
+// TriggerConfig declares one proactive-turn binding. The anti-nag policy
+// mediates it. Each binding fires once, then waits for user engagement plus
+// the cooldown, and a session budget applies on top.
 type TriggerConfig struct {
 	// Server and Event select the stream; Server empty matches any.
 	Server string `json:"server,omitempty"`
 	Event  string `json:"event"`
 
-	// Filter is a set of top-level payload field equality checks (all
-	// must match). The config-file rendition of the code-level filter
-	// hook; embedders wanting richer predicates use the agent package
-	// directly.
+	// Filter is a set of top-level payload field equality checks, and all
+	// must match. It is the config-file form of the code-level filter hook.
+	// Embedders that want richer predicates use the agent package directly.
 	Filter map[string]string `json:"filter,omitempty"`
 
 	// Instructions seed the proactive turn.
@@ -751,10 +771,11 @@ type TriggerConfig struct {
 // AuthConfig selects one of the client auth modes MCP supports. Secrets are
 // env-indirected like everything else in this config.
 type AuthConfig struct {
-	// Type is "bearer" (static token), "client-credentials" (OAuth
-	// machine-to-machine via PRM/AS discovery), or "oauth"
-	// (authorization-code browser flow: PRM/AS discovery + PKCE, DCR when no
-	// client is pre-registered; the /mcp overlay's login action re-runs it).
+	// Type is "bearer", "client-credentials", or "oauth". "bearer" sends a
+	// static token. "client-credentials" is OAuth machine-to-machine via
+	// PRM/AS discovery. "oauth" is the authorization-code browser flow. It
+	// uses PRM/AS discovery + PKCE, and DCR when no client is pre-registered.
+	// The /mcp overlay's login action re-runs it.
 	Type string `json:"type"`
 
 	// TokenEnv names the env var holding the static bearer token.
@@ -828,17 +849,17 @@ func LoadConfig(path string) (*Config, error) {
 
 // LoadConfigWithOverlay loads the base config, then merges the sibling
 // local-overlay file (overlayPathFor) over it when that file exists, then
-// validates. This is the read side of runtime-config persistence: the overlay
-// carries only the mutable picks a slash command changed (active connection,
-// approval mode), written by WithConfigOverlay.
+// validates. It reads what runtime-config persistence wrote. A slash command
+// changes a mutable pick, such as the active connection or approval mode,
+// and WithConfigOverlay writes only those picks to the overlay.
 //
 // The merge is deliberately a second json.Unmarshal into the same struct, so
-// the semantics are the standard library's, pinned by tests: a scalar present
-// in the overlay overrides the base, a map merges by key (base entries the
-// overlay omits survive), a slice present in the overlay REPLACES the base
-// slice wholesale, and a key the overlay omits is left untouched. By that
-// last rule, a one-line overlay (just active) leaves servers and
-// connections intact.
+// the semantics are the standard library's, and tests pin them. A scalar
+// present in the overlay overrides the base. A map merges by key, so a base
+// entry survives when the overlay omits it. A slice present in the overlay
+// REPLACES the base slice wholesale. A key the overlay omits is left
+// untouched. By that last rule, a one-line overlay (just active) leaves
+// servers and connections intact.
 func LoadConfigWithOverlay(path string) (*Config, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -911,9 +932,9 @@ func (c *Config) APIKey() string {
 // CritiqueConfig is the host's view of the constitutional critique gate. It
 // maps to agent.NewCritiqueGate.
 type CritiqueConfig struct {
-	// Principles is the constitution proposed calls are judged against.
-	// Required: a critique gate with nothing to judge against is a model call
-	// whose answer means nothing.
+	// Principles is the constitution, and the gate judges proposed calls
+	// against it. It is required. Without principles, the gate's model call
+	// has nothing to judge against, and its answer means nothing.
 	Principles string `json:"principles"`
 
 	// Tools lists the tool names to critique. Empty critiques every call,

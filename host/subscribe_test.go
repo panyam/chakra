@@ -12,10 +12,10 @@ import (
 	gocurrent "github.com/panyam/gocurrent"
 )
 
-// TestEventLog_BoundedEvicts pins the bounded-log semantics Config.
-// MaxEventLogRetention wires: past the retention window the oldest entries
-// evict, Len keeps counting the absolute offset space, and ReadFrom(0)
-// degrades to the retained suffix (never panics, never renumbers).
+// TestEventLog_BoundedEvicts pins the bounded-log semantics behind
+// Config.MaxEventLogRetention. Past the retention window the oldest entries
+// evict. Len keeps counting the absolute offset space. ReadFrom(0) degrades
+// to the retained suffix, and it never panics or renumbers.
 func TestEventLog_BoundedEvicts(t *testing.T) {
 	a := &App{events: &eventSpine{log: gocurrent.NewBoundedQueue[HostEvent](3)}}
 	for i := 0; i < 5; i++ {
@@ -34,9 +34,9 @@ func TestEventLog_BoundedEvicts(t *testing.T) {
 	}
 }
 
-// TestSubscribe_ReplayThenLive is the E3 async-seam acceptance: a consumer that
-// attaches after events were emitted replays them from offset 0 and then
-// receives live events, until ctx is cancelled. A web Watch RPC drains this
+// TestSubscribe_ReplayThenLive is the E3 async-seam acceptance. A consumer
+// attaches after events were emitted. It replays them from offset 0 and then
+// receives live events until ctx is cancelled. A web Watch RPC drains this
 // stream onto the wire.
 func TestSubscribe_ReplayThenLive(t *testing.T) {
 	a := &App{events: &eventSpine{log: gocurrent.NewQueue[HostEvent]()}}
@@ -82,8 +82,8 @@ func TestSubscribe_ReplayThenLive(t *testing.T) {
 }
 
 // TestSubscribe_LocalObserverAndSubscriberSeeSameStream pins that Subscribe is a
-// faithful second view of the one substrate: a synchronous local Observer and
-// an async Subscribe consumer receive the identical event sequence, so a TUI
+// faithful second view of the one substrate. A synchronous local Observer and
+// an async Subscribe consumer receive the identical event sequence. So a TUI
 // (Observer) and a browser (Subscribe) on one App see the same turns.
 func TestSubscribe_LocalObserverAndSubscriberSeeSameStream(t *testing.T) {
 	rec := &recordObserver{}
@@ -113,7 +113,7 @@ func TestSubscribe_LocalObserverAndSubscriberSeeSameStream(t *testing.T) {
 	}
 }
 
-// TestSubscribe_NoStoreReplaysRetainedWindow is acceptance (c): without a
+// TestSubscribe_NoStoreReplaysRetainedWindow is acceptance (c). Without a
 // RunStore, Subscribe replays the current retained window and then follows
 // live. With a bounded log the window is the un-evicted suffix.
 func TestSubscribe_NoStoreReplaysRetainedWindow(t *testing.T) {
@@ -138,11 +138,12 @@ func TestSubscribe_NoStoreReplaysRetainedWindow(t *testing.T) {
 	}
 }
 
-// TestSubscribe_DeepReplayAfterEviction is the headline acceptance (b): with a
-// small retention the early turns evict from the in-memory Queue, yet a
-// subscriber attaching afterward replays the FULL conversation — deep history
-// from the RunStore stitched with the live tail — with no duplicated and no
-// missing turn. It also exercises the NewApp bounded-queue wiring.
+// TestSubscribe_DeepReplayAfterEviction is the headline acceptance (b). With a
+// small retention, the early turns evict from the in-memory Queue. A
+// subscriber that attaches afterward still replays the FULL conversation, with
+// no duplicated and no missing turn. Replay stitches deep history from the
+// RunStore with the live tail. The test also exercises the NewApp
+// bounded-queue wiring.
 func TestSubscribe_DeepReplayAfterEviction(t *testing.T) {
 	ctx := context.Background()
 	ts := startTestServer(t)
@@ -188,9 +189,9 @@ func TestSubscribe_DeepReplayAfterEviction(t *testing.T) {
 	}
 }
 
-// TestPersistedOffsetAdvancesAtTurnEnd is acceptance (d): persistedOffset is
-// zero before any persisted turn and advances once the turn's events land in
-// the RunStore, staying within the event log's length.
+// TestPersistedOffsetAdvancesAtTurnEnd is acceptance (d). persistedOffset is
+// zero before any persisted turn. It advances once the turn's events are in
+// the RunStore, and it never exceeds the event log's length.
 func TestPersistedOffsetAdvancesAtTurnEnd(t *testing.T) {
 	ctx := context.Background()
 	store := agent.NewInMemoryRunStore()

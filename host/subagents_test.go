@@ -35,9 +35,10 @@ func (c *collectObserver) kinds(k HostEventKind) []HostEvent {
 	return out
 }
 
-// TestAppSubAgentPersonaDelegatesAndSurfaces is the 1031 payoff: a SubAgents
-// config builds a persona the main agent delegates to (StubProvider), and the
-// child's events surface as HostSubAgentEvent (scoped), for nested rendering.
+// TestAppSubAgentPersonaDelegatesAndSurfaces is the 1031 payoff. A SubAgents
+// config builds a persona, and the main agent delegates to it (StubProvider).
+// The child's events surface as HostSubAgentEvent (scoped), for nested
+// rendering.
 func TestAppSubAgentPersonaDelegatesAndSurfaces(t *testing.T) {
 	ts := startTestServer(t)
 
@@ -90,10 +91,10 @@ func TestAppSubAgentPersonaDelegatesAndSurfaces(t *testing.T) {
 	}
 }
 
-// TestAppSubAgentSnakeCaseName guards the registration bug where a snake_case
-// persona name (e.g. deep_researcher) built a "subagent:deep_researcher" source
-// id, which MultiSource.Add rejects because "_" is the qualified-name separator.
-// The id is sanitized (underscores -> dashes) while the model-visible tool name
+// TestAppSubAgentSnakeCaseName guards a registration bug. A snake_case persona
+// name (e.g. deep_researcher) built a "subagent:deep_researcher" source id.
+// MultiSource.Add rejects that id because "_" is the qualified-name separator.
+// The id is sanitized (underscores -> dashes), and the model-visible tool name
 // keeps its underscores.
 func TestAppSubAgentSnakeCaseName(t *testing.T) {
 	ts := startTestServer(t)
@@ -116,7 +117,7 @@ func TestAppSubAgentSnakeCaseName(t *testing.T) {
 }
 
 func TestPreemptGrantFor(t *testing.T) {
-	// AllowPreempt false (the default) => no grant, so a preempt stays advisory.
+	// AllowPreempt false (the default) => no grant, so a preempt is advisory.
 	if preemptGrantFor(false) != nil {
 		t.Error("AllowPreempt=false should map to a nil PreemptGrant (safe default)")
 	}
@@ -130,7 +131,7 @@ func TestPreemptGrantFor(t *testing.T) {
 // TestAppSubAgentSignalsSurface: a CanSignal persona raises signal_parent, and
 // the main agent surfaces it as an EventSignal (wrapped in HostRunnerEvent) and
 // continues (default inject-and-continue policy). Guards the host wiring of
-// issue 1165 — the persona gets the control tool and the main Runner reacts.
+// issue 1165. The persona gets the control tool, and the main Runner reacts.
 func TestAppSubAgentSignalsSurface(t *testing.T) {
 	ts := startTestServer(t)
 	stub := agent.NewStubProvider(

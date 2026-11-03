@@ -9,21 +9,21 @@ import (
 	"github.com/panyam/chakra"
 )
 
-// The input-transform seam (#27) has exactly three rules, one test each:
+// The input-transform seam (#27) has exactly three rules, with one test each.
 //
 //  1. Transforms apply in registration order, each receiving the previous
 //     one's output.
-//  2. The expanded text is what lands in history — in memory and, when a
-//     RunStore is configured, persisted — and therefore what the model reads.
+//  2. History holds the expanded text, in memory and also in the RunStore
+//     when one is configured. So the model reads the expanded text.
 //  3. An error aborts the turn before any model call, leaving history and the
 //     store untouched.
 //
-// They are separate tests rather than one, because each is a different way to
-// get this wrong and each fails at a different place: (1) fails silently with
-// a readable-but-wrong prompt, (2) fails only across a restart when the model
-// saw the expansion but the store kept the raw input, and (3) fails the one
-// rule a user can see without reading history at all — the model was called
-// with input the transform refused to accept.
+// Each rule gets its own test, because each breaks in a different way and at
+// a different place. Rule 1 breaks silently, with a prompt that reads fine but
+// is wrong. Rule 2 breaks only across a restart, when the model saw the
+// expansion but the store kept the raw input. A user can see rule 3 break
+// without reading history at all, because the model was called with input
+// the transform refused to accept.
 
 // transformExt wraps one input transform, so a test can register several
 // distinct transforms in a known order.
@@ -44,8 +44,8 @@ func appendTransform(name, marker string) *transformExt {
 	}}
 }
 
-// lastUserText returns the text of the last message a provider request
-// carried — the user's message as the model saw it.
+// lastUserText returns the text of the last message in a provider request,
+// which is the user's message as the model saw it.
 func lastUserText(t *testing.T, req agent.ProviderRequest) string {
 	t.Helper()
 	if len(req.Messages) == 0 {
@@ -60,12 +60,12 @@ func lastUserText(t *testing.T, req agent.ProviderRequest) string {
 
 // TestInputTransformsApplyInRegistrationOrder is rule 1.
 //
-// It asserts two things: that both registered transforms ran, and that they
-// ran in registration order. The second matters because the reversed order
-// passes an "did the expansion happen" check just as well — the only symptom
-// is a differently shaped prompt, which nothing else in the tree would catch.
-// This is the same reason TestExtensionCloseRunsInReverseRegistrationOrder and
-// surfaces.TestWorkspaceExtensionsCheckpointFirst exist.
+// It asserts that both registered transforms ran, and that they ran in
+// registration order. The order check matters because the reversed order
+// passes a "did the expansion happen" check just as well. The only symptom is
+// a differently shaped prompt, and nothing else in the tree would catch it.
+// TestExtensionCloseRunsInReverseRegistrationOrder and
+// surfaces.TestWorkspaceExtensionsCheckpointFirst exist for the same reason.
 func TestInputTransformsApplyInRegistrationOrder(t *testing.T) {
 	stub := agent.NewStubProvider(agent.StubTurn{Text: "ok"})
 	app := extApp(t, stub, appendTransform("first", "A"), appendTransform("second", "B"))
@@ -82,10 +82,10 @@ func TestInputTransformsApplyInRegistrationOrder(t *testing.T) {
 }
 
 // TestInputTransformOrderIncludesStepsFromOneExtension is rule 1 at the other
-// granularity: an extension may contribute several transforms, and within one
-// extension the slice keeps its declared order. The contract says so (each
-// seam keeps the order its slice declares), so it needs a test of its own —
-// a caller who registers one extension with two steps never registers two
+// granularity. An extension may contribute several transforms, and within one
+// extension the slice keeps its declared order. The contract says each seam
+// keeps the order its slice declares, so that needs a test of its own. A
+// caller who registers one extension with two steps never registers two
 // extensions to find out.
 func TestInputTransformOrderIncludesStepsFromOneExtension(t *testing.T) {
 	stub := agent.NewStubProvider(agent.StubTurn{Text: "ok"})
@@ -104,11 +104,11 @@ func TestInputTransformOrderIncludesStepsFromOneExtension(t *testing.T) {
 
 // TestInputTransformIsWhatHistoryHolds is rule 2, in memory.
 //
-// The expanded text must be the user message, not a sibling block: a
-// transform that only altered the per-turn view would leave history holding
-// the raw input, the exact divergence rule 2 forbids. Asserting the last
-// history message is not enough on its own — a transform could append the
-// expansion as a second message — so this counts the user messages too.
+// The expanded text must be the user message, not a sibling block. Suppose a
+// transform only altered the per-turn view. History would then hold the raw
+// input, and rule 2 forbids exactly that divergence. Asserting the last
+// history message is not enough on its own, since a transform could append
+// the expansion as a second message. So this counts the user messages too.
 func TestInputTransformIsWhatHistoryHolds(t *testing.T) {
 	stub := agent.NewStubProvider(agent.StubTurn{Text: "answered"})
 	app := extApp(t, stub, appendTransform("expand", " [expanded]"))
@@ -135,9 +135,9 @@ func TestInputTransformIsWhatHistoryHolds(t *testing.T) {
 //
 // The in-memory half can pass while the store keeps the raw input, because
 // the two are written on different paths (history slice vs. persistTurnLocked
-// and AppendMessages). A resumed session would then show the user words they
-// never typed — or rather, the words they typed and not the ones the model
-// answered. This is the assertion a second process makes.
+// and AppendMessages). A resumed session would then show the words the user
+// typed, not the expanded text the model answered. A second process makes
+// this assertion.
 func TestInputTransformIsWhatTheRunStorePersists(t *testing.T) {
 	ctx := context.Background()
 	store := agent.NewInMemoryRunStore()
@@ -170,11 +170,11 @@ func TestInputTransformIsWhatTheRunStorePersists(t *testing.T) {
 
 // TestInputTransformErrorAbortsBeforeTheModelCall is rule 3.
 //
-// The load-bearing assertion is that the provider was never called: a
-// transform exists to decide what the model is asked, so one that fails has
-// to fail before the ask, not after it. History and the store are checked
-// too, because "aborted" that still left a user message behind would poison
-// the next turn's context.
+// The key assertion checks that the provider was never called. A transform
+// decides what the model is asked, so one that fails has to fail before the
+// ask, not after it. History and the store are checked too. If an aborted
+// turn still left a user message behind, it would poison the next turn's
+// context.
 func TestInputTransformErrorAbortsBeforeTheModelCall(t *testing.T) {
 	ext := &transformExt{name: "resolver", fns: []InputTransform{
 		func(context.Context, string) (string, error) { return "", errors.New("no such template") },
@@ -201,9 +201,9 @@ func TestInputTransformErrorAbortsBeforeTheModelCall(t *testing.T) {
 // TestInputTransformErrorCreatesNoRun is rule 3's persistence half.
 //
 // RunTurn creates the session's run lazily on the first persisted turn, so a
-// transform that fails must fail before that: otherwise a turn the user was
-// told did not happen exists in the session list as an empty run, and
-// "nothing happened" is a lie the store can be asked about.
+// transform that fails must fail before that. Otherwise the user is told the
+// turn did not happen, yet the session list shows it as an empty run. Anyone
+// who asks the store would see that "nothing happened" was false.
 func TestInputTransformErrorCreatesNoRun(t *testing.T) {
 	ctx := context.Background()
 	store := agent.NewInMemoryRunStore()
@@ -236,10 +236,10 @@ func TestInputTransformErrorCreatesNoRun(t *testing.T) {
 	}
 }
 
-// TestInputTransformFailureStopsTheChain is rule 3's ordering half: a
-// transform that fails must not let the transforms registered after it run.
-// A later step that ran anyway would mutate state — resolving a template,
-// charging a budget — for a turn that is being abandoned.
+// TestInputTransformFailureStopsTheChain is rule 3's ordering half. When a
+// transform fails, the transforms registered after it must not run. A later
+// step that ran anyway would mutate state, such as resolving a template or
+// charging a budget, for a turn that is being abandoned.
 func TestInputTransformFailureStopsTheChain(t *testing.T) {
 	ran := false
 	stub := agent.NewStubProvider(agent.StubTurn{Text: "unreachable"})

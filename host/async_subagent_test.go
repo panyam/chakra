@@ -24,9 +24,9 @@ func waitForCond(t *testing.T, d time.Duration, cond func() bool) {
 	t.Fatal("condition not met before deadline")
 }
 
-// TestAppAsyncSubAgentAcksThenInjects is the 1035 payoff: an Async persona acks
-// immediately on the spawning turn, runs in the background, and its result is
-// injected into a LATER turn's context (not this turn).
+// TestAppAsyncSubAgentAcksThenInjects is the 1035 payoff. An Async persona acks
+// immediately on the spawning turn and runs in the background. Its result is
+// injected into a LATER turn's context, not this turn's.
 func TestAppAsyncSubAgentAcksThenInjects(t *testing.T) {
 	ts := startTestServer(t)
 
@@ -66,7 +66,7 @@ func TestAppAsyncSubAgentAcksThenInjects(t *testing.T) {
 		t.Fatalf("async delegate should feed the model an ack, got %q", ackFed)
 	}
 
-	// the background child finishes and notifies (HostMessage) — wait for it.
+	// the background child finishes and notifies (HostMessage); wait for it.
 	waitForCond(t, 2*time.Second, func() bool { return len(obs.kinds(HostMessage)) > 0 })
 
 	// turn 2: the injected result is now in the request's system context.

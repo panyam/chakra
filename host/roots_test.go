@@ -16,11 +16,11 @@ import (
 	"github.com/panyam/mcpkit/server"
 )
 
-// rootsServer serves workspace_roots, which asks the client for roots/list
-// through SEP-2322 input (the one way to ask on both wires) and returns the
+// rootsServer serves workspace_roots. The tool asks the client for roots/list
+// through SEP-2322 input, the one way to ask on both wires. It returns the
 // URIs one per line, or "no roots capability" for a client that declared none.
-// pushed records what the server's own list_changed fetch saw, which only the
-// session wire can deliver.
+// pushed records the result of the server's own list_changed fetch. Only the
+// session wire can deliver that fetch.
 type rootsServer struct {
 	mu     sync.Mutex
 	pushed [][]core.Root
@@ -113,8 +113,7 @@ func askRoots(t *testing.T, app *App) string {
 	return b.String()
 }
 
-// Config.Roots and WithRoots together are what roots/list answers, in that
-// order, as file:// URIs.
+// roots/list answers with Config.Roots and then WithRoots, as file:// URIs.
 func TestServerSeesWorkspaceRoots(t *testing.T) {
 	rs := newRootsServer(t)
 	a, b := t.TempDir(), t.TempDir()
@@ -150,9 +149,10 @@ func TestSetRootsChangesTheNextList(t *testing.T) {
 	}
 }
 
-// SetRoots sends notifications/roots/list_changed, and the server's own
-// roots/list fetch, which follows it, sees the new set. Session wire only:
-// the stateless wire has no server-to-client request outside a tool call.
+// SetRoots sends notifications/roots/list_changed. The server then fetches
+// roots/list itself and sees the new set. This runs on the session wire only,
+// because the stateless wire has no server-to-client request outside a tool
+// call.
 func TestSetRootsNotifiesTheServer(t *testing.T) {
 	skipOnStateless(t, "a server-initiated roots/list after list_changed")
 	rs := newRootsServer(t)

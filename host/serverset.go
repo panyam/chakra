@@ -10,57 +10,58 @@ import (
 	eventsclient "github.com/panyam/mcpkit/experimental/ext/events/clients/go"
 )
 
-// serverSet is the connected MCP servers: the Group that owns their
-// connection lifecycle, the clients it drives, the persona-visible mirror of
-// their tools, and the interactive token sources that make /login possible.
+// serverSet holds the connected MCP servers. It has the Group that owns their
+// connection lifecycle and the clients the Group drives. It also has the
+// persona-visible mirror of their tools, and the interactive token sources
+// that make /login possible.
 //
-// Held by value; every field is zero-value usable, and a nil group means
-// construction failed before the Group existed (Close checks for exactly
-// that).
+// It is held by value, and every field is zero-value usable. A nil group
+// means construction failed before the Group existed, and Close checks for
+// exactly that.
 type serverSet struct {
-	// group owns the connection lifecycle: async connect, per-server state,
-	// backoff reconnect. Its observer registers a server's tools when it
-	// becomes ready. See docs/AGENT_SERVER_STATE.md.
+	// group owns the connection lifecycle, which covers async connect,
+	// per-server state, and backoff reconnect. Its observer registers a
+	// server's tools when it becomes ready. See docs/AGENT_SERVER_STATE.md.
 	group   *client.Group
 	clients []*client.Client
 
 	// tools mirrors the server sources only, with no meta-tools and no
-	// sub-agents, so a persona gets a filtered view of the servers without
-	// seeing the other personas (which would let it recurse). Nil unless
-	// personas are configured.
+	// sub-agents. A persona gets a filtered view of the servers and does not
+	// see the other personas, since seeing them would let it recurse. Nil
+	// unless personas are configured.
 	tools *agent.MultiSource
 
 	// oauth holds the interactive token source per server id, so LoginServer
 	// can force a fresh browser login. Only oauth-typed servers have an entry,
-	// and its presence is what CanLogin reports.
+	// and CanLogin reports whether one exists.
 	oauth map[string]loginSource
 }
 
 // canLogin reports whether the server has an interactive token source.
 func (s *serverSet) canLogin(id string) bool { return s.oauth[id] != nil }
 
-// streamSet is the inbound event plumbing: the live subscriptions, the fan-in
-// that merges every server's stream into one channel, and the context that
+// streamSet is the inbound event plumbing. It holds the live subscriptions
+// and a fan-in that merges every server's stream into one channel. A context
 // bounds them all.
 //
-// Separate from serverSet despite being per-server, because the lifecycles
+// It is per-server, like serverSet, but kept separate because the lifecycles
 // differ. Connections come up and go down on the Group's schedule and outlive
-// any single subscription; the streams exist only when the async control plane
-// is on (metaTools), and Close stops them before the Group. Merging the two
-// would put a conditional half inside an unconditional whole.
+// any single subscription. The streams exist only when the async control
+// plane is on (metaTools), and Close stops them before the Group. Merging the
+// two would put a conditional half inside an unconditional whole.
 type streamSet struct {
 	mu   sync.Mutex
 	subs map[string]*subscription
 
 	calls []*eventsclient.StreamCall
 
-	// fanIn merges every subscription into one channel the consumer drains.
-	// Nil when the async control plane is off.
+	// fanIn merges every subscription into one channel, and the consumer
+	// drains it. Nil when the async control plane is off.
 	fanIn *gocurrent.FanIn[agent.IncomingEvent]
 
-	// ctx bounds every subscription. Built before the servers connect, so the
-	// ready-observer can subscribe a late server the moment it arrives; stop
-	// cancels them all.
+	// ctx bounds every subscription. It is built before the servers connect,
+	// so the ready-observer can subscribe a late server the moment it
+	// arrives. stop cancels them all.
 	ctx  context.Context
 	stop context.CancelFunc
 }

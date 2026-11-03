@@ -13,8 +13,9 @@ import (
 )
 
 // WithRoots adds workspace directories to the ones in Config.Roots. Surfaces
-// pass the same roots they confine ext/files and ext/exec to, so a server
-// asking roots/list sees the project the agent is working on.
+// confine ext/files and ext/exec to their roots, and they pass the same roots
+// here. A server asking roots/list then sees the project the agent is working
+// on.
 func WithRoots(dirs ...string) AppOption {
 	return func(o *appOptions) { o.roots = append(o.roots, dirs...) }
 }
@@ -71,15 +72,16 @@ func (a *App) Roots() []core.Root {
 
 // SetRoots replaces the declared roots and sends
 // notifications/roots/list_changed to every connected server, which then asks
-// roots/list again. It needs the host to have started with at least one root:
-// the roots capability is fixed at initialize, so a host that advertised none
-// cannot start declaring them mid-session, and SetRoots returns an error.
+// roots/list again. It needs the host to have started with at least one root.
+// The roots capability is fixed at initialize. A host that advertised none
+// cannot start declaring them mid-session, so SetRoots returns an error.
 //
 // A server that is not connected misses the notification, and reads the new
-// list when it next asks. So does every server on the stateless wire, which
-// has no list_changed notification (SEP-2575) and asks roots/list inside each
-// tool call that needs it. The returned error joins the notify failures of the
-// servers that were connected; the new roots are in place either way.
+// list when it next asks. Every server on the stateless wire behaves the same
+// way. That wire has no list_changed notification (SEP-2575), so its servers
+// ask roots/list inside each tool call that needs it. The returned error
+// joins the notify failures from the connected servers. The new roots are in
+// place either way.
 func (a *App) SetRoots(ctx context.Context, dirs ...string) error {
 	if a.roots == nil {
 		return errors.New("host: SetRoots needs the host to start with roots (Config.Roots or WithRoots)")

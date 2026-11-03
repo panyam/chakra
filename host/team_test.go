@@ -16,16 +16,17 @@ func transferCall(id, target string) agent.StubTurn {
 	}}}
 }
 
-// TestAppTeamDrivesRunTurnWithHandoff is the 1042 payoff: a Config.Team drives
-// RunTurn (not the single runner), a transfer fires a HostHandoff event, and the
-// active agent persists across user turns — turn 2 starts from the specialist,
-// not the triage Start.
+// TestAppTeamDrivesRunTurnWithHandoff is the end-to-end check for 1042. A
+// Config.Team drives RunTurn instead of the single runner. A transfer fires a
+// HostHandoff event. The active agent persists across user turns, so turn 2
+// starts from the specialist, not the triage Start.
 func TestAppTeamDrivesRunTurnWithHandoff(t *testing.T) {
 	ts := startTestServer(t)
 
-	// One StubProvider serves both members. Turn 1: triage transfers (then its
-	// own follow-up text — the Runner continues its turn after the tool call),
-	// specialist answers. Turn 2: specialist answers directly.
+	// One StubProvider serves both members. In turn 1, triage transfers, then
+	// emits its own follow-up text, because the Runner continues its turn
+	// after the tool call. Then the specialist answers. In turn 2, the
+	// specialist answers directly.
 	stub := agent.NewStubProvider(
 		transferCall("t1", "specialist"),
 		agent.StubTurn{Text: "connecting you"},
@@ -73,7 +74,7 @@ func TestAppTeamDrivesRunTurnWithHandoff(t *testing.T) {
 		t.Fatalf("team events not attributed to both agents, saw %v", scopes)
 	}
 
-	// turn 2: starts from the persisted specialist — the triage provider turns
+	// turn 2 starts from the persisted specialist. The triage provider turns
 	// are already consumed, so if turn 2 restarted at triage it would misroute.
 	triageReqs := len(stub.Requests())
 	if err := app.RunTurn(context.Background(), "one more thing"); err != nil {
@@ -92,9 +93,9 @@ func TestAppTeamDrivesRunTurnWithHandoff(t *testing.T) {
 	}
 }
 
-// TestAppTeamRejectsSingleAgentFeatures guards the mutual-exclusivity contract:
-// team mode replaces the single agent, so combining it with memory / sub-agents
-// / fan-out is a construction error, not a silent drop.
+// TestAppTeamRejectsSingleAgentFeatures guards the mutual-exclusivity
+// contract. Team mode replaces the single agent. So combining it with memory,
+// sub-agents, or fan-out is a construction error, not a silent drop.
 func TestAppTeamRejectsSingleAgentFeatures(t *testing.T) {
 	ts := startTestServer(t)
 	team := &HostTeamConfig{Start: "a", Members: []TeamMemberConfig{{SubAgentConfig: SubAgentConfig{Name: "a"}}}}

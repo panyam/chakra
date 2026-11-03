@@ -42,9 +42,9 @@ func TestSystemPromptBuilder_TrimsSurroundingNewlines(t *testing.T) {
 	}
 }
 
-// TestWithSystemPromptBuilder_MutatesDefault pins the customization seam: the
-// mutator receives the assembled default builder and can insert a section that
-// then appears in Build's output alongside the base instructions.
+// TestWithSystemPromptBuilder_MutatesDefault pins the customization seam. The
+// mutator receives the assembled default builder and can insert a section. The
+// section then appears in Build's output alongside the base instructions.
 func TestWithSystemPromptBuilder_MutatesDefault(t *testing.T) {
 	ts := startTestServer(t)
 	var out strings.Builder

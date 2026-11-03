@@ -72,8 +72,8 @@ func TestDynamicOrUnknownSkillIsNeverRemembered(t *testing.T) {
 }
 
 // #50 item 3: the listing's frontmatter is checked against the SKILL.md that
-// is served, through mcpkit's ReadFromEntry. A listing whose description
-// disagrees with the file must refuse the load.
+// is served, through mcpkit's ReadFromEntry. If the listing's description
+// disagrees with the file, the load must be refused.
 func TestLoadSkillRefusesAFrontmatterMismatch(t *testing.T) {
 	ts := startSkillsServer(t)
 	cfg := testConfig(ts.URL)
@@ -95,8 +95,8 @@ func TestLoadSkillRefusesAFrontmatterMismatch(t *testing.T) {
 		t.Fatalf("an honest listing should load: %v %+v", err, good)
 	}
 
-	// Swap the listing's description, as a server whose skills/list
-	// disagrees with the file it serves would.
+	// Swap the listing's description. A server would do this if its
+	// skills/list disagreed with the file it serves.
 	bad := cat[0]
 	fm := map[string]any{}
 	for k, v := range bad.entry.Frontmatter {

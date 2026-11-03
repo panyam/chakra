@@ -13,14 +13,13 @@ import (
 )
 
 // ConnectionsConfig is a named registry of model connections with one
-// active, the shape a playground config carries so the user can switch
-// models at runtime (/provider). It supersedes Config.Model for the chat
-// provider when set; Model stays as the single-connection quick-start.
+// active. A playground config carries it so the user can switch models at
+// runtime (/provider). When set, it supersedes Config.Model for the chat
+// provider, and Model remains the single-connection quick-start.
 //
-// The same registry is the seam later roles draw from: /embedder and
-// /judgelm (epic 983) pick an active connection for their role from this
-// one set — connections are model endpoints, roles are assignments over
-// them.
+// Later roles draw from the same registry. /embedder and /judgelm (epic 983)
+// each pick an active connection for their role from this one set.
+// Connections are model endpoints, and roles are assignments over them.
 type ConnectionsConfig struct {
 	// Active names the connection used for the chat provider at startup.
 	// Must be a key in Connections.
@@ -30,21 +29,22 @@ type ConnectionsConfig struct {
 	// memory), the counterpart of Active for embeddings. Optional; empty
 	// means no config-provided embedder (a surface may still supply one by
 	// flag). Must be a key in Connections, and that connection must speak an
-	// embeddings API — Anthropic has none, so an "anthropic"-typed connection
+	// embeddings API. Anthropic has none, so an "anthropic"-typed connection
 	// is rejected. Set Dim on the named connection to the embedding width.
 	Embedder string `json:"embedder,omitempty"`
 
 	// Connections maps a caller-chosen name to its endpoint + model.
 	Connections map[string]ConnectionConfig `json:"connections"`
 
-	// AgentRoles assigns connections to the model roles a server-advertised
-	// agent can hint at (experimental/ext/agents modelRoutingHint): "small",
-	// "medium" and "large", each naming a key in Connections. A delegated
-	// agent runs on the connection for its hinted role, or on a larger one
-	// when that role is unassigned or lacks vision the hint asks for, and
-	// never on a smaller one. When nothing fits, or the agent sends no hint,
-	// it runs on the active connection. Optional; empty runs every agent on
-	// the active connection.
+	// AgentRoles assigns connections to model roles. A server-advertised agent
+	// hints at a role with modelRoutingHint, from mcpkit's
+	// experimental/ext/agents. The roles are "small", "medium" and "large",
+	// each naming a key in Connections. A delegated agent runs on the
+	// connection for its hinted role. If that role is unassigned, or its
+	// connection lacks the vision the hint asks for, the agent runs on a larger
+	// one, and never on a smaller one. When nothing fits, or the agent sends no
+	// hint, it runs on the active connection. Optional; empty runs every agent
+	// on the active connection.
 	AgentRoles map[string]string `json:"agentRoles,omitempty"`
 
 	// StepRoutes sends ranges of each turn's model calls to other
@@ -140,8 +140,8 @@ type ConnectionConfig struct {
 	Temperature *bool `json:"temperature,omitempty"`
 
 	// ResponseSchema overrides whether this connection's endpoint takes
-	// response_format json_schema, which a ResponseSchema (the structured
-	// finalize) sends. Nil means it does. Set false for DeepSeek, which
+	// response_format json_schema. A ResponseSchema (the structured finalize)
+	// sends that format. Nil means it does. Set false for DeepSeek, which
 	// answers 400 to json_schema: the schema then goes in the system message
 	// and the request asks for json_object (agent.OpenAIConfig.NoResponseSchema).
 	// Read only by the OpenAI-wire types other than "llamacpp" and "ollama".
@@ -158,13 +158,14 @@ type ThinkingHint struct {
 
 // connectionBaseURLs maps a built-in Type to its default API root: local
 // runtimes, the OpenAI cloud, Gemini's OpenAI-compatible endpoint, Anthropic,
-// and the OpenAI-wire model routers (OpenRouter cloud, LiteLLM proxy).
-// Anything else sets BaseURL explicitly. Every type here is OpenAI-wire EXCEPT
-// "anthropic", which DefaultProviderBuilder routes to the native Messages-API
-// provider (see below) — the base still resolves here so registry validation
-// and BaseURL overrides work uniformly. A router is just a connection whose
-// base URL is the gateway; "litellm" defaults to the proxy's local port and is
-// typically overridden with BaseURL for a hosted deployment.
+// and the OpenAI-wire model routers (OpenRouter cloud, LiteLLM proxy). Anything
+// else sets BaseURL explicitly. Every type here is OpenAI-wire EXCEPT
+// "anthropic". DefaultProviderBuilder routes "anthropic" to the native
+// Messages-API provider (see below). Its base still resolves here, so registry
+// validation and BaseURL overrides work the same for every type. A router is
+// just a connection whose base URL is the gateway; "litellm" defaults to the
+// proxy's local port and is typically overridden with BaseURL for a hosted
+// deployment.
 var connectionBaseURLs = map[string]string{
 	"lmstudio":         "http://localhost:1234/v1",
 	"llamacpp":         agent.DefaultLlamaCppBaseURL,
@@ -250,9 +251,9 @@ func buildProvider(conn ConnectionConfig, onFullHistory func(reason string)) (ag
 // BuildEmbedder builds an agent.Embedder from an embedder connection, the
 // counterpart of DefaultProviderBuilder for the embedder role. Embeddings are
 // an OpenAI-wire concern (an /embeddings endpoint), so every supported type
-// resolves through the OpenAI-compatible embedder — EXCEPT "anthropic", which
-// exposes no embeddings API and is rejected. tp opts the embedder into its
-// agent.embed span; nil is fine.
+// except "anthropic" resolves through the OpenAI-compatible embedder. Anthropic
+// exposes no embeddings API, so that type is rejected. tp opts the embedder
+// into its agent.embed span; nil is fine.
 func BuildEmbedder(conn ConnectionConfig, tp core.TracerProvider) (agent.Embedder, error) {
 	if conn.Type == "anthropic" {
 		return nil, fmt.Errorf("host: connection type %q has no embeddings API; use an openai/gemini/local embedder", conn.Type)
@@ -305,9 +306,10 @@ func knownTypes() string {
 }
 
 // ConnectionRegistry holds the named connections, the active one, and a
-// cache of built providers. Safe for concurrent use: SetActive and
-// provider() are the runtime-switch surface. Providers are built lazily
-// and cached, so switching back to a used connection is instant.
+// cache of built providers. It is safe for concurrent use. SetActive
+// switches connections at runtime, and Provider and ActiveProvider return
+// built providers. Providers are built lazily and cached, so switching
+// back to a used connection is instant.
 type ConnectionRegistry struct {
 	mu     sync.Mutex
 	conns  map[string]ConnectionConfig
@@ -323,9 +325,10 @@ type ConnectionRegistry struct {
 
 // NewConnectionRegistry validates cfg (Active must name a connection,
 // every connection must resolve a base URL) and returns the registry. A
-// nil build uses DefaultProviderBuilder. Providers are not built here —
-// the first Provider/SetActive call builds the active one, so a
-// misconfigured non-active connection does not fail startup.
+// nil build uses DefaultProviderBuilder. Providers are not built here.
+// Each one is built on the first Provider, ActiveProvider or SetActive call
+// that asks for it, so a misconfigured non-active connection does not fail
+// startup.
 func NewConnectionRegistry(cfg *ConnectionsConfig, build ProviderBuilder) (*ConnectionRegistry, error) {
 	if cfg == nil || len(cfg.Connections) == 0 {
 		return nil, fmt.Errorf("host: connections config is empty")
@@ -416,8 +419,8 @@ func (r *ConnectionRegistry) ActiveModel() string {
 	return r.conns[r.active].Model
 }
 
-// provider returns the built provider for name, building and caching on
-// first use. Caller holds r.mu.
+// providerLocked returns the built provider for name, building and caching
+// it on first use. Caller holds r.mu.
 func (r *ConnectionRegistry) providerLocked(name string) (agent.Provider, error) {
 	if p, ok := r.cache[name]; ok {
 		return p, nil

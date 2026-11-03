@@ -45,8 +45,8 @@ func TestSpotlightOffByDefault(t *testing.T) {
 	}
 }
 
-// TestSpotlightMarksServerToolOutput is the wiring acceptance: with the config
-// block set, what the model reads for a real MCP server tool is fenced.
+// TestSpotlightMarksServerToolOutput is the wiring acceptance. With the config
+// block set, a real MCP server tool's output reaches the model fenced.
 func TestSpotlightMarksServerToolOutput(t *testing.T) {
 	ts := startTestServer(t)
 	cfg := testConfig(ts.URL)
@@ -95,7 +95,7 @@ func TestSpotlightOperatorLabelOptOut(t *testing.T) {
 
 // TestSpotlightNonOperatorLabelsStillMark pins that only "operator" opts out.
 // A config that labels a tool "server" is describing where output came from,
-// not vouching for it, so the fence stays.
+// not vouching for it, so the output is still fenced.
 func TestSpotlightNonOperatorLabelsStillMark(t *testing.T) {
 	for _, label := range []string{"server", "world", "agent", "trusted", ""} {
 		ts := startTestServer(t)
@@ -138,7 +138,7 @@ func TestParseProvenance(t *testing.T) {
 	}
 }
 
-// TestSpotlightDoesNotMarkDeniedCalls pins the ordering host wires: the
+// TestSpotlightDoesNotMarkDeniedCalls pins the order that host wires. The
 // permission gate runs inside spotlighting, so a refused call produces no
 // result and the denial reaches the model unfenced.
 func TestSpotlightDoesNotMarkDeniedCalls(t *testing.T) {
@@ -199,9 +199,10 @@ func infoFor(tool string) agent.ToolCallInfo {
 	return agent.ToolCallInfo{Call: agent.ToolCall{Name: tool}}
 }
 
-// TestProvenanceDerivedFromSource is the point of the feature: an operator who
-// configures nothing still gets meaningful labels, instead of everything
-// defaulting to world and the distinction Mark acts on never being used.
+// TestProvenanceDerivedFromSource covers the main purpose of the feature. An
+// operator who configures nothing still gets meaningful labels. Without
+// derivation every tool would default to world, and Mark would never see two
+// different labels to act on.
 func TestProvenanceDerivedFromSource(t *testing.T) {
 	app := &App{sources: agent.NewMultiSource()}
 	app.recordOrigin("prod-api", agent.ProvenanceServer)
@@ -230,8 +231,8 @@ func TestProvenanceDerivedFromSource(t *testing.T) {
 
 // TestExtensionToolIsNeverDerivedOperator is the safety pin. An extension is
 // arbitrary code that may shell out or fetch, so the host has no standing to
-// vouch for it. Deriving operator here would silently unfence output the
-// mitigation exists to fence.
+// vouch for it. The mitigation exists to fence that output, and deriving
+// operator here would silently unfence it.
 func TestExtensionToolIsNeverDerivedOperator(t *testing.T) {
 	app := &App{sources: agent.NewMultiSource()}
 	addSource(t, app.sources, "my-extension", "shell_out")
@@ -240,7 +241,7 @@ func TestExtensionToolIsNeverDerivedOperator(t *testing.T) {
 	}
 }
 
-// TestUnknownToolResolvesToWorld pins the fail-closed direction: a name that
+// TestUnknownToolResolvesToWorld pins the fail-closed direction. A name that
 // resolves to nothing gets marked rather than passed through.
 func TestUnknownToolResolvesToWorld(t *testing.T) {
 	app := &App{sources: agent.NewMultiSource()}
@@ -250,8 +251,8 @@ func TestUnknownToolResolvesToWorld(t *testing.T) {
 	}
 }
 
-// TestCollidingServersResolveToTheirOwnSource is the disambiguation case:
-// two servers advertising one name must not borrow each other's provenance.
+// TestCollidingServersResolveToTheirOwnSource is the disambiguation case. Two
+// servers advertising one name must not borrow each other's provenance.
 func TestCollidingServersResolveToTheirOwnSource(t *testing.T) {
 	app := &App{sources: agent.NewMultiSource()}
 	app.recordOrigin("vendor-api", agent.ProvenanceServer)
@@ -273,8 +274,8 @@ func TestCollidingServersResolveToTheirOwnSource(t *testing.T) {
 }
 
 // TestConfigOverridesDerivation pins that an explicit label wins in both
-// directions: vouching for something the host would mark, and marking
-// something the host would vouch for.
+// directions. It can vouch for a tool that the host would mark, and it can
+// mark a tool that the host would vouch for.
 func TestConfigOverridesDerivation(t *testing.T) {
 	app := &App{sources: agent.NewMultiSource()}
 	app.recordOrigin("prod-api", agent.ProvenanceServer)

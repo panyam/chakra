@@ -7,19 +7,20 @@ import (
 	"sync"
 )
 
-// skillSet holds every connected server's loaded skills and instructions: the
-// system-prompt blocks a server contributes, its catalog entries for
-// load_skill, and the config order the blocks are rendered in.
+// skillSet holds every connected server's loaded skills and instructions. It
+// keeps the system-prompt blocks each server contributes, each server's
+// catalog entries for load_skill, and the config order for rendering the
+// blocks.
 //
-// These fields moved together because they are read together and were always
-// guarded by one mutex. Ordering is the reason the server list lives here
-// rather than beside the connection state: both the prompt blocks and the
-// catalog are assembled in config order, so the order is a property of how
-// server content renders, not of how servers connect.
+// These fields moved together because they are read together, and one mutex
+// always guarded them. The server list lives here, not beside the connection
+// state, because of ordering. Both the prompt blocks and the catalog are
+// assembled in config order. So the order belongs to how server content
+// renders, not to how servers connect.
 //
 // Skills and instructions load in the ready-observer, which fires for late
-// servers too, so this is shared mutable state read live by the per-turn prompt
-// builder.
+// servers too. So this is shared mutable state, and the per-turn prompt
+// builder reads it live.
 type skillSet struct {
 	mu           sync.Mutex
 	blocks       map[string]string         // serverID -> system-prompt skill block
@@ -57,15 +58,15 @@ func (s *skillSet) track(serverID string) {
 	s.order = append(s.order, serverID)
 }
 
-// add stores one server's loaded skills, replacing what it had, and reports the cross-origin name
-// collisions this addition created, plus whether load_skill still needs
-// registering. Both are returned rather than acted on here: registering a tool
-// and emitting warnings are the App's business, and doing them under this lock
-// would widen it past the state it protects.
+// add stores one server's loaded skills, replacing what it had. It reports
+// the cross-origin name collisions that this addition created, and whether
+// load_skill still needs registering. It returns both rather than acting on
+// them. Registering a tool and emitting warnings are the App's business, and
+// doing them under this lock would widen it past the state it protects.
 func (s *skillSet) add(serverID, block string, cat []catalogSkill) (collisions []string, registerLoader bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	// Replace rather than merge: a re-list after list_changed carries the
+	// Replace rather than merge. A re-list after list_changed returns the
 	// server's whole current set, so a skill it dropped must go too.
 	if block != "" {
 		s.blocks[serverID] = block
@@ -78,8 +79,8 @@ func (s *skillSet) add(serverID, block string, cat []catalogSkill) (collisions [
 	} else {
 		delete(s.catalog, serverID)
 	}
-	// Lazily, once, on the first catalog skill — so load_skill never appears
-	// when no server offers one.
+	// Ask for load_skill lazily, once, on the first catalog skill, so it
+	// never appears when no server offers one.
 	if len(cat) > 0 && !s.loader {
 		s.loader = true
 		registerLoader = true
@@ -125,8 +126,9 @@ func (s *skillSet) allCatalog() []catalogSkill {
 	return out
 }
 
-// collisionsLocked reports names newID serves that another connected origin
-// also serves — the cross-origin collisions SEP-2640 asks hosts to surface.
+// collisionsLocked reports each name that newID serves and another connected
+// origin also serves. SEP-2640 asks hosts to surface these cross-origin
+// collisions.
 // Each name is reported once. Callers hold mu.
 func (s *skillSet) collisionsLocked(newID string) []string {
 	var out []string

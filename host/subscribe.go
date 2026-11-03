@@ -7,7 +7,7 @@ import (
 )
 
 // subscribeBuffer smooths bursts on a Subscribe channel. It is not a
-// correctness bound: the drain goroutine reads the retained event log at its
+// correctness bound. The drain goroutine reads the retained event log at its
 // own pace, so even a full buffer only slows the drain, never emit.
 const subscribeBuffer = 64
 
@@ -18,53 +18,60 @@ const subscribeBuffer = 64
 // release the backing goroutine and its Queue subscription. A dropped consumer
 // that wants the stream again simply calls Subscribe once more.
 //
-// Local observers stay synchronous (issue 1194, emit's in-line fan-out); this
-// is the async seam kept separate so a slow remote consumer never stalls the
-// terminal rendering contract. A slow consumer cannot block emit: emit only
-// Appends (non-blocking) and fans out to local observers, while this drain
-// goroutine reads the log independently and blocks only itself.
+// Local observers are synchronous (issue 1194, emit's in-line fan-out).
+// Subscribe is a separate async seam, so a slow remote consumer never stalls
+// the terminal rendering contract. A slow consumer cannot block emit. emit only
+// Appends (non-blocking) and fans out to local observers. This drain goroutine
+// reads the log independently and blocks only itself.
 //
-// Replay is stitched from two sources so a bounded (evicting) event log stays
-// lossless for a persisted session:
+// Replay stitches two sources together, so a persisted session loses nothing
+// even when the event log is bounded and evicts old events.
 //
-//   - Deep history from the RunStore. When a RunStore is configured and the
-//     run has persisted events, each stored agent.Event is replayed wrapped as
-//     HostEvent{Kind: HostRunnerEvent} — the turns already written to the store,
-//     which may have since evicted from the in-memory Queue. Non-runner
-//     HostEvents (server-state, skills) from those turns are ephemeral and
-//     intentionally not replayed; the RunStore only holds the runner stream.
-//   - The unpersisted tail from the Queue, drained from persistedOffset — the
-//     in-progress turn plus any recent events not yet written to the store.
-//     With a generous retention window this range is always still retained.
+//   - Deep history from the RunStore. It holds the turns already written to
+//     the store, and the in-memory Queue may have evicted them since. When a
+//     RunStore is configured and the run has persisted events, each stored
+//     agent.Event is replayed wrapped as HostEvent{Kind: HostRunnerEvent}.
+//     Non-runner HostEvents (server-state, skills) from those turns are
+//     ephemeral and intentionally not replayed, because the RunStore only
+//     holds the runner stream.
+//   - The unpersisted tail from the Queue, drained from persistedOffset. It
+//     holds the in-progress turn plus any recent events not yet written to the
+//     store. With a generous retention window, the Queue still retains this
+//     whole range.
 //
-// The two halves meet exactly at persistedOffset with no overlap: the RunStore
-// covers eventLog[0, persistedOffset), the Queue drain starts at
+// The two halves meet exactly at persistedOffset with no overlap. The RunStore
+// covers eventLog[0, persistedOffset), and the Queue drain starts at
 // persistedOffset. After the tail, the goroutine follows the Queue's Notify for
 // live events.
 //
-// Consistency (snapshot-then-stream): the snapshot — subscribing to the Queue,
-// reading persistedOffset, and reading the RunStore — is taken under turnMu,
-// which the turn-end persist site also holds while it advances persistedOffset
-// and writes AppendEvents together. So a persist cannot interleave the snapshot:
-// the RunStore contents and persistedOffset are always read as one consistent
-// pair, ruling out the dup (RunStore ahead of persistedOffset) and gap
-// (persistedOffset ahead of RunStore) a two-step read would race. Subscribing to
-// the Queue before releasing turnMu means no live Append between the tail read
-// and going live is missed. Once the snapshot is captured the lock is released
-// and all delivery happens off-lock, so a slow consumer never blocks a turn.
+// Consistency works as snapshot-then-stream. The snapshot is three steps:
+// subscribe to the Queue, read persistedOffset, and read the RunStore.
+// Subscribe takes all three under turnMu. The turn-end persist site also holds
+// turnMu while it advances persistedOffset and writes AppendEvents together.
+// So a persist cannot interleave the snapshot, and the RunStore contents and
+// persistedOffset are always read as one consistent pair. Imagine a two-step
+// read without the lock instead. A persist could run between the two reads. If
+// the RunStore got ahead of persistedOffset, replay would duplicate events. If
+// persistedOffset got ahead of the RunStore, replay would leave a gap.
+// Subscribe also subscribes to the Queue before it releases turnMu, so it
+// misses no live Append between the tail read and going live. Once the
+// snapshot is captured the lock is released and all delivery happens off-lock,
+// so a slow consumer never blocks a turn.
 //
-// When no RunStore is configured, persistedOffset stays 0, so the replay is
-// simply the whole retained Queue window (ReadFrom(0)) followed by live.
+// When no RunStore is configured, persistedOffset is always 0, so the replay
+// is simply the whole retained Queue window (ReadFrom(0)) followed by live.
 //
-// Ask ids: HostElicitRequest is appended without an id, so its event-log offset
-// is stamped onto the delivered copy here (stampAskID) — the offset is the id
-// E2's RespondToAsk resolves through the log barrier. Deep-history events are
-// runner events, never asks, so only the Queue tail and live events are stamped.
+// HostElicitRequest is appended without an ask id. So Subscribe stamps its
+// event-log offset onto the delivered copy here (stampAskID). That offset
+// serves as the ask id, and E2's RespondToAsk resolves it through the log
+// barrier. Deep-history events are runner events, never asks, so only the
+// Queue tail and live events are stamped.
 func (a *App) Subscribe(ctx context.Context) <-chan HostEvent {
 	// Snapshot under turnMu so the persist site cannot advance persistedOffset
-	// or the RunStore between the reads below. Subscribe first so any Append
-	// after this point wakes the subscription (and is also picked up by the tail
-	// read, harmlessly re-signalled); any Append before it is already in the tail.
+	// or the RunStore between the reads below. Subscribe first, so any Append
+	// after this point wakes the subscription. The tail read may also pick up
+	// that Append, and the extra signal is harmless. Any Append before this
+	// point is already in the tail.
 	a.turnMu.Lock()
 	sub := a.events.log.Subscribe()
 	p := int(a.events.persisted.Load())

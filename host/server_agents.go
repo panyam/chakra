@@ -18,9 +18,10 @@ import (
 	agentsclient "github.com/panyam/mcpkit/experimental/ext/agents/clients/go"
 )
 
-// delegateArgs is the {task} shape a server-advertised agent's delegate tool
-// advertises to the supervisor model. It matches the default AgentSource input
-// schema, so the supervisor's args pass straight through to the child.
+// delegateArgs is the {task} input shape. A server-advertised agent's delegate
+// tool advertises it to the supervisor model. It matches the default
+// AgentSource input schema, so the supervisor's args pass straight through to
+// the child.
 type delegateArgs struct {
 	Task string `json:"task"`
 }
@@ -40,7 +41,7 @@ func mustSchema[T any]() any {
 // server sends no ttlMs but does declare listChanged. The notification already
 // tells the host when the roster changes, so a server that relies on it should
 // not cost an agents/list on every index rebuild and an agents/get on every
-// delegation. A server without listChanged gets no fallback, which is the
+// delegation. A server without listChanged gets no fallback. That matches the
 // spec's reading of an absent ttlMs.
 const listChangedFallbackTTL = 5 * time.Minute
 
@@ -49,22 +50,22 @@ const listChangedFallbackTTL = 5 * time.Minute
 // to the main aggregate, so the supervisor model can delegate to a
 // server-advertised agent exactly like any other sub-agent.
 //
-// Progressive disclosure is the point: only the roster (agents/list, routing
-// fields, no tool schemas) is pulled to build the delegate tools. An agent's
-// instructions and scoped tools (agents/get) resolve on first delegation, so a
-// large roster never bloats the supervisor's context. This mirrors
-// catalog-mode skills.
+// This is progressive disclosure. The host pulls only the roster to build the
+// delegate tools. The roster comes from agents/list and has routing fields but
+// no tool schemas. An agent's instructions and scoped tools come from
+// agents/get on the first delegation, so a large roster never bloats the
+// supervisor's context. Catalog-mode skills work the same way.
 //
 // Both lookups go through an agentsclient.Cache, which keeps each one for the
 // server's ttlMs. A notifications/agents/list_changed from the server drops the
 // cached roster and the aggregate's tool index, so added and removed agents
 // show up on the supervisor's next step.
 //
-// Per-server failures degrade to a warning (never a boot failure): a server
-// that is unreachable, does not speak the extension, or has an empty roster
-// and no listChanged is skipped. Discovery runs over the servers connected at
-// boot; a server that connects later does not retroactively contribute a
-// roster, matching the static membership of config-declared sub-agents.
+// Per-server failures degrade to a warning, never a boot failure. The host
+// skips a server if it is unreachable, does not speak the extension, or has an
+// empty roster and no listChanged. Discovery runs over the servers connected
+// at boot. A server that connects later does not retroactively contribute a
+// roster. Config-declared sub-agents have the same static membership.
 func (a *App) registerServerAgents(multi *agent.MultiSource, models agentModels, tp core.TracerProvider, mp core.MeterProvider, servers []ServerConfig, clientByID map[string]*client.Client) {
 	for _, sc := range servers {
 		if sc.Agents != nil && !*sc.Agents {
@@ -135,11 +136,12 @@ func serverDeclaresAgentsListChanged(c *client.Client) bool {
 
 // listWatchers routes a server's list_changed notifications (agents, events)
 // to the handler registered for that server and method. The hook has to exist
-// when the client is built, before discovery has made the state it refreshes,
-// so the client's notification callback looks the handler up here. chakra's
-// clients use the session wire, where these arrive on the GET stream through
-// client.WithNotificationCallback; on the stateless wire an extension's own
-// subscriptions/listen helper delivers them instead (see watchEventTypes).
+// when the client is built. At that point discovery hasn't yet made the state
+// that the handler refreshes, so the client's notification callback looks the
+// handler up here. chakra's clients use the session wire, where these arrive
+// on the GET stream through client.WithNotificationCallback. On the stateless
+// wire an extension's own subscriptions/listen helper delivers them instead
+// (see watchEventTypes).
 type listWatchers struct {
 	mu sync.Mutex
 	by map[string]func() // serverID + " " + method
@@ -162,10 +164,10 @@ func (w *listWatchers) set(serverID, method string, fn func()) (first bool) {
 // watchListChanged runs fn whenever serverID announces method, on either
 // wire. On the session wire the notification arrives through the client's
 // notification callback (listWatch). On the stateless wire it arrives only on
-// a subscriptions/listen stream asking for filterKey, which this opens for
-// the App's lifetime. Each wire delivers on one of the two. fn runs on its own
-// goroutine, since the callers all make a round trip and notifications arrive
-// on the client's reader.
+// a subscriptions/listen stream that asks for filterKey. watchListChanged opens
+// that stream for the App's lifetime. Each wire delivers on one of the two. fn
+// runs on its own goroutine, since the callers all make a round trip and
+// notifications arrive on the client's reader.
 //
 // Calling it again for the same server and method, as a reconnect's ready
 // does, replaces fn and keeps the one listen stream.
@@ -198,8 +200,8 @@ func (w *listWatchers) notify(serverID string) func(method string, params any) {
 
 // agentModels maps an agent's modelRoutingHint to a provider. Roles name
 // connections in the registry, and the table's Default is the empty name,
-// meaning the main provider, so /provider switching still applies to every
-// agent the hint does not place elsewhere.
+// meaning the main provider. So /provider switching still applies to an agent
+// unless its hint places it elsewhere.
 type agentModels struct {
 	main  agent.Provider
 	reg   *ConnectionRegistry
@@ -240,7 +242,7 @@ func (m agentModels) pick(h *agents.ModelRoutingHint) modelChoice {
 	return modelChoice{provider: p, connection: name, how: how}
 }
 
-// agentCatalog is the roster and definition lookup a serverAgentSource reads.
+// agentCatalog is the roster and definition lookup for a serverAgentSource.
 // *agentsclient.Cache satisfies it.
 type agentCatalog interface {
 	ListAgents(ctx context.Context) ([]agents.AgentCard, error)
@@ -266,7 +268,7 @@ type serverAgentDeps struct {
 // agents. It advertises one delegate tool per roster entry (from agents/list)
 // and resolves an agent's definition (agents/get) into a Runner-backed
 // agent.AgentSource on delegation. The child is kept and reused until the
-// definition the catalog returns changes, and is rebuilt then. It is the host
+// catalog returns a changed definition, and is rebuilt then. It is the host
 // half of the issue-1144 bridge; agent.NewServerAgentSource is the adapter.
 type serverAgentSource struct {
 	deps serverAgentDeps
@@ -309,7 +311,7 @@ func describeAgent(sum agents.AgentCard) string {
 }
 
 // Tools returns one delegate tool per agent in the catalog's roster. No
-// agents/get is issued, so the scoped schemas stay out of the supervisor's view
+// agents/get is issued, so the supervisor doesn't see the scoped schemas
 // until the agent is actually delegated to. The aggregate memoizes the result
 // until its index is invalidated. When the roster cannot be fetched, the last
 // listing is served, because an error here would fail the whole aggregate and
@@ -350,8 +352,8 @@ func (s *serverAgentSource) Tools(ctx context.Context) ([]core.ToolDef, error) {
 // ErrUnknownTool (a dispatch miss the aggregate can qualify). A resolution
 // failure is a model-visible IsError result so the supervisor's turn
 // continues, mirroring how AgentSource turns a child failure into an IsError
-// result rather than aborting the turn. The two failures the extension names
-// get their own wording: agent_not_found also drops the stale delegate from
+// result rather than aborting the turn. The extension names two failures, and
+// each gets its own wording. agent_not_found also drops the stale delegate from
 // the aggregate, and invalid_agent_definition says the fault is the server's.
 func (s *serverAgentSource) Call(ctx context.Context, name string, args map[string]any) (*core.ToolResult, error) {
 	card, ok := s.card(name)

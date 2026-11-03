@@ -101,8 +101,8 @@ func TestStdioServerConnectsAndServesTools(t *testing.T) {
 	}
 }
 
-// The child sees PATH, HOME, the variables EnvPass names and the ones Env
-// sets, and nothing else the agent has.
+// The child sees PATH, HOME, each variable named in EnvPass, and each one set
+// in Env. It sees none of the agent's other variables.
 func TestStdioServerEnvironmentIsAllowlisted(t *testing.T) {
 	t.Setenv("CHAKRA_TEST_SECRET", "s3cret")
 	t.Setenv("CHAKRA_TEST_PASS", "passed")

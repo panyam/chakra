@@ -14,12 +14,12 @@ import (
 // TestServerInstructionsReachSystemPrompt pins issue #76: an MCP server may
 // declare instructions for the model in its initialize result
 // (client.Client.Instructions). The host must fold them into the per-turn
-// system prompt, labelled with the server's host-assigned id so the model can
-// tell which origin they came from, and framed as untrusted server-provided
-// data rather than host instructions (the same rule SEP-2640 already sets for
-// skill blocks — see originHeader in skills.go).
+// system prompt. It labels them with the server's host-assigned id, so the
+// model can tell which origin they came from. It frames them as untrusted
+// server-provided data rather than host instructions. SEP-2640 already sets
+// the same rule for skill blocks (see originHeader in skills.go).
 //
-// It is end-to-end on purpose: the instructions only exist on a real
+// It is end-to-end on purpose. The instructions only exist on a real
 // initialize result, so a unit test over a hand-built App would not show the
 // gap.
 func TestServerInstructionsReachSystemPrompt(t *testing.T) {
@@ -64,14 +64,14 @@ func TestServerInstructionsReachSystemPrompt(t *testing.T) {
 	if !strings.Contains(prompt, "untrusted") {
 		t.Errorf("prompt does not frame server instructions as untrusted server-provided data.\ngot prompt:\n%s", prompt)
 	}
-	// The base host instructions stay the first thing the model reads.
+	// The base host instructions are still the first thing the model reads.
 	if !strings.HasPrefix(prompt, "base") {
 		t.Errorf("host base instructions must remain first.\ngot prompt:\n%s", prompt)
 	}
 }
 
-// TestServerWithoutInstructionsLeavesPromptUnchanged is the other half of #76:
-// a connected server that sends no instructions adds no header and no gap.
+// TestServerWithoutInstructionsLeavesPromptUnchanged is the other half of #76.
+// A connected server that sends no instructions adds no header and no gap.
 func TestServerWithoutInstructionsLeavesPromptUnchanged(t *testing.T) {
 	srv := server.NewServer(core.ServerInfo{Name: "plain-srv", Version: "0.0.1"})
 	ts := httptest.NewServer(srv.Handler(server.WithStreamableHTTP(true)))

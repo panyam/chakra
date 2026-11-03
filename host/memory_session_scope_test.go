@@ -11,10 +11,10 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// TestCurrentRunIDLockFree is the deadlock regression for issue 1140: the
+// TestCurrentRunIDLockFree is the deadlock regression for issue 1140. The
 // session-scoped memory namespace func runs inside a turn while turnMu is
-// already held, so currentRunID MUST read the run id without taking turnMu
-// (RunID would self-deadlock there).
+// already held. So currentRunID MUST read the run id without taking turnMu,
+// because RunID would self-deadlock there.
 func TestCurrentRunIDLockFree(t *testing.T) {
 	ts := startTestServer(t)
 	store := agent.NewInMemoryRunStore()
@@ -44,8 +44,8 @@ func TestCurrentRunIDLockFree(t *testing.T) {
 }
 
 // TestSessionScopedMemoryIsolatesByRun proves that with SessionScoped on, a
-// note remembered under one run id is invisible to another run: the store
-// partitions by run-id namespace and recall never crosses sessions.
+// note remembered under one run id is invisible to another run. The store
+// partitions by run-id namespace, and recall never crosses sessions.
 func TestSessionScopedMemoryIsolatesByRun(t *testing.T) {
 	ts := startTestServer(t)
 	stub := agent.NewStubProvider(
@@ -104,9 +104,9 @@ func TestSessionScopedMemoryIsolatesByRun(t *testing.T) {
 	}
 }
 
-// TestSessionScopedOffSharesScratchpad guards the opt-in default: with
-// SessionScoped off, notes land in the shared default namespace regardless of
-// the active run, so switching sessions does not isolate memory.
+// TestSessionScopedOffSharesScratchpad guards the opt-in default. With
+// SessionScoped off, notes go to the shared default namespace whatever the
+// active run is, so switching sessions does not isolate memory.
 func TestSessionScopedOffSharesScratchpad(t *testing.T) {
 	ts := startTestServer(t)
 	stub := agent.NewStubProvider(

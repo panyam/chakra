@@ -10,9 +10,10 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// pickExt owns a "pick" tool whose items can be approved one at a time. The
-// chooser is the shape ext/files uses for hunks, cut down to what the wiring
-// needs: one boolean per item, and a narrowed call carrying the kept ones.
+// pickExt owns a "pick" tool whose items can be approved one at a time.
+// ext/files uses the same chooser shape for hunks. This one is cut down to
+// what the wiring needs. It has one boolean per item, and a narrowed call with
+// the kept ones.
 type pickExt struct {
 	BaseExtension
 	ran *[]string
@@ -62,7 +63,7 @@ func (pickExt) ApprovalChoosers() []ApprovalChooser {
 	}}
 }
 
-// TestChooserAnswersTheAskThroughTheTerminal drives the whole host path: the
+// TestChooserAnswersTheAskThroughTheTerminal drives the whole host path. The
 // gate hands a claimed call to the extension's chooser, the chooser's form is
 // answered field by field on the terminal, the tool runs with the narrowed
 // arguments, and the model reads the note. The plain y/n ask never appears,

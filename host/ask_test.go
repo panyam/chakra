@@ -18,8 +18,9 @@ func newAskApp() *App {
 
 func askRecorder(a *App) *recordObserver { return a.events.observers[0].(*recordObserver) }
 
-// waitAskOffset returns the log offset of the pending HostElicitRequest — the
-// ask id a surface reads from its stream position and passes to RespondToAsk.
+// waitAskOffset returns the log offset of the pending HostElicitRequest. A
+// surface reads that offset from its stream position as the ask id, and
+// passes it to RespondToAsk.
 func waitAskOffset(t *testing.T, a *App) int {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
@@ -47,10 +48,10 @@ func resolvedBy(rec *recordObserver, off int) (string, bool) {
 	return "", false
 }
 
-// TestAsk_RemoteResponderWinsFirst is the E2 acceptance: with the local UI
-// still waiting, another surface answers via RespondToAsk on the ask's log
-// offset; its answer is returned, the local responder is cancelled, and a
-// resolved event names the winning surface so others retract.
+// TestAsk_RemoteResponderWinsFirst is the E2 acceptance. While the local UI
+// is still waiting, another surface answers via RespondToAsk on the ask's log
+// offset. Its answer is returned and the local responder is cancelled. A
+// resolved event names the winning surface so the others retract.
 func TestAsk_RemoteResponderWinsFirst(t *testing.T) {
 	a := newAskApp()
 	rec := askRecorder(a)
@@ -96,8 +97,9 @@ func TestAsk_RemoteResponderWinsFirst(t *testing.T) {
 	}
 }
 
-// TestAsk_LocalResponderWins pins the single-surface path is unchanged: with no
-// other surface attached the local UI answers and its result is returned.
+// TestAsk_LocalResponderWins pins that the single-surface path is unchanged.
+// With no other surface attached, the local UI answers and its result is
+// returned.
 func TestAsk_LocalResponderWins(t *testing.T) {
 	a := newAskApp()
 	rec := askRecorder(a)
@@ -119,9 +121,9 @@ func TestAsk_LocalResponderWins(t *testing.T) {
 	}
 }
 
-// TestRespondToAsk_Errors pins the app-state errors a surface reports rather
-// than fails on, carried straight from the log's barrier: an out-of-range
-// offset and an already-answered ask.
+// TestRespondToAsk_Errors pins two app-state errors, an out-of-range offset
+// and an already-answered ask. Both come straight from the log's barrier, and
+// a surface reports them rather than failing on them.
 func TestRespondToAsk_Errors(t *testing.T) {
 	a := newAskApp()
 

@@ -14,11 +14,11 @@ import (
 	"github.com/panyam/mcpkit/server"
 )
 
-// TestAppTaskWithInputPauseEndToEnd is issue 890's acceptance: a REAL
-// ext/tasks (SEP-2663) server runs a task tool that parks in input_required
-// via TaskElicit; agentchat polls, answers the pause through the scripted
-// terminal elicitation UI, and delivers the final result — no bespoke code
-// on the server side.
+// TestAppTaskWithInputPauseEndToEnd is issue 890's acceptance. A REAL mcpkit
+// ext/tasks (SEP-2663) server runs a task tool, and the tool parks in
+// input_required via TaskElicit. agentchat polls, answers the pause through
+// the scripted terminal elicitation UI, and delivers the final result. The
+// server side needs no bespoke code.
 func TestAppTaskWithInputPauseEndToEnd(t *testing.T) {
 	srv := server.NewServer(core.ServerInfo{Name: "tasks-e2e", Version: "0.0.1"})
 	srv.Register(core.TypedTool[struct{}, core.ToolResponse]("confirm_delete",
@@ -77,7 +77,7 @@ func TestAppTaskWithInputPauseEndToEnd(t *testing.T) {
 	}
 }
 
-// TestAppBackgroundTaskLifecycle is issue 914's acceptance: a long task
+// TestAppBackgroundTaskLifecycle is issue 914's acceptance. A long task
 // detaches after the grace window, the user keeps conversing while it runs,
 // and its completion surfaces as a transcript line plus injected context on
 // the next turn.

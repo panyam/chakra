@@ -113,7 +113,8 @@ func TestAppEventsInjectionAndTriggerEndToEnd(t *testing.T) {
 		t.Fatalf("proactive turn must carry the binding instructions as a system message: %+v", proactive.Messages)
 	}
 
-	// More qualifying events: the spent slot stays quiet (anti-nag).
+	// More qualifying events arrive. The spent slot does not fire again
+	// (anti-nag).
 	yield(context.Background(), cartData{Count: 2})
 	yield(context.Background(), cartData{Count: 2})
 	time.Sleep(400 * time.Millisecond)
