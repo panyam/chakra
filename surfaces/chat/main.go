@@ -5,6 +5,11 @@
 package main
 
 import (
+	// Root certificates for a machine that has none, such as a minimal
+	// container: without them every HTTPS call to a model fails before the
+	// agent does anything (#203). Used only when the system offers no roots.
+	_ "golang.org/x/crypto/x509roots/fallback"
+
 	"context"
 	"errors"
 	"fmt"

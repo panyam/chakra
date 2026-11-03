@@ -52,10 +52,24 @@ type shellArgs struct {
 	Justification string   `json:"justification"`
 }
 
-func parseShellArgs(raw []byte) (shellArgs, error) {
+// sandboxed reports whether commands run confined. Without a sandbox
+// (exec.Unconfined(), as inside a container that is itself the sandbox)
+// there is nothing to escalate out of, so the shell tool neither offers
+// escalation nor treats a call that asks for it differently (#203).
+func (s *Source) sandboxed() bool {
+	_, none := s.sandbox.(unconfined)
+	return !none
+}
+
+// parseShellArgs reads a shell call's arguments. Without a sandbox, escalate
+// and its justification are dropped: the call runs like any other.
+func parseShellArgs(raw []byte, sandboxed bool) (shellArgs, error) {
 	var a shellArgs
 	if err := json.Unmarshal(raw, &a); err != nil {
 		return a, fmt.Errorf("shell: %v", err)
+	}
+	if !sandboxed {
+		a.Escalate, a.Justification = false, ""
 	}
 	if len(a.Command) == 0 || a.Command[0] == "" {
 		return a, fmt.Errorf("shell: command is empty; pass an argv such as [\"go\", \"test\", \"./...\"]")
@@ -67,6 +81,24 @@ func parseShellArgs(raw []byte) (shellArgs, error) {
 }
 
 func (s *Source) shellDef() core.ToolDef {
+	if !s.sandboxed() {
+		return core.ToolDef{
+			Name:  ShellTool,
+			Title: "Run a command",
+			Description: "Run a command in the workspace. Commands run without a sandbox, with the access the process has. " +
+				"Pass command as an argv, e.g. [\"go\", \"test\", \"./...\"]; use [\"bash\", \"-lc\", \"...\"] only when you need && or a pipe. " +
+				"Some commands run straight away, some ask the user first, and some are refused.",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"command"},
+				"properties": map[string]any{
+					"command":    map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "minItems": 1, "description": "The argv to run."},
+					"workdir":    map[string]any{"type": "string", "description": "Directory to run in, relative to the workspace root. Defaults to the root."},
+					"timeout_ms": map[string]any{"type": "integer", "description": "Stop the command after this long. Capped by the configured timeout."},
+				},
+			},
+		}
+	}
 	return core.ToolDef{
 		Name:  ShellTool,
 		Title: "Run a command",
@@ -94,7 +126,7 @@ func (s *Source) shellDef() core.ToolDef {
 // callShell runs one shell call. The gate has already decided whether it may.
 func (s *Source) callShell(ctx context.Context, args map[string]any) *core.ToolResult {
 	raw, _ := json.Marshal(args)
-	a, err := parseShellArgs(raw)
+	a, err := parseShellArgs(raw, s.sandboxed())
 	if err != nil {
 		return toolError(err.Error())
 	}
@@ -121,7 +153,7 @@ func (s *Source) callShell(ctx context.Context, args map[string]any) *core.ToolR
 		unconfined:   a.Escalate,
 		tool:         ShellTool,
 	})
-	if !a.Escalate && out.exit != 0 && !out.timedOut && looksLikeSandboxDenial(out.stderr.text+"\n"+out.stdout.text, s.shell.allowNetwork) {
+	if s.sandboxed() && !a.Escalate && out.exit != 0 && !out.timedOut && looksLikeSandboxDenial(out.stderr.text+"\n"+out.stdout.text, s.shell.allowNetwork) {
 		out.result.Content = append(out.result.Content, core.Content{Type: "text", Text: fmt.Sprintf(
 			"\nThis looks like the %s sandbox blocking the command (a write outside the workspace, or the network). "+
 				"If it has to run anyway, call shell again with the same command, escalate: true, and a justification the user can judge.",
@@ -178,7 +210,7 @@ func (s *Source) classifyShell(_ context.Context, info agent.ToolCallInfo) (agen
 	if s.shell == nil || info.Call.Name != ShellTool {
 		return agent.CallClass{}, false
 	}
-	a, err := parseShellArgs(info.Call.Args.Raw())
+	a, err := parseShellArgs(info.Call.Args.Raw(), s.sandboxed())
 	if err != nil {
 		// The tool rejects it without running anything; no opinion.
 		return agent.CallClass{}, true
@@ -257,7 +289,7 @@ func (s *Source) renderShellApproval(info agent.ToolCallInfo) (string, bool) {
 	if s.shell == nil || info.Call.Name != ShellTool {
 		return "", false
 	}
-	a, err := parseShellArgs(info.Call.Args.Raw())
+	a, err := parseShellArgs(info.Call.Args.Raw(), s.sandboxed())
 	if err != nil {
 		return "", false
 	}
