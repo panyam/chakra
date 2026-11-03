@@ -186,6 +186,19 @@ type Announcer interface {
 	SetAnnounce(announce func(message string))
 }
 
+// TurnEnder is an optional interface an Extension implements to hear that a
+// turn the host ran is over, whether it finished, stopped partway (the step
+// cap or the context budget) or failed. result is nil when the turn failed
+// outright, and err is nil when it finished. The host calls it with the turn
+// lock held, after the turn's messages are kept and before HostTurnDone or
+// HostTurnFailed, so a HostMessage an Announcer posts from it lands before
+// the surface's end-of-turn marker. Use it for work bracketed by TurnStart,
+// such as reporting what changed on disk during the turn; it can't change
+// the turn.
+type TurnEnder interface {
+	TurnEnd(ctx context.Context, result *agent.TurnResult, err error)
+}
+
 // BaseExtension implements every optional Extension seam as a no-op, so an
 // extension embeds it and overrides only what it contributes. It deliberately
 // does not supply Name: an unnamed extension is never what a caller meant.
@@ -344,6 +357,16 @@ func (a *App) startExtensionTurns(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// endExtensionTurns tells every extension that implements TurnEnder that the
+// turn is over, in registration order. Called with turnMu held.
+func (a *App) endExtensionTurns(ctx context.Context, result *agent.TurnResult, err error) {
+	for _, ext := range a.extensions {
+		if te, ok := ext.(TurnEnder); ok {
+			te.TurnEnd(ctx, result, err)
+		}
+	}
 }
 
 // transformInput runs every extension's input transforms over the user's

@@ -385,6 +385,7 @@ func (r *renderer) On(ev HostEvent) {
 	case HostTaskCompleted:
 		r.taskCompleted(ev.Task)
 	case HostMessage:
+		r.breakLine() // a message can arrive mid-text, as a TurnEnder's does
 		fmt.Fprintf(r.out, "%s\n", r.dim(ev.Message))
 	case HostServerStateChanged:
 		r.serverState(ev.ServerID, ev.ServerState, ev.Err)

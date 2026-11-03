@@ -96,3 +96,16 @@ func TestRendererToolCancelledDistinctFromError(t *testing.T) {
 		t.Fatalf("tool-cancelled rendered as a failure: %q", got)
 	}
 }
+
+// A host message that arrives while the model's text is mid-line, as a
+// TurnEnder's announcement does before the turn's end marker, starts on a line
+// of its own.
+func TestAHostMessageStartsItsOwnLine(t *testing.T) {
+	var b strings.Builder
+	r := newRenderer(&b, false)
+	r.handle(agent.Event{Kind: agent.EventTextDelta, Text: "done"})
+	r.On(HostEvent{Kind: HostMessage, Message: "git: this turn changed 1 file (+1 -0)"})
+	if got := b.String(); got != "done\ngit: this turn changed 1 file (+1 -0)\n" {
+		t.Errorf("rendered %q", got)
+	}
+}

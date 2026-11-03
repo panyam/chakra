@@ -945,6 +945,7 @@ func (a *App) runOneTurn(ctx context.Context, input string, opts TurnOptions, an
 			if pe != nil {
 				a.persistTurnLocked(ctx, append([]agent.Message{userMsg}, kept...), pe)
 			}
+			a.endExtensionTurns(ctx, result, err)
 			a.emit(HostEvent{Kind: HostTurnFailed, Err: err.Error()})
 			return nil, err
 		}
@@ -952,6 +953,7 @@ func (a *App) runOneTurn(ctx context.Context, input string, opts TurnOptions, an
 		if pe != nil {
 			a.persistFailedTurnLocked(ctx, pe)
 		}
+		a.endExtensionTurns(ctx, nil, err)
 		a.emit(HostEvent{Kind: HostTurnFailed, Err: err.Error()})
 		return nil, err
 	}
@@ -959,6 +961,7 @@ func (a *App) runOneTurn(ctx context.Context, input string, opts TurnOptions, an
 	if pe != nil {
 		a.persistTurnLocked(ctx, append([]agent.Message{userMsg}, result.Messages...), pe)
 	}
+	a.endExtensionTurns(ctx, result, nil)
 	a.emit(HostEvent{Kind: HostTurnDone, Result: result})
 	return nil, nil
 }

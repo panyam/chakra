@@ -38,8 +38,8 @@ set -eu
 cd "$(dirname "$0")/.."
 
 # A module path is an extension when some segment after the repo root is
-# literally `ext`: github.com/panyam/mcpkit[/<area>]/ext/<name>[/<sub>...]
-ext_re='github\.com/panyam/mcpkit/([a-z0-9_-]+/)*ext/[a-zA-Z0-9_/-]+'
+# literally `ext`: github.com/panyam/chakra[/<area>]/ext/<name>[/<sub>...]
+ext_re='github\.com/panyam/chakra/([a-z0-9_-]+/)*ext/[a-zA-Z0-9_/-]+'
 
 status=0
 
