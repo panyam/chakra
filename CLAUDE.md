@@ -100,12 +100,12 @@ integrated with a dedicated engine.
   operations gives all N the same disposition unless its extension supplies an
   `ApprovalClassifier`, which the gate consults on the final arguments (#153). Extension
   middleware can't do this job: it runs *before* the gate, and anything it sets on
-  `ToolCallInfo` is advisory. `ext/exec` still emits one tool per allowlisted command because it
-  has no classifier yet; #154 adds one.
+  `ToolCallInfo` is advisory. `ext/exec` has both shapes: one `run_*` tool per allowlisted
+  command, judged by annotations, and the opt-in `shell` tool, judged per call by prefix rules.
 - **Tools are re-listed every step**, not once per turn, and `RunnerConfig.Selector` narrows the
   offered set per step. A context-varying tool set is already supported, and needs nothing new.
 - **An exec command's `argv[0]` resolves from the launching process, not the workspace root.**
-  `exec` looks it up on PATH at construction, so `scripts/foo.sh` only works if agentchat was
+  `exec` looks it up on PATH at construction (`shell` looks it up per call, same PATH), so `scripts/foo.sh` only works if agentchat was
   started in the repo. Write `["sh", "scripts/foo.sh"]`: `sh` is on PATH, and the script path
   is an argument resolved against the command's `Dir` (the first root).
 - **A sandbox profile is only checked by a tagged live test.** `ext/exec`'s golden test covers

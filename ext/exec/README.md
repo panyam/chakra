@@ -59,6 +59,46 @@ about. The operator who wrote the allowlist is the one who knows which entries
 are safe to run unattended, and a default that guessed on their behalf would
 guess in the permissive direction.
 
+## The shell tool: one tool, judged per call (#154)
+
+`Config.Shell` adds a single `shell` tool that takes an argv, as the
+alternative to listing every command. It gets around the per-tool
+annotation problem above with an `ApprovalClassifier` (#153): the gate asks
+the extension to judge each call from its arguments, so one tool can let
+`git status` run while asking about `git push`.
+
+Prefix rules decide. Each position of a prefix lists the words accepted there;
+the longest matching prefix wins, and the stricter decision wins a tie.
+
+| Rule decision | Gate disposition | Remembered as |
+|---|---|---|
+| `allow` | read-only: runs unasked from `ModeReadOnlyAuto` up | the matched prefix |
+| `prompt` | destructive: asks below `ModeAlwaysAllow` | the matched prefix |
+| `forbidden` | refused under every mode, with the justification | never |
+| no rule | the tool's destructive default | the first two words |
+| `escalate: true` | always asks, under every mode, outside the sandbox | never |
+
+A rule's `match` and `notMatch` examples are checked at load, so a rule that
+doesn't do what its author meant fails at startup.
+
+`["bash", "-lc", script]` is split on `&&`, `||`, `;` and `|`, and every
+piece has to pass; a forbidden piece forbids the whole call. The splitter gives
+up on anything it doesn't fully understand (redirection, `$`, backticks,
+subshells, globs, `~`, environment assignments, comments, backslashes), and a
+script it gives up on matches no rule, so it is asked about. That direction is
+the point: a construct it misread is a command a rule never saw.
+
+Commands run in the sandbox. When one fails with output that looks like a
+sandbox block (`Operation not permitted`, `Read-only file system`, or a
+network error while the network is off), the result says so and tells the model
+it can retry with `escalate` and a justification. The retry is a new call, so
+it goes through the gate again, always asks, and is never remembered. The
+escalated run skips the sandbox but keeps the workspace directory, timeout and
+output caps. A forbidden rule still refuses an escalated call.
+
+`argv[0]` is looked up on the launching process's PATH at call time, not at
+construction as for allowlisted commands.
+
 ## Arguments, when they are permitted at all
 
 `Args` is nil by default and the tool then exposes no argument. A command that

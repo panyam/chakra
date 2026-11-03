@@ -33,7 +33,8 @@ func New(cfg Config) (*Extension, error) {
 // under.
 func (e *Extension) Name() string { return "exec" }
 
-// Tools returns one tool per allowlisted command.
+// Tools returns one tool per allowlisted command, plus "shell" when
+// Config.Shell is set.
 func (e *Extension) Tools() (agent.ToolSource, error) { return e.src, nil }
 
 // PromptSections states how to read a command's result.
@@ -43,10 +44,14 @@ func (e *Extension) Tools() (agent.ToolSource, error) { return e.src, nil }
 // reads a truncated tail as the whole run.
 func (e *Extension) PromptSections() []host.PromptSection {
 	return []host.PromptSection{host.PromptSectionFunc(func(context.Context) string {
-		if e.src.inline < 0 {
-			return commandsPrompt + storedPrompt
+		p := commandsPrompt
+		if e.src.shell != nil {
+			p = shellPrompt
 		}
-		return commandsPrompt
+		if e.src.inline < 0 {
+			return p + storedPrompt
+		}
+		return p
 	})}
 }
 
@@ -73,6 +78,32 @@ Output is capped, and a capped result says how many bytes were dropped from the
 middle. When you see that line, the run you are looking at is incomplete: narrow
 the command with arguments if it takes them, rather than concluding from a tail.`
 
+const shellPrompt = `## Running commands
+
+Run commands with the shell tool, passing an argv. They run inside a sandbox
+that can write only inside the workspace and a few caches, without network
+unless configured. Rules decide per command whether it runs straight away, asks
+the user, or is refused; a refusal is final, so don't rephrase the command to
+get around it.
+
+If a command fails because the sandbox blocked it, the result says so. Escalate
+only then, or when you know the command needs the network or paths outside the
+workspace, and give a justification the user can judge in one sentence.
+
+A non-zero exit is a result, not a failure of the tool. Read the output and act
+on what it says. Running the same command again unchanged will produce the same
+exit code.
+
+Output is capped, and a capped result says how many bytes were dropped from the
+middle. When you see that line, the run you are looking at is incomplete:
+narrow the command rather than concluding from a tail.`
+
+// ApprovalClassifiers judge each shell call by the prefix rules. The
+// allowlisted run_* tools keep their per-tool annotations.
+func (e *Extension) ApprovalClassifiers() []host.ApprovalClassifier {
+	return []host.ApprovalClassifier{e.src.classifyShell}
+}
+
 // ApprovalRenderers show the command line a user is being asked to approve.
 //
 // The default renders the call's JSON trimmed to 200 characters, which for
@@ -84,6 +115,9 @@ func (e *Extension) ApprovalRenderers() []host.ApprovalRenderer {
 }
 
 func (e *Extension) renderApproval(_ context.Context, info agent.ToolCallInfo) (string, bool) {
+	if info.Call.Name == ShellTool {
+		return e.src.renderShellApproval(info)
+	}
 	c, ok := e.src.cmds[info.Call.Name]
 	if !ok {
 		return "", false

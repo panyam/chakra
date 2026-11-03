@@ -25,7 +25,7 @@ var checks = []check{
 	{
 		id:        "tests_pass",
 		behaviour: "the fixture's failing test passes after the run",
-		wiring:    "ext/files edit + ext/exec run_test",
+		wiring:    "ext/files edit + ext/exec shell",
 		run: func(r *runResult, _ string) (bool, string) {
 			if r.testsPassed {
 				return true, ""

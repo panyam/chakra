@@ -56,6 +56,46 @@ type ExecFile struct {
 
 	// Commands is the allowlist, one tool per entry.
 	Commands []CommandFile `json:"commands"`
+
+	// Shell turns on the general "shell" tool with these prefix rules. See
+	// exec.ShellConfig.
+	Shell *ShellFile `json:"shell,omitempty"`
+}
+
+// ShellFile is exec.ShellConfig as JSON.
+type ShellFile struct {
+	Rules        []ShellRuleFile `json:"rules"`
+	Timeout      string          `json:"timeout,omitempty"`
+	AllowNetwork bool            `json:"allowNetwork,omitempty"`
+}
+
+// ShellRuleFile is one exec.PrefixRule. Each prefix position is a word or a
+// list of alternative words: ["git", ["status", "diff"]].
+type ShellRuleFile struct {
+	Prefix        []PrefixWord `json:"prefix"`
+	Decision      string       `json:"decision"`
+	Justification string       `json:"justification,omitempty"`
+	Match         [][]string   `json:"match,omitempty"`
+	NotMatch      [][]string   `json:"notMatch,omitempty"`
+}
+
+// PrefixWord is one position of a shell rule's prefix: a JSON string or an
+// array of strings.
+type PrefixWord []string
+
+// UnmarshalJSON accepts "word" or ["word", "other"].
+func (w *PrefixWord) UnmarshalJSON(b []byte) error {
+	var one string
+	if err := json.Unmarshal(b, &one); err == nil {
+		*w = PrefixWord{one}
+		return nil
+	}
+	var many []string
+	if err := json.Unmarshal(b, &many); err != nil {
+		return fmt.Errorf("a prefix word is a string or an array of strings, got %s", b)
+	}
+	*w = many
+	return nil
 }
 
 // CommandFile is the JSON form of exec.CommandSpec.
@@ -176,6 +216,20 @@ func (e *ExecFile) config() (*exec.Config, error) {
 			return nil, err
 		}
 		cfg.Commands = append(cfg.Commands, spec)
+	}
+	if e.Shell != nil {
+		sh := &exec.ShellConfig{AllowNetwork: e.Shell.AllowNetwork}
+		if sh.Timeout, err = parseDuration("exec.shell.timeout", e.Shell.Timeout); err != nil {
+			return nil, err
+		}
+		for _, r := range e.Shell.Rules {
+			pr := exec.PrefixRule{Decision: exec.Decision(r.Decision), Justification: r.Justification, Match: r.Match, NotMatch: r.NotMatch}
+			for _, w := range r.Prefix {
+				pr.Prefix = append(pr.Prefix, []string(w))
+			}
+			sh.Rules = append(sh.Rules, pr)
+		}
+		cfg.Shell = sh
 	}
 	return cfg, nil
 }

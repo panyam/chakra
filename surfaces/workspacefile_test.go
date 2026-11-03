@@ -205,3 +205,31 @@ func TestDogfoodFilesLoad(t *testing.T) {
 		t.Fatalf("dogfood workspace file: %v", err)
 	}
 }
+
+func TestWorkspaceFileShellRules(t *testing.T) {
+	p := writeWorkspaceFile(t, `{"exec": {"sandbox": "unconfined", "shell": {
+		"timeout": "30s",
+		"rules": [
+			{"prefix": ["git", ["status", "diff"]], "decision": "allow", "match": [["git", "diff", "HEAD"]]},
+			{"prefix": ["rm", "-rf"], "decision": "prompt", "justification": "recursive delete"}
+		]}}}`)
+	var cfg WorkspaceConfig
+	if err := cfg.LoadFile(p); err != nil {
+		t.Fatal(err)
+	}
+	sh := cfg.Exec.Shell
+	if sh == nil || sh.Timeout != 30*time.Second || len(sh.Rules) != 2 {
+		t.Fatalf("shell = %+v", sh)
+	}
+	if got := sh.Rules[0].Prefix; len(got) != 2 || len(got[1]) != 2 || got[1][1] != "diff" {
+		t.Errorf("prefix alternatives = %q", got)
+	}
+	if sh.Rules[1].Decision != exec.Prompt || sh.Rules[1].Justification != "recursive delete" {
+		t.Errorf("rule 1 = %+v", sh.Rules[1])
+	}
+
+	bad := writeWorkspaceFile(t, `{"exec": {"shell": {"rules": [{"prefix": [3], "decision": "allow"}]}}}`)
+	if err := (&WorkspaceConfig{}).LoadFile(bad); err == nil {
+		t.Error("a numeric prefix word loaded")
+	}
+}

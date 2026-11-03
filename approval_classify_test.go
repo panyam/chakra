@@ -169,3 +169,29 @@ func TestAskSeesClassification(t *testing.T) {
 		t.Errorf("ask saw class %+v, want the classifier's reason", seen)
 	}
 }
+
+func TestAlwaysAskAsksUnderEveryModeAndIsNeverRemembered(t *testing.T) {
+	escalate := func(context.Context, ToolCallInfo) (CallClass, bool) {
+		return CallClass{Disposition: DispositionAlwaysAsk, Key: "go mod", Reason: "outside the sandbox"}, true
+	}
+	for _, mode := range []ApprovalMode{ModeAlwaysAsk, ModeReadOnlyAuto, ModeReversibleAuto, ModeAlwaysAllow} {
+		askFn, asked := countingAsk(true)
+		p := NewTieredApproval(WithDefaultMode(mode), WithAsk(askFn), WithRememberApprovals(true),
+			WithToolRule("shell", RuleAllow), WithClassifier(escalate))
+		gate(p, shellInfo("go mod download"))
+		gate(p, shellInfo("go mod download"))
+		if *asked != 2 {
+			t.Errorf("mode %d: asked %d times, want 2 (every call, none remembered, RuleAllow ignored)", mode, *asked)
+		}
+	}
+
+	p := NewTieredApproval(WithDefaultMode(ModeAlwaysAllow), WithClassifier(escalate))
+	if allowed, _, _ := gate(p, shellInfo("go mod download")); allowed {
+		t.Error("ran with no AskFunc; an always-ask call must be refused when nobody can answer")
+	}
+	askFn, asked := countingAsk(true)
+	p = NewTieredApproval(WithAsk(askFn), WithToolRule("shell", RuleDeny), WithClassifier(escalate))
+	if allowed, _, _ := gate(p, shellInfo("go mod download")); allowed || *asked != 0 {
+		t.Errorf("RuleDeny: allowed=%v asked=%d, want refused without asking", allowed, *asked)
+	}
+}

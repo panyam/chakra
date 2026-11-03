@@ -1,14 +1,17 @@
 {
   "exec": {
     "sandbox": "platform",
-    "commands": [
-      {
-        "name": "test",
-        "argv": ["go", "test", "./..."],
-        "description": "Run the module's Go tests (go test ./...) in the workspace root.",
-        "readOnly": true,
-        "timeout": "3m"
-      }
-    ]
+    "shell": {
+      "timeout": "3m",
+      "rules": [
+        { "prefix": ["go", ["test", "vet", "build", "list", "env", "version"]], "decision": "allow",
+          "match": [["go", "test", "./..."]], "notMatch": [["go", "mod", "download"]] },
+        { "prefix": ["git", ["status", "diff", "log", "show"]], "decision": "allow" },
+        { "prefix": [["ls", "cat", "head", "tail", "wc", "grep", "rg", "pwd"]], "decision": "allow" },
+        { "prefix": ["rm", ["-rf", "-fr", "-r"]], "decision": "prompt", "justification": "recursive delete" },
+        { "prefix": ["git", "reset", "--hard"], "decision": "prompt", "justification": "discards uncommitted work" },
+        { "prefix": ["git", "push", ["--force", "-f"]], "decision": "forbidden", "justification": "rewrites shared history" }
+      ]
+    }
   }
 }

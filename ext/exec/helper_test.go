@@ -53,6 +53,10 @@ func TestHelperProcess(t *testing.T) {
 		// space from two arguments.
 		fmt.Println(strings.Join(args[1:], "|"))
 
+	case "fail-with":
+		fmt.Fprintln(os.Stderr, strings.Join(args[1:], " "))
+		os.Exit(1)
+
 	case "fail":
 		fmt.Fprintln(os.Stderr, "compile error: undefined: x")
 		os.Exit(3)

@@ -54,6 +54,10 @@ type Config struct {
 	// degenerate case worth supporting.
 	Commands []CommandSpec
 
+	// Shell turns on the general command tool, "shell", governed by prefix
+	// rules instead of an allowlist. Nil leaves it off. See ShellConfig.
+	Shell *ShellConfig
+
 	// Sandbox confines every command. Nil selects the platform's backend and
 	// fails construction when there is none, rather than running unconfined.
 	//
