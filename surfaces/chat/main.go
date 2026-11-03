@@ -378,7 +378,7 @@ func buildApp(ctx context.Context, v *viper.Viper, surfaceOpts []host.AppOption,
 		closeAll()
 		return nil, err
 	}
-	appOpts = append(appOpts, host.WithSkillDirs(skillDirs...))
+	appOpts = append(appOpts, host.WithSkillDirs(skillDirs...), host.WithRoots(wsCfg.Roots...))
 
 	if configure != nil {
 		if err := configure(cfg); err != nil {

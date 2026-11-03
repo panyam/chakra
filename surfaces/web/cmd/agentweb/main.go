@@ -237,7 +237,7 @@ func buildApp(o appOptions) (*host.App, error) {
 		if err != nil {
 			return nil, err
 		}
-		opts := append(storeOpt, host.WithSkillDirs(skillDirs...))
+		opts := append(storeOpt, host.WithSkillDirs(skillDirs...), host.WithRoots(wsCfg.Roots...))
 		if len(wsExts) > 0 {
 			opts = append(opts, host.WithExtension(wsExts...))
 		}

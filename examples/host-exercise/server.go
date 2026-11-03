@@ -27,6 +27,8 @@ const (
 	demoEvent        = "build.finished"
 	demoHintTemplate = "build {{status}} on {{branch}}"
 	rotatingSkill    = "release-notes"
+	rootsTool        = "workspace_roots"
+	noRoots          = "the client declared no roots capability"
 )
 
 // skillFiles is the demo skills tree. release-notes is the one rotate swaps.
@@ -93,6 +95,7 @@ func newDemo() (*demo, error) {
 		func(ctx core.ToolContext, req core.ToolRequest) (core.ToolResponse, error) {
 			return core.TextResult("two open regressions"), nil
 		})
+	srv.RegisterTool(core.ToolDef{Name: rootsTool, Description: "list the client's workspace roots", InputSchema: map[string]any{"type": "object"}}, workspaceRoots)
 	if _, err := agents.Register(agents.Config{Server: srv, Agents: []agents.AgentDef{{
 		Name:         demoAgent,
 		Description:  "looks things up before a release",
@@ -104,6 +107,26 @@ func newDemo() (*demo, error) {
 
 	d.handler = srv.Handler(server.WithStreamableHTTP(true))
 	return d, nil
+}
+
+// workspaceRoots asks the client for roots/list as SEP-2322 input, the one
+// way a server can ask on both wires, and answers the root URIs one per line.
+func workspaceRoots(ctx core.ToolContext, _ core.ToolRequest) (core.ToolResponse, error) {
+	if caps := ctx.ClientCaps(); caps == nil || caps.Roots == nil {
+		return core.TextResult(noRoots), nil
+	}
+	if !ctx.HasInputResponses() {
+		return ctx.RequestInput(core.InputRequests{"roots": core.NewListRootsInputRequest()})
+	}
+	res, err := core.DecodeListRootsInputResponse(ctx.InputResponse("roots"))
+	if err != nil {
+		return nil, err
+	}
+	var uris []string
+	for _, r := range res.Roots {
+		uris = append(uris, r.URI)
+	}
+	return core.TextResult(strings.Join(uris, "\n")), nil
 }
 
 // rotate changes the rotating skill's body, which changes its digest in the

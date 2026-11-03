@@ -56,6 +56,8 @@ func TestChecksCanTellPassFromFail(t *testing.T) {
 			off := false
 			cfg.Servers[0].Agents = &off
 		}, false},
+		// A host with no workspace declares no roots capability.
+		{"roots", func(cfg *host.Config) { cfg.Roots = nil }, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.check, func(t *testing.T) {

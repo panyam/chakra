@@ -136,6 +136,10 @@ type App struct {
 	// skillDirs are the local skill folders, labels filled in.
 	skillDirs []SkillDir
 
+	// roots answers roots/list; nil when the host declares no roots, which
+	// also leaves the roots capability unadvertised.
+	roots *rootSet
+
 	// steer queues input sent while a turn runs; see Submit.
 	steer steerQueue
 
@@ -174,6 +178,7 @@ type AppOption func(*appOptions)
 
 type appOptions struct {
 	skillDirs       []SkillDir
+	roots           []string
 	provider        agent.Provider
 	ui              agent.ElicitationUI
 	tp              core.TracerProvider
@@ -365,6 +370,13 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 		}
 		app.skills.track(d.Label)
 	}
+	if dirs := append(append([]string(nil), cfg.Roots...), o.roots...); len(dirs) > 0 {
+		roots, err := resolveRoots(dirs)
+		if err != nil {
+			return nil, err
+		}
+		app.roots = &rootSet{roots: roots}
+	}
 	if o.configPath != "" {
 		app.overlay = &configOverlay{path: overlayPathFor(o.configPath)}
 	}
@@ -418,6 +430,9 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 			client.WithToolsListChangedHandler(multi.Invalidate),
 			client.WithNotificationCallback(app.listWatch.notify(sc.ID)),
 			client.WithTracerProvider(o.tp),
+		}
+		if app.roots != nil {
+			copts = append(copts, client.WithRootsHandler(app.roots.list))
 		}
 		authOpt, loginSrc, err := authOption(sc, o.browserOpener)
 		if err != nil {

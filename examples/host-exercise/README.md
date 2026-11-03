@@ -32,6 +32,7 @@ direction. CI runs it through `make test-examples`.
 | `skill-rotation` | approving a skill is bound to its content, so a rotated skill asks again (SEP-2640) | `load_skill` approved with `remember` on, the skill's body changes on the server, `load_skill` again, and the approval prompts are counted |
 | `event-hint` | an event type's `_meta` context hint applies without a config override | a `build.finished` occurrence has to reach the model through the server's template |
 | `agent-delegable` | an agent the server advertises can be delegated to | the model calls the `researcher` tool and gets the child agent's answer back |
+| `roots` | a server asking `roots/list` sees the workspace roots (#159) | the host is given `.` as its root, the model calls `workspace_roots`, and the server asks `roots/list` as SEP-2322 input and echoes the URIs |
 
 `TestChecksCanTellPassFromFail` flips each check with a config change that
 should change its answer (catalog mode for `no-prefetch`, the hint in config
