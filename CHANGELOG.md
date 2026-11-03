@@ -5,12 +5,18 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
-## [Unreleased]
+## [v0.2.5] - 2026-11-03
 
 ### Added
 - `TurnEndVerdict.Stop` ends the turn on the refused answer without another step. The turn returns an error wrapping the new `ErrTurnStopped` with the reason, and a partial `TurnResult` whose messages end with the refused answer (#222).
 - `TurnEndVerdict.AsUser` sends a `Continue` note as a user message instead of a system note, for chat templates that reject a system message after the first (#222).
 - `Consensus.Prior` counts answers the caller already has in the vote without redrawing them. They come first in `ConsensusResult.Draws`, marked `Prior`, and win ties (#222).
+- Host: a connection's `"responseSchema": false` asks an OpenAI-wire provider for `json_object` and puts the schema in the system message, for servers like DeepSeek that answer 400 to `json_schema`. The Runner's validate-and-retry still holds the reply to the schema. The DeepSeek connections in the harness, dogfood and host-exercise configs set it (PR 226).
+- agentchat: a routed turn prints a dim `↳ step N on <connection>` after each step, in both the line renderer and the notebook (PR 226).
+- `surfaces/chat/README.md` documents the whole `connections` block (PR 226).
+
+### Fixed
+- The Responses provider's stream errors carry the server's code and message. OpenAI nests them under `error`, and a quota failure showed as `agent: stream error : ` (PR 221).
 
 ## [v0.2.4] - 2026-11-03
 
@@ -27,9 +33,6 @@ the same version.
 - Coding harness: `--route-to`, `--route-from` and `--route-model`, with tokens per model on the metrics line and in the parity table (#185).
 - Host: MCP servers over stdio. `ServerConfig.Command` (with `args`, `dir`, `env`, `envPass` and `startupTimeoutSec`) launches a server that speaks MCP on stdin and stdout, in a clean environment that holds only `PATH`, `HOME` and what's named. A crash fails the call in flight as not available, and the next call starts a fresh process (#161).
 - Host: `ServerConfig.CallTimeoutSec` ends a tool call on any server after that many seconds (#161).
-
-### Fixed
-- The Responses provider's stream errors carry the server's code and message. OpenAI nests them under `error`, and a quota failure showed as `agent: stream error : ` (#220 follow-up).
 
 ## [v0.2.3] - 2026-11-03
 
