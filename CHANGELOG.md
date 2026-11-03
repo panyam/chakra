@@ -5,6 +5,16 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
+## [Unreleased]
+
+### Added
+- `StepView.Provider` and `StepView.ProviderName`: a request-scoped `StepStage` can send one model call to another provider, and name it. The next step starts back on `RunnerConfig.Provider`. A guided step checks the routed provider can send the constraint (#185).
+- `EventStep`, with `Event.Model` and `Event.Usage`: one per named step, after its deltas. Steps no stage names emit none (#185).
+- `TurnResult.UsageByModel`: the turn's usage split by step name, nil when no stage named a step (#185).
+- Host: `connections.stepRoutes` and `StepRouteStage` route ranges of each turn's steps to other connections; unrouted steps stay on the active connection (#185).
+- agentweb: a model picker in the header beside the model label, listing the session's connections; `GetStatusResponse` gains `providers` and `active_provider` (#185).
+- Coding harness: `--route-to`, `--route-from` and `--route-model`, with tokens per model on the metrics line and in the parity table (#185).
+
 ## [v0.2.3] - 2026-11-03
 
 ### Added

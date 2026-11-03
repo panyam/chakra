@@ -149,6 +149,12 @@ message GetStatusRequest {
 message GetStatusResponse {
   string model_label = 1;
   string run_id = 2;
+  // providers lists the session's connection names, sorted, for the header's
+  // model picker. Empty when the session runs on a single fixed model.
+  repeated string providers = 3;
+  // active_provider is the connection /provider last selected, one of
+  // providers. Empty when providers is.
+  string active_provider = 4;
 }
 
 message CreateSessionRequest {

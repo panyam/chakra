@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { statusText } from "./status.js";
+import { pickerOptions, statusText } from "./status.js";
 
 describe("statusText", () => {
   it("keeps the shell's placeholder until the host answers", () => {
@@ -10,5 +10,15 @@ describe("statusText", () => {
   });
   it("follows a session change with no model yet", () => {
     expect(statusText({ model: "", session: "run-2" })).toBe("model — · session run-2");
+  });
+});
+
+describe("pickerOptions", () => {
+  it("lists the connections when there is a choice", () => {
+    expect(pickerOptions({ model: "m", session: "", providers: ["cloud", "local"], active: "local" })).toEqual(["cloud", "local"]);
+  });
+  it("hides the picker for one connection or none", () => {
+    expect(pickerOptions({ model: "m", session: "", providers: ["only"], active: "only" })).toEqual([]);
+    expect(pickerOptions({ model: "m", session: "" })).toEqual([]);
   });
 });

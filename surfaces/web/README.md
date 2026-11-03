@@ -175,7 +175,7 @@ Layout map (`web/src/`):
 | `DockviewWorkspace.ts` | dockview-core glue: adopt island hosts into panels |
 | `MobileOverlays.tsx` | phone layout: the chat as the hero, a bottom bar (Chat, Agents, Activity, Tools) and a More drawer (Memory, Budget) whose panels open over the tab with a back bar. Every panel stays mounted, only hidden |
 | `mobilenav.ts` | the phone layout's navigation state and unread dots, with no DOM, so it's unit-tested |
-| `StatusLine.tsx`, `status.ts` | the topbar status island (model and session) |
+| `StatusLine.tsx`, `status.ts` | the topbar status island (model and session), and the model picker that runs `/provider` when the session has connections to choose from |
 | `page.ts` | tsappkit `IslandPage`: the island registry and the shared stores and `Watch` |
 | `main.ts` | boot: starts the page once the DOM is ready |
 | `settings.ts` | what the browser keeps in localStorage: access token, providers and their keys, its sessions |

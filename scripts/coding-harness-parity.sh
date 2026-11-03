@@ -10,7 +10,10 @@
 # are pinned to medium reasoning effort (config.json's reasoningEffort, and -c
 # here). PARITY_ACTIVE=openai runs chakra over chat completions instead. PARITY_INSTRUCTIONS=codex makes chakra load
 # AGENTS.md the way codex does, for a like-for-like run; the default is
-# workspace.json's choice.
+# workspace.json's choice. PARITY_ROUTE_TO names a connection that answers the
+# chakra side's steps from PARITY_ROUTE_FROM (default 2) on, with
+# PARITY_ROUTE_MODEL overriding its model, so the table can compare cost with
+# later steps on a cheaper model (#185).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 EX="$ROOT/examples/coding-harness"
@@ -42,6 +45,7 @@ echo "==> chakra coding-harness ($MODEL over $ACTIVE)"
 (
 	cd "$EX"
 	go run . --live --active "$ACTIVE" --model "$MODEL" ${PARITY_INSTRUCTIONS:+--instructions "$PARITY_INSTRUCTIONS"} \
+		${PARITY_ROUTE_TO:+--route-to "$PARITY_ROUTE_TO" --route-from "${PARITY_ROUTE_FROM:-2}"} ${PARITY_ROUTE_MODEL:+--route-model "$PARITY_ROUTE_MODEL"} \
 		--jsonl "$OUT/chakra/events.jsonl" --metrics "$OUT/chakra/metrics.json"
 ) >"$OUT/chakra/table.txt" 2>&1 || echo "coding-harness exited $? (see $OUT/chakra/table.txt)"
 

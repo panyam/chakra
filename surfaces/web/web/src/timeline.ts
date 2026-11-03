@@ -51,6 +51,11 @@ export function summarize(ev: HostEvent): { kind: string; summary: string } {
         case "tool-cancelled":
         case "tool-unavailable":
           return { kind: inner, summary: `${re?.toolCall?.name ?? "tool"}: ${re?.reason || re?.error || ""}`.trim() };
+        case "step":
+          return {
+            kind: inner,
+            summary: `step ${re?.step ?? "?"} on ${re?.model || "?"} (${re?.usage?.inputTokens ?? 0} in / ${re?.usage?.outputTokens ?? 0} out)`,
+          };
         case "compaction":
           return { kind: inner, summary: `compacted ${re?.compaction?.before ?? "?"} → ${re?.compaction?.after ?? "?"} msgs` };
         default:

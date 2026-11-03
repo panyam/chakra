@@ -188,7 +188,7 @@ describe("ConversationStore slash commands", () => {
         return {};
       },
       respondToAsk: async () => ({}),
-      getStatus: async () => ({ modelLabel: "deepseek (deepseek-chat)", runId: "" }),
+      getStatus: async () => ({ modelLabel: "deepseek (deepseek-chat)", runId: "", providers: ["claude", "deepseek"], activeProvider: "deepseek" }),
     } as unknown as Parameters<typeof createConversationStore>[0];
     return { client, calls };
   }
@@ -205,6 +205,24 @@ describe("ConversationStore slash commands", () => {
       await new Promise((r) => setTimeout(r, 0));
       expect(store.status().model).toBe("deepseek (deepseek-chat)");
       expect(store.error()).toBe("");
+      dispose();
+    });
+  });
+
+  it("switches the model from the picker through /provider and follows the label", async () => {
+    const { client, calls } = recordingClient(async () => ({
+      kind: "providers",
+      payload: cmdPayload({ Kind: "providers", Providers: ["claude", "deepseek"], ActiveProvider: "deepseek" }),
+    }));
+    await createRoot(async (dispose) => {
+      const store = createConversationStore(client);
+      store.setStatus({ model: "claude (claude-sonnet-5-5)", session: "", providers: ["claude", "deepseek"], active: "claude" });
+      await store.switchProvider("deepseek");
+      await new Promise((r) => setTimeout(r, 0));
+      expect(calls.dispatched).toEqual(["/provider deepseek"]);
+      expect(calls.submitted).toEqual([]);
+      expect(store.status().model).toBe("deepseek (deepseek-chat)");
+      expect(store.status().active).toBe("deepseek");
       dispose();
     });
   });

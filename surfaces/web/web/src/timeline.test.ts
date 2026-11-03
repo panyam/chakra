@@ -23,6 +23,11 @@ describe("timeline summarize", () => {
     expect(summarize({ Kind: "turn-done", Result: { steps: 3 } })).toEqual({ kind: "turn-done", summary: "turn done (3 steps)" });
     expect(summarize({ Kind: "handoff", From: "triage", To: "billing" })).toEqual({ kind: "handoff", summary: "triage → billing" });
   });
+  it("names the connection a routed step ran on and what it spent", () => {
+    expect(
+      summarize({ Kind: "runner-event", RunnerEvent: { kind: "step", step: 2, model: "mini", usage: { inputTokens: 1200, outputTokens: 40 } } }),
+    ).toEqual({ kind: "step", summary: "step 2 on mini (1200 in / 40 out)" });
+  });
 });
 
 describe("TimelineStore reduce", () => {

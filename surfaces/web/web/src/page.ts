@@ -7,6 +7,7 @@ import { createPanelStores, type PanelStores } from "./stores.js";
 import { WatchStream } from "./watch.js";
 import { mobileOverlaysIsland } from "./MobileOverlays.js";
 import { statusIsland } from "./StatusLine.js";
+import { statusFrom } from "./conversation.js";
 
 // shell.go writes the page spec (#page-spec): which islands this layout mounts
 // and into which [data-slot]. The registry says how to build each one. The dock
@@ -58,7 +59,7 @@ export class AgentWebPage extends IslandPage<PageContext> {
     // after each. Slash commands refresh it themselves (conversation.ts).
     const refreshStatus = () =>
       client.getStatus({}).then((st) => {
-        stores.conversation.setStatus({ model: st.modelLabel, session: st.runId });
+        stores.conversation.setStatus(statusFrom(st));
       });
     // Debounced, since the Watch replays a session's whole log on load.
     let pending: ReturnType<typeof setTimeout> | null = null;

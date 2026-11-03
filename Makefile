@@ -177,9 +177,14 @@ CH_ACTIVE ?= openai
 CH_MODEL ?=
 # CH_INSTRUCTIONS picks how AGENTS.md and the like load: chakra, codex or claude.
 CH_INSTRUCTIONS ?=
+# CH_ROUTE_TO sends steps from CH_ROUTE_FROM (default 2) on to another
+# connection, CH_ROUTE_MODEL overriding its model (#185).
+CH_ROUTE_TO ?=
+CH_ROUTE_FROM ?= 2
+CH_ROUTE_MODEL ?=
 
-coding-harness-exercise-live: ## The same exercise with a real model, plus a metrics line (CH_ACTIVE=claude, CH_MODEL=gpt-5.4 etc.)
-	@cd examples/coding-harness && go run . --live --active $(CH_ACTIVE) $(if $(CH_MODEL),--model $(CH_MODEL)) $(if $(CH_INSTRUCTIONS),--instructions $(CH_INSTRUCTIONS))
+coding-harness-exercise-live: ## The same exercise with a real model, plus a metrics line (CH_ACTIVE=claude, CH_MODEL=gpt-5.4, CH_ROUTE_TO=openai CH_ROUTE_MODEL=gpt-5.4-mini etc.)
+	@cd examples/coding-harness && go run . --live --active $(CH_ACTIVE) $(if $(CH_MODEL),--model $(CH_MODEL)) $(if $(CH_INSTRUCTIONS),--instructions $(CH_INSTRUCTIONS)) $(if $(CH_ROUTE_TO),--route-to $(CH_ROUTE_TO) --route-from $(CH_ROUTE_FROM)) $(if $(CH_ROUTE_MODEL),--route-model $(CH_ROUTE_MODEL))
 
 CH_ADDR ?= localhost:8091
 

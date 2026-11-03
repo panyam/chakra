@@ -634,11 +634,17 @@ func (x *GetStatusRequest) GetSessionId() string {
 }
 
 type GetStatusResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ModelLabel    string                 `protobuf:"bytes,1,opt,name=model_label,json=modelLabel,proto3" json:"model_label,omitempty"`
-	RunId         string                 `protobuf:"bytes,2,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	ModelLabel string                 `protobuf:"bytes,1,opt,name=model_label,json=modelLabel,proto3" json:"model_label,omitempty"`
+	RunId      string                 `protobuf:"bytes,2,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	// providers lists the session's connection names, sorted, for the header's
+	// model picker. Empty when the session runs on a single fixed model.
+	Providers []string `protobuf:"bytes,3,rep,name=providers,proto3" json:"providers,omitempty"`
+	// active_provider is the connection /provider last selected, one of
+	// providers. Empty when providers is.
+	ActiveProvider string `protobuf:"bytes,4,opt,name=active_provider,json=activeProvider,proto3" json:"active_provider,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *GetStatusResponse) Reset() {
@@ -681,6 +687,20 @@ func (x *GetStatusResponse) GetModelLabel() string {
 func (x *GetStatusResponse) GetRunId() string {
 	if x != nil {
 		return x.RunId
+	}
+	return ""
+}
+
+func (x *GetStatusResponse) GetProviders() []string {
+	if x != nil {
+		return x.Providers
+	}
+	return nil
+}
+
+func (x *GetStatusResponse) GetActiveProvider() string {
+	if x != nil {
+		return x.ActiveProvider
 	}
 	return ""
 }
@@ -1058,11 +1078,13 @@ const file_chakra_web_v1_host_proto_rawDesc = "" +
 	"\ractive_run_id\x18\x03 \x01(\tR\vactiveRunId\"1\n" +
 	"\x10GetStatusRequest\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\"K\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\"\x92\x01\n" +
 	"\x11GetStatusResponse\x12\x1f\n" +
 	"\vmodel_label\x18\x01 \x01(\tR\n" +
 	"modelLabel\x12\x15\n" +
-	"\x06run_id\x18\x02 \x01(\tR\x05runId\"O\n" +
+	"\x06run_id\x18\x02 \x01(\tR\x05runId\x12\x1c\n" +
+	"\tproviders\x18\x03 \x03(\tR\tproviders\x12'\n" +
+	"\x0factive_provider\x18\x04 \x01(\tR\x0eactiveProvider\"O\n" +
 	"\x14CreateSessionRequest\x127\n" +
 	"\bprovider\x18\x01 \x01(\v2\x1b.chakra.web.v1.ProviderSpecR\bprovider\"6\n" +
 	"\x15CreateSessionResponse\x12\x1d\n" +

@@ -67,6 +67,24 @@ type StepView struct {
 	// change to it reaches the model; tools are listed afresh every step, so
 	// there is no record or rest-of-turn for a tool set to persist into.
 	Tools []core.ToolDef
+
+	// Provider, when set, answers this one call in place of
+	// RunnerConfig.Provider (#185). The next step starts from the configured
+	// provider again, so a stage that routes several steps sets it on each.
+	// Only a ScopeRequest stage may set it; a routed provider is a choice
+	// about one call, and a session or turn stage that sets it fails the
+	// turn. Each switch costs a cold prompt cache on the provider switched
+	// to, so a routing policy does better staying put than alternating.
+	//
+	// The structured or guided finalize after the last step stays on
+	// RunnerConfig.Provider.
+	Provider Provider
+
+	// ProviderName labels this call for EventStep and TurnResult.UsageByModel:
+	// a connection name, a model id, whatever the router calls it. It may be
+	// set without Provider, to name the configured provider. Like Provider,
+	// only a ScopeRequest stage may set it.
+	ProviderName string
 }
 
 // StepStage is one entry in the chain that runs before every model call
@@ -200,6 +218,9 @@ func runStepChain(ctx context.Context, chain []StepStage, info StepInfo, working
 		out, err := st.Run(ctx, info, view)
 		if err != nil {
 			return nil, nil, StepView{}, fmt.Errorf("step stage %q: %w", st.Name, err)
+		}
+		if st.Scope != ScopeRequest && (out.Provider != nil || out.ProviderName != "") {
+			return nil, nil, StepView{}, fmt.Errorf("step stage %q: only a request stage may route a call to another provider", st.Name)
 		}
 		switch st.Scope {
 		case ScopeSession:

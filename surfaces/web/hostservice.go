@@ -242,16 +242,19 @@ func (s *HostService) ListSessions(ctx context.Context, req *connect.Request[web
 	}), nil
 }
 
-// GetStatus returns the selected session's active model label and run id — the
-// status-line read.
+// GetStatus returns the selected session's active model label and run id, the
+// status-line read, plus the connections the header's model picker offers.
 func (s *HostService) GetStatus(ctx context.Context, req *connect.Request[webv1.GetStatusRequest]) (*connect.Response[webv1.GetStatusResponse], error) {
 	app, err := s.appFor(ctx, req.Msg.GetSessionId())
 	if err != nil {
 		return nil, err
 	}
+	names, active := app.Providers()
 	return connect.NewResponse(&webv1.GetStatusResponse{
-		ModelLabel: app.ModelLabel(),
-		RunId:      app.RunID(),
+		ModelLabel:     app.ModelLabel(),
+		RunId:          app.RunID(),
+		Providers:      names,
+		ActiveProvider: active,
 	}), nil
 }
 

@@ -14,18 +14,22 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"text/tabwriter"
 	"time"
 
+	agent "github.com/panyam/chakra"
 	"github.com/panyam/chakra/host"
 )
 
@@ -39,6 +43,11 @@ type options struct {
 	timeout   time.Duration
 	// instructions is the agentsmd preset; empty keeps workspace.json's.
 	instructions string
+	// routeTo, routeFrom and routeModel send later steps to another
+	// connection (#185).
+	routeTo    string
+	routeFrom  int
+	routeModel string
 }
 
 func main() {
@@ -51,6 +60,9 @@ func main() {
 	flag.StringVar(&o.metrics, "metrics", "", "write the metrics line as JSON to this file")
 	flag.DurationVar(&o.timeout, "timeout", 0, "give up after this long (default 2m scripted, 15m live)")
 	flag.StringVar(&o.instructions, "instructions", "", "how AGENTS.md and the like load: chakra, codex or claude (default: workspace.json's, else chakra)")
+	flag.StringVar(&o.routeTo, "route-to", "", "send steps from --route-from on to this config.json connection (live only)")
+	flag.IntVar(&o.routeFrom, "route-from", 2, "the first step --route-to answers")
+	flag.StringVar(&o.routeModel, "route-model", "", "override --route-to's model")
 	verbose := flag.Bool("v", false, "keep the host's logging")
 	flag.Parse()
 	if !*verbose {
@@ -107,6 +119,9 @@ func exercise(ctx context.Context, o options) (*exerciseRun, error) {
 		checkpoints:  filepath.Join(tmp, "checkpoints"),
 		recorder:     &recorder{},
 		instructions: o.instructions,
+		routeTo:      o.routeTo,
+		routeFrom:    o.routeFrom,
+		routeModel:   o.routeModel,
 	}
 	if !o.live {
 		if p.provider, err = scriptedProvider(fixture); err != nil {
@@ -235,6 +250,8 @@ type metrics struct {
 	// result.schema.json. The Runner validated it; this reads the outcome.
 	SchemaValid bool   `json:"schema_valid"`
 	TurnError   string `json:"turn_error,omitempty"`
+	// ByModel splits the tokens by model when steps were routed (#185).
+	ByModel map[string]agent.Usage `json:"by_model,omitempty"`
 }
 
 func metricsOf(r *runResult) metrics {
@@ -245,6 +262,7 @@ func metricsOf(r *runResult) metrics {
 		m.CachedTok = r.turn.Usage.CachedInputTokens
 		m.OutputTok = r.turn.Usage.OutputTokens
 		m.SchemaValid = r.turn.Structured.Len() > 0 && r.turn.StructuredError == ""
+		m.ByModel = r.turn.UsageByModel
 	}
 	return m
 }
@@ -256,6 +274,10 @@ func (m metrics) String() string {
 	}
 	s := fmt.Sprintf("steps=%d tool_calls=%d in_tok=%d cached_tok=%d out_tok=%d wall=%ds tests=%s",
 		m.Steps, m.ToolCalls, m.InputTok, m.CachedTok, m.OutputTok, m.WallSeconds, tests)
+	for _, name := range slices.Sorted(maps.Keys(m.ByModel)) {
+		u := m.ByModel[name]
+		s += fmt.Sprintf(" %s=%d/%d/%d", cmp.Or(name, "default"), u.InputTokens, u.CachedInputTokens, u.OutputTokens)
+	}
 	if m.TurnError != "" {
 		s += " turn_error=" + m.TurnError
 	}
