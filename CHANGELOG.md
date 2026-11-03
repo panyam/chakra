@@ -14,6 +14,8 @@ the same version.
 - Host: `connections.stepRoutes` and `StepRouteStage` route ranges of each turn's steps to other connections; unrouted steps stay on the active connection (#185).
 - agentweb: a model picker in the header beside the model label, listing the session's connections; `GetStatusResponse` gains `providers` and `active_provider` (#185).
 - Coding harness: `--route-to`, `--route-from` and `--route-model`, with tokens per model on the metrics line and in the parity table (#185).
+- Host: MCP servers over stdio. `ServerConfig.Command` (with `args`, `dir`, `env`, `envPass` and `startupTimeoutSec`) launches a server that speaks MCP on stdin and stdout, in a clean environment that holds only `PATH`, `HOME` and what's named. A crash fails the call in flight as not available, and the next call starts a fresh process (#161).
+- Host: `ServerConfig.CallTimeoutSec` ends a tool call on any server after that many seconds (#161).
 
 ## [v0.2.3] - 2026-11-03
 

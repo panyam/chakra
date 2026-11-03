@@ -284,6 +284,9 @@ func (a *App) registerServerTools(sc ServerConfig, c *client.Client) {
 		agent.WithTaskGrace(a.cfg.taskGrace()),
 		agent.WithTaskDetachHook(a.onTaskDetach),
 		agent.WithTaskCompletionHook(func(bt *client.BackgroundTask) { a.onTaskComplete(sc.ID, bt) }))
+	if sc.CallTimeoutSec > 0 {
+		src = &timeoutSource{inner: src, d: callTimeout(sc), serverID: sc.ID}
+	}
 	if len(sc.Allow) > 0 {
 		allowed := make(map[string]bool, len(sc.Allow))
 		for _, name := range sc.Allow {
@@ -448,6 +451,9 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 		}
 		if cfg.Sampling != nil && cfg.Sampling.Enabled {
 			copts = append(copts, client.WithSamplingHandler(app.samplingHandler(sc.ID)))
+		}
+		if sc.Command != "" {
+			copts = append(copts, commandOptions(sc, o.logger)...)
 		}
 		authOpt, loginSrc, err := authOption(sc, o.browserOpener)
 		if err != nil {
