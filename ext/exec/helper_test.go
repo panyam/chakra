@@ -1,6 +1,7 @@
 package exec
 
 import (
+	"bufio"
 	"fmt"
 	"net"
 	"os"
@@ -128,6 +129,23 @@ func TestHelperProcess(t *testing.T) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(4)
 		}
+
+	case "prompt":
+		// Asks, waits for a line, answers, exits: an interactive program.
+		fmt.Println("name?")
+		line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+		fmt.Printf("hello %s\n", strings.TrimSpace(line))
+
+	case "tick":
+		// Prints until killed: a dev server or a watcher.
+		for i := 0; ; i++ {
+			fmt.Printf("tick %d\n", i)
+			time.Sleep(50 * time.Millisecond)
+		}
+
+	case "isatty":
+		fi, _ := os.Stdin.Stat()
+		fmt.Printf("tty=%v\n", fi.Mode()&os.ModeCharDevice != 0)
 
 	case "read":
 		b, err := os.ReadFile(args[1])

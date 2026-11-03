@@ -34,6 +34,10 @@ type ShellConfig struct {
 	// command that needs it fails, is recognized as a likely sandbox denial,
 	// and can be retried with escalation.
 	AllowNetwork bool
+
+	// Processes turns on exec_command, write_stdin, list_processes and
+	// kill_process, for commands that outlive one call. Nil leaves them off.
+	Processes *ProcessConfig
 }
 
 // shell is the resolved ShellConfig.
