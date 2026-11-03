@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	agent "github.com/panyam/chakra"
@@ -119,9 +120,41 @@ var checks = []check{
 	},
 	{
 		id:        "plan_published",
-		behaviour: "the agent published a plan",
+		behaviour: "update_plan was offered on every call, and every plan the model sent reached the surfaces",
 		wiring:    "update_plan tool + plan event (#148)",
-		run:       toolUsed("update_plan"),
+		// Whether to plan is the model's call: a one-line fix needs no plan,
+		// and the tool's description says to skip it. So this checks the
+		// wiring, and says when the model chose not to plan.
+		run: func(r *runResult, _ string) (bool, string) {
+			if len(r.requests) == 0 {
+				return false, "no model requests recorded"
+			}
+			for i, req := range r.requests {
+				// the structured-result call offers no tools at all
+				if len(req.Tools) > 0 && !slices.Contains(req.Tools, "update_plan") {
+					return false, fmt.Sprintf("request %d didn't offer update_plan", i+1)
+				}
+			}
+			accepted, published := 0, 0
+			for _, ev := range r.events {
+				if ev.Kind != host.HostRunnerEvent {
+					continue
+				}
+				switch e := ev.RunnerEvent; {
+				case e.Kind == agent.EventToolEnd && e.ToolCall != nil && e.ToolCall.Name == "update_plan" && (e.ToolResult == nil || !e.ToolResult.IsError):
+					accepted++
+				case e.Kind == agent.EventPlan && e.Plan != nil:
+					published++
+				}
+			}
+			if accepted != published {
+				return false, fmt.Sprintf("%d plans accepted, %d plan events", accepted, published)
+			}
+			if accepted == 0 {
+				return true, "offered; the model didn't plan"
+			}
+			return true, ""
+		},
 	},
 	{
 		id:        "steered_mid_turn",
