@@ -5,10 +5,10 @@ import (
 	"testing"
 )
 
-// TestScenarioTranscript is the golden run: the deterministic StubProvider
-// drives the subscribe → create_trigger → (event fires) → send_email flow,
-// and the transcript must show the model setting up the standing behavior
-// and then being woken to act on it.
+// TestScenarioTranscript is the golden run. The deterministic StubProvider
+// drives the subscribe → create_trigger → (event fires) → send_email flow.
+// The transcript must show the model setting up the standing behavior and
+// then being woken to act on it.
 func TestScenarioTranscript(t *testing.T) {
 	out := &syncWriter{}
 	if err := runScenario(out, nil); err != nil {

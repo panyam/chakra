@@ -12,10 +12,10 @@ import (
 )
 
 // openPgvector connects to the test Postgres, ensures the pgvector extension
-// exists, and returns a clean DB. It skips (not fails) when no Postgres env
-// is configured or the extension can't be created — so `just test` (sqlite,
-// no Docker) and a plain-Postgres CI both skip the semantic store, while
-// `just testpg` against the pgvector image exercises it.
+// exists, and returns a clean DB. It skips instead of failing when no
+// Postgres env is configured or the extension can't be created. So `just
+// test` (sqlite, no Docker) and a plain-Postgres CI both skip the semantic
+// store, and `just testpg` against the pgvector image exercises it.
 func openPgvector(t *testing.T) *gorm.DB {
 	t.Helper()
 	dsn := postgresDSN()
@@ -155,9 +155,9 @@ func TestSemanticMemoryStore_UpsertPreservesPosition(t *testing.T) {
 }
 
 func TestSemanticMemoryStore_RejectsUnsafeTableName(t *testing.T) {
-	// Construction validates the (raw-SQL-composed) table name before it
-	// touches the DB, so a nil handle is fine — the identifier check fires
-	// first. No Postgres needed, so this guards the injection surface in CI.
+	// The store composes the table name into raw SQL. Construction
+	// validates the name before it touches the DB, so a nil handle is fine.
+	// No Postgres is needed, so this guards the injection surface in CI.
 	for _, name := range []string{`agent_memories"; DROP TABLE x; --`, "has space", "a.b", "1bad"} {
 		if _, err := NewSemanticMemoryStore(nil, agent.StubEmbedder{}, WithMemoryTableName(name)); err == nil {
 			t.Errorf("table name %q: want rejection, got nil error", name)

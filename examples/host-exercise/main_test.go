@@ -17,9 +17,10 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// TestExerciseMatchesExpected is the exercise in CI: every check on both wires,
-// against expectedFailures. It fails when a check regresses and also when one
-// starts passing without its entry being removed.
+// TestExerciseMatchesExpected runs the exercise in CI. It runs every check on
+// both wires and compares the results with expectedFailures. It fails when a
+// check regresses and also when one starts passing without its entry being
+// removed.
 func TestExerciseMatchesExpected(t *testing.T) {
 	results, err := runAll(context.Background())
 	if err != nil {
@@ -33,8 +34,8 @@ func TestExerciseMatchesExpected(t *testing.T) {
 }
 
 // TestChecksCanTellPassFromFail flips each check with a config change that
-// should change its answer, so a check that always passes, or always fails,
-// shows up here rather than as a quietly wrong row in the table.
+// should change its answer. A check that always passes or always fails then
+// shows up here, not as a quietly wrong row in the table.
 func TestChecksCanTellPassFromFail(t *testing.T) {
 	cases := []struct {
 		check string

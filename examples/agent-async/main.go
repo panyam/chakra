@@ -19,8 +19,8 @@ func main() {
 	apiKeyEnv := flag.String("api-key-env", "", "env var holding the model API key (never the key itself)")
 	flag.Parse()
 
-	// --serve boots the app-domain MCP server the config.json surfaces point
-	// at (just chat / just web), so a live model has real tools to drive.
+	// --serve boots the app-domain MCP server. The config.json surfaces
+	// (just chat / just web) point at it, so a live model has real tools to drive.
 	if *serveFlag {
 		if err := serve(*addr); err != nil {
 			fmt.Fprintln(os.Stderr, "agent-async:", err)
@@ -46,7 +46,7 @@ func main() {
 	fmt.Print(out.String())
 }
 
-// syncWriter is a concurrency-safe buffer: the proactive trigger turn writes
+// syncWriter is a concurrency-safe buffer. The proactive trigger turn writes
 // from the event-consumer goroutine while the main flow writes prompt lines.
 type syncWriter struct {
 	mu sync.Mutex

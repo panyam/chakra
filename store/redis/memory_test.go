@@ -70,7 +70,7 @@ func TestRedisMemoryStore_UpdatePreservesOrder(t *testing.T) {
 	s.PutMemory(ctx, agent.PutMemoryRequest{Item: agent.MemoryItem{Key: "a", Value: "old", CreatedAt: t1}})
 	s.PutMemory(ctx, agent.PutMemoryRequest{Item: agent.MemoryItem{Key: "b", Value: "b", CreatedAt: t2}})
 
-	// update "a" (zero CreatedAt) — it must keep t1 and stay first
+	// update "a" (zero CreatedAt); it must keep t1 and still come first
 	s.PutMemory(ctx, agent.PutMemoryRequest{Item: agent.MemoryItem{Key: "a", Value: "new"}})
 
 	resp, _ := s.ListMemories(ctx, agent.ListMemoriesRequest{})

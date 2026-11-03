@@ -31,8 +31,8 @@ type runRow struct {
 func (runRow) TableName() string { return "agent_runs" }
 
 // runMessageRow is one agent.Message, JSON-encoded. Seq is a global
-// autoincrement: per-run order is "ORDER BY seq", and concurrent
-// appends to different runs never contend on a per-run counter.
+// autoincrement. Per-run order is "ORDER BY seq", and concurrent appends
+// to different runs never contend on a per-run counter.
 type runMessageRow struct {
 	Seq   int64  `gorm:"primaryKey;autoIncrement"`
 	RunID string `gorm:"not null;index:idx_agent_run_messages_run"`
@@ -154,9 +154,10 @@ func appendRows[T any](tx *gorm.DB, runID string, values []T, insert func(tx *go
 	return true, insert(tx, runID, bodies)
 }
 
-// AppendMessages implements agent.RunStore, stamping zero Timestamps
-// per the agent.AppendMessagesRequest rule before encoding, so the
-// stamp lives inside the stored JSON body and forks copy it for free.
+// AppendMessages implements agent.RunStore. Before encoding, it stamps
+// zero Timestamps per the agent.AppendMessagesRequest rule. So the stamp
+// is part of the stored JSON body, and a fork copies it with no extra
+// step.
 func (s *RunStore) AppendMessages(ctx context.Context, req agent.AppendMessagesRequest) (agent.AppendMessagesResponse, error) {
 	msgs := slices.Clone(req.Messages)
 	now := time.Now().UTC()
@@ -198,8 +199,8 @@ func (s *RunStore) AppendEvents(ctx context.Context, req agent.AppendEventsReque
 }
 
 // loadBodies reads a run's log table in seq order and decodes each row.
-// A corrupt row is a storage-layer failure, surfaced as an error rather
-// than dropped — this log is what sessions resume from.
+// A corrupt row is a storage-layer failure. Sessions resume from this
+// log, so loadBodies returns an error instead of dropping the row.
 func loadBodies[T any](tx *gorm.DB, table, runID string) ([]T, error) {
 	var bodies []string
 	if err := tx.Table(table).Where("run_id = ?", runID).Order("seq").Pluck("body", &bodies).Error; err != nil {
@@ -250,10 +251,10 @@ func (s *RunStore) LoadRun(ctx context.Context, req agent.LoadRunRequest) (agent
 	}, nil
 }
 
-// ListRuns implements agent.RunStore, newest-first, with the message
-// count computed by a correlated subquery so one query returns the whole
-// page. The cursor is a decimal offset (keyset paging is overkill for a
-// session picker; a run set is small).
+// ListRuns implements agent.RunStore and lists runs newest-first. A
+// correlated subquery computes each message count, so one query returns
+// the whole page. The cursor is a decimal offset. A session picker lists a
+// small set of runs, so keyset paging would be overkill.
 func (s *RunStore) ListRuns(ctx context.Context, req agent.ListRunsRequest) (agent.ListRunsResponse, error) {
 	limit := req.Limit
 	if limit <= 0 {
@@ -301,29 +302,32 @@ func (s *RunStore) ListRuns(ctx context.Context, req agent.ListRunsRequest) (age
 	return agent.ListRunsResponse{Runs: infos, NextCursor: next}, nil
 }
 
-// ForkRun implements agent.RunStore. The whole fork — source check,
-// cut-point resolution, new run claim, and the log copies — runs in one
-// transaction, so the fork is an exact cut of the source at commit
+// ForkRun implements agent.RunStore. One transaction runs the whole fork.
+// It checks the source, resolves the cut point, claims the new run and
+// copies both logs. So the fork is an exact cut of the source at commit
 // time. See agent.ForkRunRequest for the AtMessage and event-log
 // semantics.
 //
-// The transaction is for crash atomicity, NOT locking: nothing here
-// takes row locks on the source (no FOR UPDATE; INSERT ... SELECT's
-// read side is AccessShare), so appends to the source never wait on a
-// fork. Races don't need the transaction either — a racing append gets
-// a seq above every existing row, and the seq-ordered LIMIT copies a
-// deterministic prefix, so it lands cleanly after the cut. The
-// transaction buys the RunStore all-or-nothing contract. A crash
-// mid-fork rolls back to nothing (no claim row over a partial copy for
-// a retry to trust), and two replicas retrying the same NewRunID
-// resolve to one complete fork plus one clean Created=false. The
-// lock-free alternative (copy first, claim last, DELETE stale rows on
-// retry) can satisfy the crash case but costs an extra statement,
-// makes statement ORDER a correctness invariant, and leaves concurrent
-// same-ID retries able to interleave each other's half-written copies
-// — the transaction closes all three for free, so we use the
-// database's native atomicity primitive, mirroring the Redis backend's
-// choice of its native primitive (the atomic Lua script).
+// The transaction gives crash atomicity, NOT locking. Nothing here takes
+// row locks on the source. There is no FOR UPDATE, and the read side of
+// INSERT ... SELECT takes only AccessShare. So appends to the source never
+// wait on a fork. Races don't need the transaction either. A racing append
+// gets a seq above every existing row, and the seq-ordered LIMIT copies a
+// deterministic prefix, so the append ends up after the cut.
+//
+// The transaction gives the RunStore its all-or-nothing contract. Imagine
+// the process crashes mid-fork. The transaction rolls back to nothing, so
+// no claim row sits over a partial copy for a retry to trust. Now imagine
+// two replicas retry the same NewRunID. One gets a complete fork, and the
+// other gets a clean Created=false.
+//
+// The lock-free alternative copies first, claims last, and DELETEs stale
+// rows on retry. It can handle the crash case, but it has three costs. It
+// needs an extra statement. It makes statement ORDER a correctness
+// invariant. And concurrent retries with the same ID can interleave each
+// other's half-written copies. The transaction avoids all three at no
+// extra cost. So we use the database's native atomicity primitive, as the
+// Redis backend uses its own (the atomic Lua script).
 func (s *RunStore) ForkRun(ctx context.Context, req agent.ForkRunRequest) (agent.ForkRunResponse, error) {
 	var resp agent.ForkRunResponse
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

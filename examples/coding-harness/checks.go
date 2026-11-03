@@ -13,8 +13,8 @@ import (
 )
 
 // check is one behaviour the mission asks for, with the wiring that serves it.
-// The wiring column is what the exercise prints, so the table doubles as the
-// map from behaviour to hook, extension and tool.
+// The exercise prints the wiring column, so the table doubles as the map from
+// behaviour to hook, extension and tool.
 type check struct {
 	id        string
 	behaviour string
@@ -122,7 +122,7 @@ var checks = []check{
 		id:        "plan_published",
 		behaviour: "update_plan was offered on every call, and every plan the model sent reached the surfaces",
 		wiring:    "update_plan tool + plan event (#148)",
-		// Whether to plan is the model's call: a one-line fix needs no plan,
+		// The model decides whether to plan. A one-line fix needs no plan,
 		// and the tool's description says to skip it. So this checks the
 		// wiring, and says when the model chose not to plan.
 		run: func(r *runResult, _ string) (bool, string) {
@@ -241,7 +241,8 @@ func toolNames(calls []agent.ToolCall) string {
 	return strings.Join(names, ", ")
 }
 
-// firstRule is AGENTS.md's first bullet, the text the instructions must carry.
+// firstRule returns AGENTS.md's first bullet. The instructions must include
+// that text.
 func firstRule(path string) string {
 	data, _ := os.ReadFile(path)
 	for _, line := range strings.Split(string(data), "\n") {

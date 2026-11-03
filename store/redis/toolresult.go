@@ -14,16 +14,16 @@ import (
 )
 
 // DefaultToolResultKeyPrefix namespaces every key a ToolResultStore
-// writes, kept distinct from the RunStore prefix so both can share one
+// writes. It differs from the RunStore prefix, so both can share one
 // Redis without collision.
 const DefaultToolResultKeyPrefix = "mcpkit.agent.toolresult"
 
-// ToolResultStore is the durable Redis backend for agent.ToolResultStore:
-// one key per ref (<prefix>:<ref>) holding the JSON-encoded
-// core.ToolResult. Retention is native Redis TTL (WithToolResultTTL);
-// the default is no expiry. Eviction is always safe because the
-// interface's unknown-ref contract (Found=false) is what read_tool_result
-// turns into a graceful "no longer available" answer.
+// ToolResultStore is the durable Redis backend for agent.ToolResultStore.
+// Each ref has one key (<prefix>:<ref>) that holds the JSON-encoded
+// core.ToolResult. Retention uses native Redis TTL (WithToolResultTTL),
+// and the default is no expiry. Eviction is always safe. The interface
+// reports an unknown ref as Found=false, and read_tool_result turns that
+// into a graceful "no longer available" answer.
 type ToolResultStore struct {
 	client *redis.Client
 	prefix string
@@ -41,11 +41,11 @@ func WithToolResultKeyPrefix(prefix string) ToolResultOption {
 	return func(s *ToolResultStore) { s.prefix = prefix }
 }
 
-// WithToolResultTTL sets a per-entry expiry: every stored result lives
-// this long, then Redis evicts it and a later read degrades gracefully.
-// Zero (the default) means no expiry — results persist until the DB is
-// cleared. A session store on a shared Redis usually wants a TTL sized
-// to how long a stub might be referenced.
+// WithToolResultTTL sets a per-entry expiry. Redis evicts each stored
+// result after ttl, and a later read degrades gracefully. Zero (the default)
+// means no expiry, and results persist until the DB is cleared. A session
+// store on a shared Redis usually wants a TTL as long as a stub might be
+// referenced.
 func WithToolResultTTL(ttl time.Duration) ToolResultOption {
 	return func(s *ToolResultStore) { s.ttl = ttl }
 }

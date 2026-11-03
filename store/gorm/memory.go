@@ -17,48 +17,51 @@ import (
 // WithMemoryTableName is not set.
 const DefaultMemoryTable = "agent_memories"
 
-// identifierPattern is the whitelist for the (developer-set) table name,
-// which is composed into raw SQL rather than bound as a parameter. A match
-// contains no quote or whitespace, so it is safe to interpolate directly.
+// identifierPattern is the whitelist for the table name. A developer sets
+// the name, and the store composes it into raw SQL instead of binding it as
+// a parameter. A match contains no quote or whitespace, so it is safe to
+// interpolate directly.
 const identifierPattern = `^[A-Za-z_][A-Za-z0-9_]*$`
 
 var identifierRE = regexp.MustCompile(identifierPattern)
 
 func validIdentifier(s string) bool { return identifierRE.MatchString(s) }
 
-// DefaultEmbeddingDimensions is the vector width the store provisions its
-// pgvector column with when WithVectorDimensions is not set. 1536 is the
-// width of OpenAI text-embedding-3-small, the common default; a deployment
-// using a different Embedder MUST pass WithVectorDimensions to match, since
-// pgvector rejects an insert whose vector width differs from the column.
+// DefaultEmbeddingDimensions is the width of the pgvector column when
+// WithVectorDimensions is not set. 1536 is the width of OpenAI
+// text-embedding-3-small, the common default. pgvector rejects an insert
+// whose vector width differs from the column's. So a deployment with a
+// different Embedder MUST pass WithVectorDimensions to match it.
 const DefaultEmbeddingDimensions = 1536
 
-// SemanticMemoryStore is the durable, ANN-backed MemoryStore: Postgres with
-// the pgvector extension. It is the sibling of agent.InMemorySemanticStore —
-// same MemoryStore contract, same client-side embedding via the Embedder
-// seam — but the vector index and top-k ranking live in the database instead
-// of an in-process brute-force scan, so it survives process exit and scales
-// past a working-memory scratchpad. Because it satisfies the same interface,
-// recall never branches on the backend; swapping it in makes recall
-// similarity-ranked and durable with no change to the model-facing tools.
+// SemanticMemoryStore is the durable, ANN-backed MemoryStore, built on
+// Postgres with the pgvector extension. It is the sibling of
+// agent.InMemorySemanticStore. Both have the same MemoryStore contract, and
+// both embed client-side through the Embedder seam. Here the database holds
+// the vector index and ranks the top k, instead of an in-process brute-force
+// scan. So the store survives process exit and scales past a working-memory
+// scratchpad. It satisfies the same interface, so recall never branches on
+// the backend. Swapping it in makes recall similarity-ranked and durable,
+// with no change to the model-facing tools.
 //
-// Postgres-only. Unlike RunStore and ToolResultStore in this module, there
-// is no SQLite path — the vector column, the "<=>" cosine-distance operator,
-// and the HNSW index are pgvector features. The "vector" extension is a
-// prerequisite the store does not install itself (CREATE EXTENSION needs
-// privileges the store should not assume); docker/backends' init SQL creates
-// it, and NewSemanticMemoryStore fails clearly if the type is unknown.
+// The store is Postgres-only. RunStore and ToolResultStore in this module
+// have a SQLite path, and this store has none, because the vector column,
+// the "<=>" cosine-distance operator and the HNSW index are pgvector
+// features. The store needs the "vector" extension but does not install it.
+// CREATE EXTENSION needs privileges the store should not assume. The init
+// SQL in mcpkit's docker/backends creates the extension, and
+// NewSemanticMemoryStore fails clearly if the type is unknown.
 //
-// Scope: a namespace column lets one table hold many independent scratchpads.
-// The effective namespace of an operation is the per-request Namespace (issue
-// 1003) when set, else the store's instance-level WithMemoryNamespace default
-// (empty = the global namespace) — see effNS. So one store can serve many
-// sessions by threading req.Namespace, and a store built per-scratchpad still
+// A namespace column lets one table hold many independent scratchpads. An
+// operation uses the per-request Namespace (issue 1003) when it is set.
+// Otherwise it uses the store's WithMemoryNamespace default, and empty
+// means the global namespace (see effNS). So one store can serve many
+// sessions through req.Namespace, and a store built per scratchpad still
 // works with no per-request field.
 //
-// Concurrency: safe for concurrent use (the DB serializes). Embedding runs
-// outside any transaction — a hosted Embedder is a network call, never held
-// across a DB round-trip.
+// The store is safe for concurrent use, because the DB serializes. Embedding
+// runs outside any transaction. A hosted Embedder makes a network call, and
+// no DB round-trip is held open across it.
 type SemanticMemoryStore struct {
 	db        *gorm.DB
 	embedder  agent.Embedder
@@ -69,10 +72,11 @@ type SemanticMemoryStore struct {
 
 var _ agent.MemoryStore = (*SemanticMemoryStore)(nil)
 
-// effNS resolves the namespace for one operation: the per-request Namespace
-// (issue 1003) when set, else the store's instance-level default
-// (WithMemoryNamespace). This lets one store serve many sessions by request
-// while a store built per-scratchpad still works with no per-request field.
+// effNS resolves the namespace for one operation. It returns the
+// per-request Namespace (issue 1003) when set, and otherwise the store's
+// WithMemoryNamespace default. So one store can serve many sessions by
+// request, and a store built per scratchpad still works with no
+// per-request field.
 func (s *SemanticMemoryStore) effNS(reqNS string) string {
 	if reqNS != "" {
 		return reqNS
@@ -110,9 +114,9 @@ func WithMemoryNamespace(ns string) MemoryOption {
 	return func(c *memoryConfig) { c.namespace = ns }
 }
 
-// WithVectorDimensions sets the width of the pgvector column, which MUST
-// match the Embedder's output width — pgvector rejects a mismatched insert.
-// Zero keeps DefaultEmbeddingDimensions.
+// WithVectorDimensions sets the width of the pgvector column. The width
+// MUST match the Embedder's output width, because pgvector rejects a
+// mismatched insert. Zero keeps DefaultEmbeddingDimensions.
 func WithVectorDimensions(n int) MemoryOption {
 	return func(c *memoryConfig) {
 		if n > 0 {
@@ -121,17 +125,17 @@ func WithVectorDimensions(n int) MemoryOption {
 	}
 }
 
-// WithoutMemoryAutoMigrate disables the DDL run at construction, for
-// deployments whose schema (table + HNSW index) is managed out of band.
+// WithoutMemoryAutoMigrate disables the DDL run at construction. Use it
+// when something out of band manages the table and the HNSW index.
 func WithoutMemoryAutoMigrate() MemoryOption {
 	return func(c *memoryConfig) { c.skipAutoMigrate = true }
 }
 
 // NewSemanticMemoryStore returns a store over db, embedding notes and queries
-// with embedder. Unless WithoutMemoryAutoMigrate is passed it creates the
-// table and an HNSW cosine index (idempotent), which requires the pgvector
-// "vector" extension to already exist. The db handle and embedder are shared,
-// not owned.
+// with embedder. It creates the table and an HNSW cosine index, unless
+// WithoutMemoryAutoMigrate is passed. Both creates are idempotent, and both
+// need the pgvector "vector" extension to exist already. The db handle and
+// embedder are shared, not owned.
 func NewSemanticMemoryStore(db *gorm.DB, embedder agent.Embedder, opts ...MemoryOption) (*SemanticMemoryStore, error) {
 	if embedder == nil {
 		return nil, fmt.Errorf("gormstore: SemanticMemoryStore needs an Embedder")
@@ -140,12 +144,12 @@ func NewSemanticMemoryStore(db *gorm.DB, embedder agent.Embedder, opts ...Memory
 	for _, o := range opts {
 		o(cfg)
 	}
-	// The table name is composed into raw DDL/DML (not bindable as a
-	// parameter), so it is restricted to a plain SQL identifier at
-	// construction rather than trusted to quoting. It is developer-set
-	// (WithMemoryTableName), never end-user input, so this is defense in
-	// depth — but a validated identifier carries no quotes, which closes the
-	// hole outright instead of relying on correct escaping.
+	// The store composes the table name into raw DDL and DML, where it
+	// can't be bound as a parameter. So construction restricts it to a plain
+	// SQL identifier instead of trusting quoting. A developer sets it with
+	// WithMemoryTableName, and end users never do, so the check is defense
+	// in depth. A validated identifier contains no quotes, so the hole is
+	// closed outright and nothing depends on correct escaping.
 	if !validIdentifier(cfg.table) {
 		return nil, fmt.Errorf("gormstore: invalid memory table name %q (must match %s)", cfg.table, identifierPattern)
 	}
@@ -164,10 +168,10 @@ func NewSemanticMemoryStore(db *gorm.DB, embedder agent.Embedder, opts ...Memory
 	return s, nil
 }
 
-// migrate creates the memory table and the HNSW cosine index. The vector
-// column width is fixed at construction (cfg.dims); the extension is assumed
-// present. Table/index names derive from the configured table so multiple
-// stores can coexist in one database.
+// migrate creates the memory table and the HNSW cosine index. Construction
+// fixes the vector column width (cfg.dims), and migrate assumes the
+// extension is present. The table and index names derive from the
+// configured table, so several stores can coexist in one database.
 func (s *SemanticMemoryStore) migrate() error {
 	ddl := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %q (
 		namespace  text        NOT NULL DEFAULT '',
@@ -188,11 +192,11 @@ func (s *SemanticMemoryStore) migrate() error {
 	return nil
 }
 
-// PutMemory embeds "key value" (so a recall query matches either) and upserts
-// the note. On conflict the body and embedding are refreshed but created_at
-// is preserved, so an update keeps the note's listing position — the same
-// stable-ordering contract as the in-memory stores. Embedding is synchronous:
-// a just-remembered fact is immediately recallable.
+// PutMemory embeds "key value", so a recall query can match either, and
+// upserts the note. On conflict it refreshes the body and embedding and
+// keeps created_at. So an update keeps the note's listing position, as in
+// the in-memory stores. Embedding is synchronous, so a just-remembered fact
+// is recallable at once.
 func (s *SemanticMemoryStore) PutMemory(ctx context.Context, req agent.PutMemoryRequest) (agent.PutMemoryResponse, error) {
 	item := req.Item
 	if item.CreatedAt.IsZero() {
@@ -224,9 +228,9 @@ func (s *SemanticMemoryStore) PutMemory(ctx context.Context, req agent.PutMemory
 // ListMemories ranks notes in this namespace by cosine similarity to
 // req.Query, most-relevant first, capped at req.Limit (0 = no cap). Score is
 // 1 minus pgvector's cosine distance, so it matches agent.Embedding.Cosine
-// (identical direction = 1). An empty Query is the "list everything" path the
-// summary uses: it returns all notes oldest-first with Score 0, since there
-// is no query to rank against.
+// (identical direction = 1). The summary lists everything with an empty
+// Query. There is no query to rank against, so that path returns all notes
+// oldest-first with Score 0.
 func (s *SemanticMemoryStore) ListMemories(ctx context.Context, req agent.ListMemoriesRequest) (agent.ListMemoriesResponse, error) {
 	if req.Query == "" {
 		return s.listAll(ctx, s.effNS(req.Namespace), req.Limit)

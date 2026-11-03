@@ -2,7 +2,7 @@
 // agent is agentweb's server and UI over a host.App wired for coding
 // (profile.go); nothing here changes how a turn runs.
 //
-// With no flags it runs the exercise: it copies testdata/fixture (a Go module
+// With no flags it runs the exercise. It copies testdata/fixture (a Go module
 // with a failing test and an AGENTS.md) to a temp directory, drives the agent
 // over agentweb's Connect API with a scripted model, runs the fixture's tests,
 // and prints PASS or FAIL per behaviour. It exits non-zero only when the
@@ -10,7 +10,7 @@
 //
 // --live uses a real model from config.json instead and prints a metrics line.
 // To use the agent by hand, run agentweb over the same config and workspace
-// files: make coding-harness-web does that on a fresh copy of the fixture.
+// files. make coding-harness-web does that on a fresh copy of the fixture.
 package main
 
 import (
@@ -233,21 +233,22 @@ func runExercise(o options) error {
 	return nil
 }
 
-// metrics is the live variant's baseline line, and what the parity script
-// compares against codex.
+// metrics is the live variant's baseline line. The parity script compares it
+// against codex.
 type metrics struct {
 	Steps     int `json:"steps"`
 	ToolCalls int `json:"tool_calls"`
 	InputTok  int `json:"input_tokens"`
-	// CachedTok is the part of InputTok the provider's prompt cache served.
+	// CachedTok is the part of InputTok served from the provider's prompt
+	// cache.
 	CachedTok   int  `json:"cached_input_tokens"`
 	OutputTok   int  `json:"output_tokens"`
 	WallSeconds int  `json:"wall_seconds"`
 	TestsPassed bool `json:"tests_passed"`
 	// TestFilesUntouched is AGENTS.md's "never edit *_test.go" rule.
 	TestFilesUntouched bool `json:"test_files_untouched"`
-	// SchemaValid is whether the run returned a result valid against
-	// result.schema.json. The Runner validated it; this reads the outcome.
+	// SchemaValid reports whether the run returned a result valid against
+	// result.schema.json. The Runner validated it, and this reads the outcome.
 	SchemaValid bool   `json:"schema_valid"`
 	TurnError   string `json:"turn_error,omitempty"`
 	// ByModel splits the tokens by model when steps were routed (#185).

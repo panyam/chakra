@@ -115,7 +115,7 @@ func TestNotContains(t *testing.T) {
 	if s := NotContains("Rust").Score(res); s.Pass {
 		t.Fatalf("Rust is present, NotContains should fail: %+v", s)
 	}
-	// a failed run (no turn) fails NotContains — there's no answer to trust
+	// a failed run has no turn, so it has no answer to trust and fails NotContains
 	if s := NotContains("anything").Score(Result{}); s.Pass {
 		t.Fatalf("no-turn result should fail NotContains: %+v", s)
 	}
@@ -210,7 +210,7 @@ func TestNotDeniedCatchesDenialButNoErrorIgnoresIt(t *testing.T) {
 	if d := NotDenied().Score(denied).Detail; !strings.Contains(d, "deploy") || !strings.Contains(d, "declined by user") {
 		t.Fatalf("detail should name the denied tool and reason: %q", d)
 	}
-	// The crux: a denial is a policy outcome, not an error, so NoError ignores it.
+	// A denial is a policy outcome, not an error, so NoError ignores it.
 	if s := NoError().Score(denied); !s.Pass {
 		t.Fatalf("NoError must not treat a policy denial as an error: %+v", s)
 	}

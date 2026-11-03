@@ -16,8 +16,9 @@ func main() {
 	apiKeyEnv := flag.String("api-key-env", "", "env var holding the model API key (never the key itself)")
 	flag.Parse()
 
-	// --serve boots the demo MCP server the config.json personas delegate over
-	// (just chat / just web). The scripted scenario below is the golden test.
+	// --serve boots the demo MCP server. The config.json personas delegate
+	// over it (just chat / just web). The scripted scenario below is the
+	// golden test.
 	if *serveFlag {
 		if err := serve(*addr); err != nil {
 			fmt.Fprintln(os.Stderr, "multi-agent:", err)

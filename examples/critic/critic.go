@@ -25,8 +25,8 @@ type advisory struct {
 }
 
 // criticSchema forces the critic model's answer into exactly {severity, note}
-// via the Runner's ResponseSchema seam — no bespoke parsing, and an off-vocab
-// severity is rejected by the enum before it reaches us.
+// through the Runner's ResponseSchema seam. So nothing needs bespoke parsing,
+// and the enum rejects an off-vocab severity before it reaches us.
 var criticSchema = core.NewRawJSON([]byte(`{
   "type":"object",
   "properties":{
@@ -37,9 +37,9 @@ var criticSchema = core.NewRawJSON([]byte(`{
   "additionalProperties":false
 }`))
 
-// criticInstructions is the critic model's system prompt. It watches; it never
-// acts. It cannot approve or deny (that is the separate approval ladder) — its
-// only channel is one graded note.
+// criticInstructions is the critic model's system prompt. The critic watches
+// and never acts. It cannot approve or deny, because the separate approval
+// ladder does that. Its only channel is one graded note.
 const criticInstructions = `You are a reviewer watching another agent work. You do not do the task.
 Read the assistant's latest actions and reply with ONE short graded note.
 - none: the actions look fine; say nothing of substance.
@@ -49,11 +49,11 @@ Read the assistant's latest actions and reply with ONE short graded note.
 Be specific and terse. You cannot approve, deny, or run anything — you only advise.`
 
 // critic is a second model that watches the primary's turns and returns one
-// graded steering note per review. It is NOT an SDK type: it is built entirely
-// from public primitives — a second agent.Runner (its own Provider +
-// ResponseSchema) plus a small dedup/rate-limit guard the application keeps.
-// That is the whole point of this example: no new "role" is needed to compose
-// a watch-and-steer critic.
+// graded steering note per review. It is NOT an SDK type. It is built entirely
+// from public primitives. One is a second agent.Runner with its own Provider
+// and ResponseSchema. The other is a small dedup/rate-limit guard, and the
+// application keeps it. This example exists to show that composing a
+// watch-and-steer critic needs no new "role".
 type critic struct {
 	runner *agent.Runner
 
@@ -74,12 +74,12 @@ func newCritic(r *agent.Runner) *critic {
 // primary just produced) and returns a note to deliver, or ok=false when the
 // guard suppresses it. turn is the index of the primary turn just completed.
 //
-// Best-effort by contract: a critic failure returns ok=false, never an error —
-// a watcher must never break the agent it watches.
+// review is best-effort by contract. A critic failure returns ok=false, never
+// an error, because a watcher must never break the agent it watches.
 func (c *critic) review(ctx context.Context, delta []agent.Message, turn int) (advisory, bool) {
 	if turn < c.quietUntil {
-		// Immune window: a concern/blocker just landed; give the primary
-		// room to react before piling on.
+		// A concern or blocker was just delivered, so this turn is in the
+		// immune window. Give the primary room to react before piling on.
 		return advisory{}, false
 	}
 	if len(delta) == 0 {
@@ -87,9 +87,9 @@ func (c *critic) review(ctx context.Context, delta []agent.Message, turn int) (a
 	}
 
 	// The critic sees ONLY the delta, framed as the material to review. Its
-	// own past notes never enter here (they are delivered into the PRIMARY's
-	// context, not appended to the primary's result messages), so it never
-	// reviews itself.
+	// own past notes go into the PRIMARY's context. They are not appended to
+	// the primary's result messages, so they never enter here and the critic
+	// never reviews itself.
 	seed := []agent.Message{{Role: agent.RoleUser, Text: renderDelta(delta)}}
 	res, err := c.runner.Run(ctx, seed, nil)
 	if err != nil || res.Structured.Len() == 0 {

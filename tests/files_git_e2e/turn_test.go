@@ -30,11 +30,12 @@ func toolCall(id, name string, args map[string]any) agent.ToolCall {
 	return agent.ToolCall{ID: id, Name: name, Args: core.NewRawJSON(raw)}
 }
 
-// A turn in which ext/files edits one file, creates one and deletes one is
-// reported as exactly that: the patch carries each change, the summary is
-// announced to the surface, and /diff shows it. The user's own staged change
-// from before the turn is neither in the turn's diff nor disturbed in their
-// index. control: the next turn, which writes nothing, changes no files.
+// In one turn, ext/files edits one file, creates one and deletes one. The
+// turn reports exactly those three changes. The patch holds each change, the
+// surface gets the summary, and /diff shows it. Before the turn the user
+// staged a change of their own. That change is not in the turn's diff, and
+// their index is unchanged. As a control, the next turn writes nothing and
+// changes no files.
 func TestTheTurnDiffIsWhatExtFilesWrote(t *testing.T) {
 	dir := t.TempDir()
 	gitIn(t, dir, "init", "-q", "-b", "main")

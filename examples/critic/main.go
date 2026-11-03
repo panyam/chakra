@@ -18,9 +18,10 @@ func main() {
 	apiKeyEnv := flag.String("api-key-env", "", "env var holding the model API key (never the key itself)")
 	flag.Parse()
 
-	// --serve boots the ops MCP server the config.json surfaces point at
-	// (just chat / just web). The critic loop itself is code-level composition
-	// (see scenario.go / README): config.json drives the primary agent + server.
+	// --serve boots the ops MCP server. The config.json surfaces (just chat /
+	// just web) point at it. The critic loop itself is code-level composition
+	// (see scenario.go and README), and config.json drives the primary agent
+	// and the server.
 	if *serveFlag {
 		if err := serve(*addr); err != nil {
 			fmt.Fprintln(os.Stderr, "critic:", err)

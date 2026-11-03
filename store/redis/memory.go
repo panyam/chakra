@@ -13,24 +13,26 @@ import (
 	"github.com/panyam/chakra"
 )
 
-// DefaultMemoryKeyPrefix namespaces every key the MemoryStore writes, kept
-// distinct from the RunStore and ToolResultStore prefixes so all three can
+// DefaultMemoryKeyPrefix namespaces every key the MemoryStore writes. It
+// differs from the RunStore and ToolResultStore prefixes, so all three can
 // share one Redis without collision.
 const DefaultMemoryKeyPrefix = "mcpkit.agent.memory"
 
-// MemoryStore is the durable Redis backend for agent.MemoryStore: the plain
-// substring working-memory store (the sibling of agent.InMemoryMemoryStore),
-// made durable. Each namespace (a session id, a user id, the default "") is one
-// Redis hash — "<prefix>:<namespace>" — with field=key, value=JSON(MemoryItem),
-// so recall never crosses namespaces and one Redis holds many scratchpads.
+// MemoryStore is the durable Redis backend for agent.MemoryStore. It is a
+// durable version of agent.InMemoryMemoryStore, the plain substring
+// working-memory store. A namespace is a session id, a user id, or the
+// default "". Each namespace is one Redis hash at "<prefix>:<namespace>",
+// with field=key and value=JSON(MemoryItem). So recall never crosses
+// namespaces, and one Redis holds many scratchpads.
 //
-// Recall is a substring match (case-insensitive, on key or value), scored 1 —
-// the same "how" as InMemoryMemoryStore. Durable semantic recall (ANN) is the
-// gorm pgvector store's job; a Redis vector backend is a separate follow-up.
+// Recall is a case-insensitive substring match on key or value, scored 1,
+// as in InMemoryMemoryStore. The gorm pgvector store handles durable
+// semantic recall (ANN). A Redis vector backend is a separate follow-up.
 //
-// Listing order is by MemoryItem.CreatedAt then key, which an update preserves
-// (Put keeps an existing note's CreatedAt), so the scratchpad does not reorder
-// on edit — the same stable-ordering contract as the in-memory stores.
+// Notes list in MemoryItem.CreatedAt order, then by key. Put keeps an
+// existing note's CreatedAt, so an update keeps the order and the
+// scratchpad does not reorder on edit. The in-memory stores have the same
+// stable-ordering contract.
 type MemoryStore struct {
 	client *redis.Client
 	prefix string
@@ -48,11 +50,11 @@ func WithMemoryKeyPrefix(prefix string) MemoryOption {
 	return func(s *MemoryStore) { s.prefix = prefix }
 }
 
-// WithMemoryTTL sets a per-namespace expiry: every Put (re)sets the namespace
-// hash to live this long, so a session's scratchpad is evicted this long after
-// its last write. Zero (the default) means no expiry — memory persists until
-// the DB is cleared. Useful to garbage-collect abandoned session scratchpads on
-// a shared Redis.
+// WithMemoryTTL sets a per-namespace expiry. Every Put resets the namespace
+// hash's TTL to ttl, so Redis evicts a session's scratchpad ttl after its last
+// write. Zero (the default) means no expiry, and memory persists until the
+// DB is cleared. It is useful for garbage-collecting abandoned session
+// scratchpads on a shared Redis.
 func WithMemoryTTL(ttl time.Duration) MemoryOption {
 	return func(s *MemoryStore) { s.ttl = ttl }
 }
@@ -108,7 +110,7 @@ func (s *MemoryStore) PutMemory(ctx context.Context, req agent.PutMemoryRequest)
 // ListMemories returns the namespace's notes whose key or value contains
 // req.Query (case-insensitive; all notes when Query is empty), oldest first,
 // each scored 1, capped at req.Limit. It fetches the whole namespace hash and
-// filters in-process — a working-memory scratchpad is small, and Redis has no
+// filters in-process. A working-memory scratchpad is small, and Redis has no
 // server-side substring match over hash fields.
 func (s *MemoryStore) ListMemories(ctx context.Context, req agent.ListMemoriesRequest) (agent.ListMemoriesResponse, error) {
 	all, err := s.client.HGetAll(ctx, s.key(req.Namespace)).Result()

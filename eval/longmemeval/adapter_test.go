@@ -26,9 +26,10 @@ func TestSmokeAdapterYieldsEveryCase(t *testing.T) {
 			t.Fatalf("case %q has no scorers; a case nothing grades passes forever", c.Scenario.Name)
 		}
 		if len(c.Scorers(nil)) == 0 {
-			// Without the eval_llm tag a rubric-only case has no deterministic
-			// scorers, which would silently pass. Every smoke case is expected
-			// to carry at least one substring check for that reason.
+			// Every smoke case is expected to carry at least one substring
+			// check, so it grades something in the default build. This check
+			// predates eval.Ungradeable. A rubric-only case now yields one
+			// Ungradeable scorer, so it passes here and fails at run time.
 			t.Errorf("case %q yields no scorers without a provider", c.Scenario.Name)
 		}
 	}
@@ -48,10 +49,10 @@ func TestSmokeAdapterNamesCarryCategory(t *testing.T) {
 	}
 }
 
-// TestSmokeAdapterRunsThroughSuite is the end of the seam: an adapter's cases
-// go straight into eval.Suite with no per-suite glue. It runs against a stub
-// provider, so it asserts the plumbing rather than memory quality (the live,
-// tagged benchmark measures that).
+// TestSmokeAdapterRunsThroughSuite feeds an adapter's cases straight into
+// eval.Suite with no per-suite glue. It runs against a stub provider, so it
+// asserts the plumbing rather than memory quality. The live, tagged benchmark
+// measures memory quality.
 func TestSmokeAdapterRunsThroughSuite(t *testing.T) {
 	cases, err := SmokeAdapter{}.Load()
 	if err != nil {
@@ -79,10 +80,10 @@ func TestSmokeAdapterRunsThroughSuite(t *testing.T) {
 	if report.Total != len(cases) {
 		t.Fatalf("suite ran %d of %d cases", report.Total, len(cases))
 	}
-	// No case may pass on a stub answer. This is the assertion that caught the
-	// abstention case passing vacuously: its only deterministic scorer is a
-	// MustNot that any answer satisfies, so without the rubric it graded
-	// nothing. appendRubric now marks such a case ungradeable instead.
+	// No case may pass on a stub answer. This assertion caught the abstention
+	// case passing vacuously. Its only deterministic scorer is a MustNot that
+	// any answer satisfies, so without the rubric nothing graded it.
+	// appendRubric now marks such a case ungradeable instead.
 	if report.Passed != 0 {
 		t.Errorf("a stub answer should satisfy no case's ground truth, got %d passes:\n%s", report.Passed, report)
 	}
