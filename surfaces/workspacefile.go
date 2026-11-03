@@ -30,6 +30,10 @@ type WorkspaceFile struct {
 	// RepoMap adds the ranked repository map; see WorkspaceConfig.RepoMap.
 	RepoMap bool `json:"repoMap,omitempty"`
 
+	// EditTools picks the editing tools: ["edit_file"], ["apply_patch"], or
+	// both (absent). See WorkspaceConfig.EditTools.
+	EditTools []string `json:"editTools,omitempty"`
+
 	// Instructions picks how AGENTS.md and similar files load: a "preset"
 	// ("chakra", "codex" or "claude"), any agentsmd.Profile field to change on
 	// top of it, or "off": true. Absent means the chakra preset.
@@ -219,6 +223,9 @@ func (f *WorkspaceFile) Apply(cfg *WorkspaceConfig) error {
 		return nil
 	}
 	cfg.RepoMap = f.RepoMap
+	if f.EditTools != nil {
+		cfg.EditTools = f.EditTools
+	}
 	if len(f.Instructions) > 0 {
 		p, off, err := InstructionsProfile(f.Instructions)
 		if err != nil {

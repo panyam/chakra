@@ -8,7 +8,6 @@ package main
 //
 // Live runs are not held to this list; they print the same table to compare.
 var expectedFailures = map[string]string{
-	"patch_edit":      "#156",
 	"plan_published":  "#148",
 	"review_findings": "#152",
 }

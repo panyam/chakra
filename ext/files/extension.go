@@ -55,6 +55,10 @@ func (e *Extension) Tools() (agent.ToolSource, error) { return e.src, nil }
 // path the tools would refuse (empty, or outside every root) yields nothing,
 // since that call writes nothing.
 func (e *Extension) WritePaths(args map[string]any) []string {
+	if _, ok := args["input"].(string); ok {
+		// apply_patch: every file the patch touches, both ends of a move.
+		return e.src.patchPaths(args)
+	}
 	p, ok := args["path"].(string)
 	if !ok {
 		return nil
@@ -69,8 +73,14 @@ func (e *Extension) WritePaths(args map[string]any) []string {
 // PromptSections states the edit discipline the tools enforce.
 func (e *Extension) PromptSections() []host.PromptSection {
 	return []host.PromptSection{host.PromptSectionFunc(func(context.Context) string {
-		return `## Editing files
-
+		offered := map[string]bool{}
+		for _, d := range e.src.defs {
+			offered[d.Name] = true
+		}
+		var b strings.Builder
+		b.WriteString("## Editing files\n")
+		if offered["edit_file"] {
+			b.WriteString(`
 Read a file before editing it, and pass the hash read_file returned as expect_hash.
 An edit whose expect_hash no longer matches is refused, because the file changed
 after you read it and your edit was written against content that is gone. Read it
@@ -80,10 +90,23 @@ Each edit replaces an exact snippet. The text in ` + "`old`" + ` must appear exa
 the file and is matched byte for byte, including indentation. If it appears more
 than once the edit is refused rather than applied to a guess: add surrounding
 lines until it is unique. All edits in one call apply together or none do.
-
+`)
+		}
+		if offered[PatchTool] {
+			b.WriteString(`
+apply_patch changes several files in one call, in the *** Begin Patch format its
+description shows. Read the files first, and give each hunk a few unchanged lines
+of context so it is found by content. A hunk that doesn't match fails the whole
+patch and no file changes: read the file again and send a corrected patch.
+`)
+		}
+		b.WriteString(`
 For a large file, read the part you need with start_line and end_line instead of
-the whole thing; read_file reports how many lines a file has. The hash is always
-the whole file's, so a partial read is enough to edit with.`
+the whole thing; read_file reports how many lines a file has.`)
+		if offered["edit_file"] {
+			b.WriteString(" The hash is always\nthe whole file's, so a partial read is enough to edit with.")
+		}
+		return b.String()
 	})}
 }
 
@@ -199,6 +222,9 @@ func (e *Extension) renderEditApproval(_ context.Context, info agent.ToolCallInf
 			return "", false
 		}
 	}
+	if info.Call.Name == PatchTool {
+		return renderPatchApproval(args)
+	}
 	path, _ := args["path"].(string)
 	if path == "" {
 		return "", false
@@ -242,6 +268,38 @@ func (e *Extension) renderEditApproval(_ context.Context, info agent.ToolCallInf
 		return fmt.Sprintf("Delete %s?\n\nThe file is removed from the workspace.", path), true
 	}
 	return "", false
+}
+
+// renderPatchApproval shows a patch file by file: what is added, deleted,
+// moved, and each hunk of an update as removed and added lines. A patch that
+// doesn't parse falls back to the generic rendering, which shows the raw text.
+func renderPatchApproval(args map[string]any) (string, bool) {
+	text, _ := args["input"].(string)
+	patches, err := ParsePatch(text)
+	if err != nil {
+		return "", false
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "Apply this patch to %d file(s)?\n", len(patches))
+	for _, fp := range patches {
+		b.WriteString("\n")
+		switch fp.Kind {
+		case PatchAdd:
+			fmt.Fprintf(&b, "Add %s:\n%s\n", fp.Path, indent(preview(strings.TrimRight(fp.Content, "\n"))))
+		case PatchDelete:
+			fmt.Fprintf(&b, "Delete %s\n", fp.Path)
+		case PatchUpdate:
+			if fp.MoveTo != "" {
+				fmt.Fprintf(&b, "Move %s to %s\n", fp.Path, fp.MoveTo)
+			} else {
+				fmt.Fprintf(&b, "Change %s\n", fp.Path)
+			}
+			for _, c := range fp.Chunks {
+				writeDiff(&b, strings.Join(c.Old, "\n"), strings.Join(c.New, "\n"))
+			}
+		}
+	}
+	return strings.TrimRight(b.String(), "\n"), true
 }
 
 // writeTargetExists reports whether path names something write_file already

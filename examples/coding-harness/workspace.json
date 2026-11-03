@@ -1,4 +1,5 @@
 {
+  "editTools": ["apply_patch"],
   "exec": {
     "sandbox": "platform",
     "shell": {

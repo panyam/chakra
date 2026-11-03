@@ -2,11 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"os"
-	"path/filepath"
 
 	agent "github.com/panyam/chakra"
-	"github.com/panyam/chakra/ext/files"
 	"github.com/panyam/mcpkit/core"
 )
 
@@ -17,10 +14,6 @@ import (
 // to their tools (apply_patch, update_plan), so the scripted run keeps
 // exercising the wiring each check names.
 func scriptedProvider(fixture string) (agent.Provider, error) {
-	src, err := os.ReadFile(filepath.Join(fixture, "stats", "stats.go"))
-	if err != nil {
-		return nil, err
-	}
 	call := func(id, name string, args any) agent.ToolCall {
 		raw, _ := json.Marshal(args)
 		return agent.ToolCall{ID: id, Name: name, Args: core.NewRawJSON(raw)}
@@ -33,11 +26,7 @@ func scriptedProvider(fixture string) (agent.Provider, error) {
 			call("c1", "read_file", map[string]any{"path": "stats/stats.go"}),
 		}},
 		agent.StubTurn{ToolCalls: []agent.ToolCall{
-			call("c2", "edit_file", map[string]any{
-				"path":        "stats/stats.go",
-				"expect_hash": files.Hash(string(src)),
-				"edits":       []map[string]string{{"old": "for i := 1; i < len(xs); i++ {", "new": "for i := 0; i < len(xs); i++ {"}},
-			}),
+			call("c2", "apply_patch", map[string]any{"input": "*** Begin Patch\n*** Update File: stats/stats.go\n@@ func Sum(xs []int) int {\n-\tfor i := 1; i < len(xs); i++ {\n+\tfor i := 0; i < len(xs); i++ {\n*** End Patch"}),
 		}},
 		agent.StubTurn{ToolCalls: []agent.ToolCall{
 			call("c3", "shell", map[string]any{"command": []string{"go", "test", "./..."}}),

@@ -134,6 +134,9 @@ go run . --config chat.json --workspace ~/code/project \
 - **`languageServers`**: LSP in the loop. Diagnostics follow each edit, and the
   model gets `goto_definition` and `find_references`.
 - **`repoMap`**: puts a ranked map of the repository in the system prompt.
+- **`editTools`**: `["edit_file"]`, `["apply_patch"]`, or both (the default).
+  `apply_patch` takes a multi-file patch in the `*** Begin Patch` format some
+  models are trained on; see `ext/files/README.md`.
 
 Unknown fields are an error, so a misspelt `readOnly` fails at startup instead
 of quietly making a command ask (or not ask). `examples/dogfood/workspace.json`
