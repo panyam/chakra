@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	agent "github.com/panyam/chakra"
+	"github.com/panyam/chakra/ext/agentsmd"
 	"github.com/panyam/chakra/ext/exec"
 	"github.com/panyam/chakra/host"
 	agentsurfaces "github.com/panyam/chakra/surfaces"
@@ -38,6 +39,9 @@ type profile struct {
 	unconfined bool
 	// checkpoints is where file snapshots go, outside root.
 	checkpoints string
+	// instructions names the agentsmd preset that loads AGENTS.md and the
+	// like, over workspace.json's choice. Empty keeps workspace.json's.
+	instructions string
 	// recorder sees every model request, so checks can read what the model
 	// was sent. Nil records nothing.
 	recorder *recorder
@@ -73,6 +77,13 @@ func (p profile) build(context.Context) (*host.App, error) {
 	ws := agentsurfaces.WorkspaceConfig{Roots: []string{p.root}, CheckpointStore: p.checkpoints}
 	if err := ws.LoadFile(filepath.Join(p.dir, "workspace.json")); err != nil {
 		return nil, err
+	}
+	if p.instructions != "" {
+		pr, err := agentsmd.Preset(p.instructions)
+		if err != nil {
+			return nil, err
+		}
+		ws.Instructions, ws.NoInstructions = &pr, false
 	}
 	if p.unconfined && ws.Exec != nil {
 		ws.Exec.Sandbox = exec.Unconfined()
@@ -132,6 +143,9 @@ type recorder struct {
 
 type recordedRequest struct {
 	Instructions string
+	// SystemTexts is every system message in the request: notes added before
+	// a model call, such as instruction files found during the session.
+	SystemTexts []string
 	// UserTexts is every user message in the request, in order.
 	UserTexts []string
 }
@@ -139,8 +153,11 @@ type recordedRequest struct {
 func (r *recorder) add(req agent.ProviderRequest) {
 	rr := recordedRequest{Instructions: req.Instructions}
 	for _, m := range req.Messages {
-		if m.Role == agent.RoleUser {
+		switch m.Role {
+		case agent.RoleUser:
 			rr.UserTexts = append(rr.UserTexts, m.Text)
+		case agent.RoleSystem:
+			rr.SystemTexts = append(rr.SystemTexts, m.Text)
 		}
 	}
 	r.mu.Lock()

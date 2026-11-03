@@ -43,14 +43,17 @@ func TestWorkspaceExtensionsCheckpointFirst(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WorkspaceExtensions: %v", err)
 	}
-	if len(exts) != 2 {
-		t.Fatalf("expected checkpoint + files, got %d", len(exts))
+	if len(exts) != 3 {
+		t.Fatalf("expected checkpoint + files + agentsmd, got %d", len(exts))
 	}
 	if got := exts[0].Name(); !strings.Contains(got, "checkpoint") {
 		t.Errorf("checkpoint must register first so it snapshots before the write; first was %q", got)
 	}
 	if got := exts[1].Name(); !strings.Contains(got, "file") {
 		t.Errorf("expected the files extension second, got %q", got)
+	}
+	if got := exts[2].Name(); got != "agentsmd" {
+		t.Errorf("expected the instruction files last, got %q", got)
 	}
 }
 
@@ -76,8 +79,8 @@ func TestWorkspaceExtensionsExecOrder(t *testing.T) {
 	for _, e := range exts {
 		names = append(names, e.Name())
 	}
-	if len(exts) != 3 || !strings.Contains(names[0], "checkpoint") || !strings.Contains(names[1], "file") || names[2] != "exec" {
-		t.Fatalf("want checkpoint, files, exec; got %v", names)
+	if len(exts) != 4 || !strings.Contains(names[0], "checkpoint") || !strings.Contains(names[1], "file") || names[2] != "exec" || names[3] != "agentsmd" {
+		t.Fatalf("want checkpoint, files, exec, agentsmd; got %v", names)
 	}
 }
 
@@ -99,8 +102,8 @@ func TestWorkspaceExtensionsNoCheckpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WorkspaceExtensions: %v", err)
 	}
-	if len(exts) != 1 {
-		t.Fatalf("expected only the files extension, got %d", len(exts))
+	if len(exts) != 2 || exts[1].Name() != "agentsmd" {
+		t.Fatalf("expected the files extension and agentsmd, got %d", len(exts))
 	}
 	if got := exts[0].Name(); strings.Contains(got, "checkpoint") {
 		t.Errorf("NoCheckpoint still registered checkpoint: %q", got)
@@ -407,5 +410,35 @@ func TestWorkspaceExtensionsOffloadingReachesExec(t *testing.T) {
 	}
 	if strings.Contains(prompt(false), "read_tool_result") {
 		t.Error("exec must keep its short view without Offloading")
+	}
+}
+
+// TestWorkspaceInstructionsReachThePrompt is the agentchat --workspace path
+// for #146: an AGENTS.md in the workspace root reaches the model's system
+// prompt through WorkspaceExtensions, and NoInstructions keeps it out.
+func TestWorkspaceInstructionsReachThePrompt(t *testing.T) {
+	ws := t.TempDir()
+	if err := os.WriteFile(filepath.Join(ws, "AGENTS.md"), []byte("Never edit the tests."), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, off := range []bool{false, true} {
+		exts, err := WorkspaceExtensions(WorkspaceConfig{Roots: []string{ws}, NoInstructions: off})
+		if err != nil {
+			t.Fatal(err)
+		}
+		stub := agent.NewStubProvider(agent.StubTurn{Text: "ok"})
+		cfg := &host.Config{Model: host.ModelConfig{BaseURL: "http://127.0.0.1:1", Model: "test"}, Instructions: "test"}
+		app, err := host.NewApp(cfg, io.Discard, strings.NewReader(""), host.WithProvider(stub), host.WithExtension(exts...))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := app.RunTurn(context.Background(), "hi"); err != nil {
+			t.Fatal(err)
+		}
+		app.Close()
+		got := strings.Contains(stub.Requests()[0].Instructions, "Never edit the tests.")
+		if got == off {
+			t.Errorf("NoInstructions=%v: AGENTS.md in the system prompt = %v", off, got)
+		}
 	}
 }

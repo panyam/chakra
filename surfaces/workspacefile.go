@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/panyam/chakra/ext/agentsmd"
 	"github.com/panyam/chakra/ext/exec"
 	"github.com/panyam/chakra/ext/lsp"
 )
@@ -28,6 +29,48 @@ type WorkspaceFile struct {
 
 	// RepoMap adds the ranked repository map; see WorkspaceConfig.RepoMap.
 	RepoMap bool `json:"repoMap,omitempty"`
+
+	// Instructions picks how AGENTS.md and similar files load: a "preset"
+	// ("chakra", "codex" or "claude"), any agentsmd.Profile field to change on
+	// top of it, or "off": true. Absent means the chakra preset.
+	//
+	//	"instructions": {"preset": "codex", "maxBytes": 65536}
+	Instructions json.RawMessage `json:"instructions,omitempty"`
+}
+
+// instructionsFile is the decoded form of WorkspaceFile.Instructions.
+type instructionsFile struct {
+	Preset string `json:"preset"`
+	Off    bool   `json:"off"`
+	agentsmd.Profile
+}
+
+// InstructionsProfile decodes an "instructions" object: the named preset
+// (agentsmd.DefaultPreset when none is named) with the object's other
+// fields laid over it. off reports "off": true. Unknown fields are an error,
+// like everywhere else in the file.
+func InstructionsProfile(raw json.RawMessage) (p *agentsmd.Profile, off bool, err error) {
+	var head struct {
+		Preset string `json:"preset"`
+	}
+	if err := json.Unmarshal(raw, &head); err != nil {
+		return nil, false, fmt.Errorf("instructions: %w", err)
+	}
+	name := head.Preset
+	if name == "" {
+		name = agentsmd.DefaultPreset
+	}
+	base, err := agentsmd.Preset(name)
+	if err != nil {
+		return nil, false, fmt.Errorf("instructions: %w", err)
+	}
+	f := instructionsFile{Profile: base}
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&f); err != nil {
+		return nil, false, fmt.Errorf("instructions: %w", err)
+	}
+	return &f.Profile, f.Off, nil
 }
 
 // ExecFile is the JSON form of exec.Config, minus Roots.
@@ -164,6 +207,13 @@ func (f *WorkspaceFile) Apply(cfg *WorkspaceConfig) error {
 		return nil
 	}
 	cfg.RepoMap = f.RepoMap
+	if len(f.Instructions) > 0 {
+		p, off, err := InstructionsProfile(f.Instructions)
+		if err != nil {
+			return err
+		}
+		cfg.Instructions, cfg.NoInstructions = p, off
+	}
 	for _, ls := range f.LanguageServers {
 		cfg.LanguageServers = append(cfg.LanguageServers, lsp.ServerSpec{
 			Command:    ls.Command,

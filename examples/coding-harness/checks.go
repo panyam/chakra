@@ -36,7 +36,7 @@ var checks = []check{
 	{
 		id:        "agents_md_loaded",
 		behaviour: "AGENTS.md is in the instructions of every model call",
-		wiring:    "BeforeTurn instructions producer (#146)",
+		wiring:    "agentsmd prompt section (#146)",
 		run: func(r *runResult, fixture string) (bool, string) {
 			rule := firstRule(filepath.Join(fixture, "AGENTS.md"))
 			if len(r.requests) == 0 {
@@ -48,6 +48,24 @@ var checks = []check{
 				}
 			}
 			return true, ""
+		},
+	},
+	{
+		id:        "subdir_agents_md_loaded",
+		behaviour: "stats/AGENTS.md reaches the model once the agent works in stats/, not before",
+		wiring:    "agentsmd middleware and step stage (#146)",
+		run: func(r *runResult, fixture string) (bool, string) {
+			rule := firstRule(filepath.Join(fixture, "stats", "AGENTS.md"))
+			for i, req := range r.requests {
+				if !strings.Contains(strings.Join(req.SystemTexts, "\n"), rule) {
+					continue
+				}
+				if i == 0 {
+					return false, "loaded before any tool call touched stats/"
+				}
+				return true, ""
+			}
+			return false, fmt.Sprintf("no request carried %q", rule)
 		},
 	},
 	{

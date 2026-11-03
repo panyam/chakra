@@ -12,10 +12,17 @@ change how a turn runs, that's a gap in a hook point, and it gets its own ticket
 | `make coding-harness-exercise` | Scripted model, PASS/FAIL per behaviour, compared against `expected.go`. CI runs this one. | nothing |
 | `make coding-harness-exercise-live` | Same flow with a real model, plus `steps tool_calls in_tok out_tok wall tests` | `CH_ACTIVE` (default `openai`), its key |
 | `make coding-harness-web` | The agent in the browser at http://localhost:8091 on a fresh copy of the fixture | same as live; `CH_WORKSPACE=dir` for another repo |
-| `make coding-harness-parity` | `codex exec` and the live harness on the same fixture, prompt and model, side by side | `codex` on PATH, `OPENAI_API_KEY`; `PARITY_MODEL` (default `gpt-5.5`) |
+| `make coding-harness-parity` | `codex exec` and the live harness on the same fixture, prompt and model, side by side | `codex` on PATH, `OPENAI_API_KEY`; `PARITY_MODEL` (default `gpt-5.5`), `PARITY_INSTRUCTIONS` |
 
-Each run copies `testdata/fixture` to a temp directory. The fixture is a Go module whose `Sum` skips
-the first element, plus an `AGENTS.md` with three rules. The exercise starts an in-process
+`CH_INSTRUCTIONS` (or `--instructions`) picks how `AGENTS.md` and the like load: `chakra` (the
+default), `codex` or `claude`, the presets in `ext/agentsmd`. `PARITY_INSTRUCTIONS=codex` makes
+the chakra side load them the way Codex does.
+
+Each run copies `testdata/fixture` to a temp directory. The fixture is a Go module whose
+`stats.Sum` skips the first element, an `AGENTS.md` with three rules at the root, and
+`stats/AGENTS.md` with one more. The root file loads at startup. The `stats/` one is read once
+the agent works in `stats/`, which Codex never does, so its rule (end the answer with
+`stats: checked`) shows in the parity table whether each side saw it. The exercise starts an in-process
 agentweb server, creates a session, opens `Watch` and `Submit`s the task. After the first tool
 result it submits a steer. When the turn ends it runs `go test ./...` in the copy itself.
 

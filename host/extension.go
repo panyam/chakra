@@ -96,6 +96,14 @@ type Extension interface {
 	// it joining the session's history.
 	ContextStages() []ContextStage
 
+	// StepStages run before every model call of the main agent, after the
+	// host's own stages, ordered by scope as agent.StepStage describes. Use
+	// one for context that must track what happens inside a turn (a file the
+	// last tool call surfaced) rather than what was true when it began; a
+	// ContextStage runs once per turn and can't. Pick the scope by how long
+	// what it adds should live; see docs/HOOKS.md, Record or view.
+	StepStages() []agent.StepStage
+
 	// ApprovalRenderers supply the question a user is asked before a gated
 	// tool call runs, for the tools this extension owns.
 	//
@@ -182,6 +190,7 @@ func (BaseExtension) Middleware() []agent.ToolMiddleware    { return nil }
 func (BaseExtension) PromptSections() []PromptSection       { return nil }
 func (BaseExtension) Commands() []*Command                  { return nil }
 func (BaseExtension) ContextStages() []ContextStage         { return nil }
+func (BaseExtension) StepStages() []agent.StepStage         { return nil }
 func (BaseExtension) ApprovalRenderers() []ApprovalRenderer { return nil }
 func (BaseExtension) ApprovalChoosers() []ApprovalChooser   { return nil }
 func (BaseExtension) ApprovalClassifiers() []ApprovalClassifier {
@@ -413,6 +422,7 @@ func (a *App) applyExtensions(exts []Extension) ([]agent.ToolMiddleware, error) 
 		mw = append(mw, ext.Middleware()...)
 		a.promptBuilder.Sections = append(a.promptBuilder.Sections, ext.PromptSections()...)
 		a.context.transient = append(a.context.transient, ext.ContextStages()...)
+		a.stepStages = append(a.stepStages, ext.StepStages()...)
 		a.approvalRenderers = append(a.approvalRenderers, ext.ApprovalRenderers()...)
 		a.approvalChoosers = append(a.approvalChoosers, ext.ApprovalChoosers()...)
 		a.approvalClassifiers = append(a.approvalClassifiers, ext.ApprovalClassifiers()...)

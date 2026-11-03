@@ -38,6 +38,8 @@ type options struct {
 	jsonlPath string
 	metrics   string
 	timeout   time.Duration
+	// instructions is the agentsmd preset; empty keeps workspace.json's.
+	instructions string
 }
 
 func main() {
@@ -51,6 +53,7 @@ func main() {
 	flag.StringVar(&o.jsonlPath, "jsonl", "", "write every Watch frame to this file as JSONL")
 	flag.StringVar(&o.metrics, "metrics", "", "write the metrics line as JSON to this file")
 	flag.DurationVar(&o.timeout, "timeout", 0, "give up after this long (default 2m scripted, 15m live)")
+	flag.StringVar(&o.instructions, "instructions", "", "how AGENTS.md and the like load: chakra, codex or claude (default: workspace.json's, else chakra)")
 	verbose := flag.Bool("v", false, "keep the host's logging")
 	flag.Parse()
 	if !*verbose {
@@ -102,13 +105,14 @@ func exercise(ctx context.Context, o options) (*exerciseRun, error) {
 	}
 
 	p := profile{
-		dir:         ".",
-		root:        root,
-		active:      o.active,
-		model:       o.model,
-		approval:    "allow",
-		checkpoints: filepath.Join(tmp, "checkpoints"),
-		recorder:    &recorder{},
+		dir:          ".",
+		root:         root,
+		active:       o.active,
+		model:        o.model,
+		approval:     "allow",
+		checkpoints:  filepath.Join(tmp, "checkpoints"),
+		recorder:     &recorder{},
+		instructions: o.instructions,
 	}
 	if !o.live {
 		if p.provider, err = scriptedProvider(fixture); err != nil {
@@ -277,7 +281,7 @@ func serveUI(addr, workspace string, o options) error {
 	if err != nil {
 		return err
 	}
-	p := profile{dir: ".", root: root, active: o.active, model: o.model, checkpoints: ckpt}
+	p := profile{dir: ".", root: root, active: o.active, model: o.model, checkpoints: ckpt, instructions: o.instructions}
 	mgr := web.NewSessionManager(p.build)
 	fmt.Printf("coding-harness on http://%s/ working in %s\n", addr, root)
 	return http.ListenAndServe(addr, web.HandlerWithSessions(mgr))

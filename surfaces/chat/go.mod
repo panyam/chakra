@@ -96,6 +96,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/panyam/chakra v0.2.2
+	github.com/panyam/chakra/ext/agentsmd v0.2.2 // indirect
 	github.com/panyam/chakra/ext/checkpoint v0.2.2 // indirect
 	github.com/panyam/chakra/ext/files v0.2.2 // indirect
 	github.com/panyam/chakra/store/gorm v0.2.2
@@ -170,3 +171,5 @@ replace github.com/panyam/mcpkit/ext/otel => ../../../../mcpkit/main/ext/otel
 replace github.com/panyam/mcpkit/ext/skills => ../../../../mcpkit/main/ext/skills
 
 replace github.com/panyam/chakra/ext/exec => ../../ext/exec
+
+replace github.com/panyam/chakra/ext/agentsmd => ../../ext/agentsmd

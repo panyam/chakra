@@ -7,7 +7,8 @@
 # to exec only and leaves a ChatGPT login alone; --ignore-user-config keeps
 # ~/.codex/config.toml out of the comparison. Codex speaks the Responses API and
 # chakra chat completions until #157, so the wire differs even with the model
-# fixed.
+# fixed. PARITY_INSTRUCTIONS=codex makes chakra load AGENTS.md the way codex
+# does, for a like-for-like run; the default is workspace.json's choice.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 EX="$ROOT/examples/coding-harness"
@@ -34,7 +35,7 @@ echo $(( $(date +%s) - start )) >"$OUT/codex/wall"
 echo "==> chakra coding-harness ($MODEL)"
 (
 	cd "$EX"
-	go run . --live --active openai --model "$MODEL" \
+	go run . --live --active openai --model "$MODEL" ${PARITY_INSTRUCTIONS:+--instructions "$PARITY_INSTRUCTIONS"} \
 		--jsonl "$OUT/chakra/events.jsonl" --metrics "$OUT/chakra/metrics.json"
 ) >"$OUT/chakra/table.txt" 2>&1 || echo "coding-harness exited $? (see $OUT/chakra/table.txt)"
 

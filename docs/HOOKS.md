@@ -15,7 +15,7 @@ out, and this page gets updated in the same PR.
 | Point | Runs | What hooks in today | Shape | Code |
 |---|---|---|---|---|
 | **Turn start** (host) | once per turn, before the Runner | `Extension.TurnStart`, `InputTransform`s, durable `ContextStage`s (event injection), the user message, transient `ContextStage`s (memory summary, recall), `PromptSection`s | one ordered pipeline with two phases | `host/app.go` `RunTurn`, `host/contextpipeline.go` |
-| **Before each model call** (Runner) | every step | the step chain: `Compactor` (turn scope), `Selector` (request scope), then `StepStages` such as the host's step-budget note; also the tree budget | one ordered chain, run by scope: session, turn, request | `stepstage.go`, `runner.go` `Run` |
+| **Before each model call** (Runner) | every step | the step chain: `Compactor` (turn scope), `Selector` (request scope), then `StepStages` such as the host's step-budget note, then extensions' `StepStages` (agentsmd's instruction files found mid-session); also the tree budget | one ordered chain, run by scope: session, turn, request | `stepstage.go`, `runner.go` `Run` |
 | **Around each tool call** (Runner) | every tool call, in parallel | `ToolMiddleware`: spotlight, extension middleware, critique, the permission gate (with `ApprovalClassifier`s, `ApprovalRenderer`s and `ApprovalChooser`s); offloading wraps the tool source the chain ends in | one ordered chain, gate last | `toolmiddleware.go`, `approval.go`, `host/app.go` |
 | **Signals and events** | between steps (signals), and between turns (events) | `SignalPolicy`, `Interruptible`, `PreemptGrant`; the host's injection and trigger policies | separate fields | `signal.go`, `injection.go`, `triggers.go`, `host/events.go` |
 
@@ -123,7 +123,8 @@ Ask these in order.
 2. **Is it about the user's input, or context for the whole turn?** Turn
    start. Durable stage if the session should remember it, transient if not.
 3. **Does it need to see or change what one model call sends** (messages,
-   tools, budget)? A `StepStage`, before each model call. Pick its scope by how
+   tools, budget)? A `StepStage`, before each model call; an extension
+   contributes one through `Extension.StepStages`. Pick its scope by how
    long its output should live.
 4. **Does it act on one tool call** (its arguments, whether it runs, its
    result)? Tool middleware, placed by the ordering rules above. A decision a

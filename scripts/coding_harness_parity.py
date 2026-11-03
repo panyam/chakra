@@ -12,6 +12,11 @@ import sys
 
 REQUIRED = ["status", "summary", "files_changed", "tests_passed"]
 
+# stats/AGENTS.md asks for this line at the end of the final answer. Only an
+# agent that reads that subdirectory's file (on its own, or because the harness
+# loads it once the agent works there) knows to write it.
+STATS_RULE = "stats: checked"
+
 
 def jsonl(path):
     try:
@@ -70,6 +75,7 @@ def codex_side(fixture, out):
         "tests_passed": tests_pass(repo),
         "schema_valid": schema_ok,
         "test_files_untouched": not test_files_changed(fixture, repo),
+        "stats_rule_followed": STATS_RULE in last_text(out),
         "commands": commands,
     }
 
@@ -80,10 +86,13 @@ def chakra_side(out):
     except FileNotFoundError:
         return None
     tools = []
+    text = ""
     for fr in jsonl(os.path.join(out, "chakra", "events.jsonl")):
         ev = (fr.get("payload") or {}).get("RunnerEvent") or {}
         if ev.get("kind") == "tool-begin":
             tools.append((ev.get("toolCall") or {}).get("name", ""))
+        elif ev.get("kind") == "text-delta":
+            text += ev.get("text", "")
     return {
         "steps": m.get("steps"),
         "tool_calls": m.get("tool_calls"),
@@ -94,20 +103,29 @@ def chakra_side(out):
         "tests_passed": m.get("tests_passed"),
         "schema_valid": False,
         "test_files_untouched": m.get("test_files_untouched"),
+        "stats_rule_followed": STATS_RULE in text,
         "commands": tools,
     }
+
+
+def last_text(out):
+    try:
+        return open(os.path.join(out, "codex", "last.json")).read()
+    except FileNotFoundError:
+        return ""
 
 
 def main():
     fixture, out = sys.argv[1], sys.argv[2]
     cx, ck = codex_side(fixture, out), chakra_side(out)
-    rows = ["steps", "tool_calls", "input_tokens", "cached_input", "output_tokens", "wall_seconds", "tests_passed", "schema_valid", "test_files_untouched"]
+    rows = ["steps", "tool_calls", "input_tokens", "cached_input", "output_tokens", "wall_seconds", "tests_passed", "schema_valid", "test_files_untouched", "stats_rule_followed"]
     print()
     print(f"{'':22}{'codex':>12}{'chakra':>12}")
     for r in rows:
         print(f"{r:22}{str(cx.get(r)):>12}{str(ck.get(r) if ck else 'no run'):>12}")
     print()
     print("chakra schema_valid stays False until #145.")
+    print(f"chakra loaded instruction files with the {os.environ.get('PARITY_INSTRUCTIONS') or 'workspace.json'} preset.")
     print("\ncodex commands:")
     for c in cx["commands"]:
         print("  " + c)

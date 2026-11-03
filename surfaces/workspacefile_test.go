@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/panyam/chakra/ext/agentsmd"
 	"github.com/panyam/chakra/ext/exec"
 	"github.com/panyam/chakra/host"
 )
@@ -231,5 +232,38 @@ func TestWorkspaceFileShellRules(t *testing.T) {
 	bad := writeWorkspaceFile(t, `{"exec": {"shell": {"rules": [{"prefix": [3], "decision": "allow"}]}}}`)
 	if err := (&WorkspaceConfig{}).LoadFile(bad); err == nil {
 		t.Error("a numeric prefix word loaded")
+	}
+}
+
+func TestWorkspaceFileInstructions(t *testing.T) {
+	var cfg WorkspaceConfig
+	if err := cfg.LoadFile(writeWorkspaceFile(t, `{"instructions": {"preset": "codex", "maxBytes": 1000, "names": ["AGENTS.md", "TEAM.md"]}}`)); err != nil {
+		t.Fatal(err)
+	}
+	p := cfg.Instructions
+	if p == nil || p.MaxBytes != 1000 || len(p.Names) != 2 || p.Names[1] != "TEAM.md" || p.Override != "AGENTS.override.md" || !p.PrimaryOnly {
+		t.Errorf("codex preset with overrides = %+v", p)
+	}
+
+	cfg = WorkspaceConfig{}
+	if err := cfg.LoadFile(writeWorkspaceFile(t, `{"instructions": {"subdirs": "off"}}`)); err != nil {
+		t.Fatal(err)
+	}
+	if p := cfg.Instructions; p == nil || p.Subdirs != agentsmd.SubdirsOff || p.Changes != agentsmd.ChangesNotice {
+		t.Errorf("no preset named should start from chakra: %+v", p)
+	}
+
+	cfg = WorkspaceConfig{}
+	if err := cfg.LoadFile(writeWorkspaceFile(t, `{"instructions": {"off": true}}`)); err != nil || !cfg.NoInstructions {
+		t.Errorf("off: NoInstructions=%v err=%v", cfg.NoInstructions, err)
+	}
+
+	for _, bad := range []string{
+		`{"instructions": {"preset": "cursor"}}`,
+		`{"instructions": {"preset": "codex", "maxSize": 10}}`,
+	} {
+		if err := (&WorkspaceConfig{}).LoadFile(writeWorkspaceFile(t, bad)); err == nil {
+			t.Errorf("%s loaded", bad)
+		}
 	}
 }

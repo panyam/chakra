@@ -8,7 +8,7 @@
 
 MODULES := . host surfaces surfaces/chat surfaces/web \
            store/redis store/gorm \
-           ext/checkpoint ext/files ext/exec ext/lsp
+           ext/checkpoint ext/files ext/exec ext/lsp ext/agentsmd
 
 EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/host-exercise examples/coding-harness
 
@@ -173,16 +173,18 @@ coding-harness-exercise: ## Mission #162 exercise: PASS/FAIL per coding-agent be
 # CH_MODEL overrides its model.
 CH_ACTIVE ?= openai
 CH_MODEL ?=
+# CH_INSTRUCTIONS picks how AGENTS.md and the like load: chakra, codex or claude.
+CH_INSTRUCTIONS ?=
 
 coding-harness-exercise-live: ## The same exercise with a real model, plus a metrics line (CH_ACTIVE=claude, CH_MODEL=gpt-5.4 etc.)
-	@cd examples/coding-harness && go run . --live --active $(CH_ACTIVE) $(if $(CH_MODEL),--model $(CH_MODEL))
+	@cd examples/coding-harness && go run . --live --active $(CH_ACTIVE) $(if $(CH_MODEL),--model $(CH_MODEL)) $(if $(CH_INSTRUCTIONS),--instructions $(CH_INSTRUCTIONS))
 
 CH_ADDR ?= localhost:8091
 
 coding-harness-web: ## The coding agent in the browser on a fresh copy of the fixture (CH_WORKSPACE=dir to use another)
-	@cd examples/coding-harness && go run . --serve $(CH_ADDR) --active $(CH_ACTIVE) $(if $(CH_MODEL),--model $(CH_MODEL)) $(if $(CH_WORKSPACE),--workspace $(CH_WORKSPACE))
+	@cd examples/coding-harness && go run . --serve $(CH_ADDR) --active $(CH_ACTIVE) $(if $(CH_MODEL),--model $(CH_MODEL)) $(if $(CH_WORKSPACE),--workspace $(CH_WORKSPACE)) $(if $(CH_INSTRUCTIONS),--instructions $(CH_INSTRUCTIONS))
 
-coding-harness-parity: ## codex exec vs the coding harness, same fixture and model, side by side (needs codex and OPENAI_API_KEY; PARITY_MODEL=gpt-5.5)
+coding-harness-parity: ## codex exec vs the coding harness, same fixture and model, side by side (needs codex and OPENAI_API_KEY; PARITY_MODEL=gpt-5.5, PARITY_INSTRUCTIONS=codex)
 	@bash scripts/coding-harness-parity.sh
 
 # ---------------------------------------------------------------------------

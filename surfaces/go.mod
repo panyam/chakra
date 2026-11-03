@@ -48,6 +48,7 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
+	github.com/panyam/chakra/ext/agentsmd v0.2.2
 	github.com/panyam/chakra/ext/checkpoint v0.2.2
 	github.com/panyam/chakra/ext/exec v0.2.2
 	github.com/panyam/chakra/ext/files v0.2.2
@@ -97,3 +98,5 @@ replace github.com/panyam/mcpkit/ext/auth => ../../../mcpkit/main/ext/auth
 replace github.com/panyam/mcpkit/ext/skills => ../../../mcpkit/main/ext/skills
 
 replace github.com/panyam/chakra/ext/exec => ../ext/exec
+
+replace github.com/panyam/chakra/ext/agentsmd => ../ext/agentsmd
