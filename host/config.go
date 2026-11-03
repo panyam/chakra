@@ -106,6 +106,11 @@ type Config struct {
 	// gate is off: every tool call the model makes runs (the pre-approval
 	// behavior). Set it to gate calls behind a mode and per-tool rules,
 	// with "ask" prompts routed through the terminal elicitation UI.
+	// Sampling, when enabled, lets connected MCP servers ask the session's
+	// model for completions (sampling/createMessage), each one put to the
+	// user unless the approval mode runs everything. See SamplingConfig.
+	Sampling *SamplingConfig `json:"sampling,omitempty"`
+
 	Approval *ApprovalConfig `json:"approval,omitempty"`
 
 	// Spotlight marks untrusted tool output as data before the model reads
