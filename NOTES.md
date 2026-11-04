@@ -1595,6 +1595,30 @@ inverted. We deliberately did not design for that yet. Per-scorer verdicts keep 
 per-dimension rollup adds to existing data and needs no re-plumbing. #1060 will actually stress
 it, and reshaping costs nothing while the agent track is unreleased.
 
+### Setup, cost, and the official judge (#246, PR 251)
+
+jaala's LongMemEval arm ingests each question's haystack into its own fact store, then answers with
+tools over that store. `Configure` couldn't host that, because it sees no instance and returns no
+usage. So `SuiteCase.Setup` runs once before the turns and returns tools, instructions, history and
+what it spent. `DatasetAdapter.Arm` wires it per instance. The report keeps setup spend apart from
+the turns' spend, since a memory layer is judged on both.
+
+- **An unpriced model makes the cost unknown.** `Prices.Cost` reports false when any model that
+  spent tokens has no price. A total that left one model out would read as cheaper than the run was.
+- **The base provider needs a name.** The Runner counts steps that no stage named under `""` in
+  `UsageByModel`, and `agent.Provider` has no name. `Suite.ModelName` relabels them so they can be
+  priced.
+- **CI never runs `eval_llm`.** So keep a judge's logic untagged and test it against a stub. Only
+  the choice to call a model to grade goes behind the tag (`appendOfficial` beside `appendRubric`).
+  The default build still never grades with a model.
+- **The official prompts are checked against upstream.** `testdata/evaluate_qa.py` is a verbatim
+  copy of upstream's `get_anscheck_prompt`, and a test parses its templates and compares them with
+  `official.go`. A copied prompt then can't drift without a failing test.
+- **`Ungradeable` made one adapter check dead (#243).** A rubric-only case now yields one scorer, so
+  "every case yields a scorer without a provider" could no longer fail. The intent moved to
+  `TestDeterministicScorers` at the `MemCase` level. A new always-failing scorer can quietly satisfy
+  an older count check, so look for counts like that when one is added.
+
 ---
 
 ## Tracking mcpkit main (PR 56, PR 62)

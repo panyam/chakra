@@ -112,6 +112,9 @@ integrated with a dedicated engine.
   `scripts/foo.sh` only works if agentchat was started in the repo. Write `["sh", "scripts/foo.sh"]`
   instead. `sh` is on PATH, and the script path is an argument, resolved against the command's `Dir`
   (the first root).
+- **CI never runs `-tags eval_llm`.** A judge scorer tested only under that tag is untested. Keep the
+  scorer untagged and test it with a stub, and tag only the choice to grade with a model (see
+  NOTES.md, Eval).
 - **A sandbox profile is only checked by a tagged live test.** `ext/exec`'s golden test covers
   profile generation and runs anywhere. CI is Linux and the backend is darwin-only, so **nothing in
   CI exercises a real sandbox**. Run `go test -tags exec_live ./...` in that module before believing
