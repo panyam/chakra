@@ -57,6 +57,9 @@ test-examples: ## Test the SDK examples (and the host exercise)
 		echo "==> test $$m"; \
 		(cd $$m && go test ./... $(GOTESTFLAGS)) || exit 1; \
 	done
+	@echo "==> test examples/terminal-bench and scripts (python)"
+	@cd examples/terminal-bench && python3 -m unittest -q test_chakra_config
+	@python3 -m unittest discover -q -s scripts -p 'test_*.py'
 
 testall: test test-examples check-fmt check-no-binaries check-ext-isolation check-dep-consistency ## Everything CI runs
 
@@ -201,28 +204,37 @@ coding-harness-web: ## agentweb with chat at / and the coding agent at /code/, o
 # one after another on the same tasks; chakra goes in through
 # examples/terminal-bench/chakra_agent.py, codex and claude-code are Harbor's
 # built-in agents. Needs Docker, harbor on PATH, and a checkout of
-# terminal-bench-2 at TB_PATH. TB_TASKS is the starter set; TB_TASKS= (empty)
-# runs all 89.
+# terminal-bench-2 at TB_PATH. TB_SET picks the tasks: starter (the default) or
+# hard, eight of the tasks the dataset marks hard that need no GPU and fit a 30
+# minute agent budget. TB_TASKS overrides the set, and TB_TASKS= (empty) runs
+# all 89. TB_EFFORT pins reasoning effort on every agent through Harbor's
+# reasoning_effort option. TB_EFFORT= (empty) leaves each agent at its own
+# default, which is how runs before this option were made.
 TB_PATH ?= $(HOME)/newstack/chakra/benchmarks/terminal-bench-2
 TB_JOBS ?= $(HOME)/newstack/chakra/benchmarks/jobs
 TB_AGENTS ?= chakra codex
 TB_MODEL ?= openai/gpt-5.5
 TB_K ?= 1
 TB_CONCURRENT ?= 2
-TB_TASKS ?= fix-git prove-plus-comm cobol-modernization kv-store-grpc polyglot-c-py \
+TB_EFFORT ?= medium
+TB_SET ?= starter
+TB_TASKS_STARTER := fix-git prove-plus-comm cobol-modernization kv-store-grpc polyglot-c-py \
             nginx-request-logging openssl-selfsigned-cert custom-memory-heap-crash \
             sanitize-git-repo multi-source-data-merger
+TB_TASKS_HARD := cancel-async-tasks configure-git-webserver fix-code-vulnerability polyglot-rust-c \
+            password-recovery sparql-university write-compressor make-mips-interpreter
+TB_TASKS ?= $(if $(filter hard,$(TB_SET)),$(TB_TASKS_HARD),$(TB_TASKS_STARTER))
 
 tbench-build: ## Static Linux agentchat for the Terminal-Bench containers (amd64, as the task images are)
 	@mkdir -p examples/terminal-bench/bin
 	@cd surfaces/chat && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../../examples/terminal-bench/bin/agentchat-linux-amd64 .
 
-tbench: tbench-build ## Terminal-Bench 2 via Harbor: TB_AGENTS on TB_TASKS, TB_K attempts each (TB_MODEL=openai/gpt-5.5)
+tbench: tbench-build ## Terminal-Bench 2 via Harbor: TB_AGENTS on TB_SET or TB_TASKS, TB_K attempts each (TB_MODEL=openai/gpt-5.5, TB_EFFORT=medium)
 	@for a in $(TB_AGENTS); do \
 		case $$a in chakra) agent=chakra_agent:ChakraAgent ;; *) agent=$$a ;; esac; \
 		echo "==> $$a"; \
 		PYTHONPATH=$(CURDIR)/examples/terminal-bench harbor run -p $(TB_PATH) -a $$agent -m $(TB_MODEL) \
-			-k $(TB_K) -n $(TB_CONCURRENT) -o $(TB_JOBS) --job-name tbench-$$a-$$(date +%Y%m%d-%H%M%S) \
+			$(if $(TB_EFFORT),--ak reasoning_effort=$(TB_EFFORT)) -k $(TB_K) -n $(TB_CONCURRENT) -o $(TB_JOBS) --job-name tbench-$$a-$$(date +%Y%m%d-%H%M%S) \
 			$(foreach t,$(TB_TASKS),-i $(t)) -y || echo "$$a: harbor exited non-zero, carrying on"; \
 	done
 

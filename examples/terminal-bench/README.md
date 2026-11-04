@@ -14,6 +14,7 @@ agents.
 ```
 make tbench                       # chakra then codex, the 10-task starter set, one attempt each
 make tbench TB_AGENTS=chakra TB_K=3
+make tbench TB_SET=hard           # eight harder tasks
 make tbench TB_TASKS=             # all 89 tasks
 make tbench-report                # markdown side by side: the newest job of each agent
 ```
@@ -26,7 +27,9 @@ with each trial's logs and trajectory.
 | `TB_AGENTS` | `chakra codex` | `claude-code` works too, with `TB_MODEL` set to a Claude model |
 | `TB_MODEL` | `openai/gpt-5.5` | Harbor's provider/model form |
 | `TB_K` | 1 | attempts per task |
-| `TB_TASKS` | 10 tasks across categories | empty runs all 89 |
+| `TB_SET` | `starter` | `hard` picks eight tasks the dataset marks hard that need no GPU and fit a 30 minute budget |
+| `TB_TASKS` | the `TB_SET` tasks | empty runs all 89 |
+| `TB_EFFORT` | `medium` | reasoning effort for every agent, through Harbor's `reasoning_effort` option; empty leaves each agent at its own default |
 | `TB_PATH` | `~/newstack/chakra/benchmarks/terminal-bench-2` | the task checkout |
 | `TB_JOBS` | `~/newstack/chakra/benchmarks/jobs` | where Harbor writes results |
 | `TB_CONCURRENT` | 2 | tasks at once |
@@ -36,6 +39,11 @@ Needs Docker, `harbor` on PATH (`uv tool install --from <harbor checkout> harbor
 
 The task images are amd64 only, so on Apple Silicon they run under emulation, and `tbench-build`
 builds `agentchat` for amd64 to match.
+
+Both agents talk to the Responses API, and `TB_EFFORT` pins both to the same effort, so the cost
+and time columns compare like with like. Jobs before #195's fairness fixes ran chakra over Chat
+Completions with neither effort pinned, and `make tbench-report` prints each job's effort so a
+table says how it was made.
 
 Chakra's turn is capped at 400 model calls, so the task's time budget ends a run, as it does for
 Codex. Chakra's default cap of 8 would end most tasks early. `agentchat exec --json` writes JSON
