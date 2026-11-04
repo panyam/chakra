@@ -124,9 +124,22 @@ the page calls `CreateSession` with `profile: "coding"`, and the server builds o
 sessions share one `SessionManager`, so the Sessions panel lists both. Choosing a session of the
 other kind opens its page. The origin check and the access token cover `/code/` too.
 
+A coding session's id starts with `coding-`. `ListWebSessions` returns each session's profile and
+page beside its id, and the page adds the sessions it hasn't seen to its Sessions panel, so a second
+browser finds a coding session on the right page (#244). Sessions this browser closed stay out of
+the list.
+
 Each coding session works in `--coding-workspace` or in a fresh git copy of `--coding-fixture`.
-Its file snapshots go to a temp folder outside the workspace. `--coding-active`, `--coding-model`
-and `--coding-instructions` pick its connection, model and instruction preset. `--coding` can't be
+Its file snapshots, and its fixture copy, go to a folder named by its session id under
+`--coding-state` (default: `agentweb-coding` in the system temp dir), outside the workspace. With
+`--session-store`, coding sessions persist like chat ones. After a restart the next request
+rebuilds the session on the same folder, so its fixture copy keeps the agent's edits. A session
+whose folder is gone can't be resumed, and the page starts a fresh one. Without a store, closing a
+session, or stopping the server, removes its folder.
+
+`--coding-active`, `--coding-model` and `--coding-instructions` pick its starting connection, model
+and instruction preset. The header's model picker lists the other connections in the coding
+config, and switching takes effect on the next model call. `--coding` can't be
 used with `--byok`, because the coding config holds the server's own keys. It's meant for local use.
 Commands run with the full environment, and Linux has no exec sandbox yet (#32), so `/code/` is no
 place for a hosted deployment.

@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/panyam/chakra"
@@ -46,6 +48,10 @@ type SessionManager struct {
 	// Create attaches a run under the session id, and Get rehydrates a dropped
 	// session by resuming that run. Nil keeps the pure in-memory behavior.
 	store agent.RunStore
+	// profiles builds and cleans up the sessions of each kind other than
+	// chat, by profile name. A profile session's id starts with its name and
+	// a dash, so the kind survives a restart without the store holding it.
+	profiles map[string]Profile
 }
 
 // NewSessionManager returns a manager whose Create builds fresh Apps from
@@ -116,19 +122,27 @@ func (m *SessionManager) Create(ctx context.Context) (string, *host.App, error) 
 // On an AttachRun error the App is closed and nothing is stored.
 func (m *SessionManager) Adopt(ctx context.Context, app *host.App) (string, error) {
 	id := m.mintID()
+	if err := m.adoptAs(ctx, id, app); err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
+// adoptAs stores app under id, attaching a run first when there is a store.
+func (m *SessionManager) adoptAs(ctx context.Context, id string, app *host.App) error {
 	if m.store != nil {
 		// session_id == run id. Attach (create) the run so it goes on the
 		// durable roster and a later Get can rehydrate it. AttachRun is
 		// create-or-resume, but the minted id is unique so this always creates.
 		if err := app.AttachRun(ctx, id); err != nil {
 			app.Close()
-			return "", err
+			return err
 		}
 	}
 	m.mu.Lock()
 	m.sessions[id] = app
 	m.mu.Unlock()
-	return id, nil
+	return nil
 }
 
 // Get returns the App for id and whether it was found. An empty id resolves to
@@ -151,10 +165,25 @@ func (m *SessionManager) Get(ctx context.Context, id string) (*host.App, bool) {
 	if ok {
 		return app, true
 	}
-	if m.store == nil || m.factory == nil {
+	if m.store == nil {
 		return nil, false
 	}
-	app, err := m.factory(ctx)
+	// The id says which kind of session to rebuild. A profile builds on the
+	// folders it used before the restart, which it finds by the id.
+	build := m.factory
+	if name := ProfileOf(rid); name != "" {
+		m.mu.Lock()
+		p, ok := m.profiles[name]
+		m.mu.Unlock()
+		if !ok {
+			return nil, false
+		}
+		build = func(ctx context.Context) (*host.App, error) { return p.Build(ctx, rid) }
+	}
+	if build == nil {
+		return nil, false
+	}
+	app, err := build(ctx)
 	if err != nil {
 		return nil, false
 	}
@@ -245,22 +274,88 @@ func (m *SessionManager) Close(id string) bool {
 	m.mu.Unlock()
 	if ok {
 		app.Close()
+		m.cleanup(rid)
 	}
 	return ok
+}
+
+// cleanup removes what a profile session left on disk once the session can't
+// come back, which is when there is no store to resume it from.
+func (m *SessionManager) cleanup(id string) {
+	if m.store != nil {
+		return
+	}
+	m.mu.Lock()
+	p, ok := m.profiles[ProfileOf(id)]
+	m.mu.Unlock()
+	if ok && p.Close != nil {
+		p.Close(id)
+	}
+}
+
+// ProfileOf returns the profile a session id belongs to, or "" for chat.
+func ProfileOf(id string) string {
+	name, _, ok := strings.Cut(id, "-")
+	if !ok {
+		return ""
+	}
+	return name
+}
+
+// addProfile registers a kind of session the manager can create and
+// rehydrate. A profile name can't hold a dash, since the name ends at the
+// first dash of a session id.
+func (m *SessionManager) addProfile(p Profile) error {
+	if p.Name == "" || p.Name == "chat" || strings.Contains(p.Name, "-") {
+		return fmt.Errorf("web: profile name %q must be non-empty, not chat, and hold no dash", p.Name)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.profiles == nil {
+		m.profiles = map[string]Profile{}
+	}
+	m.profiles[p.Name] = p
+	return nil
+}
+
+// CreateProfile builds a session of the named profile under a fresh id that
+// starts with the name. With a store it attaches a run, as Create does, so the
+// session survives a restart. On a build or AttachRun error nothing is stored
+// and the profile's Close removes what the build left.
+func (m *SessionManager) CreateProfile(ctx context.Context, name string) (string, error) {
+	m.mu.Lock()
+	p, ok := m.profiles[name]
+	m.mu.Unlock()
+	if !ok {
+		return "", fmt.Errorf("web: no profile %q", name)
+	}
+	id := name + "-" + m.mintID()
+	app, err := p.Build(ctx, id)
+	if err == nil {
+		err = m.adoptAs(ctx, id, app)
+	}
+	if err != nil {
+		if p.Close != nil {
+			p.Close(id)
+		}
+		return "", err
+	}
+	return id, nil
 }
 
 // CloseAll closes every live session and empties the roster. It is used to tear
 // the whole server down.
 func (m *SessionManager) CloseAll() {
 	m.mu.Lock()
-	apps := make([]*host.App, 0, len(m.sessions))
+	apps := make(map[string]*host.App, len(m.sessions))
 	for id, app := range m.sessions {
-		apps = append(apps, app)
+		apps[id] = app
 		delete(m.sessions, id)
 	}
 	m.mu.Unlock()
-	for _, app := range apps {
+	for id, app := range apps {
 		app.Close()
+		m.cleanup(id)
 	}
 }
 

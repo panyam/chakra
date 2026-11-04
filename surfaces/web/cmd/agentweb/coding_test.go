@@ -45,7 +45,7 @@ func TestEachCodingSessionGetsItsOwnFixtureCopy(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(fixture, "main.go"), []byte("package main\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	prof, err := codingProfile(codingOptions{dir: codingDir(t), fixture: fixture})
+	prof, err := codingProfile(codingOptions{dir: codingDir(t), fixture: fixture, stateDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,8 +53,8 @@ func TestEachCodingSessionGetsItsOwnFixtureCopy(t *testing.T) {
 		t.Errorf("profile = %q at %q", prof.Name, prof.Path)
 	}
 	var roots []string
-	for range 2 {
-		app, err := prof.Build(context.Background())
+	for _, id := range []string{"coding-a", "coding-b"} {
+		app, err := prof.Build(context.Background(), id)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -74,5 +74,49 @@ func TestEachCodingSessionGetsItsOwnFixtureCopy(t *testing.T) {
 	}
 	if roots[0] == roots[1] {
 		t.Errorf("both sessions work in %s", roots[0])
+	}
+}
+
+// A coding session's folder is named by its id, so a session the store
+// resumes after a restart works on the same files, and closing it removes
+// them (#244).
+func TestCodingSessionResumesOnItsOwnFolder(t *testing.T) {
+	fixture := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fixture, "main.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	state := t.TempDir()
+	prof, err := codingProfile(codingOptions{dir: codingDir(t), fixture: fixture, stateDir: state})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rootOf := func(id string) string {
+		t.Helper()
+		app, err := prof.Build(context.Background(), id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer app.Close()
+		return strings.TrimPrefix(app.Roots()[0].URI, "file://")
+	}
+	root := rootOf("coding-x")
+	if err := os.WriteFile(filepath.Join(root, "edit.txt"), []byte("the agent's work"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if again := rootOf("coding-x"); again != root {
+		t.Fatalf("resumed on %s, want %s", again, root)
+	}
+	if _, err := os.Stat(filepath.Join(root, "edit.txt")); err != nil {
+		t.Errorf("resuming recopied the fixture over the session's edits: %v", err)
+	}
+	prof.Close("coding-x")
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Errorf("Close left %s behind: %v", root, err)
+	}
+	if err := os.MkdirAll(filepath.Join(state, "coding-y"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := prof.Build(context.Background(), "coding-y"); err == nil || !strings.Contains(err.Error(), "fixture is gone") {
+		t.Errorf("resuming with no fixture copy: err = %v, want a refusal", err)
 	}
 }

@@ -169,6 +169,56 @@ describe("profile pages (#178)", () => {
   });
 });
 
+describe("server roster (#244)", () => {
+  it("adds the server's sessions this browser hasn't seen, with their kind and page", async () => {
+    const st = new MemStorage();
+    seed(st, { sessions: [{ id: "mine", label: "Mine", provider: "x", created: 1 }], closed: ["shut"] });
+    const client: any = {
+      listWebSessions: async () => ({
+        sessions: [
+          { sessionId: "default", profile: "", path: "/" },
+          { sessionId: "mine", profile: "", path: "/" },
+          { sessionId: "shut", profile: "", path: "/" },
+          { sessionId: "coding-0123456789abcdef", profile: "coding", path: "/code/" },
+          { sessionId: "fedcba9876543210", profile: "", path: "/" },
+        ],
+      }),
+    };
+    const store = createRoot(() => createSessionsStore(client, st));
+    await store.syncRoster();
+    const got = loadSettings(st).sessions.map((s) => [s.id, s.label, s.profile ?? "", s.path ?? ""]);
+    expect(got).toEqual([
+      ["mine", "Mine", "", ""],
+      ["coding-0123456789abcdef", "coding abcdef", "coding", "/code/"],
+      ["fedcba9876543210", "chat 543210", "", ""],
+    ]);
+  });
+
+  it("leaves the list alone when the server keeps sessions private", async () => {
+    const st = new MemStorage();
+    seed(st, { sessions: [{ id: "mine", label: "Mine", provider: "x", created: 1 }] });
+    const client: any = {
+      listWebSessions: async () => {
+        throw new ConnectError("private", Code.PermissionDenied);
+      },
+    };
+    const store = createRoot(() => createSessionsStore(client, st));
+    await store.syncRoster();
+    expect(loadSettings(st).sessions.map((s) => s.id)).toEqual(["mine"]);
+  });
+
+  it("a closed session stays closed after the next sync", async () => {
+    const st = new MemStorage();
+    seed(st, { sessions: [{ id: "a", label: "A", provider: "x", created: 1 }] });
+    const { client } = fakeClient();
+    client.listWebSessions = async () => ({ sessions: [{ sessionId: "a", profile: "", path: "/" }] });
+    const store = createRoot(() => createSessionsStore(client, st, () => {}));
+    await store.close("a");
+    await store.syncRoster();
+    expect(loadSettings(st).sessions).toEqual([]);
+  });
+});
+
 describe("scoped", () => {
   it("adds the session id to session calls only, keeping an explicit one", async () => {
     const seen: Record<string, any> = {};

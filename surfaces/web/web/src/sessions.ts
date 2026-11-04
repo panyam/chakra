@@ -28,6 +28,10 @@ export interface SessionsStore {
   // ensureProfile creates a session of this page's profile when the page has
   // none, makes it active and reloads. It does nothing on the chat page.
   ensureProfile: () => Promise<void>;
+  // syncRoster adds the server's sessions this browser hasn't seen, each with
+  // its kind and page, so a second browser can find a coding session (#244).
+  // A server with private sessions refuses the roster, and nothing changes.
+  syncRoster: () => Promise<void>;
 }
 
 // PageInfo says which page this is: the chat page has no profile, and a
@@ -110,7 +114,7 @@ export function createSessionsStore(
       // A profile's page starts a fresh session of its own kind rather than
       // asking: the server restarted, and the browser has nothing to pick.
       const gone = activeId();
-      update((s) => withActive({ ...s, sessions: s.sessions.filter((x) => x.id !== gone) }, page.profile, ""));
+      update((s) => withActive({ ...s, sessions: s.sessions.filter((x) => x.id !== gone), closed: [...(s.closed ?? []), gone] }, page.profile, ""));
       void ensureProfile();
     } else if (code === Code.NotFound) {
       if (settings().active) {
@@ -163,10 +167,33 @@ export function createSessionsStore(
     const wasActive = activeId() === id;
     update((s) => {
       const sessions = s.sessions.filter((x) => x.id !== id);
+      s = { ...s, closed: [...(s.closed ?? []), id] };
       const next = sessions.find((x) => (x.profile ?? "") === page.profile)?.id ?? "";
       return wasActive ? withActive({ ...s, sessions }, page.profile, next) : { ...s, sessions };
     });
     if (wasActive) reload();
+  };
+
+  const syncRoster = async (): Promise<void> => {
+    let roster;
+    try {
+      roster = await client.listWebSessions({});
+    } catch {
+      return;
+    }
+    update((s) => {
+      const known = new Set([...s.sessions.map((x) => x.id), ...(s.closed ?? [])]);
+      const added = roster.sessions
+        .filter((w) => w.sessionId !== "default" && !known.has(w.sessionId))
+        .map((w) => ({
+          id: w.sessionId,
+          label: `${w.profile || "chat"} ${w.sessionId.slice(-6)}`,
+          provider: "server",
+          created: Date.now(),
+          ...(w.profile ? { profile: w.profile, path: w.path } : {}),
+        }));
+      return added.length ? { ...s, sessions: [...s.sessions, ...added] } : s;
+    });
   };
 
   return {
@@ -199,5 +226,6 @@ export function createSessionsStore(
     close,
     activeId,
     ensureProfile,
+    syncRoster,
   };
 }

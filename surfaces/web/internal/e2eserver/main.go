@@ -89,7 +89,7 @@ func (f *fakeProcs) Tools() (agent.ToolSource, error) {
 	return src, err
 }
 
-func codingApp(context.Context) (*host.App, error) {
+func codingApp(context.Context, string) (*host.App, error) {
 	cfg := &host.Config{Model: host.ModelConfig{BaseURL: "coding", Model: "stub-coder"}}
 	stub := agent.NewStubProvider(
 		agent.StubTurn{ToolCalls: []agent.ToolCall{{ID: "c1", Name: "run_demo", Args: core.NewRawJSON([]byte(`{}`))}}},
