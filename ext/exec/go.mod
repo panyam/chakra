@@ -8,8 +8,8 @@ replace github.com/panyam/chakra/host => ../../host
 
 require (
 	github.com/creack/pty v1.1.24
-	github.com/panyam/chakra v0.2.5
-	github.com/panyam/chakra/host v0.2.5
+	github.com/panyam/chakra v0.2.6
+	github.com/panyam/chakra/host v0.2.6
 	github.com/panyam/mcpkit v0.8.16
 )
 

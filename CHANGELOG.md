@@ -5,6 +5,28 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
+## [v0.2.6] - 2026-11-03
+
+### Added
+- `eval`: `SuiteCase.Setup` runs once before a case's turns and returns the tools, instructions and history the run uses, plus what it spent. `CaseReport` gains `Usage`, `SetupUsage`, `Elapsed`, `SetupElapsed` and `Cost`. `Suite.Prices` prices tokens per model, and `SuiteReport.CostPerCorrect` and `DimensionReport.CostPerPass` roll them up. An unpriced model leaves the cost unknown (PR 251).
+- `eval/longmemeval`: `DatasetAdapter.Arm` prepares each instance for a memory layer that isn't a `MemoryStore`. `OfficialJudge` grades with LongMemEval's own prompt per question type, copied from upstream's `evaluate_qa.py` (PR 251).
+- agentweb: `agentweb --coding <dir>` serves the coding agent at `/code/` beside chat, with one session manager and one Sessions panel. The coding profile moves into `surfaces/coding`, and `CreateSessionRequest` gains `profile` (PR 245).
+- agentweb: a tty process's output is drawn in xterm.js at the pty's size. `ProcessOutput` carries `TTY`, `Cols` and `Rows` (PR 250).
+- A tty process's terminal fits the view and takes keystrokes. `host.ProcessController` (`ResizeProcess`, `WriteProcess`) lets a surface resize a running process's pty and write to its input, and agentweb gains the `ResizeProcess` and `WriteProcess` RPCs. agentchat sizes each tty process to its own terminal. What the user types never reaches the model (PR 252).
+- `ext/exec`: `exec_command` takes `detach: true` when `ProcessConfig.AllowDetach` is set, and the command keeps running after the session ends. Every detached call asks for approval (PR 237).
+- `ext/agentsmd`: `Profile.Rules` reads rule folders such as `.cursor/rules` and `.claude/rules`, with always, glob and description triggers, and a `cursor` preset (PR 241).
+- Skills: a skill's `allowed-tools` grants are listed in the `load_skill` ask. Approving the load approves them for the rest of the turn (PR 235).
+- Terminal-Bench: chakra runs on the Responses API, `TB_EFFORT` pins reasoning effort for every agent, and `TB_SET=hard` picks eight hard tasks (PR 247).
+- agentweb: a Playwright check for the header model picker, run in CI as `test-web-e2e` (PR 232).
+
+### Changed
+- `TurnResult.UsageByModel` counts a routed structured or guided turn's finalize call under the name a stage last gave a step on the configured provider. Before, it was counted under `""` (PR 229).
+- `ext/exec` starts a tty at 120x30, where it used to be 0x0, and `done` waits up to 2s for a tty's output to drain, in place of a fixed 20ms (PR 250). A surface can then resize the tty (PR 252).
+- Comments and markdown across the repo were rewritten so no sentence makes the reader wait (PRs 227, 230, 231, 233, 236, 238, 242).
+
+### Fixed
+- `ext/agentsmd`: a negative `Profile.MaxBytes` means no cap, as documented. Before, it loaded no instruction files at startup (PR 248).
+
 ## [v0.2.5] - 2026-11-03
 
 ### Added
