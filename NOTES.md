@@ -1388,8 +1388,19 @@ before the result waits until then.
   process is chatty. It can push the conversation's own turn events out of a reload.
   `ProcessConfig.StreamBudget` (4 MiB, negative for no limit) stops that at the source. Non-runner
   host events are never written to the RunStore, so none of this is persisted.
-- **The exit waits a fixed 20ms for the tty copier**, copied from `collect`. If a tty process
-  prints right at exit, the stream can lose that tail. The model still gets it. #218 tracks this.
+- **`done` means the output is all in** (#218). A tty's copier closes `proc.drained`, and
+  `proc.wait` holds `done` until then, for at most `drainWait` (2s). The bound is for a background
+  child that keeps the terminal open. Before this, `collect` and the stream each slept 20ms. On
+  Linux that lost the end of a burst written right at exit, because the master was closed while
+  the terminal still held output. A pipe needs no signal, since `cmd.Wait` waits for its copy.
+- **A tty process is drawn, not printed.** Its events carry `TTY`, `Cols` and `Rows`, and
+  agentweb writes the raw bytes into xterm.js in order. The store keeps a running byte count
+  beside the 64 KiB tail, so the view writes only what's new, and a reload replays to the same
+  screen. A tty starts at 120x30, since a 0x0 terminal breaks some programs.
+- **The user drives a process through `ProcessController`, the reverse of `ProcessReporter`**
+  (#249). Resizing and typing come from a surface and skip the approval gate, because the user is
+  the one acting. What is typed never enters the model's context. The model sees the effect when
+  it next reads the output.
 
 ### Session listing and paging
 
@@ -1661,6 +1672,15 @@ it.
   PR 219's first CI run failed on that, in a check the test didn't need. Give a process a second
   to start. Put the line that must arrive later a couple of seconds after that. Assert ordering,
   not what arrived inside the yield.
+- **A pty test can pass on macOS and fail on Linux.** A BSD tty drains pending output when the
+  last slave fd closes, so a process can't finish exiting until its output is read. Linux keeps
+  the output in the terminal after exit. #218's drain test passed on macOS with the bug present,
+  and failed in a Linux container. CI is Linux. Run `ext/exec` on Linux before believing a
+  pty change (the command is in CLAUDE.md Traps).
+- **The Playwright checks share one server** (`make test-web-e2e`, `surfaces/web/internal/e2eserver`).
+  The picker check switches chat's connection, and a later check saw it. A check must not assert
+  state another check changes. They also run against the committed bundle, so rebuild it with
+  `npm run build` after a frontend change.
 - `make test` covers every module and `make test-examples` the examples. CI runs those same two
   targets, and overrides `GOTESTFLAGS` only to add `-v`. So the module list is in the `Makefile`
   and nowhere else. **Adding a module is one edit.** Before the split it was three edits, in three

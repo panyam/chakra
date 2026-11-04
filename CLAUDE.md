@@ -31,7 +31,9 @@ the PR says so as its main decision and updates the page in the same PR.
 Work is ranked by which mission it serves, not by how recently it was filed. The active mission is
 #162 (`mission_coding_harness`). It builds a second coding agent only by rewiring chakra, with
 different tools, hooks, policies and provider and no new harness. It is agentweb over the profile in
-`examples/coding-harness/profile.go`, so there is no TUI to fight. Its exercise is
+`surfaces/coding`, so there is no TUI to fight. `examples/coding-harness/profile.go` adds the
+exercise's scripted model, recorder and step routing, and `agentweb --coding` serves the same
+profile at `/code/` (`make coding-harness-web`). Its exercise is
 `make coding-harness-exercise` (#163). The exercise drives the agent over agentweb's Connect API on
 a fixture repo with a failing test, and prints PASS or FAIL per behaviour. Known failures are pinned
 in `examples/coding-harness/expected.go`. The `-live` variant also prints steps, tokens, wall time
@@ -115,6 +117,10 @@ integrated with a dedicated engine.
 - **CI never runs `-tags eval_llm`.** A judge scorer tested only under that tag is untested. Keep the
   scorer untagged and test it with a stub, and tag only the choice to grade with a model (see
   NOTES.md, Eval).
+- **A pty behaves differently on macOS and Linux**, so an `ext/exec` tty test can pass locally and
+  fail in CI (NOTES.md, Testing). Run that module on Linux with Docker, from the worktree:
+  `docker run --rm -v ~/newstack:/src/newstack:ro -v ~/go/pkg/mod:/go/pkg/mod:ro -e GOFLAGS=-mod=mod
+  -e GOPROXY=off -w /src/newstack/chakra/<branch>/ext/exec golang:1.26 go test -race ./...`
 - **A sandbox profile is only checked by a tagged live test.** `ext/exec`'s golden test covers
   profile generation and runs anywhere. CI is Linux and the backend is darwin-only, so **nothing in
   CI exercises a real sandbox**. Run `go test -tags exec_live ./...` in that module before believing
