@@ -1,0 +1,22 @@
+{
+ "jobs": [
+  "tbench-chakra-20261104-003050"
+ ],
+ "source": "local",
+ "trials": [
+  {
+   "agent_s": 228.189253,
+   "agent_version": "d575fb015c41-dirty",
+   "cached": 71680,
+   "chakra_sha": "d575fb015c41-dirty",
+   "date": "2026-11-04T08:30:53.108935Z",
+   "error": null,
+   "in": 101464,
+   "job": "tbench-chakra-20261104-003050",
+   "out": 8587,
+   "reward": 1.0,
+   "setup": "chakra/openai-gpt-5.5/medium",
+   "task": "adaptive-rejection-sampler"
+  }
+ ]
+}

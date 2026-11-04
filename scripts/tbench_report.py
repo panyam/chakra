@@ -22,11 +22,18 @@ def seconds(span):
 
 
 def trials(job_dir):
-    for name in sorted(os.listdir(job_dir)):
-        path = os.path.join(job_dir, name, "result.json")
-        if not os.path.isfile(path):
-            continue
-        r = json.load(open(path))
+    def results():
+        for name in sorted(os.listdir(job_dir)):
+            path = os.path.join(job_dir, name, "result.json")
+            if os.path.isfile(path):
+                with open(path) as f:
+                    yield name, json.load(f)
+    yield from trials_from(results())
+
+
+def trials_from(results):
+    """One summary per trial from (trial dir name, parsed result.json) pairs."""
+    for name, r in results:
         agent = (r.get("agent_info") or {}).get("name") or "?"
         res = r.get("agent_result") or {}
         rewards = (r.get("verifier_result") or {}).get("rewards") or {}

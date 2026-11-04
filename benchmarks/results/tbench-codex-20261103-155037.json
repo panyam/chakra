@@ -1,0 +1,22 @@
+{
+ "jobs": [
+  "tbench-codex-20261103-155037"
+ ],
+ "source": "local",
+ "trials": [
+  {
+   "agent_s": 56.90378,
+   "agent_version": "0.166.0",
+   "cached": 224512,
+   "chakra_sha": null,
+   "date": "2026-11-03T23:50:39.373358Z",
+   "error": null,
+   "in": 244681,
+   "job": "tbench-codex-20261103-155037",
+   "out": 3321,
+   "reward": 1.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "fix-git"
+  }
+ ]
+}

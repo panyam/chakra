@@ -60,6 +60,15 @@ class ChakraAgent(BaseInstalledAgent):
     def name() -> str:
         return "chakra"
 
+    def version(self) -> str | None:
+        """The chakra commit the agentchat build came from, as `make tbench-build`
+        recorded it, so each trial's result names the code it ran."""
+        stamp = self._binary().parent / "VERSION"
+        try:
+            return stamp.read_text().strip() or None
+        except OSError:
+            return None
+
     def _binary(self) -> Path:
         path = Path(os.environ.get("CHAKRA_AGENTCHAT_BIN", _HERE / "bin" / "agentchat-linux-amd64"))
         if not path.is_file():
