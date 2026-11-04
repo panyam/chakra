@@ -1,4 +1,4 @@
-import { For, Match, Show, Switch, createEffect, createSignal } from "solid-js";
+import { Index, Match, Show, Switch, createEffect, createSignal } from "solid-js";
 import { SolidIsland } from "@panyam/tsappkit-solid";
 import { outputView, type ProcessControl, type ToolStore, type ToolCallEntry } from "./tools.js";
 import { TerminalOutput } from "./TerminalOutput.js";
@@ -104,7 +104,9 @@ export function Tools(props: { store: ToolStore }) {
           when={s.calls().length > 0}
           fallback={<div class="obs-empty">No tool calls yet. Each call and its result appear here; large results show as an offload stub.</div>}
         >
-          <For each={s.calls()}>{(c) => <Row call={c} control={s.control} />}</For>
+          {/* Index, not For: the store replaces a row's object on every update, and For
+              would remount the row, and its terminal, each time. Rows only append. */}
+          <Index each={s.calls()}>{(c) => <Row call={c()} control={s.control} />}</Index>
         </Show>
       </div>
     </div>

@@ -14,6 +14,10 @@ import type { FitAddon } from "@xterm/addon-fit";
 // terminal to be resized to match, and what the user types goes to the
 // process. Once it has exited, the view is read-only.
 
+// MIN_COLS and MIN_ROWS are the smallest fit the view takes.
+const MIN_COLS = 20;
+const MIN_ROWS = 3;
+
 let cssLoaded = false;
 function loadCSS(): void {
   if (cssLoaded) return;
@@ -43,21 +47,32 @@ export function TerminalOutput(props: TerminalProps) {
   let observer: ResizeObserver | undefined;
   let resizeTimer: ReturnType<typeof setTimeout> | undefined;
   let written = 0;
+  // ready is set once the view has its size. Output written before that would
+  // be reflowed when the size changes, and a line a progress bar redrew in
+  // place comes out garbled.
+  let ready = false;
 
   const flush = () => {
-    if (!term) return;
+    if (!term || !ready) return;
     const delta = props.rawTotal - written;
     if (delta <= 0) return;
     term.write(delta >= props.raw.length ? props.raw : props.raw.slice(props.raw.length - delta));
     written = props.rawTotal;
   };
 
-  // refit sizes the view to the panel. The process's terminal follows only
-  // while it runs, and at most every 150ms while a panel is being dragged.
+  // refit sizes the view to the panel while the process runs, and the
+  // process's terminal follows at most every 150ms while a panel is dragged.
+  // An exited process keeps the size it ran at. A hidden or collapsed panel
+  // proposes a size too small to use, so that waits for the next resize.
   const refit = () => {
-    if (!term || !fit || !props.running) return;
+    if (!term || !fit) return;
+    if (!props.running) {
+      ready = true;
+      return;
+    }
     const dims = fit.proposeDimensions();
-    if (!dims || !dims.cols || !dims.rows) return;
+    if (!dims || dims.cols < MIN_COLS || dims.rows < MIN_ROWS) return;
+    ready = true;
     if (dims.cols === term.cols && dims.rows === term.rows) return;
     term.resize(dims.cols, dims.rows);
     if (resizeTimer) clearTimeout(resizeTimer);
@@ -82,9 +97,12 @@ export function TerminalOutput(props: TerminalProps) {
     term.onData((data) => {
       if (props.running) props.onInput?.(data);
     });
-    flush();
     refit();
-    observer = new ResizeObserver(() => refit());
+    flush();
+    observer = new ResizeObserver(() => {
+      refit();
+      flush();
+    });
     observer.observe(el);
   });
 
