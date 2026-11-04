@@ -101,6 +101,27 @@ type DatasetAdapter struct {
 	// Types selects which question types to load, by the dataset's
 	// question_type. Nil loads every type.
 	Types func(questionType string) bool
+
+	// Arm prepares each instance for a system under test whose memory is not
+	// a MemoryStore. It runs once per instance, before the question, as the
+	// case's eval.SuiteCase.Setup. When set, the adapter seeds no haystack,
+	// so LongContext and NewStore are ignored. The arm gets the whole
+	// Instance and does its own ingestion.
+	//
+	// Picture an arm that extracts each session into versioned facts, then
+	// answers with tools that query them. It returns those tools, its own
+	// instructions, and the tokens the extraction spent. The report shows
+	// that spend as SetupUsage, apart from the question's Usage. An arm that
+	// returns no instructions keeps the default ones, which carry the
+	// question's date.
+	Arm func(context.Context, Instance) (eval.Setup, error)
+
+	// OfficialJudge grades each answer with LongMemEval's own prompt for its
+	// question type, from upstream's evaluate_qa.py, in place of this
+	// package's one generic rubric. Use it when the numbers will be set
+	// beside published ones. Like the rubric, it needs the eval_llm tag and
+	// a live provider, and without them each case fails as Ungradeable.
+	OfficialJudge bool
 }
 
 // Name identifies the suite in reports and skip messages.
@@ -225,24 +246,30 @@ func (a DatasetAdapter) caseFor(inst Instance) eval.SuiteCase {
 		Instructions: instructionsFor(inst),
 	}
 
-	if a.LongContext {
-		s.History = inst.history()
-	} else {
-		s.NewMemoryStore = a.storeFor(inst)
+	sc := eval.SuiteCase{Scenario: s}
+	switch {
+	case a.Arm != nil:
+		sc.Setup = func(ctx context.Context) (eval.Setup, error) { return a.Arm(ctx, inst) }
+	case a.LongContext:
+		sc.Scenario.History = inst.history()
+	default:
+		sc.Scenario.NewMemoryStore = a.storeFor(inst)
 	}
 
-	rubric := rubricFor(inst)
-	return eval.SuiteCase{
-		Scenario: s,
-		Scorers: func(p agent.Provider) []eval.Scorer {
-			// No deterministic scorer here. The expected answers are free-form
-			// prose, so a substring check would fail correct paraphrases and
-			// pass answers that merely quote the question. The rubric does the
-			// grading. So without the eval_llm tag these cases report
-			// Ungradeable rather than passing vacuously.
-			return appendRubric(nil, p, rubric)
-		},
+	if a.OfficialJudge {
+		sc.Scorers = func(p agent.Provider) []eval.Scorer { return appendOfficial(nil, p, inst) }
+		return sc
 	}
+	rubric := rubricFor(inst)
+	sc.Scorers = func(p agent.Provider) []eval.Scorer {
+		// No deterministic scorer here. The expected answers are free-form
+		// prose, so a substring check would fail correct paraphrases and
+		// pass answers that merely quote the question. The rubric does the
+		// grading. So without the eval_llm tag these cases report
+		// Ungradeable rather than passing vacuously.
+		return appendRubric(nil, p, rubric)
+	}
+	return sc
 }
 
 // history flattens the haystack into seeded conversation, for long-context

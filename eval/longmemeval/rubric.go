@@ -28,3 +28,12 @@ func appendRubric(scorers []eval.Scorer, _ agent.Provider, rubric string) []eval
 	return append(scorers, eval.Ungradeable("Rubric",
 		"this case is graded by an LLM rubric; run with -tags eval_llm and a live provider"))
 }
+
+// appendOfficial marks a case for the official judge as ungraded in the
+// default build, for the reason appendRubric gives. officialScorer itself
+// builds everywhere, but it would call the suite's provider as a judge, and
+// the default build never calls a model to grade.
+func appendOfficial(scorers []eval.Scorer, _ agent.Provider, _ Instance) []eval.Scorer {
+	return append(scorers, eval.Ungradeable("Official",
+		"this case is graded by LongMemEval's own judge prompts; run with -tags eval_llm and a live provider"))
+}

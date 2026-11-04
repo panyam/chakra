@@ -42,6 +42,20 @@ repo ships that stack, and a small-context model can only compete in this mode.
 Published baselines mostly report this mode. When a haystack exceeds the
 model's window, the case fails rather than scores.
 
+There are also two ways to grade. By default every answer is graded against
+one generic rubric of ours. `OfficialJudge: true` uses LongMemEval's own judge
+prompts instead, one per question type. We copied them verbatim from
+`src/evaluation/evaluate_qa.py` at commit `9e0b455`, under the same MIT
+license. `testdata/evaluate_qa.py` holds the upstream function, and a test
+checks our copy against it. Use the official prompts when the numbers will sit
+beside published ones.
+
+A host whose memory isn't a `MemoryStore` sets `Arm`. It runs once per
+question, ingests the haystack its own way, and returns the tools and
+instructions the question runs with. The suite report keeps the tokens and time
+of that ingestion apart from the question's, and with `Suite.Prices` set it
+gives a cost per correct answer.
+
 Numbers from either mode are ours, not the benchmark authors'. Any comparison
 to published results should say which mode produced it.
 
