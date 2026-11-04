@@ -145,12 +145,14 @@ Ask these in order.
 2. **Is it about the user's input, or context for the whole turn?** Turn
    start. Durable stage if the session should remember it, transient if not.
 3. **Does it need to see or change what one model call sends** (messages,
-   tools, budget, which provider answers it)? A `StepStage`, before each
+   tools, budget, grammar, which provider answers it)? A `StepStage`, before each
    model call; an extension contributes one through `Extension.StepStages`.
    Pick its scope by how long its output should live. A stage can route a
    call to another provider through `StepView.Provider`. Like the tool set,
    that route has request scope only, so the next step starts back on the
-   configured provider.
+   configured provider. `StepView.Guided` works the same way for the
+   decoding constraint. A request stage may switch or clear the turn's
+   `ResponseGuided` for one call.
 4. **Does it act on one tool call** (its arguments, whether it runs, its
    result)? Tool middleware, placed by the ordering rules above. When a human
    makes the decision, it goes through the gate, not through new middleware.

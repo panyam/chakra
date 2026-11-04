@@ -222,6 +222,9 @@ type RunnerConfig struct {
 	// The turn fails with ErrUnsupportedParam before any model call when the
 	// provider's Capabilities can't send the requested kind. It fails with an
 	// error when ResponseSchema is also set. Nil means no constraint.
+	//
+	// It is each step's starting grammar. A ScopeRequest StepStage may
+	// replace or clear it for one call through StepView.Guided (#259).
 	ResponseGuided *GuidedDecoding
 
 	// TurnEnd runs, in order, each time the model answers without calling a
@@ -408,7 +411,9 @@ type TurnRequest struct {
 
 	// ResponseGuided overrides RunnerConfig.ResponseGuided for this turn. It
 	// suits a caller whose grammar differs per request, for example a grammar
-	// built from the vocabulary of one query. Nil keeps the config's.
+	// built from the vocabulary of one query. Nil keeps the config's. A
+	// grammar that changes between calls inside the turn goes through
+	// StepView.Guided instead.
 	ResponseGuided *GuidedDecoding
 }
 
@@ -533,7 +538,7 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 				return nil, r.failSpan(emit, turnSpan, fmt.Errorf("agent: listing tools: %w", err))
 			}
 		}
-		working, recorded, view, err := runStepChain(stepCtx, chain, StepInfo{Step: step, MaxSteps: r.cfg.MaxSteps, Usage: usage}, msgs, tools)
+		working, recorded, view, err := runStepChain(stepCtx, chain, StepInfo{Step: step, MaxSteps: r.cfg.MaxSteps, Usage: usage}, msgs, tools, guided)
 		if err != nil {
 			stepSpan.RecordError(err)
 			stepSpan.End()
@@ -552,23 +557,23 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 			Tools:        tools,
 		}
 		gen.applyTo(&stepReq)
-		stepGuided := guided != nil && len(tools) == 0
-		if stepGuided {
-			stepReq.Guided = guided
-		}
 		prov := r.cfg.Provider
 		if view.Provider == nil && view.ProviderName != "" {
 			defaultName = view.ProviderName
 		}
 		if view.Provider != nil {
 			prov = view.Provider
-			if stepGuided && !CapabilitiesOf(prov).CanGuide(guided) {
-				err := fmt.Errorf("%w: ResponseGuided (step %d is routed to %q, which can't send this kind of constraint)", ErrUnsupportedParam, step, view.ProviderName)
-				stepSpan.RecordError(err)
-				stepSpan.End()
-				return nil, r.failSpan(emit, turnSpan, err)
-			}
 			stepSpan.SetAttribute("agent.provider", view.ProviderName)
+		}
+		stepGuided := view.Guided
+		sendGuided := stepGuided != nil && len(tools) == 0
+		if err := r.checkStepGuided(stepGuided, guided, sendGuided, prov, compiled != nil, step, view.ProviderName); err != nil {
+			stepSpan.RecordError(err)
+			stepSpan.End()
+			return nil, r.failSpan(emit, turnSpan, err)
+		}
+		if sendGuided {
+			stepReq.Guided = stepGuided
 		}
 		stream, err := prov.Stream(stepCtx, stepReq)
 		if err != nil {
@@ -600,11 +605,11 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 
 		if len(resp.ToolCalls) == 0 {
 			info := TurnEndInfo{Step: step, MaxSteps: r.cfg.MaxSteps, Text: resp.Text, Usage: usage}
-			if guided != nil && !stepGuided {
+			if stepGuided != nil && !sendGuided {
 				// msgs ends with the free answer; the guided call answers from
 				// what came before it.
 				before := usage
-				text, err := r.finalizeGuided(ctx, turnInstructions, msgs[:len(msgs)-1], &usage, gen, guided)
+				text, err := r.finalizeGuided(ctx, turnInstructions, msgs[:len(msgs)-1], &usage, gen, stepGuided)
 				byModel.addDelta(defaultName, before, usage)
 				if err != nil {
 					stepSpan.RecordError(err)
@@ -887,6 +892,37 @@ func (r *Runner) finalizeStructured(ctx context.Context, instructions string, ms
 			Message{Role: RoleUser, Text: "That answer doesn't match the required JSON schema: " + invalid + ". Reply with only a JSON document that matches it."})
 	}
 	return core.NewRawJSON(json.RawMessage(last)), invalid, nil
+}
+
+// checkStepGuided refuses a step's grammar before the call. g is the step's
+// grammar, and turn is the turn's, which RunTurn already checked against
+// RunnerConfig.Provider. A grammar a stage set is checked for one kind and
+// for a ResponseSchema beside it. Then g is checked against the provider that
+// will send it: prov when send is true, and RunnerConfig.Provider, which runs
+// the finalize, when it is not.
+func (r *Runner) checkStepGuided(g, turn *GuidedDecoding, send bool, prov Provider, hasSchema bool, step int, provName string) error {
+	if g == nil {
+		return nil
+	}
+	if g != turn {
+		if hasSchema {
+			return fmt.Errorf("agent: step %d: a stage set a grammar beside ResponseSchema; a turn's answer takes one constraint", step)
+		}
+		if _, err := g.kind(); err != nil {
+			return fmt.Errorf("agent: step %d's grammar: %w", step, err)
+		}
+	}
+	target := r.cfg.Provider
+	if send {
+		target = prov
+	}
+	if CapabilitiesOf(target).CanGuide(g) {
+		return nil
+	}
+	if target != r.cfg.Provider {
+		return fmt.Errorf("%w: step %d's grammar (the step is routed to %q, which can't send this kind of constraint)", ErrUnsupportedParam, step, provName)
+	}
+	return fmt.Errorf("%w: step %d's grammar (the provider can't send this kind of constraint)", ErrUnsupportedParam, step)
 }
 
 // finalizeGuided makes the one constrained call that writes a guided answer
