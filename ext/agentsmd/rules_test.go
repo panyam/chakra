@@ -1,6 +1,9 @@
 package agentsmd
 
 import (
+	"context"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -139,4 +142,125 @@ func TestGlobRulesWorkWithSubdirsOff(t *testing.T) {
 	if b := block(t, e); !strings.Contains(b, "Run gofmt.") {
 		t.Errorf("block =\n%s", b)
 	}
+}
+
+func transform(t *testing.T, e *Extension, input string) {
+	t.Helper()
+	for _, fn := range e.InputTransforms() {
+		got, err := fn(context.Background(), input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != input {
+			t.Errorf("the transform changed the message to %q; a mentioned rule belongs in the block, not in history", got)
+		}
+	}
+}
+
+func TestManualRuleAppliesOnceMentioned(t *testing.T) {
+	e := newExt(t, preset(t, "cursor"), "", cursorTree(t))
+	var said []string
+	e.SetAnnounce(func(l string) { said = append(said, l) })
+	prompt(e)
+	transform(t, e, "mail me at someone@rare.com")
+	absent(t, "after an email address", block(t, e), "Only when mentioned.")
+
+	transform(t, e, "fix this, and follow @rare and @style.mdc")
+	b := block(t, e)
+	inOrder(t, "block", b, "rare.mdc (rule, applies since you mentioned @rare)", "Only when mentioned.")
+	if strings.Contains(b, "Always use tabs.") {
+		t.Errorf("mentioning an always rule repeated it in the block:\n%s", b)
+	}
+	transform(t, e, "@rare again")
+	if b := block(t, e); strings.Count(b, "Only when mentioned.") != 1 {
+		t.Errorf("a second mention repeated the rule:\n%s", b)
+	}
+	inOrder(t, "announcements", strings.Join(said, "\n"), "applied when you write @name: .cursor/rules/rare.mdc", "Rule .cursor/rules/rare.mdc applies, since you mentioned @rare.")
+}
+
+func TestGlobalRulesComeFromHome(t *testing.T) {
+	home := tree(t, map[string]string{
+		".claude/rules/mine.md": "My own rule.",
+		".claude/rules/go.md":   "---\npaths: \"**/*.go\"\n---\nRun gofmt everywhere.",
+	})
+	root := tree(t, map[string]string{"CLAUDE.md": "Claude file.", ".claude/rules/proj.md": "Project rule."})
+	e := newExt(t, preset(t, "claude"), home, root)
+	inOrder(t, "prompt", prompt(e), "Claude file.", "mine.md (your rule, applies always)", "My own rule.", "Project rule.")
+	absent(t, "prompt", prompt(e), "Run gofmt everywhere.")
+	call(t, e, map[string]any{"path": "cmd/x/main.go"})
+	inOrder(t, "block", block(t, e), "cmd/x/main.go matches **/*.go", "Run gofmt everywhere.")
+}
+
+func TestNestedRulesApplyWithinTheirDirectory(t *testing.T) {
+	root := tree(t, map[string]string{
+		".git/":                         "",
+		"AGENTS.md":                     "Agents file.",
+		"pkg/.cursor/rules/local.mdc":   "---\nalwaysApply: true\n---\nPkg rule.",
+		"pkg/.cursor/rules/lib.mdc":     "---\nglobs: lib/*.ts\n---\nPkg lib rule.",
+		"pkg/.cursor/rules/release.mdc": "---\ndescription: Releasing pkg\n---\nBump the version.",
+	})
+	e := newExt(t, preset(t, "cursor"), "", root)
+	absent(t, "prompt", prompt(e), "Pkg rule.", "Releasing pkg")
+	call(t, e, map[string]any{"path": "lib/a.ts"})
+	absent(t, "before pkg is touched", block(t, e), "Pkg rule.", "Pkg lib rule.")
+
+	call(t, e, map[string]any{"path": "pkg/main.go"})
+	b := block(t, e)
+	inOrder(t, "block", b, "local.mdc (rule, applies within "+filepath.Join(root, "pkg")+")", "Pkg rule.", "Releasing pkg")
+	absent(t, "block", b, "Pkg lib rule.")
+
+	call(t, e, map[string]any{"path": "pkg/lib/b.ts"})
+	inOrder(t, "block", block(t, e), "pkg/lib/b.ts matches lib/*.ts", "Pkg lib rule.")
+}
+
+func TestNestedRulesNeedLazySubdirs(t *testing.T) {
+	p := preset(t, "cursor")
+	p.Subdirs = SubdirsOff
+	if _, err := New(Config{Roots: []string{t.TempDir()}, Profile: p}); err == nil || !strings.Contains(err.Error(), "nestedRules") {
+		t.Errorf("err = %v, want a refusal naming nestedRules", err)
+	}
+}
+
+func TestNoticeShowsRuleEdits(t *testing.T) {
+	root := tree(t, map[string]string{
+		".git/":           "",
+		"AGENTS.md":       "Agents file.",
+		"rules/always.md": "Style v1.",
+		"rules/go.md":     "---\nglobs: \"*.go\"\n---\nGofmt v1.",
+	})
+	p := preset(t, "chakra")
+	p.Rules = []string{"rules"}
+	e := newExt(t, p, "", root)
+	var said []string
+	e.SetAnnounce(func(l string) { said = append(said, l) })
+	first := prompt(e)
+	call(t, e, map[string]any{"path": "main.go"})
+
+	write(t, filepath.Join(root, "rules/always.md"), "Style v2.")
+	write(t, filepath.Join(root, "rules/go.md"), "---\nglobs: \"*.go\"\n---\nGofmt v2.")
+	write(t, filepath.Join(root, "rules/new.md"), "Fresh rule.")
+	if prompt(e) != first {
+		t.Error("the system prompt changed after a rule edit")
+	}
+	b := block(t, e)
+	inOrder(t, "edited", b, "Style v2.", "Fresh rule.", "Gofmt v2.")
+	inOrder(t, "edited", b, "always.md (rule, applies always; changed during this session; this version replaces the one in the system prompt)")
+	inOrder(t, "edited", b, "new.md (rule, applies always; new since the system prompt was written)")
+	absent(t, "edited", b, "Style v1.", "Gofmt v1.")
+	inOrder(t, "announcements", strings.Join(said, "\n"), "Rules changed during this session: rules/always.md, rules/go.md.", "Rules added during this session: rules/new.md.")
+
+	os.Remove(filepath.Join(root, "rules/always.md"))
+	inOrder(t, "deleted", block(t, e), filepath.Join(root, "rules/always.md")+" no longer applies")
+}
+
+func TestFreezeKeepsRulesAsFirstRead(t *testing.T) {
+	root := cursorTree(t)
+	e := newExt(t, preset(t, "cursor"), "", root)
+	prompt(e)
+	call(t, e, map[string]any{"path": "src/app/main.ts"})
+	write(t, filepath.Join(root, ".cursor/rules/style.mdc"), "---\nalwaysApply: true\n---\nUse spaces now.")
+	write(t, filepath.Join(root, ".cursor/rules/ts.mdc"), "---\nglobs: src/**/*.ts\n---\nTypes are fine now.")
+	b := block(t, e)
+	absent(t, "block", b, "Use spaces now.", "Types are fine now.")
+	inOrder(t, "block", b, "Prefer interfaces over types.")
 }

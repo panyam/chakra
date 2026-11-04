@@ -34,13 +34,23 @@ preset unless `WorkspaceConfig.Instructions` names another. In a workspace file:
 | `@path` imports, stripped HTML comments | no | yes | no | no |
 | Size cap, all files together | 32 KiB | none | none | 32 KiB |
 | Rule folders | none | `.claude/rules` | `.cursorrules`, `.cursor/rules` | none |
+| User rule folders | none | `~/.claude/rules` | none | none |
+| Rule folders in subdirectories | none | none | `.cursor/rules`, once a tool call names a path there | none |
 
 The Codex column follows its documentation for `AGENTS.md` discovery. The Claude column follows
 Claude Code's memory documentation, with one difference. Claude Code re-reads its root file after a
 compaction, and this preset doesn't.
 
 The Cursor column follows Cursor's rules documentation. Cursor also reads `AGENTS.md`, and its
-older single `.cursorrules` file still works.
+older single `.cursorrules` file still works. Cursor keeps its user rules in its settings rather
+than in files, so the preset doesn't read them.
+
+The `chakra` preset reads no rule folders, because adding them would change what the coding
+harness loads. A workspace that wants them names them over the preset:
+
+```json
+{"instructions": {"preset": "chakra", "rules": [".cursor/rules", ".claude/rules"]}}
+```
 
 ## Rule folders
 
@@ -52,7 +62,7 @@ is read recursively for `.md` and `.mdc` files. Each rule's frontmatter says whe
 | `alwaysApply: true`, or a `.md` file with none of the keys below | always, in the system prompt after the startup chain |
 | `globs:` (Cursor) or `paths:` (Claude Code) | once a tool call names a matching path, in the per-call block |
 | `description:` only | listed in the system prompt with its path, so the model reads it when the task matches |
-| none of these, in a `.mdc` file | Cursor's manual rule, which applies only when mentioned, so it isn't loaded |
+| none of these, in a `.mdc` file | Cursor's manual rule, which applies once the user writes `@name` |
 
 A glob is relative to the workspace root. `**` spans directories, a trailing `/` means everything
 under a directory, and a glob with no `/` matches the file name at any depth (`*.tsx`). Values can
@@ -60,8 +70,22 @@ be a comma-separated string, a `[flow, list]` or `- item` lines. The frontmatter
 line rather than as YAML, because Cursor writes `globs: *.ts` unquoted, and YAML would read that
 as an alias.
 
-Rules are read once, on the first turn. Each glob rule is shown once per session, the first time a
-path matches it, and the announcement names the path and the glob. A described rule goes through
+Two more fields add folders from elsewhere. `Profile.GlobalRules` names the user's own folders, such
+as `~/.claude/rules`, and their globs match paths under any workspace root. `Profile.NestedRules`
+names folders read inside each subdirectory the agent touches, as Cursor reads `.cursor/rules`
+there. A nested rule's globs are relative to its subdirectory, and a nested always rule applies
+within it. It needs `subdirs: lazy`, since that is what notices a touched subdirectory.
+
+A user applies a rule by writing `@name` in a message, where `name` is the rule's file name without
+`.mdc` or `.md`. The rule then joins the per-call block for the rest of the session. The message
+itself doesn't change, so the rule's text never enters history.
+
+Under `changes: freeze`, rules are read on the first turn, and a nested folder when its
+subdirectory is first touched. Under `changes: notice`, rules are re-read before every model call.
+An always rule that changed is shown with a note that it replaces the system prompt's version, a new
+one is shown as new, and a deleted one is named as no longer applying. A glob rule that already
+matched is shown at its current text. Each glob rule is shown once per session, from the first time
+a path matches it, and the announcement names the path and the glob. A described rule goes through
 the model's ordinary file tools, so the approval gate sees that read like any other.
 
 ## Where each part hooks in
@@ -71,6 +95,8 @@ the model's ordinary file tools, so the approval gate sees that read like any ot
 - **Subdirectory files** are found by a tool middleware. After a call that names a `path`, `dir` or
   `workdir`, it checks each directory between the workspace root and that path. `Config.Paths`
   replaces the argument names for other tools.
+- **`@name` mentions** are read by an input transform, which returns the message unchanged and
+  marks the rule as applied.
 - **Found and changed files** reach the model in a request-scoped step stage. The stage adds a
   system message before each model call and never writes it to history. It costs tokens on every
   call and survives compaction. Under `changes: notice` it also re-checks every directory read so

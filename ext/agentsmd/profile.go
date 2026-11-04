@@ -102,8 +102,24 @@ type Profile struct {
 	// recursively for .md and .mdc files. Each rule's frontmatter says when
 	// it applies: always, once a tool call names a path matching its globs,
 	// or, from its description alone, when the model judges it relevant (see
-	// rules.go). Rules are read once, when the first turn starts.
+	// rules.go). Under ChangesFreeze rules are read once, when the first
+	// turn starts. Under ChangesNotice an edited, added or deleted rule is
+	// shown to the model before the next model call. A user can also apply
+	// a rule by writing @name in a message, where name is the rule's file
+	// name without its extension.
 	Rules []string `json:"rules,omitempty"`
+
+	// GlobalRules are the user's own rule folders, read before Rules. A
+	// leading "~" is the home directory. A glob in one of these rules
+	// matches paths relative to whichever workspace root holds them.
+	GlobalRules []string `json:"globalRules,omitempty"`
+
+	// NestedRules are rule folders read inside each subdirectory the agent
+	// touches, such as Cursor's .cursor/rules. Their globs are relative to
+	// that subdirectory, and an always rule there applies within it. They
+	// need Subdirs set to SubdirsLazy, since that is what notices a touched
+	// subdirectory.
+	NestedRules []string `json:"nestedRules,omitempty"`
 
 	// MaxBytes caps the text of every file loaded, together. A file that
 	// crosses the cap is cut, and later ones are named as skipped. Zero or
@@ -125,12 +141,15 @@ const DefaultPreset = "chakra"
 //     CLAUDE.local.md in every directory above the working directory,
 //     AGENTS.md only when there is no CLAUDE.md, subdirectory files once the
 //     agent touches a file there, @path imports and stripped HTML comments,
-//     no size cap, and the rules in .claude/rules. Claude Code re-reads its
+//     no size cap, and the rules in .claude/rules and ~/.claude/rules. Claude Code re-reads its
 //     files after a compaction. This preset reads them once, so the two
 //     match until a session compacts.
 //   - cursor follows Cursor: AGENTS.md from the git root down, nested
 //     AGENTS.md once the agent touches a directory, then the legacy
-//     .cursorrules file and the rules in .cursor/rules, read once.
+//     .cursorrules file and the rules in .cursor/rules, read once,
+//     including a .cursor/rules folder in any subdirectory the agent
+//     touches. Cursor's user rules live in its settings rather than in
+//     files, so they aren't read.
 //   - chakra is Codex's file rules with lazy subdirectories and change
 //     notices, over every workspace root.
 var Presets = map[string]Profile{
@@ -157,6 +176,7 @@ var Presets = map[string]Profile{
 		Imports:       true,
 		StripComments: true,
 		Rules:         []string{".claude/rules"},
+		GlobalRules:   []string{"~/.claude/rules"},
 	},
 	"cursor": {
 		Names:       []string{"AGENTS.md"},
@@ -166,6 +186,7 @@ var Presets = map[string]Profile{
 		Subdirs:     SubdirsLazy,
 		Changes:     ChangesFreeze,
 		Rules:       []string{".cursorrules", ".cursor/rules"},
+		NestedRules: []string{".cursor/rules"},
 	},
 	"chakra": {
 		Names:    []string{"AGENTS.md", "CLAUDE.md"},
@@ -194,11 +215,16 @@ func Preset(name string) (Profile, error) {
 	p.Fallback = append([]string(nil), p.Fallback...)
 	p.Markers = append([]string(nil), p.Markers...)
 	p.Rules = append([]string(nil), p.Rules...)
+	p.GlobalRules = append([]string(nil), p.GlobalRules...)
+	p.NestedRules = append([]string(nil), p.NestedRules...)
 	return p, nil
 }
 
 func (p Profile) validate() error {
-	if len(p.Names) == 0 && p.Override == "" && p.Local == "" && len(p.Fallback) == 0 && len(p.Rules) == 0 {
+	if len(p.NestedRules) > 0 && p.Subdirs != SubdirsLazy {
+		return fmt.Errorf("agentsmd: nestedRules needs subdirs %q, which notices the subdirectories they are read in", SubdirsLazy)
+	}
+	if len(p.Names) == 0 && p.Override == "" && p.Local == "" && len(p.Fallback) == 0 && !p.hasRules() {
 		return fmt.Errorf("agentsmd: profile names no files")
 	}
 	switch p.Walk {
@@ -217,4 +243,9 @@ func (p Profile) validate() error {
 		return fmt.Errorf("agentsmd: changes %q, want %q or %q", p.Changes, ChangesFreeze, ChangesNotice)
 	}
 	return nil
+}
+
+// hasRules reports whether the profile reads any rule folder.
+func (p Profile) hasRules() bool {
+	return len(p.Rules) > 0 || len(p.GlobalRules) > 0 || len(p.NestedRules) > 0
 }

@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -65,9 +66,12 @@ type Extension struct {
 	subdirs   map[string]bool // every subdirectory scanned so far
 	frozen    map[string][]doc
 
-	rules    []rule
-	ruleHits []doc           // glob rules a tool call matched, in match order
-	ruleHit  map[string]bool // by rule path
+	startRules  []rule          // the rules read when the first turn started
+	promptRules map[string]rule // the ones the system prompt holds, by path
+	nested      map[string][]rule
+	hits        []ruleHit       // rules a path or a mention applied, in order
+	ruleHit     map[string]bool // by rule path
+	ruleTold    map[string]rule // what the user was last told, under ChangesNotice
 
 	announce func(string)
 	told     map[string]string // the text the user was last told about, by path
@@ -99,13 +103,21 @@ func New(cfg Config) (*Extension, error) {
 		home, _ = os.UserHomeDir()
 	}
 	return &Extension{
-		cfg:     cfg,
-		l:       loader{p: cfg.Profile, roots: roots, home: home, r: reader{cache: map[string]cachedFile{}}},
-		subdirs: map[string]bool{},
-		frozen:  map[string][]doc{},
-		ruleHit: map[string]bool{},
-		told:    map[string]string{},
+		cfg:         cfg,
+		l:           loader{p: cfg.Profile, roots: roots, home: home, r: reader{cache: map[string]cachedFile{}}},
+		subdirs:     map[string]bool{},
+		frozen:      map[string][]doc{},
+		ruleHit:     map[string]bool{},
+		promptRules: map[string]rule{},
+		nested:      map[string][]rule{},
+		ruleTold:    map[string]rule{},
+		told:        map[string]string{},
 	}, nil
+}
+
+// ruleHit is a glob or manual rule applied during the session, and why.
+type ruleHit struct {
+	path, why string
 }
 
 // SetAnnounce implements host.Announcer. The extension posts a line when it
@@ -170,7 +182,7 @@ func (e *Extension) PromptSections() []host.PromptSection {
 // it. It runs after the call, so a directory the call created counts, and it
 // never changes the call or its result.
 func (e *Extension) Middleware() []agent.ToolMiddleware {
-	if e.cfg.Profile.Subdirs != SubdirsLazy && len(e.cfg.Profile.Rules) == 0 {
+	if e.cfg.Profile.Subdirs != SubdirsLazy && !e.cfg.Profile.hasRules() {
 		return nil
 	}
 	return []agent.ToolMiddleware{func(ctx context.Context, info agent.ToolCallInfo, next agent.ToolCallFunc) (*core.ToolResult, error) {
@@ -195,7 +207,7 @@ func (e *Extension) Middleware() []agent.ToolMiddleware {
 // model call. The stage has request scope. The block is rebuilt for every call
 // and never joins the record.
 func (e *Extension) StepStages() []agent.StepStage {
-	if e.cfg.Profile.Subdirs != SubdirsLazy && e.cfg.Profile.Changes != ChangesNotice && len(e.cfg.Profile.Rules) == 0 {
+	if e.cfg.Profile.Subdirs != SubdirsLazy && e.cfg.Profile.Changes != ChangesNotice && !e.cfg.Profile.hasRules() {
 		return nil
 	}
 	return []agent.StepStage{{
@@ -214,6 +226,71 @@ func (e *Extension) StepStages() []agent.StepStage {
 	}}
 }
 
+// InputTransforms applies a rule the user mentions as @name, where name is
+// the rule's file name without its extension (#240). It returns the message
+// unchanged. The rule joins the block shown before each model call, as a
+// glob rule does once a path matches it, so its text never enters history.
+func (e *Extension) InputTransforms() []host.InputTransform {
+	if !e.cfg.Profile.hasRules() {
+		return nil
+	}
+	return []host.InputTransform{func(_ context.Context, input string) (string, error) {
+		names := mentions(input)
+		if len(names) == 0 {
+			return input, nil
+		}
+		e.mu.Lock()
+		e.load()
+		for _, r := range e.current() {
+			if r.kind == ruleAlways || e.ruleHit[r.path] || !names[r.name()] {
+				continue
+			}
+			e.ruleHit[r.path] = true
+			e.hits = append(e.hits, ruleHit{path: r.path, why: "you mentioned @" + r.name()})
+			e.say("Rule %s applies, since you mentioned @%s.", e.rel(r.path), r.name())
+		}
+		e.unlock()
+		return input, nil
+	}}
+}
+
+var mentionRE = regexp.MustCompile(`(?:^|[\s(])@([A-Za-z0-9][A-Za-z0-9_.-]*)`)
+
+// mentions returns the @names in a message, without a trailing .mdc or .md.
+func mentions(input string) map[string]bool {
+	out := map[string]bool{}
+	for _, m := range mentionRE.FindAllStringSubmatch(input, -1) {
+		n := strings.TrimRight(m[1], ".")
+		n = strings.TrimSuffix(strings.TrimSuffix(n, ".mdc"), ".md")
+		out[n] = true
+	}
+	return out
+}
+
+// current returns the rules as they are now. Under ChangesNotice that means
+// reading them again, which the stat cache keeps cheap. Otherwise it is the
+// startup rules plus the nested ones as each was first read. Called with mu
+// held.
+func (e *Extension) current() []rule {
+	dirs := make([]string, 0, len(e.nested))
+	for d := range e.nested {
+		dirs = append(dirs, d)
+	}
+	sort.Strings(dirs)
+	if e.cfg.Profile.Changes == ChangesNotice {
+		out := e.l.rules()
+		for _, d := range dirs {
+			out = append(out, e.l.nestedRules(d)...)
+		}
+		return out
+	}
+	out := slices.Clip(e.startRules)
+	for _, d := range dirs {
+		out = append(out, e.nested[d]...)
+	}
+	return out
+}
+
 // load reads the startup chain once. Called with mu held.
 func (e *Extension) load() {
 	if e.loaded {
@@ -222,15 +299,18 @@ func (e *Extension) load() {
 	e.loaded = true
 	e.chainDirs = e.l.chainDirs()
 	e.seenDocs = append(e.l.global(), e.l.chain(e.chainDirs)...)
-	e.rules = e.l.rules()
+	e.startRules = e.l.rules()
 	var always []doc
 	var described, manual []rule
-	for _, r := range e.rules {
+	for _, r := range e.startRules {
+		e.ruleTold[r.path] = r
 		switch r.kind {
 		case ruleAlways:
-			always = append(always, r.doc("rule, applies always"))
+			always = append(always, r.doc(r.alwaysLabel()))
+			e.promptRules[r.path] = r
 		case ruleDescription:
 			described = append(described, r)
+			e.promptRules[r.path] = r
 		case ruleManual:
 			manual = append(manual, r)
 		}
@@ -314,6 +394,18 @@ func (e *Extension) touch(path string) {
 		if len(docs) > 0 {
 			e.say("Instruction files found in %s: %s.", e.rel(d), e.rels(docs))
 		}
+		if len(e.cfg.Profile.NestedRules) > 0 {
+			rs := e.l.nestedRules(d)
+			e.nested[d] = rs
+			names := make([]string, len(rs))
+			for i, r := range rs {
+				names[i] = e.rel(r.path)
+				e.ruleTold[r.path] = r
+			}
+			if len(rs) > 0 {
+				e.say("Rules found in %s: %s.", e.rel(d), strings.Join(names, ", "))
+			}
+		}
 	}
 }
 
@@ -325,17 +417,18 @@ func (e *Extension) matchRules(p string) {
 	} else if dir, err := filepath.EvalSymlinks(filepath.Dir(p)); err == nil {
 		p = filepath.Join(dir, filepath.Base(p))
 	}
-	for _, r := range e.rules {
+	root := e.l.rootOf(p)
+	for _, r := range e.current() {
 		if r.kind != ruleGlob || e.ruleHit[r.path] {
 			continue
 		}
-		g := r.matches(p)
+		g := r.matches(p, root)
 		if g == "" {
 			continue
 		}
 		e.ruleHit[r.path] = true
 		why := e.rel(p) + " matches " + g
-		e.ruleHits = append(e.ruleHits, r.doc("rule, applies since "+why))
+		e.hits = append(e.hits, ruleHit{path: r.path, why: why})
 		e.say("Rule %s applies, since %s.", e.rel(r.path), why)
 	}
 }
@@ -343,12 +436,12 @@ func (e *Extension) matchRules(p string) {
 // announceRules says which rules loaded at startup. Called with mu held.
 func (e *Extension) announceRules(always []doc, described, manual []rule) {
 	var glob int
-	for _, r := range e.rules {
+	for _, r := range e.startRules {
 		if r.kind == ruleGlob {
 			glob++
 		}
 	}
-	if len(e.rules) == 0 {
+	if len(e.startRules) == 0 {
 		return
 	}
 	parts := []string{}
@@ -370,7 +463,7 @@ func (e *Extension) announceRules(always []doc, described, manual []rule) {
 		for i, r := range manual {
 			names[i] = e.rel(r.path)
 		}
-		parts = append(parts, "not loaded, since they apply only when mentioned: "+strings.Join(names, ", "))
+		parts = append(parts, "applied when you write @name: "+strings.Join(names, ", "))
 	}
 	e.say("Rules: %s.", strings.Join(parts, "; "))
 }
@@ -454,8 +547,10 @@ func (e *Extension) block() string {
 			docs = append(docs, s)
 		}
 	}
-	docs = append(docs, e.ruleHits...)
-	if len(docs) == 0 && len(gone) == 0 {
+	ruleDocs, listed, ruleGone := e.ruleBlock()
+	docs = append(docs, ruleDocs...)
+	gone = append(gone, ruleGone...)
+	if len(docs) == 0 && len(gone) == 0 && listed == "" {
 		return ""
 	}
 	remaining := 0
@@ -466,7 +561,107 @@ func (e *Extension) block() string {
 		}
 	}
 	body, _, _ := render(docs, remaining, gone)
+	if listed != "" {
+		if body != "" {
+			body += "\n\n"
+		}
+		body += listed
+	}
 	return blockHeader + "\n\n" + body
+}
+
+// ruleBlock returns the rules the system prompt doesn't already hold as
+// they are: always rules found or changed since, nested ones, and the ones a
+// path or a mention applied. It also returns a listing of description rules
+// in the same position, and the paths of prompt rules that no longer apply.
+// Under ChangesNotice it announces what changed. Called with mu held.
+func (e *Extension) ruleBlock() ([]doc, string, []string) {
+	cur := e.current()
+	by := make(map[string]rule, len(cur))
+	var docs []doc
+	var listed []rule
+	var gone []string
+	for _, r := range cur {
+		by[r.path] = r
+		label := r.alwaysLabel()
+		if pr, ok := e.promptRules[r.path]; ok {
+			if pr.same(r) {
+				continue
+			}
+			if pr.kind == ruleAlways && r.kind == ruleAlways {
+				docs = append(docs, r.doc(label+"; changed during this session; this version replaces the one in the system prompt"))
+				continue
+			}
+			gone = append(gone, pr.path)
+		} else if r.within == "" {
+			label += "; new since the system prompt was written"
+		}
+		switch r.kind {
+		case ruleAlways:
+			docs = append(docs, r.doc(label))
+		case ruleDescription:
+			listed = append(listed, r)
+		}
+	}
+	for _, h := range e.hits {
+		r, ok := by[h.path]
+		if !ok {
+			continue
+		}
+		if pr, ok := e.promptRules[h.path]; ok && pr.kind == ruleAlways && r.kind == ruleAlways {
+			continue
+		}
+		docs = append(docs, r.doc("rule, applies since "+h.why))
+	}
+	for p := range e.promptRules {
+		if _, ok := by[p]; !ok {
+			gone = append(gone, p)
+		}
+	}
+	sort.Strings(gone)
+	if e.cfg.Profile.Changes == ChangesNotice {
+		e.announceRuleChanges(by)
+	}
+	if len(listed) == 0 {
+		return docs, "", gone
+	}
+	var b strings.Builder
+	b.WriteString(describedHeader)
+	for _, r := range listed {
+		b.WriteString("\n- " + r.meta.description + " (" + r.path + ")")
+	}
+	return docs, b.String(), gone
+}
+
+// announceRuleChanges tells the user which rules changed, appeared or went
+// since they were last told. Called with mu held, under ChangesNotice.
+func (e *Extension) announceRuleChanges(now map[string]rule) {
+	var changed, added, gone []string
+	for p, r := range now {
+		old, ok := e.ruleTold[p]
+		switch {
+		case !ok:
+			added = append(added, e.rel(p))
+		case !old.same(r):
+			changed = append(changed, e.rel(p))
+		}
+		e.ruleTold[p] = r
+	}
+	for p := range e.ruleTold {
+		if _, ok := now[p]; !ok {
+			gone = append(gone, e.rel(p))
+			delete(e.ruleTold, p)
+		}
+	}
+	for _, l := range []struct {
+		what  string
+		paths []string
+	}{{"changed", changed}, {"added", added}, {"deleted", gone}} {
+		if len(l.paths) > 0 {
+			sort.Strings(l.paths)
+			e.say("Rules %s during this session: %s.", l.what, strings.Join(l.paths, ", "))
+		}
+	}
 }
 
 // announceChanges compares each file's text with what the user was last told
