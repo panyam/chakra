@@ -21,6 +21,9 @@ func procSource(t *testing.T, pc ProcessConfig) *Source {
 	if pc.MaxYield == 0 {
 		pc.MaxYield = 3 * time.Second
 	}
+	if pc.AllowDetach && pc.StateDir == "" {
+		pc.StateDir = t.TempDir()
+	}
 	src := mustSource(t, Config{
 		Roots:   []string{workspace(t)},
 		Shell:   &ShellConfig{Rules: testRules, Processes: &pc},
@@ -265,5 +268,17 @@ func TestDetachedCallAlwaysAsks(t *testing.T) {
 	q, _ := src.renderProcApproval(procCall(ExecCommandTool, map[string]any{"cmd": "python3 server.py", "detach": true}))
 	if !strings.Contains(q, "after this session ends") {
 		t.Errorf("ask doesn't say the process outlives the session: %q", q)
+	}
+}
+
+func TestDetachedProcessPollsMoreThanOnce(t *testing.T) {
+	src := procSource(t, ProcessConfig{AllowDetach: true})
+	_, sc := callProc(t, src, ExecCommandTool, map[string]any{"cmd": helperCmd(t, "tick"), "detach": true, "yield_ms": 300})
+	pid, _ := sc["pid"].(int)
+	t.Cleanup(func() { syscall.Kill(-pid, syscall.SIGKILL) })
+	for range 2 {
+		if out, _ := callProc(t, src, WriteStdinTool, map[string]any{"session_id": sc["session_id"], "yield_ms": 300}); !strings.Contains(out, "tick") {
+			t.Errorf("poll: %q", out)
+		}
 	}
 }

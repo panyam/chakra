@@ -18,3 +18,9 @@ func killProcessGroup(cmd *osexec.Cmd) {
 
 // setDetached is a no-op for the same reason as setProcessGroup.
 func setDetached(*osexec.Cmd) {}
+
+// killGroup does nothing, for the same reason as setProcessGroup.
+func killGroup(int) {}
+
+// lockDir takes no lock, for the same reason as setProcessGroup.
+func lockDir(string) (func(), error) { return func() {}, nil }

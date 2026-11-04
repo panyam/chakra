@@ -3,6 +3,7 @@
 package exec
 
 import (
+	"os"
 	osexec "os/exec"
 	"syscall"
 )
@@ -35,4 +36,26 @@ func killProcessGroup(cmd *osexec.Cmd) {
 // session lasts, since a session leader also leads its own group.
 func setDetached(cmd *osexec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+}
+
+// killGroup kills the group pid leads, or pid alone when there is no group.
+// It is for a process this session didn't start, so it has no *exec.Cmd.
+func killGroup(pid int) {
+	if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil {
+		_ = syscall.Kill(pid, syscall.SIGKILL)
+	}
+}
+
+// lockDir takes an exclusive lock on dir, so two sessions starting together
+// don't both adopt the same entry.
+func lockDir(dir string) (func(), error) {
+	f, err := os.Open(dir)
+	if err != nil {
+		return nil, err
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		f.Close()
+		return nil, err
+	}
+	return func() { syscall.Flock(int(f.Fd()), syscall.LOCK_UN); f.Close() }, nil
 }

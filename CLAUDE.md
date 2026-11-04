@@ -121,8 +121,10 @@ integrated with a dedicated engine.
   NOTES.md, Eval).
 - **A pty behaves differently on macOS and Linux**, so an `ext/exec` tty test can pass locally and
   fail in CI (NOTES.md, Testing). Run that module on Linux with Docker, from the worktree:
-  `docker run --rm -v ~/newstack:/src/newstack:ro -v ~/go/pkg/mod:/go/pkg/mod:ro -e GOFLAGS=-mod=mod
+  `docker run --rm --init -v ~/newstack:/src/newstack:ro -v ~/go/pkg/mod:/go/pkg/mod:ro -e GOFLAGS=-mod=mod
   -e GOPROXY=off -w /src/newstack/chakra/<branch>/ext/exec golang:1.26 go test -race ./...`
+  Keep `--init`. Without it nothing reaps orphans in the container, and
+  `TestATimeoutKillsTheWholeProcessTree` sees a zombie grandchild as alive and fails.
 - **A sandbox profile is only checked by a tagged live test.** `ext/exec`'s golden test covers
   profile generation and runs anywhere. CI is Linux and the backend is darwin-only, so **nothing in
   CI exercises a real sandbox**. Run `go test -tags exec_live ./...` in that module before believing

@@ -307,7 +307,7 @@ func TestLiveSandboxedCurlGoesThroughTheAllowlist(t *testing.T) {
 // still runs under the profile and outlives Close.
 func TestLiveDetachedProcessStaysConfined(t *testing.T) {
 	root := t.TempDir()
-	src, err := NewSource(Config{Roots: []string{root}, WritePaths: []string{}, Shell: &ShellConfig{Processes: &ProcessConfig{DefaultYield: 2 * time.Second, AllowDetach: true}}})
+	src, err := NewSource(Config{Roots: []string{root}, WritePaths: []string{}, Shell: &ShellConfig{Processes: &ProcessConfig{DefaultYield: 2 * time.Second, AllowDetach: true, StateDir: t.TempDir()}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -327,5 +327,29 @@ func TestLiveDetachedProcessStaysConfined(t *testing.T) {
 	}
 	if _, err := os.Stat(outside); err == nil {
 		t.Error("a detached process wrote outside every root")
+	}
+}
+
+// TestLiveDetachedExitCodeReachesALaterSession checks that the launch wrapper
+// records the exit code under a profile that allows no write outside the
+// root (#239). The registry sits outside the root, so the code has to go
+// through the file descriptor the parent opened.
+func TestLiveDetachedExitCodeReachesALaterSession(t *testing.T) {
+	root, state := t.TempDir(), t.TempDir()
+	open := func() *Source {
+		src, err := NewSource(Config{Roots: []string{root}, WritePaths: []string{}, Shell: &ShellConfig{Processes: &ProcessConfig{AllowDetach: true, StateDir: state}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { src.Close() })
+		return src
+	}
+	first := open()
+	callProc(t, first, ExecCommandTool, map[string]any{"cmd": "echo done; exit 7", "detach": true, "yield_ms": 1})
+	first.Close()
+	time.Sleep(500 * time.Millisecond)
+	second := open()
+	if out, _ := callProc(t, second, WriteStdinTool, map[string]any{"session_id": "p1"}); !strings.Contains(out, "done") || !strings.Contains(out, "[exited 7") {
+		t.Errorf("later session: %q, want the output and exit 7", out)
 	}
 }
