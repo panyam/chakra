@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createRoot } from "solid-js";
-import { createToolStore, detectOffload } from "./tools.js";
+import { createToolStore, detectOffload, outputView } from "./tools.js";
 import type { HostEvent, ToolResult } from "./hostevent.js";
 
 function begin(id: string, name: string, args?: unknown): HostEvent {
@@ -94,6 +94,35 @@ describe("process output", () => {
     ]);
     expect(res.calls[0]).toMatchObject({ output: "… 10 bytes dropped …\nok\n", streamPaused: true, exitCode: 1 });
     expect(res.calls[1]).toMatchObject({ process: "", output: "" });
+  });
+
+  it("keeps a tty process's escape sequences for the terminal view, and picks the view (#218)", () => {
+    const tty = { TTY: true, Cols: 120, Rows: 30 };
+    const res = run([
+      begin("c1", "exec_command"),
+      started("c1", "p1"),
+      out("p1", "\x1b[32mgreen\x1b[0m\r\n", tty),
+      out("p1", "10%\r100%\r\n", tty),
+    ]);
+    const c = res.calls[0];
+    expect(c).toMatchObject({ tty: true, cols: 120, rows: 30, raw: "\x1b[32mgreen\x1b[0m\r\n10%\r100%\r\n" });
+    expect(c.rawTotal).toBe(c.raw.length);
+    expect(c.output).toBe("green\r\n10%\r100%\r\n");
+    expect(outputView(c)).toBe("terminal");
+
+    const plain = run([begin("c2", "exec_command"), started("c2", "p2"), out("p2", "ok\n")]).calls[0];
+    expect(plain.tty).toBe(false);
+    expect(outputView(plain)).toBe("plain");
+    expect(outputView(run([begin("c3", "read_file")]).calls[0])).toBe("none");
+  });
+
+  it("counts every tty byte even once the kept tail is cut", () => {
+    const tty = { TTY: true, Cols: 120, Rows: 30 };
+    const big = "x".repeat(70_000);
+    const c = run([begin("c1", "exec_command"), started("c1", "p1"), out("p1", big, tty), out("p1", "END", tty)]).calls[0];
+    expect(c.rawTotal).toBe(70_003);
+    expect(c.raw.length).toBeLessThanOrEqual(64 * 1024);
+    expect(c.raw.endsWith("END")).toBe(true);
   });
 
   it("keeps only the tail of a long stream", () => {

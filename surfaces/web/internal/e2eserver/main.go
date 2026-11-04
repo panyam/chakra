@@ -1,7 +1,9 @@
 // Command e2eserver serves agentweb's page and API for the Playwright checks in
 // web/e2e. Chat has two connections, each over a StubProvider, so the header's
 // model picker has a choice to show. A "coding" profile is served at /code/
-// over a stub as well. Nothing needs a key or a network.
+// over a stub as well. Its first turn starts a fake tty process, which prints
+// colours and a redrawn progress line, for the terminal view (#218). Nothing
+// needs a key or a network.
 package main
 
 import (
@@ -11,10 +13,12 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 
 	agent "github.com/panyam/chakra"
 	"github.com/panyam/chakra/host"
 	web "github.com/panyam/chakra/surfaces/web"
+	"github.com/panyam/mcpkit/core"
 )
 
 func chatApp() (*host.App, error) {
@@ -29,9 +33,52 @@ func chatApp() (*host.App, error) {
 	return host.NewApp(cfg, io.Discard, strings.NewReader(""), host.WithProviderBuilder(build))
 }
 
+// ttyText is what the fake process prints: a green word, then a progress line
+// redrawn in place with a carriage return.
+const ttyText = "\x1b[32mgreen-ok\x1b[0m\r\nprogress 10%\rprogress 100%\r\n"
+
+// fakeProcs offers run_demo, which "starts" process p1 and reports its output
+// the way ext/exec reports a tty process.
+type fakeProcs struct {
+	host.BaseExtension
+	mu     sync.Mutex
+	report func(host.ProcessOutput)
+}
+
+func (f *fakeProcs) Name() string { return "e2e-procs" }
+
+func (f *fakeProcs) SetProcessOutput(report func(host.ProcessOutput)) {
+	f.mu.Lock()
+	f.report = report
+	f.mu.Unlock()
+}
+
+func (f *fakeProcs) Tools() (agent.ToolSource, error) {
+	src := agent.NewFuncSource()
+	def := core.ToolDef{Name: "run_demo", Description: "starts a demo process", InputSchema: map[string]any{"type": "object"}}
+	err := src.AddToolFunc(def, func(context.Context, map[string]any) (*core.ToolResult, error) {
+		f.mu.Lock()
+		report := f.report
+		f.mu.Unlock()
+		if report != nil {
+			report(host.ProcessOutput{Source: "e2e", ID: "p1", Command: "demo", Text: ttyText, TTY: true, Cols: 80, Rows: 6})
+			report(host.ProcessOutput{Source: "e2e", ID: "p1", Command: "demo", TTY: true, Cols: 80, Rows: 6, Exited: true})
+		}
+		return &core.ToolResult{
+			Content:           []core.Content{{Type: "text", Text: "$ demo"}},
+			StructuredContent: map[string]any{"session_id": "p1", "running": false},
+		}, nil
+	})
+	return src, err
+}
+
 func codingApp(context.Context) (*host.App, error) {
 	cfg := &host.Config{Model: host.ModelConfig{BaseURL: "coding", Model: "stub-coder"}}
-	return host.NewApp(cfg, io.Discard, strings.NewReader(""), host.WithProvider(agent.NewStubProvider()))
+	stub := agent.NewStubProvider(
+		agent.StubTurn{ToolCalls: []agent.ToolCall{{ID: "c1", Name: "run_demo", Args: core.NewRawJSON([]byte(`{}`))}}},
+		agent.StubTurn{Text: "demo done"},
+	)
+	return host.NewApp(cfg, io.Discard, strings.NewReader(""), host.WithProvider(stub), host.WithExtension(&fakeProcs{}))
 }
 
 func main() {

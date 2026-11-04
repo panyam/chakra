@@ -15,11 +15,17 @@ func startTTY(p *proc, sb Sandbox, policy Policy) error {
 	if err := sb.Confine(p.cmd, policy); err != nil {
 		return err
 	}
-	f, err := pty.Start(p.cmd)
+	f, err := pty.StartWithSize(p.cmd, &pty.Winsize{Cols: TTYCols, Rows: TTYRows})
 	if err != nil {
 		return err
 	}
 	p.stdin, p.closeIn = f, func() { f.Close() }
-	go io.Copy(p.out, f) // ends when the terminal closes
+	p.drained = make(chan struct{})
+	go func() {
+		// Ends at the terminal's EOF once the process and anything it left
+		// holding the terminal are gone, or when wait closes it.
+		io.Copy(p.out, f)
+		close(p.drained)
+	}()
 	return nil
 }

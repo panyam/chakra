@@ -90,6 +90,11 @@ export interface ProcessOutput {
   ID: string;
   Command?: string;
   Text?: string;
+  // TTY says the process runs on a terminal, so Text carries escape
+  // sequences; Cols and Rows are the terminal's size (#218).
+  TTY?: boolean;
+  Cols?: number;
+  Rows?: number;
   Dropped?: number;
   Paused?: boolean;
   Exited?: boolean;

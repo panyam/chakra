@@ -1,6 +1,7 @@
-import { For, Show, createEffect, createSignal } from "solid-js";
+import { For, Match, Show, Switch, createEffect, createSignal } from "solid-js";
 import { SolidIsland } from "@panyam/tsappkit-solid";
-import type { ToolStore, ToolCallEntry } from "./tools.js";
+import { outputView, type ToolStore, type ToolCallEntry } from "./tools.js";
+import { TerminalOutput } from "./TerminalOutput.js";
 
 // ToolsPanel lists tool calls with their args, status, and result preview, and
 // flags offloaded results (a stub + its ref). A row expands to show the full
@@ -8,7 +9,8 @@ import type { ToolStore, ToolCallEntry } from "./tools.js";
 // blob is fetched internally by the model via read_tool_result and is not
 // exposed on the web bridge, so an offloaded row shows the stub + ref, not the
 // full blob. A call that started a process shows its output live below the
-// row, as the process prints it (#214).
+// row, as the process prints it (#214). A tty process gets a terminal view, so
+// its colours and redrawn lines show as they would in a terminal (#218).
 
 const STATUS_CLASS: Record<ToolCallEntry["status"], string> = {
   running: "tool-running",
@@ -58,9 +60,14 @@ function Row(props: { call: ToolCallEntry }) {
         </Show>
         <span class="tool-preview">{c().preview}</span>
       </div>
-      <Show when={c().output}>
-        <LiveOutput text={c().output} />
-      </Show>
+      <Switch>
+        <Match when={outputView(c()) === "terminal"}>
+          <TerminalOutput raw={c().raw} rawTotal={c().rawTotal} cols={c().cols} rows={c().rows} />
+        </Match>
+        <Match when={outputView(c()) === "plain"}>
+          <LiveOutput text={c().output} />
+        </Match>
+      </Switch>
       <Show when={open()}>
         <div class="tool-detail">
           <Show when={c().args}>

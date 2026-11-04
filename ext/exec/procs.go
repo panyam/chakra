@@ -123,12 +123,44 @@ type proc struct {
 
 	done chan struct{}
 	exit int
+	// drained, when set, closes once the output copier has read everything
+	// the process wrote. Only a tty process has one: for a pipe, cmd.Wait
+	// already waits for the copy.
+	drained chan struct{}
 
 	// readMu serializes reads. Tool calls in one step run in parallel, and two
 	// calls on one process must not both claim the same output.
 	readMu sync.Mutex
 	// read is how much of the output the model has been shown.
 	read int64
+}
+
+// drainWait bounds how long wait holds done for a tty's copier. A background
+// child that still holds the terminal would otherwise keep it open for good.
+const drainWait = 2 * time.Second
+
+// wait reaps the process, records its exit code and closes done. By then
+// every byte the process wrote is in out, so a reader needs no grace period.
+// On Linux a terminal keeps what the process wrote after it exits, and
+// closing it before the copier reads that loses the end of the output.
+func (p *proc) wait() {
+	err := p.cmd.Wait()
+	p.exit = p.cmd.ProcessState.ExitCode()
+	if err != nil && p.exit == 0 {
+		p.exit = -1
+	}
+	if p.drained != nil {
+		t := time.NewTimer(drainWait)
+		select {
+		case <-p.drained:
+		case <-t.C:
+		}
+		t.Stop()
+	}
+	if p.closeIn != nil {
+		p.closeIn()
+	}
+	close(p.done)
 }
 
 // tailBuffer keeps the last max bytes written and counts everything, so a
@@ -360,17 +392,7 @@ func (s *Source) execCommand(args map[string]any) *core.ToolResult {
 		}
 		p.stdin, p.closeIn = in, func() { in.Close() }
 	}
-	go func() {
-		err := cmd.Wait()
-		p.exit = cmd.ProcessState.ExitCode()
-		if err != nil && p.exit == 0 {
-			p.exit = -1
-		}
-		if p.closeIn != nil {
-			p.closeIn()
-		}
-		close(p.done)
-	}()
+	go p.wait()
 
 	m.mu.Lock()
 	m.next++
@@ -394,10 +416,6 @@ func (m *procManager) collect(p *proc, d time.Duration, header string) *core.Too
 		case <-t.C:
 		}
 		t.Stop()
-	}
-	if !p.running() {
-		// Let the output copier drain what the process wrote before it exited.
-		time.Sleep(20 * time.Millisecond)
 	}
 	p.readMu.Lock()
 	text, pos, dropped := p.out.since(p.read)
@@ -611,6 +629,14 @@ func (s *Source) Close() error {
 	}
 	return nil
 }
+
+// TTYCols and TTYRows are the size of the terminal an exec_command with tty
+// gets. Without one the size is 0x0, and some programs then wrap at every
+// character or refuse to draw. Surfaces get the size on ProcessOutput.
+const (
+	TTYCols = 120
+	TTYRows = 30
+)
 
 // errNoTTY is returned where pseudo-terminals aren't supported.
 var errNoTTY = errors.New("tty is not supported on this platform")
