@@ -164,6 +164,10 @@ type App struct {
 	// registration order, appended after the host's own.
 	stepStages []agent.StepStage
 
+	// turnEndHooks are the extensions' turn-end hooks, in registration order.
+	// The main Runner runs them; sub-agents don't.
+	turnEndHooks []agent.TurnEndHook
+
 	// toolOrigins records what each source id IS, so spotlight provenance comes
 	// from a tool's origin rather than from config. An origin is recorded where
 	// its source is added. Later, a server id and an extension name are both
@@ -731,6 +735,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	}
 	runnerCfg.ToolMiddleware = append(runnerCfg.ToolMiddleware, extMW...)
 	runnerCfg.StepStages = append(runnerCfg.StepStages, app.stepStages...)
+	runnerCfg.TurnEnd = app.turnEndHooks
 	if app.connections != nil && len(cfg.Connections.StepRoutes) > 0 {
 		runnerCfg.StepStages = append(runnerCfg.StepStages,
 			StepRouteStage(cfg.Connections.StepRoutes, app.connections.Provider, app.connections.Active))
@@ -870,7 +875,9 @@ func (a *App) ReconnectServer(id string) {
 // pre-turn state (and persists nothing) so the next attempt is clean. A turn that
 // runs out of budget (agent.ErrMaxSteps, agent.ErrContextBudget) is the
 // exception. It keeps the user message and what it produced, so a "keep going"
-// turn picks up where it stopped.
+// turn picks up where it stopped. A turn that an extension's turn-end hook
+// stopped (agent.ErrTurnStopped) is kept the same way, with the refused answer
+// last.
 func (a *App) RunTurn(ctx context.Context, input string) error {
 	return a.RunTurnWith(ctx, input, TurnOptions{})
 }
@@ -1001,9 +1008,12 @@ func (a *App) runOneTurn(ctx context.Context, input string, opts TurnOptions, an
 	}
 	if err != nil {
 		// The step cap and the context budget stop a turn that was otherwise
-		// fine, so its messages are worth keeping (issues 109 and 7). Other
-		// failures still roll back.
-		if result != nil && (errors.Is(err, agent.ErrMaxSteps) || errors.Is(err, agent.ErrContextBudget)) {
+		// fine, so its messages are worth keeping (issues 109 and 7). A
+		// turn-end hook's Stop ends a turn normally, and the refused answer
+		// is the record the hook asked to keep (#223). Other failures still
+		// roll back.
+		if result != nil && (errors.Is(err, agent.ErrMaxSteps) || errors.Is(err, agent.ErrContextBudget) ||
+			errors.Is(err, agent.ErrTurnStopped)) {
 			kept := agent.DropUnansweredToolCalls(result.Messages)
 			a.history = append(a.history, kept...)
 			if pe != nil {
