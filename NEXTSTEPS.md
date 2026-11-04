@@ -22,6 +22,6 @@ Where each line of work left off. Work items live in GitHub issues; this file po
 - **Last touched**: 2026-11-03 (local:~/newstack/chakra/second)
 - **Ticket**: mission #162. No branch is open from this clone.
 - **Why**: build a Codex-equivalent from chakra primitives and measure it against Codex on Terminal-Bench 2 (#195, with the adapter and targets in `examples/terminal-bench`).
-- **Where it stopped**: v0.2.8 is tagged and released. `escalation_asked` still fails live with "no ask raised" (log on #162 at 8bee819). The remote branches `code-sessions`, `detached-registry`, `rule-folders` and `tty-control` are merged but not deleted.
+- **Where it stopped**: v0.2.8 is tagged and released. `escalation_asked` still fails live with "no ask raised" (log on #162 at 8bee819).
 - **Next action**: take #195 with /start-pr. Start from why `escalation_asked` fails live, and rerun `make tbench` on the hard task set from #247.
 - **Open questions**: whether to report judge tokens on the eval report. PR 251 left them out, and nobody has asked for them yet. Whether the coding harness should use a turn-end hook for a "tests still red" check now that #253 lets it.
