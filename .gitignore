@@ -66,3 +66,6 @@ surfaces/web/web/dist/
 # agentweb deploy: the App Engine access token and the generated deploy config.
 surfaces/web/.agentweb-token
 surfaces/web/app.deploy.yaml
+
+# Rendered by `make tbench-matrix` from benchmarks/results/, which is the checked-in history.
+benchmarks/matrix/

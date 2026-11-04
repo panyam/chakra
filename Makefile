@@ -34,7 +34,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/h
 # explicitly and the platform's own backend refuses. See the module README.
 GOTESTFLAGS ?= -race -timeout 300s
 
-.PHONY: help build test test-examples test-web test-web-e2e testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report deploy-web weblogs \
+.PHONY: help build test test-examples test-web test-web-e2e testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report tbench-ingest tbench-matrix tbench-stale deploy-web weblogs \
         check-no-binaries check-ext-isolation check-dep-consistency setup-hooks
 
 help: ## Show this help
@@ -224,10 +224,16 @@ TB_TASKS_STARTER := fix-git prove-plus-comm cobol-modernization kv-store-grpc po
 TB_TASKS_HARD := cancel-async-tasks configure-git-webserver fix-code-vulnerability polyglot-rust-c \
             password-recovery sparql-university write-compressor make-mips-interpreter
 TB_TASKS ?= $(if $(filter hard,$(TB_SET)),$(TB_TASKS_HARD),$(TB_TASKS_STARTER))
+# The matrix columns `make tbench` would fill with the current TB_AGENTS,
+# TB_MODEL and TB_EFFORT. tbench-stale picks cells from these only.
+TB_SETUPS = $(foreach a,$(TB_AGENTS),$(a)/$(subst /,-,$(TB_MODEL))/$(or $(TB_EFFORT),default))
+N ?= 10
+BUDGET ?= 5
 
 tbench-build: ## Static Linux agentchat for the Terminal-Bench containers (amd64, as the task images are)
 	@mkdir -p examples/terminal-bench/bin
 	@cd surfaces/chat && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../../examples/terminal-bench/bin/agentchat-linux-amd64 .
+	@echo "$$(git rev-parse --short=12 HEAD)$$(git diff --quiet HEAD -- . || echo -dirty)" > examples/terminal-bench/bin/VERSION
 
 tbench: tbench-build ## Terminal-Bench 2 via Harbor: TB_AGENTS on TB_SET or TB_TASKS, TB_K attempts each (TB_MODEL=openai/gpt-5.5, TB_EFFORT=medium)
 	@for a in $(TB_AGENTS); do \
@@ -240,6 +246,17 @@ tbench: tbench-build ## Terminal-Bench 2 via Harbor: TB_AGENTS on TB_SET or TB_T
 
 tbench-report: ## Side-by-side markdown of the newest tbench job per agent in TB_JOBS
 	@python3 scripts/tbench_report.py $(TB_JOBS)
+
+tbench-ingest: ## Copy new Harbor jobs in TB_JOBS into benchmarks/results/, one JSON per job (safe to rerun)
+	@python3 scripts/tbench_matrix.py ingest $(TB_JOBS)
+
+tbench-matrix: ## Task x setup matrix of last runs from benchmarks/results/, as markdown and benchmarks/matrix/index.html
+	@python3 scripts/tbench_matrix.py render $(TB_PATH)
+
+tbench-stale: ## The N oldest or never-run cells of TB_SETUPS, up to BUDGET dollars at list price (N=10 BUDGET=5); RUN=1 runs them
+	@mkdir -p benchmarks/matrix && python3 scripts/tbench_matrix.py stale $(TB_PATH) $(N) $(BUDGET) --setups "$(TB_SETUPS)" > benchmarks/matrix/stale-picks
+	@cat benchmarks/matrix/stale-picks
+	@$(if $(RUN),while read -r cmd; do eval "$(MAKE) $${cmd#make }" || exit 1; done < benchmarks/matrix/stale-picks && $(MAKE) tbench-ingest)
 
 coding-harness-parity: ## codex exec vs the coding harness, same fixture and model, side by side (needs codex and OPENAI_API_KEY; PARITY_MODEL=gpt-5.5, PARITY_ACTIVE=openai, PARITY_INSTRUCTIONS=codex)
 	@bash scripts/coding-harness-parity.sh

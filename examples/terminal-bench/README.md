@@ -50,7 +50,49 @@ Codex. Chakra's default cap of 8 would end most tasks early. `agentchat exec --j
 lines, and the adapter reads token usage, steps, tool calls and denied asks from them. So those
 numbers show up in Harbor's results next to the other agents'.
 
-Things that bit the first runs (2026-11):
+## Run history and stale cells
+
+Each check used to mean another sweep, because nothing remembered which cells had run (#257).
+Three targets keep that record now. A cell is one task on one setup. A setup is agent + model +
+effort, written `chakra/openai-gpt-5.5/medium`.
+
+```
+make tbench-ingest                # new jobs in TB_JOBS -> benchmarks/results/<job>.json; safe to rerun
+make tbench-matrix                # every task x every setup, as markdown and benchmarks/matrix/index.html
+make tbench-stale N=10 BUDGET=5   # print the oldest or never-run cells of the current setups
+make tbench-stale RUN=1           # run them, one `make tbench` per setup, then ingest
+```
+
+`benchmarks/results/` is checked in, so `git log benchmarks/results/` gives the run history. Once a
+job is ingested, its folder under `TB_JOBS` can go. The matrix reads only the results folder.
+
+A cell reads `2/3 · Nov 3` for two solved out of three trials, last run on Nov 3. Chakra cells add
+`+4c` for four commits touching Go code or this folder since the build. `tbench-build` stamps the
+build's sha in `bin/VERSION`, and the adapter reports it as the agent version. Jobs from before the
+stamp get the last commit on main before the run, marked `?`. Codex cells show only the date, since
+we don't control when Codex changes.
+
+`tbench-stale` picks from the setups `make tbench` would run with the current `TB_AGENTS`,
+`TB_MODEL` and `TB_EFFORT`. Cells that never ran come first, then the oldest. Each cell's cost is
+that task's average past tokens at list price (`PRICES` in `scripts/tbench_matrix.py`). If the task
+never ran on this model, the estimate falls back to the median trial. Hard tasks cost more than the
+median, so the budget can undercount a batch of never-run tasks.
+
+Published runs come in as reference columns. The
+[leaderboard](https://huggingface.co/datasets/harborframework/terminal-bench-2-leaderboard)
+publishes each submission as plain Harbor job folders, so ingest reads them directly. Fetch a
+submission's `config.json` and trial `result.json` files, then run:
+
+```
+python3 scripts/tbench_matrix.py ingest <folder> --name ref-<agent>-<model>-<yyyy-mm> \
+    --source <submission url> --notes "<harness, model, effort, hardware, attempts>"
+```
+
+`ref-terminus2-claude-opus-4.6-2026-02.json` is the first one. A reference column is never picked
+as stale. Its model, effort and hardware are the submitter's, so comparing it with our columns
+mixes harness with model. Codex stays a column we run, on chakra's model and provider.
+
+## Things that bit the first runs (2026-11)
 
 - Docker Desktop at 8 GB fell over partway through a run with two tasks at once under emulation.
   16 GB with `TB_CONCURRENT=1` got through every task. Move a crashed job's folder aside before
