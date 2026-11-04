@@ -11,10 +11,6 @@ Where each line of work left off. Work items live in GitHub issues; this file po
 - main is next on #195 (see the main thread).
 - tty-control is on #249 (PR #252). After it merges, run the exercises and log them on #162.
 - This run merged in another clone's checkpoint from main: #243 merged as PR #248, and #246 as PR #251. Before that, a six-issue batch merged as #229, #232, #235, #241, #245 and #250, closing #225, #187, #184, #178 and #218. #32 was closed on 2026-11-03 with no linked PR.
-- Mission #162 (`mission_coding_harness`) is active, with 30 of 32 tickets closed. The scripted, live and parity exercises last ran on 2026-11-03 at b19787d, after #250. The next ready issue is #195 (P1), then #239.
-- Mission #142 (`mission_api_v1`) is paused, not closed. Its exercise is `make api-report` (#143).
-- tty-control is on #249 (PR #252). Next, after it merges, run the exercises and log them on #162.
-- In this run, a six-issue batch merged as #229, #232, #235, #241, #245 and #250. It closed #225, #187, #184, #178 and #218. I dropped the old `main` thread, since its next steps are done (#215 via #226, and the Terminal-Bench reruns via #247). #32 was closed on 2026-11-03 with no linked PR.
 
 ## Across threads
 
@@ -37,5 +33,4 @@ Where each line of work left off. Work items live in GitHub issues; this file po
 - **Ticket**: #249 (PR #252).
 - **Why**: #218's terminal view drew at a fixed 120x30 and was read-only. This lets a surface resize a tty and type into it.
 - **Where it stopped**: Everything is committed and pushed: `host.ProcessController`, the `ResizeProcess` and `WriteProcess` RPCs, the view's fit and input, agentchat's sizer, and the `<Index>` fix for the remount loop. `make test`, `make test-examples`, vitest, Playwright, and `ext/exec` on Linux in Docker all pass.
-- **Where it stopped**: Everything is committed and pushed: `host.ProcessController`, the `ResizeProcess` and `WriteProcess` RPCs, the view's fit and input, and agentchat's sizer. `make test`, `make test-examples`, vitest, Playwright, and `ext/exec` on Linux in Docker all pass.
 - **Next action**: after PR #252 merges, run `make coding-harness-exercise`, `-live` and `coding-harness-parity`, and log them on #162. Then remove this thread.
