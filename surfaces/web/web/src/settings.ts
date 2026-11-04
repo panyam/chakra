@@ -15,7 +15,8 @@ export interface ProviderEntry {
   apiKey: string;
 }
 
-// SessionEntry is one session this browser created. The provider is copied in
+// SessionEntry is one session this browser created, or one the server's roster
+// listed that this browser hadn't seen (#244). The provider is copied in
 // as a label, so deleting a provider doesn't orphan the session's name.
 export interface SessionEntry {
   id: string;
@@ -36,6 +37,9 @@ export interface Settings {
   active: string;
   // activeProfiles is the session each profile's page shows, by profile.
   activeProfiles: Record<string, string>;
+  // closed holds the ids this browser closed. A server with a session store
+  // still lists them, and the roster sync skips them.
+  closed?: string[];
 }
 
 // SettingsStorage is the Web Storage subset this needs, so tests pass a fake.
@@ -68,6 +72,7 @@ export function loadSettings(storage: SettingsStorage | null): Settings {
       sessions: Array.isArray(p.sessions) ? p.sessions : [],
       active: typeof p.active === "string" ? p.active : "",
       activeProfiles: stringMap(p.activeProfiles),
+      closed: Array.isArray(p.closed) ? p.closed.filter((x): x is string => typeof x === "string") : [],
     };
   } catch {
     return emptySettings();

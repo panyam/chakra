@@ -39,7 +39,7 @@ func profileServer(t *testing.T, opts ...Option) (*httptest.Server, webv1connect
 }
 
 var codingProfile = func(t *testing.T) Profile {
-	return Profile{Name: "coding", Path: "/code/", Build: func(context.Context) (*host.App, error) { return modelApp(t, "coding-model"), nil }}
+	return Profile{Name: "coding", Path: "/code/", Build: func(context.Context, string) (*host.App, error) { return modelApp(t, "coding-model"), nil }}
 }
 
 // A CreateSession naming a profile gets that profile's App, and the session
@@ -78,7 +78,7 @@ func TestCreateSessionBuildsTheNamedProfile(t *testing.T) {
 }
 
 func TestCreateSessionRefusesAnUnknownOrFailingProfile(t *testing.T) {
-	failing := Profile{Name: "broken", Build: func(context.Context) (*host.App, error) { return nil, errors.New("needs OPENAI_API_KEY") }}
+	failing := Profile{Name: "broken", Build: func(context.Context, string) (*host.App, error) { return nil, errors.New("needs OPENAI_API_KEY") }}
 	_, client := profileServer(t, WithProfile(codingProfile(t)), WithProfile(failing))
 	ctx := context.Background()
 

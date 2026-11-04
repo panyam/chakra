@@ -56,6 +56,7 @@ export class AgentWebPage extends IslandPage<PageContext> {
     const sessions = createSessionsStore(base, storage, undefined, page);
     const client = scoped(base, sessions.activeId());
     const stores = createPanelStores(client, sessions);
+    void sessions.syncRoster();
     if (page.profile && !sessions.activeId()) {
       // ensureProfile reloads once the session exists, so nothing here
       // talks to the chat session in the meantime.

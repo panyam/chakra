@@ -58,12 +58,23 @@ type Profile struct {
 	// session of this profile when the browser has none. Empty serves no page.
 	Path string
 
-	// Build makes one session's App. Its error goes back to the caller as
-	// FailedPrecondition, so it should say what the server is missing.
-	Build func(ctx context.Context) (*host.App, error)
+	// Build makes the App for session id. Its error goes back to the caller
+	// as FailedPrecondition, so it should say what the server is missing.
+	// With a session store, Build also rebuilds a session after a restart,
+	// under the same id, so anything it keeps on disk should be found by the
+	// id. Session ids are unpredictable and safe to use as a directory name.
+	Build func(ctx context.Context, id string) (*host.App, error)
+
+	// Close removes what Build left on disk for session id. It runs once the
+	// session can't come back: when CloseSession closes it or the server shuts
+	// down, on a server with no session store, and when its creation fails.
+	// With a store the files stay, because the session can be resumed. Nil
+	// leaves everything in place.
+	Close func(id string)
 }
 
-// WithProfile adds a kind of session CreateSession can build by name.
+// WithProfile adds a kind of session CreateSession can build by name. Its
+// sessions' ids start with the name and a dash, so the name can't hold a dash.
 func WithProfile(p Profile) Option {
 	return func(s *HostService) { s.profiles = append(s.profiles, p) }
 }
@@ -114,10 +125,18 @@ func NewHostService(app *host.App) *HostService {
 // NewHostServiceWithSessions bridges a SessionManager, so one server hosts many
 // concurrent conversations. The manager's default session backs the empty
 // session_id; CreateSession mints new ones from the manager's factory.
+//
+// It panics on a profile whose name is empty, "chat" or holds a dash, since
+// that is a mistake in the server's own setup.
 func NewHostServiceWithSessions(mgr *SessionManager, opts ...Option) *HostService {
 	s := &HostService{sessions: mgr}
 	for _, o := range opts {
 		o(s)
+	}
+	for _, p := range s.profiles {
+		if err := mgr.addProfile(p); err != nil {
+			panic(err)
+		}
 	}
 	return s
 }
@@ -329,14 +348,9 @@ func (s *HostService) createProfileSession(ctx context.Context, name string) (*c
 			have = append(have, p.Name)
 			continue
 		}
-		app, err := p.Build(ctx)
+		id, err := s.sessions.CreateProfile(ctx, name)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("profile %q: %w", name, err))
-		}
-		id, err := s.sessions.Adopt(ctx, app)
-		if err != nil {
-			app.Close()
-			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		return connect.NewResponse(&webv1.CreateSessionResponse{SessionId: id}), nil
 	}
@@ -379,7 +393,7 @@ func (s *HostService) WriteProcess(ctx context.Context, req *connect.Request[web
 }
 
 // ListWebSessions returns the session_ids of every conversation the server
-// hosts. With a store configured, it returns the durable roster merged with
+// hosts, and each one's profile and page in sessions. With a store configured, it returns the durable roster merged with
 // any live-only ids. The durable roster holds every persisted run id, so a
 // restart still lists past sessions. Without a store, it returns the live
 // in-memory roster. Both include the default. ListSessions is different,
@@ -388,7 +402,20 @@ func (s *HostService) ListWebSessions(ctx context.Context, _ *connect.Request[we
 	if s.private {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("sessions are private on this server; the browser keeps its own list"))
 	}
-	return connect.NewResponse(&webv1.ListWebSessionsResponse{SessionIds: s.sessions.List(ctx)}), nil
+	ids := s.sessions.List(ctx)
+	paths := map[string]string{}
+	for _, p := range s.profiles {
+		paths[p.Name] = p.Path
+	}
+	resp := &webv1.ListWebSessionsResponse{SessionIds: ids}
+	for _, id := range ids {
+		profile, path := ProfileOf(id), "/"
+		if profile != "" {
+			path = paths[profile]
+		}
+		resp.Sessions = append(resp.Sessions, &webv1.WebSession{SessionId: id, Profile: profile, Path: path})
+	}
+	return connect.NewResponse(resp), nil
 }
 
 // CloseSession closes the App for session_id and drops it from the roster. An

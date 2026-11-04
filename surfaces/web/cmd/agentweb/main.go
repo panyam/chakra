@@ -61,6 +61,7 @@ func main() {
 	flag.StringVar(&co.active, "coding-active", "", "with --coding, the connection in its config.json to use (default: that config's active)")
 	flag.StringVar(&co.model, "coding-model", "", "with --coding, override that connection's model")
 	flag.StringVar(&co.instructions, "coding-instructions", "", "with --coding, how AGENTS.md and the like load for coding sessions (default: its workspace.json's)")
+	flag.StringVar(&co.stateDir, "coding-state", "", "with --coding, the directory that holds a folder per coding session, with its checkpoints and fixture copy (default: agentweb-coding in the system temp dir)")
 	flag.Parse()
 
 	// A configured --session-store makes web sessions durable. Each session_id
@@ -107,6 +108,7 @@ func main() {
 		if *byok {
 			log.Fatalf("agentweb: --coding needs the server's own keys, so it can't be used with --byok")
 		}
+		co.store = store
 		prof, err := codingProfile(co)
 		if err != nil {
 			log.Fatalf("agentweb: %v", err)

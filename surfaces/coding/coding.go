@@ -79,6 +79,10 @@ type Profile struct {
 	// ElicitationUI answers asks. Nil leaves every ask to a surface's
 	// RespondToAsk (AwaitSurface), as agentweb needs.
 	ElicitationUI agent.ElicitationUI
+
+	// RunStore persists the session's turns, as host.WithRunStore does, so
+	// a surface can resume it after a restart. Nil keeps it in memory.
+	RunStore agent.RunStore
 }
 
 // Build makes the session's App. It is shaped as a SessionManager factory.
@@ -109,6 +113,16 @@ func (p Profile) Build(context.Context) (*host.App, error) {
 			return nil, err
 		}
 		cfg.Model = host.ModelConfig{BaseURL: name, Model: model}
+		if p.WrapProvider == nil {
+			// The host builds the provider from the connection list, so a
+			// surface's model picker can switch between them mid-session
+			// (#244). BuildConnection above only checked the active one.
+			cfg.Connections.Active = name
+			conn := cfg.Connections.Connections[name]
+			conn.Model = model
+			cfg.Connections.Connections[name] = conn
+			prov = nil
+		}
 	}
 	var extra []host.Extension
 	if p.Extensions != nil {
@@ -116,10 +130,12 @@ func (p Profile) Build(context.Context) (*host.App, error) {
 			return nil, err
 		}
 	}
-	// The provider is given directly, so the connection list would only
-	// offer switches that bypass WrapProvider.
-	cfg.Connections = nil
-	if p.WrapProvider != nil {
+	if prov != nil {
+		// The provider is given directly, so the connection list would only
+		// offer switches that bypass Provider or WrapProvider.
+		cfg.Connections = nil
+	}
+	if prov != nil && p.WrapProvider != nil {
 		prov = p.WrapProvider(prov)
 	}
 
@@ -149,13 +165,19 @@ func (p Profile) Build(context.Context) (*host.App, error) {
 	if ui == nil {
 		ui = AwaitSurface
 	}
-	return host.NewApp(cfg, io.Discard, strings.NewReader(""),
+	opts := []host.AppOption{
 		host.WithExtension(append(exts, extra...)...),
 		host.WithSkillDirs(skillDirs...),
 		host.WithRoots(ws.Roots...),
-		host.WithProvider(prov),
 		host.WithElicitationUI(ui),
-	)
+	}
+	if prov != nil {
+		opts = append(opts, host.WithProvider(prov))
+	}
+	if p.RunStore != nil {
+		opts = append(opts, host.WithRunStore(p.RunStore))
+	}
+	return host.NewApp(cfg, io.Discard, strings.NewReader(""), opts...)
 }
 
 // BuildConnection builds the config connection called name, with model

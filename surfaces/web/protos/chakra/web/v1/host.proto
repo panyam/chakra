@@ -220,6 +220,20 @@ message ListWebSessionsRequest {}
 message ListWebSessionsResponse {
   // session_ids of every live web session (App), including the default.
   repeated string session_ids = 1;
+  // sessions holds the same ids with the kind of each, so a browser that
+  // didn't create a session can still show it on the right page (#244).
+  repeated WebSession sessions = 2;
+}
+
+// WebSession is one entry in the server's roster.
+message WebSession {
+  string session_id = 1;
+  // profile is the kind of session, such as "coding". It is empty for a
+  // chat session.
+  string profile = 2;
+  // path is the page that shows the session: "/" for chat, or the
+  // profile's page, such as "/code/".
+  string path = 3;
 }
 
 message CloseSessionRequest {
