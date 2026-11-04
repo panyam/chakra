@@ -42,6 +42,17 @@ export interface ToolCallEntry {
   rawTotal: number;
   cols: number;
   rows: number;
+  // source is the reporting extension (ProcessOutput.Source), which the
+  // process controls below address together with the process id.
+  source: string;
+}
+
+// ProcessControl drives a process from the terminal view: resize its terminal
+// to fit, and send what the user types (#218). Both go to the server, which
+// passes them to the extension that owns the process.
+export interface ProcessControl {
+  resize: (source: string, id: string, cols: number, rows: number) => Promise<void>;
+  write: (source: string, id: string, data: string) => Promise<void>;
 }
 
 // outputView is how the panel shows a call's process output: a terminal for a
@@ -68,9 +79,10 @@ interface ProcState {
   rawTotal: number;
   cols: number;
   rows: number;
+  source: string;
 }
 
-const newProc = (): ProcState => ({ output: "", exitCode: null, paused: false, tty: false, raw: "", rawTotal: 0, cols: 0, rows: 0 });
+const newProc = (): ProcState => ({ output: "", exitCode: null, paused: false, tty: false, raw: "", rawTotal: 0, cols: 0, rows: 0, source: "" });
 
 function keepTail(s: string): string {
   return s.length > OUTPUT_KEEP ? s.slice(s.length - OUTPUT_KEEP) : s;
@@ -78,6 +90,9 @@ function keepTail(s: string): string {
 
 export interface ToolStore {
   calls: Accessor<ToolCallEntry[]>;
+  // control drives a process from its terminal view; undefined where the
+  // page has no server to send to.
+  control?: ProcessControl;
   offloadedCount: Accessor<number>;
   ingest: (ev: HostEvent) => void;
   reset: () => void;
@@ -105,7 +120,7 @@ function snippet(s: string, n = 160): string {
   return t.length > n ? t.slice(0, n) + "…" : t;
 }
 
-export function createToolStore(): ToolStore {
+export function createToolStore(control?: ProcessControl): ToolStore {
   const [calls, setCalls] = createSignal<ToolCallEntry[]>([]);
   let ring: ToolCallEntry[] = [];
   const idx = new Map<string, number>();
@@ -116,7 +131,7 @@ export function createToolStore(): ToolStore {
   // by reference, so a mutated-in-place entry would never re-render.
   const update = (id: string, name: string, patch: Partial<ToolCallEntry>): void => {
     const base: ToolCallEntry =
-      idx.has(id) ? ring[idx.get(id)!] : { id, name: name || "tool", args: "", status: "running", preview: "", offloaded: false, ref: "", process: "", output: "", exitCode: null, streamPaused: false, tty: false, raw: "", rawTotal: 0, cols: 0, rows: 0 };
+      idx.has(id) ? ring[idx.get(id)!] : { id, name: name || "tool", args: "", status: "running", preview: "", offloaded: false, ref: "", process: "", output: "", exitCode: null, streamPaused: false, tty: false, raw: "", rawTotal: 0, cols: 0, rows: 0, source: "" };
     const next = { ...base, ...patch };
     if (name && !next.name) next.name = name;
     if (idx.has(id)) ring = ring.map((e, i) => (i === idx.get(id)! ? next : e));
@@ -144,12 +159,14 @@ export function createToolStore(): ToolStore {
       rawTotal: st.rawTotal,
       cols: st.cols,
       rows: st.rows,
+      source: st.source,
     });
   };
 
   const ingestOutput = (o: NonNullable<HostEvent["ProcessOutput"]>): void => {
     if (!o.ID) return;
     const st = procs.get(o.ID) ?? newProc();
+    if (o.Source) st.source = o.Source;
     let add = "";
     if (o.Dropped) add += `… ${o.Dropped} bytes dropped …\n`;
     add += (o.Text ?? "").replace(ANSI, "");
@@ -221,6 +238,7 @@ export function createToolStore(): ToolStore {
 
   return {
     calls,
+    control,
     offloadedCount: () => ring.filter((c) => c.offloaded).length,
     ingest,
     reset: () => {

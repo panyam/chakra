@@ -26,6 +26,8 @@ Connect under `gen/go/`.
 | `CreateSession` | `SessionManager.Create` | mint a fresh conversation (App) → its `session_id` |
 | `ListWebSessions` | `SessionManager.List` | the roster of live conversations (App ids) |
 | `CloseSession` | `SessionManager.Close` | close one conversation and drop it |
+| `ResizeProcess` | `App.ResizeProcess` | fit a tty process's terminal to the Tools panel's terminal view (#218) |
+| `WriteProcess` | `App.WriteProcess` | send what the user types in a terminal view to the process; not gated, not shown to the model |
 
 ### Multi-session (epic 1193)
 

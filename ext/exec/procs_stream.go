@@ -95,7 +95,8 @@ func (st *outputStream) run(p *proc, report func(host.ProcessOutput)) {
 	send := func(o host.ProcessOutput) {
 		o.Source, o.ID, o.Command = "exec", p.id, p.command
 		if p.tty {
-			o.TTY, o.Cols, o.Rows = true, TTYCols, TTYRows
+			o.TTY = true
+			o.Cols, o.Rows = p.size()
 		}
 		report(o)
 	}

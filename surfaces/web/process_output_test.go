@@ -9,9 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/panyam/chakra"
+	"connectrpc.com/connect"
+	agent "github.com/panyam/chakra"
 	"github.com/panyam/chakra/ext/exec"
 	"github.com/panyam/chakra/host"
+	webv1 "github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1"
 	"github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect"
 	"github.com/panyam/mcpkit/core"
 )
@@ -94,4 +96,31 @@ func TestWatchStreamsProcessOutputWithoutPolling(t *testing.T) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
+}
+
+func TestProcessControlRPCsReportFailuresAsPreconditions(t *testing.T) {
+	app := modelAppForControl(t)
+	srv := httptest.NewServer(Handler(app))
+	defer srv.Close()
+	client := webv1connect.NewHostServiceClient(srv.Client(), srv.URL)
+	ctx := context.Background()
+	_, err := client.ResizeProcess(ctx, connect.NewRequest(&webv1.ResizeProcessRequest{Source: "exec", ProcessId: "p1", Cols: 80, Rows: 24}))
+	if connect.CodeOf(err) != connect.CodeFailedPrecondition || !strings.Contains(err.Error(), "no process control") {
+		t.Errorf("resize with no controller: err = %v", err)
+	}
+	_, err = client.WriteProcess(ctx, connect.NewRequest(&webv1.WriteProcessRequest{Source: "exec", ProcessId: "p1", Data: "q"}))
+	if connect.CodeOf(err) != connect.CodeFailedPrecondition {
+		t.Errorf("write with no controller: err = %v", err)
+	}
+}
+
+func modelAppForControl(t *testing.T) *host.App {
+	t.Helper()
+	cfg := &host.Config{Model: host.ModelConfig{BaseURL: "http://stub", Model: "stub"}}
+	app, err := host.NewApp(cfg, io.Discard, strings.NewReader(""), host.WithProvider(agent.NewStubProvider()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(app.Close)
+	return app
 }

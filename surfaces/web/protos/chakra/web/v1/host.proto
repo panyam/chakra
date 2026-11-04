@@ -62,7 +62,37 @@ service HostService {
   // CloseSession closes the App for session_id and drops it from the roster.
   // An unknown session_id is CodeNotFound.
   rpc CloseSession(CloseSessionRequest) returns (CloseSessionResponse);
+
+  // ResizeProcess sets a terminal process's size, so a terminal view can fit
+  // its panel (#218). source and process_id are the process-output event's
+  // Source and ID. A process that isn't a terminal, has exited or is unknown
+  // is FailedPrecondition.
+  rpc ResizeProcess(ResizeProcessRequest) returns (ResizeProcessResponse);
+
+  // WriteProcess sends what the user typed in a terminal view to the
+  // process's input. It comes from the user, so it doesn't pass the approval
+  // gate, and it doesn't enter the model's context.
+  rpc WriteProcess(WriteProcessRequest) returns (WriteProcessResponse);
 }
+
+message ResizeProcessRequest {
+  // session_id selects the conversation (App). Empty routes to the default.
+  string session_id = 1;
+  string source = 2;
+  string process_id = 3;
+  int32 cols = 4;
+  int32 rows = 5;
+}
+message ResizeProcessResponse {}
+
+message WriteProcessRequest {
+  // session_id selects the conversation (App). Empty routes to the default.
+  string session_id = 1;
+  string source = 2;
+  string process_id = 3;
+  string data = 4;
+}
+message WriteProcessResponse {}
 
 message WatchRequest {
   // session_id selects the conversation (App) to stream. Empty routes to the

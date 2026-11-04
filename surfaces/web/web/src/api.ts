@@ -30,6 +30,8 @@ const SESSION_METHODS: ReadonlySet<string> = new Set([
   "listSessions",
   "getStatus",
   "closeSession",
+  "resizeProcess",
+  "writeProcess",
 ]);
 
 // scoped returns a client whose session calls carry sessionId, so the stores

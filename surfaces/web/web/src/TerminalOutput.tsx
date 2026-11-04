@@ -1,14 +1,18 @@
 import { createEffect, onCleanup, onMount } from "solid-js";
 import type { Terminal } from "@xterm/xterm";
+import type { FitAddon } from "@xterm/addon-fit";
 
-// TerminalOutput draws a tty process's output in xterm.js, at the size of the
-// process's terminal, so colours show and a line a progress bar redraws
-// stays one line (#218). It is read-only. xterm.js loads only when a tty
-// process is on screen, and its stylesheet with it.
+// TerminalOutput draws a tty process's output in xterm.js, so colours show
+// and a line a progress bar redraws stays one line (#218). xterm.js loads
+// only when a tty process is on screen, and its stylesheet with it.
 //
 // The store keeps the tail of the output and a running count of everything
 // received. Each update writes only what arrived since the last write, in
 // order, so a reload that replays a process's events draws the same screen.
+//
+// While the process runs, the view fits its panel and asks for the process's
+// terminal to be resized to match, and what the user types goes to the
+// process. Once it has exited, the view is read-only.
 
 let cssLoaded = false;
 function loadCSS(): void {
@@ -20,9 +24,24 @@ function loadCSS(): void {
   document.head.appendChild(link);
 }
 
-export function TerminalOutput(props: { raw: string; rawTotal: number; cols: number; rows: number }) {
+export interface TerminalProps {
+  raw: string;
+  rawTotal: number;
+  cols: number;
+  rows: number;
+  running: boolean;
+  // onResize asks for the process's terminal to take the view's size.
+  onResize?: (cols: number, rows: number) => void;
+  // onInput sends what the user typed.
+  onInput?: (data: string) => void;
+}
+
+export function TerminalOutput(props: TerminalProps) {
   let el: HTMLDivElement | undefined;
   let term: Terminal | undefined;
+  let fit: FitAddon | undefined;
+  let observer: ResizeObserver | undefined;
+  let resizeTimer: ReturnType<typeof setTimeout> | undefined;
   let written = 0;
 
   const flush = () => {
@@ -33,20 +52,40 @@ export function TerminalOutput(props: { raw: string; rawTotal: number; cols: num
     written = props.rawTotal;
   };
 
+  // refit sizes the view to the panel. The process's terminal follows only
+  // while it runs, and at most every 150ms while a panel is being dragged.
+  const refit = () => {
+    if (!term || !fit || !props.running) return;
+    const dims = fit.proposeDimensions();
+    if (!dims || !dims.cols || !dims.rows) return;
+    if (dims.cols === term.cols && dims.rows === term.rows) return;
+    term.resize(dims.cols, dims.rows);
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => props.onResize?.(dims.cols, dims.rows), 150);
+  };
+
   onMount(async () => {
     loadCSS();
-    const { Terminal } = await import("@xterm/xterm");
+    const [{ Terminal }, { FitAddon }] = await Promise.all([import("@xterm/xterm"), import("@xterm/addon-fit")]);
     if (!el) return;
     term = new Terminal({
       cols: props.cols || 120,
       rows: props.rows || 30,
-      disableStdin: true,
+      disableStdin: !props.running,
       cursorBlink: false,
       scrollback: 2000,
       fontSize: 12,
     });
+    fit = new FitAddon();
+    term.loadAddon(fit);
     term.open(el);
+    term.onData((data) => {
+      if (props.running) props.onInput?.(data);
+    });
     flush();
+    refit();
+    observer = new ResizeObserver(() => refit());
+    observer.observe(el);
   });
 
   createEffect(() => {
@@ -54,7 +93,16 @@ export function TerminalOutput(props: { raw: string; rawTotal: number; cols: num
     flush();
   });
 
-  onCleanup(() => term?.dispose());
+  createEffect(() => {
+    const running = props.running;
+    if (term) term.options.disableStdin = !running;
+  });
+
+  onCleanup(() => {
+    observer?.disconnect();
+    if (resizeTimer) clearTimeout(resizeTimer);
+    term?.dispose();
+  });
 
   return <div class="tool-term" ref={el} />;
 }

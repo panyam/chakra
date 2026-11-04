@@ -126,7 +126,10 @@ implements `host.ProcessReporter`. It sends output in batches, every 250ms or at
 batch becomes a `process-output` event keyed by the process's `session_id`. The last batch carries
 the exit code. A tty process's batches carry `TTY` and the terminal's size, and agentweb draws
 them in a terminal view (xterm.js), so colours and redrawn lines show as they would in a
-terminal. None of it reaches the model, whose results are the same with or without a surface
+terminal. The extension also implements `host.ProcessController`. While a tty process runs, the
+view fits its panel and resizes the process's terminal to match, and what the user types there goes
+to the process's input. agentchat resizes each tty process to its own terminal, less the `[p1] `
+tag on each line. None of it reaches the model, whose results are the same with or without a surface
 watching. Streaming pauses after `StreamBudget` bytes per process (4 MiB; negative for no limit),
 because the host keeps every event in its log and a server left running would grow it without end.
 `MaxEventLogRetention` bounds the log by count across all kinds, so it can't protect a session's

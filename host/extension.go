@@ -197,6 +197,22 @@ type ProcessReporter interface {
 	SetProcessOutput(report func(ProcessOutput))
 }
 
+// ProcessController is an optional interface an Extension implements so a
+// surface can drive its processes directly: resize a terminal to fit the
+// view, or type into one (#218). The id is ProcessOutput.ID.
+//
+// These calls come from the user through a surface, not from the model. So
+// they don't pass the approval gate, and what is typed doesn't enter the
+// model's context. The model sees the process's output when it next reads
+// it, as it would after any other input.
+type ProcessController interface {
+	// ResizeProcess sets a terminal process's size. A process that isn't a
+	// terminal, or has exited, is an error.
+	ResizeProcess(id string, cols, rows int) error
+	// WriteProcess sends data to a running process's input.
+	WriteProcess(id, data string) error
+}
+
 // TurnEnder is an optional interface an Extension implements to hear that a
 // turn the host ran is over, whether it finished, stopped partway (the step cap
 // or the context budget) or failed. result is nil when the turn failed

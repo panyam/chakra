@@ -351,6 +351,33 @@ func joinNames(names []string) string {
 	return s
 }
 
+// ResizeProcess resizes a terminal process of the session's App. An unknown
+// source or process, or one that isn't a running terminal, is
+// FailedPrecondition.
+func (s *HostService) ResizeProcess(ctx context.Context, req *connect.Request[webv1.ResizeProcessRequest]) (*connect.Response[webv1.ResizeProcessResponse], error) {
+	app, err := s.appFor(ctx, req.Msg.GetSessionId())
+	if err != nil {
+		return nil, err
+	}
+	if err := app.ResizeProcess(req.Msg.GetSource(), req.Msg.GetProcessId(), int(req.Msg.GetCols()), int(req.Msg.GetRows())); err != nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
+	}
+	return connect.NewResponse(&webv1.ResizeProcessResponse{}), nil
+}
+
+// WriteProcess sends the user's input to a process of the session's App. An
+// unknown source or process, or one that has exited, is FailedPrecondition.
+func (s *HostService) WriteProcess(ctx context.Context, req *connect.Request[webv1.WriteProcessRequest]) (*connect.Response[webv1.WriteProcessResponse], error) {
+	app, err := s.appFor(ctx, req.Msg.GetSessionId())
+	if err != nil {
+		return nil, err
+	}
+	if err := app.WriteProcess(req.Msg.GetSource(), req.Msg.GetProcessId(), req.Msg.GetData()); err != nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
+	}
+	return connect.NewResponse(&webv1.WriteProcessResponse{}), nil
+}
+
 // ListWebSessions returns the session_ids of every conversation the server
 // hosts. With a store configured, it returns the durable roster merged with
 // any live-only ids. The durable roster holds every persisted run id, so a

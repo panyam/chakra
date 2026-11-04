@@ -1,6 +1,6 @@
 import { For, Match, Show, Switch, createEffect, createSignal } from "solid-js";
 import { SolidIsland } from "@panyam/tsappkit-solid";
-import { outputView, type ToolStore, type ToolCallEntry } from "./tools.js";
+import { outputView, type ProcessControl, type ToolStore, type ToolCallEntry } from "./tools.js";
 import { TerminalOutput } from "./TerminalOutput.js";
 
 // ToolsPanel lists tool calls with their args, status, and result preview, and
@@ -40,7 +40,7 @@ function LiveOutput(props: { text: string }) {
   );
 }
 
-function Row(props: { call: ToolCallEntry }) {
+function Row(props: { call: ToolCallEntry; control?: ProcessControl }) {
   const [open, setOpen] = createSignal(false);
   const c = () => props.call;
   return (
@@ -62,7 +62,15 @@ function Row(props: { call: ToolCallEntry }) {
       </div>
       <Switch>
         <Match when={outputView(c()) === "terminal"}>
-          <TerminalOutput raw={c().raw} rawTotal={c().rawTotal} cols={c().cols} rows={c().rows} />
+          <TerminalOutput
+            raw={c().raw}
+            rawTotal={c().rawTotal}
+            cols={c().cols}
+            rows={c().rows}
+            running={c().exitCode === null}
+            onResize={(cols, rows) => void props.control?.resize(c().source, c().process, cols, rows).catch(() => {})}
+            onInput={(data) => void props.control?.write(c().source, c().process, data).catch(() => {})}
+          />
         </Match>
         <Match when={outputView(c()) === "plain"}>
           <LiveOutput text={c().output} />
@@ -96,7 +104,7 @@ export function Tools(props: { store: ToolStore }) {
           when={s.calls().length > 0}
           fallback={<div class="obs-empty">No tool calls yet. Each call and its result appear here; large results show as an offload stub.</div>}
         >
-          <For each={s.calls()}>{(c) => <Row call={c} />}</For>
+          <For each={s.calls()}>{(c) => <Row call={c} control={s.control} />}</For>
         </Show>
       </div>
     </div>

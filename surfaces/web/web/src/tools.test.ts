@@ -105,7 +105,7 @@ describe("process output", () => {
       out("p1", "10%\r100%\r\n", tty),
     ]);
     const c = res.calls[0];
-    expect(c).toMatchObject({ tty: true, cols: 120, rows: 30, raw: "\x1b[32mgreen\x1b[0m\r\n10%\r100%\r\n" });
+    expect(c).toMatchObject({ tty: true, cols: 120, rows: 30, source: "exec", raw: "\x1b[32mgreen\x1b[0m\r\n10%\r100%\r\n" });
     expect(c.rawTotal).toBe(c.raw.length);
     expect(c.output).toBe("green\r\n10%\r100%\r\n");
     expect(outputView(c)).toBe("terminal");

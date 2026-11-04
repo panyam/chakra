@@ -10,7 +10,106 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file chakra/web/v1/host.proto.
  */
 export const file_chakra_web_v1_host: GenFile = /*@__PURE__*/
-  fileDesc("ChhjaGFrcmEvd2ViL3YxL2hvc3QucHJvdG8SDWNoYWtyYS53ZWIudjEiOAoMV2F0Y2hSZXF1ZXN0EhIKCnNlc3Npb25faWQYASABKAkSFAoMcmVzdW1lX2FmdGVyGAIgASgEIiYKBUZyYW1lEgwKBGtpbmQYASABKAkSDwoHcGF5bG9hZBgCIAEoDCJLCg1TdWJtaXRSZXF1ZXN0Eg0KBWlucHV0GAEgASgJEhIKCnNlc3Npb25faWQYAiABKAkSFwoPcmVzcG9uc2Vfc2NoZW1hGAMgASgJIiEKDlN1Ym1pdFJlc3BvbnNlEg8KB3N0ZWVyZWQYASABKAgiMwoPRGlzcGF0Y2hSZXF1ZXN0EgwKBGxpbmUYASABKAkSEgoKc2Vzc2lvbl9pZBgCIAEoCSI/ChBEaXNwYXRjaFJlc3BvbnNlEgwKBGtpbmQYASABKAkSDwoHcGF5bG9hZBgCIAEoDBIMCgRxdWl0GAMgASgIIlUKE1Jlc3BvbmRUb0Fza1JlcXVlc3QSDgoGYXNrX2lkGAEgASgDEg4KBnJlc3VsdBgCIAEoDBIKCgJieRgDIAEoCRISCgpzZXNzaW9uX2lkGAQgASgJIhYKFFJlc3BvbmRUb0Fza1Jlc3BvbnNlIjkKE0xpc3RTZXNzaW9uc1JlcXVlc3QSDgoGY3Vyc29yGAEgASgJEhIKCnNlc3Npb25faWQYAiABKAkiTQoUTGlzdFNlc3Npb25zUmVzcG9uc2USDAoEcnVucxgBIAEoDBIQCghoYXNfbW9yZRgCIAEoCBIVCg1hY3RpdmVfcnVuX2lkGAMgASgJIiYKEEdldFN0YXR1c1JlcXVlc3QSEgoKc2Vzc2lvbl9pZBgBIAEoCSJkChFHZXRTdGF0dXNSZXNwb25zZRITCgttb2RlbF9sYWJlbBgBIAEoCRIOCgZydW5faWQYAiABKAkSEQoJcHJvdmlkZXJzGAMgAygJEhcKD2FjdGl2ZV9wcm92aWRlchgEIAEoCSJWChRDcmVhdGVTZXNzaW9uUmVxdWVzdBItCghwcm92aWRlchgBIAEoCzIbLmNoYWtyYS53ZWIudjEuUHJvdmlkZXJTcGVjEg8KB3Byb2ZpbGUYAiABKAkiKwoVQ3JlYXRlU2Vzc2lvblJlc3BvbnNlEhIKCnNlc3Npb25faWQYASABKAkiTgoMUHJvdmlkZXJTcGVjEgwKBHR5cGUYASABKAkSEAoIYmFzZV91cmwYAiABKAkSDQoFbW9kZWwYAyABKAkSDwoHYXBpX2tleRgEIAEoCSIYChZMaXN0V2ViU2Vzc2lvbnNSZXF1ZXN0Ii4KF0xpc3RXZWJTZXNzaW9uc1Jlc3BvbnNlEhMKC3Nlc3Npb25faWRzGAEgAygJIikKE0Nsb3NlU2Vzc2lvblJlcXVlc3QSEgoKc2Vzc2lvbl9pZBgBIAEoCSIWChRDbG9zZVNlc3Npb25SZXNwb25zZTL4BQoLSG9zdFNlcnZpY2USPAoFV2F0Y2gSGy5jaGFrcmEud2ViLnYxLldhdGNoUmVxdWVzdBoULmNoYWtyYS53ZWIudjEuRnJhbWUwARJFCgZTdWJtaXQSHC5jaGFrcmEud2ViLnYxLlN1Ym1pdFJlcXVlc3QaHS5jaGFrcmEud2ViLnYxLlN1Ym1pdFJlc3BvbnNlEksKCERpc3BhdGNoEh4uY2hha3JhLndlYi52MS5EaXNwYXRjaFJlcXVlc3QaHy5jaGFrcmEud2ViLnYxLkRpc3BhdGNoUmVzcG9uc2USVwoMUmVzcG9uZFRvQXNrEiIuY2hha3JhLndlYi52MS5SZXNwb25kVG9Bc2tSZXF1ZXN0GiMuY2hha3JhLndlYi52MS5SZXNwb25kVG9Bc2tSZXNwb25zZRJXCgxMaXN0U2Vzc2lvbnMSIi5jaGFrcmEud2ViLnYxLkxpc3RTZXNzaW9uc1JlcXVlc3QaIy5jaGFrcmEud2ViLnYxLkxpc3RTZXNzaW9uc1Jlc3BvbnNlEk4KCUdldFN0YXR1cxIfLmNoYWtyYS53ZWIudjEuR2V0U3RhdHVzUmVxdWVzdBogLmNoYWtyYS53ZWIudjEuR2V0U3RhdHVzUmVzcG9uc2USWgoNQ3JlYXRlU2Vzc2lvbhIjLmNoYWtyYS53ZWIudjEuQ3JlYXRlU2Vzc2lvblJlcXVlc3QaJC5jaGFrcmEud2ViLnYxLkNyZWF0ZVNlc3Npb25SZXNwb25zZRJgCg9MaXN0V2ViU2Vzc2lvbnMSJS5jaGFrcmEud2ViLnYxLkxpc3RXZWJTZXNzaW9uc1JlcXVlc3QaJi5jaGFrcmEud2ViLnYxLkxpc3RXZWJTZXNzaW9uc1Jlc3BvbnNlElcKDENsb3NlU2Vzc2lvbhIiLmNoYWtyYS53ZWIudjEuQ2xvc2VTZXNzaW9uUmVxdWVzdBojLmNoYWtyYS53ZWIudjEuQ2xvc2VTZXNzaW9uUmVzcG9uc2VCQlpAZ2l0aHViLmNvbS9wYW55YW0vY2hha3JhL3N1cmZhY2VzL3dlYi9nZW4vZ28vY2hha3JhL3dlYi92MTt3ZWJ2MWIGcHJvdG8z");
+  fileDesc("ChhjaGFrcmEvd2ViL3YxL2hvc3QucHJvdG8SDWNoYWtyYS53ZWIudjEiagoUUmVzaXplUHJvY2Vzc1JlcXVlc3QSEgoKc2Vzc2lvbl9pZBgBIAEoCRIOCgZzb3VyY2UYAiABKAkSEgoKcHJvY2Vzc19pZBgDIAEoCRIMCgRjb2xzGAQgASgFEgwKBHJvd3MYBSABKAUiFwoVUmVzaXplUHJvY2Vzc1Jlc3BvbnNlIlsKE1dyaXRlUHJvY2Vzc1JlcXVlc3QSEgoKc2Vzc2lvbl9pZBgBIAEoCRIOCgZzb3VyY2UYAiABKAkSEgoKcHJvY2Vzc19pZBgDIAEoCRIMCgRkYXRhGAQgASgJIhYKFFdyaXRlUHJvY2Vzc1Jlc3BvbnNlIjgKDFdhdGNoUmVxdWVzdBISCgpzZXNzaW9uX2lkGAEgASgJEhQKDHJlc3VtZV9hZnRlchgCIAEoBCImCgVGcmFtZRIMCgRraW5kGAEgASgJEg8KB3BheWxvYWQYAiABKAwiSwoNU3VibWl0UmVxdWVzdBINCgVpbnB1dBgBIAEoCRISCgpzZXNzaW9uX2lkGAIgASgJEhcKD3Jlc3BvbnNlX3NjaGVtYRgDIAEoCSIhCg5TdWJtaXRSZXNwb25zZRIPCgdzdGVlcmVkGAEgASgIIjMKD0Rpc3BhdGNoUmVxdWVzdBIMCgRsaW5lGAEgASgJEhIKCnNlc3Npb25faWQYAiABKAkiPwoQRGlzcGF0Y2hSZXNwb25zZRIMCgRraW5kGAEgASgJEg8KB3BheWxvYWQYAiABKAwSDAoEcXVpdBgDIAEoCCJVChNSZXNwb25kVG9Bc2tSZXF1ZXN0Eg4KBmFza19pZBgBIAEoAxIOCgZyZXN1bHQYAiABKAwSCgoCYnkYAyABKAkSEgoKc2Vzc2lvbl9pZBgEIAEoCSIWChRSZXNwb25kVG9Bc2tSZXNwb25zZSI5ChNMaXN0U2Vzc2lvbnNSZXF1ZXN0Eg4KBmN1cnNvchgBIAEoCRISCgpzZXNzaW9uX2lkGAIgASgJIk0KFExpc3RTZXNzaW9uc1Jlc3BvbnNlEgwKBHJ1bnMYASABKAwSEAoIaGFzX21vcmUYAiABKAgSFQoNYWN0aXZlX3J1bl9pZBgDIAEoCSImChBHZXRTdGF0dXNSZXF1ZXN0EhIKCnNlc3Npb25faWQYASABKAkiZAoRR2V0U3RhdHVzUmVzcG9uc2USEwoLbW9kZWxfbGFiZWwYASABKAkSDgoGcnVuX2lkGAIgASgJEhEKCXByb3ZpZGVycxgDIAMoCRIXCg9hY3RpdmVfcHJvdmlkZXIYBCABKAkiVgoUQ3JlYXRlU2Vzc2lvblJlcXVlc3QSLQoIcHJvdmlkZXIYASABKAsyGy5jaGFrcmEud2ViLnYxLlByb3ZpZGVyU3BlYxIPCgdwcm9maWxlGAIgASgJIisKFUNyZWF0ZVNlc3Npb25SZXNwb25zZRISCgpzZXNzaW9uX2lkGAEgASgJIk4KDFByb3ZpZGVyU3BlYxIMCgR0eXBlGAEgASgJEhAKCGJhc2VfdXJsGAIgASgJEg0KBW1vZGVsGAMgASgJEg8KB2FwaV9rZXkYBCABKAkiGAoWTGlzdFdlYlNlc3Npb25zUmVxdWVzdCIuChdMaXN0V2ViU2Vzc2lvbnNSZXNwb25zZRITCgtzZXNzaW9uX2lkcxgBIAMoCSIpChNDbG9zZVNlc3Npb25SZXF1ZXN0EhIKCnNlc3Npb25faWQYASABKAkiFgoUQ2xvc2VTZXNzaW9uUmVzcG9uc2UyrQcKC0hvc3RTZXJ2aWNlEjwKBVdhdGNoEhsuY2hha3JhLndlYi52MS5XYXRjaFJlcXVlc3QaFC5jaGFrcmEud2ViLnYxLkZyYW1lMAESRQoGU3VibWl0EhwuY2hha3JhLndlYi52MS5TdWJtaXRSZXF1ZXN0Gh0uY2hha3JhLndlYi52MS5TdWJtaXRSZXNwb25zZRJLCghEaXNwYXRjaBIeLmNoYWtyYS53ZWIudjEuRGlzcGF0Y2hSZXF1ZXN0Gh8uY2hha3JhLndlYi52MS5EaXNwYXRjaFJlc3BvbnNlElcKDFJlc3BvbmRUb0FzaxIiLmNoYWtyYS53ZWIudjEuUmVzcG9uZFRvQXNrUmVxdWVzdBojLmNoYWtyYS53ZWIudjEuUmVzcG9uZFRvQXNrUmVzcG9uc2USVwoMTGlzdFNlc3Npb25zEiIuY2hha3JhLndlYi52MS5MaXN0U2Vzc2lvbnNSZXF1ZXN0GiMuY2hha3JhLndlYi52MS5MaXN0U2Vzc2lvbnNSZXNwb25zZRJOCglHZXRTdGF0dXMSHy5jaGFrcmEud2ViLnYxLkdldFN0YXR1c1JlcXVlc3QaIC5jaGFrcmEud2ViLnYxLkdldFN0YXR1c1Jlc3BvbnNlEloKDUNyZWF0ZVNlc3Npb24SIy5jaGFrcmEud2ViLnYxLkNyZWF0ZVNlc3Npb25SZXF1ZXN0GiQuY2hha3JhLndlYi52MS5DcmVhdGVTZXNzaW9uUmVzcG9uc2USYAoPTGlzdFdlYlNlc3Npb25zEiUuY2hha3JhLndlYi52MS5MaXN0V2ViU2Vzc2lvbnNSZXF1ZXN0GiYuY2hha3JhLndlYi52MS5MaXN0V2ViU2Vzc2lvbnNSZXNwb25zZRJXCgxDbG9zZVNlc3Npb24SIi5jaGFrcmEud2ViLnYxLkNsb3NlU2Vzc2lvblJlcXVlc3QaIy5jaGFrcmEud2ViLnYxLkNsb3NlU2Vzc2lvblJlc3BvbnNlEloKDVJlc2l6ZVByb2Nlc3MSIy5jaGFrcmEud2ViLnYxLlJlc2l6ZVByb2Nlc3NSZXF1ZXN0GiQuY2hha3JhLndlYi52MS5SZXNpemVQcm9jZXNzUmVzcG9uc2USVwoMV3JpdGVQcm9jZXNzEiIuY2hha3JhLndlYi52MS5Xcml0ZVByb2Nlc3NSZXF1ZXN0GiMuY2hha3JhLndlYi52MS5Xcml0ZVByb2Nlc3NSZXNwb25zZUJCWkBnaXRodWIuY29tL3BhbnlhbS9jaGFrcmEvc3VyZmFjZXMvd2ViL2dlbi9nby9jaGFrcmEvd2ViL3YxO3dlYnYxYgZwcm90bzM");
+
+/**
+ * @generated from message chakra.web.v1.ResizeProcessRequest
+ */
+export type ResizeProcessRequest = Message<"chakra.web.v1.ResizeProcessRequest"> & {
+  /**
+   * session_id selects the conversation (App). Empty routes to the default.
+   *
+   * @generated from field: string session_id = 1;
+   */
+  sessionId: string;
+
+  /**
+   * @generated from field: string source = 2;
+   */
+  source: string;
+
+  /**
+   * @generated from field: string process_id = 3;
+   */
+  processId: string;
+
+  /**
+   * @generated from field: int32 cols = 4;
+   */
+  cols: number;
+
+  /**
+   * @generated from field: int32 rows = 5;
+   */
+  rows: number;
+};
+
+/**
+ * Describes the message chakra.web.v1.ResizeProcessRequest.
+ * Use `create(ResizeProcessRequestSchema)` to create a new message.
+ */
+export const ResizeProcessRequestSchema: GenMessage<ResizeProcessRequest> = /*@__PURE__*/
+  messageDesc(file_chakra_web_v1_host, 0);
+
+/**
+ * @generated from message chakra.web.v1.ResizeProcessResponse
+ */
+export type ResizeProcessResponse = Message<"chakra.web.v1.ResizeProcessResponse"> & {
+};
+
+/**
+ * Describes the message chakra.web.v1.ResizeProcessResponse.
+ * Use `create(ResizeProcessResponseSchema)` to create a new message.
+ */
+export const ResizeProcessResponseSchema: GenMessage<ResizeProcessResponse> = /*@__PURE__*/
+  messageDesc(file_chakra_web_v1_host, 1);
+
+/**
+ * @generated from message chakra.web.v1.WriteProcessRequest
+ */
+export type WriteProcessRequest = Message<"chakra.web.v1.WriteProcessRequest"> & {
+  /**
+   * session_id selects the conversation (App). Empty routes to the default.
+   *
+   * @generated from field: string session_id = 1;
+   */
+  sessionId: string;
+
+  /**
+   * @generated from field: string source = 2;
+   */
+  source: string;
+
+  /**
+   * @generated from field: string process_id = 3;
+   */
+  processId: string;
+
+  /**
+   * @generated from field: string data = 4;
+   */
+  data: string;
+};
+
+/**
+ * Describes the message chakra.web.v1.WriteProcessRequest.
+ * Use `create(WriteProcessRequestSchema)` to create a new message.
+ */
+export const WriteProcessRequestSchema: GenMessage<WriteProcessRequest> = /*@__PURE__*/
+  messageDesc(file_chakra_web_v1_host, 2);
+
+/**
+ * @generated from message chakra.web.v1.WriteProcessResponse
+ */
+export type WriteProcessResponse = Message<"chakra.web.v1.WriteProcessResponse"> & {
+};
+
+/**
+ * Describes the message chakra.web.v1.WriteProcessResponse.
+ * Use `create(WriteProcessResponseSchema)` to create a new message.
+ */
+export const WriteProcessResponseSchema: GenMessage<WriteProcessResponse> = /*@__PURE__*/
+  messageDesc(file_chakra_web_v1_host, 3);
 
 /**
  * @generated from message chakra.web.v1.WatchRequest
@@ -40,7 +139,7 @@ export type WatchRequest = Message<"chakra.web.v1.WatchRequest"> & {
  * Use `create(WatchRequestSchema)` to create a new message.
  */
 export const WatchRequestSchema: GenMessage<WatchRequest> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 0);
+  messageDesc(file_chakra_web_v1_host, 4);
 
 /**
  * Frame is one host event on the wire. kind is the HostEvent.Kind
@@ -70,7 +169,7 @@ export type Frame = Message<"chakra.web.v1.Frame"> & {
  * Use `create(FrameSchema)` to create a new message.
  */
 export const FrameSchema: GenMessage<Frame> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 1);
+  messageDesc(file_chakra_web_v1_host, 5);
 
 /**
  * @generated from message chakra.web.v1.SubmitRequest
@@ -104,7 +203,7 @@ export type SubmitRequest = Message<"chakra.web.v1.SubmitRequest"> & {
  * Use `create(SubmitRequestSchema)` to create a new message.
  */
 export const SubmitRequestSchema: GenMessage<SubmitRequest> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 2);
+  messageDesc(file_chakra_web_v1_host, 6);
 
 /**
  * @generated from message chakra.web.v1.SubmitResponse
@@ -125,7 +224,7 @@ export type SubmitResponse = Message<"chakra.web.v1.SubmitResponse"> & {
  * Use `create(SubmitResponseSchema)` to create a new message.
  */
 export const SubmitResponseSchema: GenMessage<SubmitResponse> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 3);
+  messageDesc(file_chakra_web_v1_host, 7);
 
 /**
  * @generated from message chakra.web.v1.DispatchRequest
@@ -149,7 +248,7 @@ export type DispatchRequest = Message<"chakra.web.v1.DispatchRequest"> & {
  * Use `create(DispatchRequestSchema)` to create a new message.
  */
 export const DispatchRequestSchema: GenMessage<DispatchRequest> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 4);
+  messageDesc(file_chakra_web_v1_host, 8);
 
 /**
  * kind is CmdResult.Kind; payload is json.Marshal(CmdResult) — the same
@@ -180,7 +279,7 @@ export type DispatchResponse = Message<"chakra.web.v1.DispatchResponse"> & {
  * Use `create(DispatchResponseSchema)` to create a new message.
  */
 export const DispatchResponseSchema: GenMessage<DispatchResponse> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 5);
+  messageDesc(file_chakra_web_v1_host, 9);
 
 /**
  * @generated from message chakra.web.v1.RespondToAskRequest
@@ -217,7 +316,7 @@ export type RespondToAskRequest = Message<"chakra.web.v1.RespondToAskRequest"> &
  * Use `create(RespondToAskRequestSchema)` to create a new message.
  */
 export const RespondToAskRequestSchema: GenMessage<RespondToAskRequest> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 6);
+  messageDesc(file_chakra_web_v1_host, 10);
 
 /**
  * @generated from message chakra.web.v1.RespondToAskResponse
@@ -230,7 +329,7 @@ export type RespondToAskResponse = Message<"chakra.web.v1.RespondToAskResponse">
  * Use `create(RespondToAskResponseSchema)` to create a new message.
  */
 export const RespondToAskResponseSchema: GenMessage<RespondToAskResponse> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 7);
+  messageDesc(file_chakra_web_v1_host, 11);
 
 /**
  * @generated from message chakra.web.v1.ListSessionsRequest
@@ -255,7 +354,7 @@ export type ListSessionsRequest = Message<"chakra.web.v1.ListSessionsRequest"> &
  * Use `create(ListSessionsRequestSchema)` to create a new message.
  */
 export const ListSessionsRequestSchema: GenMessage<ListSessionsRequest> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 8);
+  messageDesc(file_chakra_web_v1_host, 12);
 
 /**
  * runs is json.Marshal([]agent.RunInfo); active_run_id is the current session.
@@ -284,7 +383,7 @@ export type ListSessionsResponse = Message<"chakra.web.v1.ListSessionsResponse">
  * Use `create(ListSessionsResponseSchema)` to create a new message.
  */
 export const ListSessionsResponseSchema: GenMessage<ListSessionsResponse> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 9);
+  messageDesc(file_chakra_web_v1_host, 13);
 
 /**
  * @generated from message chakra.web.v1.GetStatusRequest
@@ -303,7 +402,7 @@ export type GetStatusRequest = Message<"chakra.web.v1.GetStatusRequest"> & {
  * Use `create(GetStatusRequestSchema)` to create a new message.
  */
 export const GetStatusRequestSchema: GenMessage<GetStatusRequest> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 10);
+  messageDesc(file_chakra_web_v1_host, 14);
 
 /**
  * @generated from message chakra.web.v1.GetStatusResponse
@@ -341,7 +440,7 @@ export type GetStatusResponse = Message<"chakra.web.v1.GetStatusResponse"> & {
  * Use `create(GetStatusResponseSchema)` to create a new message.
  */
 export const GetStatusResponseSchema: GenMessage<GetStatusResponse> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 11);
+  messageDesc(file_chakra_web_v1_host, 15);
 
 /**
  * @generated from message chakra.web.v1.CreateSessionRequest
@@ -371,7 +470,7 @@ export type CreateSessionRequest = Message<"chakra.web.v1.CreateSessionRequest">
  * Use `create(CreateSessionRequestSchema)` to create a new message.
  */
 export const CreateSessionRequestSchema: GenMessage<CreateSessionRequest> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 12);
+  messageDesc(file_chakra_web_v1_host, 16);
 
 /**
  * @generated from message chakra.web.v1.CreateSessionResponse
@@ -390,7 +489,7 @@ export type CreateSessionResponse = Message<"chakra.web.v1.CreateSessionResponse
  * Use `create(CreateSessionResponseSchema)` to create a new message.
  */
 export const CreateSessionResponseSchema: GenMessage<CreateSessionResponse> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 13);
+  messageDesc(file_chakra_web_v1_host, 17);
 
 /**
  * ProviderSpec names a model endpoint and the key for it. The key lives in the
@@ -432,7 +531,7 @@ export type ProviderSpec = Message<"chakra.web.v1.ProviderSpec"> & {
  * Use `create(ProviderSpecSchema)` to create a new message.
  */
 export const ProviderSpecSchema: GenMessage<ProviderSpec> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 14);
+  messageDesc(file_chakra_web_v1_host, 18);
 
 /**
  * @generated from message chakra.web.v1.ListWebSessionsRequest
@@ -445,7 +544,7 @@ export type ListWebSessionsRequest = Message<"chakra.web.v1.ListWebSessionsReque
  * Use `create(ListWebSessionsRequestSchema)` to create a new message.
  */
 export const ListWebSessionsRequestSchema: GenMessage<ListWebSessionsRequest> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 15);
+  messageDesc(file_chakra_web_v1_host, 19);
 
 /**
  * @generated from message chakra.web.v1.ListWebSessionsResponse
@@ -464,7 +563,7 @@ export type ListWebSessionsResponse = Message<"chakra.web.v1.ListWebSessionsResp
  * Use `create(ListWebSessionsResponseSchema)` to create a new message.
  */
 export const ListWebSessionsResponseSchema: GenMessage<ListWebSessionsResponse> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 16);
+  messageDesc(file_chakra_web_v1_host, 20);
 
 /**
  * @generated from message chakra.web.v1.CloseSessionRequest
@@ -483,7 +582,7 @@ export type CloseSessionRequest = Message<"chakra.web.v1.CloseSessionRequest"> &
  * Use `create(CloseSessionRequestSchema)` to create a new message.
  */
 export const CloseSessionRequestSchema: GenMessage<CloseSessionRequest> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 17);
+  messageDesc(file_chakra_web_v1_host, 21);
 
 /**
  * @generated from message chakra.web.v1.CloseSessionResponse
@@ -496,7 +595,7 @@ export type CloseSessionResponse = Message<"chakra.web.v1.CloseSessionResponse">
  * Use `create(CloseSessionResponseSchema)` to create a new message.
  */
 export const CloseSessionResponseSchema: GenMessage<CloseSessionResponse> = /*@__PURE__*/
-  messageDesc(file_chakra_web_v1_host, 18);
+  messageDesc(file_chakra_web_v1_host, 22);
 
 /**
  * HostService is the web bridge over agent/host.App: the same surface-agnostic
@@ -623,6 +722,31 @@ export const HostService: GenService<{
     methodKind: "unary";
     input: typeof CloseSessionRequestSchema;
     output: typeof CloseSessionResponseSchema;
+  },
+  /**
+   * ResizeProcess sets a terminal process's size, so a terminal view can fit
+   * its panel (#218). source and process_id are the process-output event's
+   * Source and ID. A process that isn't a terminal, has exited or is unknown
+   * is FailedPrecondition.
+   *
+   * @generated from rpc chakra.web.v1.HostService.ResizeProcess
+   */
+  resizeProcess: {
+    methodKind: "unary";
+    input: typeof ResizeProcessRequestSchema;
+    output: typeof ResizeProcessResponseSchema;
+  },
+  /**
+   * WriteProcess sends what the user typed in a terminal view to the
+   * process's input. It comes from the user, so it doesn't pass the approval
+   * gate, and it doesn't enter the model's context.
+   *
+   * @generated from rpc chakra.web.v1.HostService.WriteProcess
+   */
+  writeProcess: {
+    methodKind: "unary";
+    input: typeof WriteProcessRequestSchema;
+    output: typeof WriteProcessResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_chakra_web_v1_host, 0);
