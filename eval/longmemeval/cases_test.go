@@ -48,5 +48,10 @@ func TestDeterministicScorers(t *testing.T) {
 		if want := len(c.Must) + len(c.MustNot); got != want {
 			t.Fatalf("%q: Deterministic() = %d scorers, want %d", c.Scenario.Name, got, want)
 		}
+		if got == 0 {
+			// Without the eval_llm tag a rubric grades as Ungradeable, so a
+			// case with no substring check fails every CI run.
+			t.Errorf("%q has no deterministic scorer, so CI can't grade it", c.Scenario.Name)
+		}
 	}
 }
