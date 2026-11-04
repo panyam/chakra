@@ -202,3 +202,45 @@ func TestTTYProcessOutputStreams(t *testing.T) {
 		t.Errorf("streamed %q from a tty process", sink.text())
 	}
 }
+
+// A tty process that writes a lot right before it exits keeps every byte, in
+// the model's read and in the stream. The copier says when it has drained,
+// instead of the reader guessing with a fixed wait (#218, from #219).
+func TestTTYOutputAtExitIsKept(t *testing.T) {
+	for i := range 5 {
+		src, sink := streamingSource(t, ProcessConfig{})
+		out, _ := callProc(t, src, ExecCommandTool, map[string]any{"cmd": helperCmd(t, "burst"), "tty": true, "yield_ms": 5000})
+		if !strings.Contains(out, "END OF OUTPUT") {
+			t.Fatalf("run %d: the model's read lost the end: ...%q", i, out[max(0, len(out)-80):])
+		}
+		evs := sink.waitFor(t, 5*time.Second, exited)
+		if !strings.Contains(sink.text(), "END OF OUTPUT") {
+			t.Fatalf("run %d: the stream lost the end (%d events)", i, len(evs))
+		}
+	}
+}
+
+// A tty process's events say it's a terminal and give its size, so a surface
+// can pick a terminal view and size it to match the pty.
+func TestTTYProcessOutputCarriesItsSize(t *testing.T) {
+	src, sink := streamingSource(t, ProcessConfig{})
+	out, _ := callProc(t, src, ExecCommandTool, map[string]any{"cmd": helperCmd(t, "winsize"), "tty": true, "yield_ms": 3000})
+	want := fmt.Sprintf("winsize=%dx%d", TTYCols, TTYRows)
+	if !strings.Contains(out, want) {
+		t.Errorf("process saw %q, want %s", out, want)
+	}
+	evs := sink.waitFor(t, 3*time.Second, exited)
+	for _, o := range evs {
+		if !o.TTY || o.Cols != TTYCols || o.Rows != TTYRows {
+			t.Errorf("event %+v, want TTY with %dx%d", o, TTYCols, TTYRows)
+		}
+	}
+
+	plain, psink := streamingSource(t, ProcessConfig{})
+	callProc(t, plain, ExecCommandTool, map[string]any{"cmd": helperCmd(t, "isatty"), "yield_ms": 3000})
+	for _, o := range psink.waitFor(t, 3*time.Second, exited) {
+		if o.TTY || o.Cols != 0 {
+			t.Errorf("plain process event %+v says tty", o)
+		}
+	}
+}

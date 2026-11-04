@@ -99,6 +99,13 @@ type ProcessOutput struct {
 	// Text is the output since the previous event. A terminal process's
 	// output includes its escape sequences.
 	Text string
+	// TTY says the process runs on a pseudo-terminal, so Text is meant for a
+	// terminal: colours, cursor moves, lines a progress bar redraws. Cols and
+	// Rows are the terminal's size, so a surface can draw it at that size.
+	// Both are zero when TTY is false.
+	TTY  bool
+	Cols int
+	Rows int
 	// Dropped counts bytes left out before Text. One event's text is capped,
 	// so a longer burst keeps only its end.
 	Dropped int64

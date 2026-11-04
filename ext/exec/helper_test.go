@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/creack/pty"
 )
 
 // helperSentinel marks a re-execution of this test binary as a test's child
@@ -154,6 +156,12 @@ func TestHelperProcess(t *testing.T) {
 			}
 		}
 
+	case "burst":
+		// A large write right before exit, for the tty drain (#218).
+		os.Stdout.Write([]byte(strings.Repeat("x", 256<<10) + "\nEND OF OUTPUT\n"))
+	case "winsize":
+		rows, cols, err := pty.Getsize(os.Stdin)
+		fmt.Printf("winsize=%dx%d err=%v\n", cols, rows, err)
 	case "isatty":
 		fi, _ := os.Stdin.Stat()
 		fmt.Printf("tty=%v\n", fi.Mode()&os.ModeCharDevice != 0)

@@ -33,6 +33,22 @@ export interface ToolCallEntry {
   output: string;
   exitCode: number | null;
   streamPaused: boolean;
+  // tty says the process runs on a terminal (#218). raw is then its output
+  // with the escape sequences kept, for the terminal view, and rawTotal counts
+  // every character ever received, so the view can write only what's new even
+  // after the kept tail is cut. cols and rows are the terminal's size.
+  tty: boolean;
+  raw: string;
+  rawTotal: number;
+  cols: number;
+  rows: number;
+}
+
+// outputView is how the panel shows a call's process output: a terminal for a
+// tty process, plain text otherwise, and nothing when there's no output yet.
+export function outputView(c: ToolCallEntry): "terminal" | "plain" | "none" {
+  if (c.tty && c.raw) return "terminal";
+  return c.output ? "plain" : "none";
 }
 
 // OUTPUT_KEEP bounds the output kept per row; older output is dropped first.
@@ -47,7 +63,14 @@ interface ProcState {
   output: string;
   exitCode: number | null;
   paused: boolean;
+  tty: boolean;
+  raw: string;
+  rawTotal: number;
+  cols: number;
+  rows: number;
 }
+
+const newProc = (): ProcState => ({ output: "", exitCode: null, paused: false, tty: false, raw: "", rawTotal: 0, cols: 0, rows: 0 });
 
 function keepTail(s: string): string {
   return s.length > OUTPUT_KEEP ? s.slice(s.length - OUTPUT_KEEP) : s;
@@ -93,7 +116,7 @@ export function createToolStore(): ToolStore {
   // by reference, so a mutated-in-place entry would never re-render.
   const update = (id: string, name: string, patch: Partial<ToolCallEntry>): void => {
     const base: ToolCallEntry =
-      idx.has(id) ? ring[idx.get(id)!] : { id, name: name || "tool", args: "", status: "running", preview: "", offloaded: false, ref: "", process: "", output: "", exitCode: null, streamPaused: false };
+      idx.has(id) ? ring[idx.get(id)!] : { id, name: name || "tool", args: "", status: "running", preview: "", offloaded: false, ref: "", process: "", output: "", exitCode: null, streamPaused: false, tty: false, raw: "", rawTotal: 0, cols: 0, rows: 0 };
     const next = { ...base, ...patch };
     if (name && !next.name) next.name = name;
     if (idx.has(id)) ring = ring.map((e, i) => (i === idx.get(id)! ? next : e));
@@ -111,16 +134,35 @@ export function createToolStore(): ToolStore {
     const callId = owner.get(procId);
     const st = procs.get(procId);
     if (!callId || !st) return;
-    update(callId, "", { process: procId, output: st.output, exitCode: st.exitCode, streamPaused: st.paused });
+    update(callId, "", {
+      process: procId,
+      output: st.output,
+      exitCode: st.exitCode,
+      streamPaused: st.paused,
+      tty: st.tty,
+      raw: st.raw,
+      rawTotal: st.rawTotal,
+      cols: st.cols,
+      rows: st.rows,
+    });
   };
 
   const ingestOutput = (o: NonNullable<HostEvent["ProcessOutput"]>): void => {
     if (!o.ID) return;
-    const st = procs.get(o.ID) ?? { output: "", exitCode: null, paused: false };
+    const st = procs.get(o.ID) ?? newProc();
     let add = "";
     if (o.Dropped) add += `… ${o.Dropped} bytes dropped …\n`;
     add += (o.Text ?? "").replace(ANSI, "");
     st.output = keepTail(st.output + add);
+    if (o.TTY) {
+      st.tty = true;
+      st.cols = o.Cols ?? 0;
+      st.rows = o.Rows ?? 0;
+      let raw = o.Text ?? "";
+      if (o.Dropped) raw = `\r\n… ${o.Dropped} bytes dropped …\r\n` + raw;
+      st.raw = keepTail(st.raw + raw);
+      st.rawTotal += raw.length;
+    }
     if (o.Paused) st.paused = true;
     if (o.Exited) st.exitCode = o.ExitCode ?? 0;
     procs.set(o.ID, st);
@@ -157,7 +199,7 @@ export function createToolStore(): ToolStore {
         const procId = re.toolResult?.structuredContent?.session_id;
         if (typeof procId === "string" && procId && !owner.has(procId)) {
           owner.set(procId, id);
-          if (!procs.has(procId)) procs.set(procId, { output: "", exitCode: null, paused: false });
+          if (!procs.has(procId)) procs.set(procId, newProc());
           showProcess(procId);
         }
         break;

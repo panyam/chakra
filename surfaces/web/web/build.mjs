@@ -61,3 +61,7 @@ const umd = readFileSync(require.resolve("dockview-core/dist/dockview-core.js"),
 const css = umd.match(/cssinject:[^\n]*dockview\.css[\s\S]*?\.textContent = ("(?:[^"\\]|\\.)*");/);
 if (!css) throw new Error("build: dockview-core's UMD build no longer embeds dockview.css; find where v" + require("dockview-core/package.json").version + " ships it");
 writeFileSync(`${OUT}/dockview.css`, runInNewContext(css[1]));
+
+// xterm.js ships its stylesheet as a file. TerminalOutput links it the first
+// time a tty process is on screen (#218).
+writeFileSync(`${OUT}/xterm.css`, readFileSync(require.resolve("@xterm/xterm/css/xterm.css")));

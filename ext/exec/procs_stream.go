@@ -94,6 +94,9 @@ func (st *outputStream) take() (host.ProcessOutput, bool) {
 func (st *outputStream) run(p *proc, report func(host.ProcessOutput)) {
 	send := func(o host.ProcessOutput) {
 		o.Source, o.ID, o.Command = "exec", p.id, p.command
+		if p.tty {
+			o.TTY, o.Cols, o.Rows = true, TTYCols, TTYRows
+		}
 		report(o)
 	}
 	t := time.NewTicker(streamEvery)
@@ -101,8 +104,7 @@ func (st *outputStream) run(p *proc, report func(host.ProcessOutput)) {
 	for {
 		select {
 		case <-p.done:
-			// Let the output copier drain, as collect does.
-			time.Sleep(20 * time.Millisecond)
+			// done means the copier has drained, so this take is the last.
 			o, _ := st.take()
 			o.Exited, o.ExitCode = true, p.exit
 			send(o)

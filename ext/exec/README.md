@@ -113,7 +113,9 @@ on Codex calls them without being taught:
 | `kill_process {session_id}` | stops it and everything it started | reversible |
 
 Processes run under the same sandbox as `shell`, and `tty: true` gives one a pseudo-terminal
-(`github.com/creack/pty`). They belong to the session, not the turn, so a server started in one
+(`github.com/creack/pty`) of `TTYCols` by `TTYRows` (120 by 30). A process isn't reported done
+until its terminal's output has been read, for at most 2s after it exits (#218). Linux keeps what a
+process wrote after it exits, so closing the terminal at exit would lose the end. They belong to the session, not the turn, so a server started in one
 turn is still there in the next, and `Extension.Close` kills them all. Each call returns only the
 output since the last one, cut from the middle past 16 KiB. A process keeps at most `MaxOutput`
 bytes (1 MiB), and a read says how much older output it missed. At most `Max` (8) run at once.
@@ -122,7 +124,9 @@ While a process runs, its output also streams to the surfaces as it prints (#214
 Tools panel and agentchat show a dev server or a build between the model's polls. The extension
 implements `host.ProcessReporter`. It sends output in batches, every 250ms or at 8 KiB, and each
 batch becomes a `process-output` event keyed by the process's `session_id`. The last batch carries
-the exit code. None of it reaches the model, whose results are the same with or without a surface
+the exit code. A tty process's batches carry `TTY` and the terminal's size, and agentweb draws
+them in a terminal view (xterm.js), so colours and redrawn lines show as they would in a
+terminal. None of it reaches the model, whose results are the same with or without a surface
 watching. Streaming pauses after `StreamBudget` bytes per process (4 MiB; negative for no limit),
 because the host keeps every event in its log and a server left running would grow it without end.
 `MaxEventLogRetention` bounds the log by count across all kinds, so it can't protect a session's

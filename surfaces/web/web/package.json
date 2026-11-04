@@ -16,6 +16,7 @@
     "@connectrpc/connect-web": "^2.1.0",
     "@panyam/tsappkit": "^0.7.6",
     "@panyam/tsappkit-solid": "^0.7.6",
+    "@xterm/xterm": "6.0.0",
     "dockview-core": "^8.1.0",
     "solid-js": "^1.9.17"
   },
