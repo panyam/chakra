@@ -5,6 +5,16 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
+## [Unreleased]
+
+### Added
+- `host`: an extension contributes turn-end hooks through `Extension.TurnEndHooks`, and the main agent's Runner runs them. `BaseExtension` returns none (#223).
+- `agentchat exec` exits 4 when a turn-end hook stops the turn (#223).
+
+### Changed
+- Breaking: `host.Extension` gains `TurnEndHooks() []agent.TurnEndHook`. An extension that embeds `BaseExtension` needs no change (#223).
+- `host`: a turn that ends with `agent.ErrTurnStopped` keeps its messages in history and the run store, with the refused answer last, as a step-capped turn does (#223).
+
 ## [v0.2.6] - 2026-11-03
 
 ### Added

@@ -199,6 +199,7 @@ agentchat exec --config agentchat.json --workspace . --approve reversible-auto \
 | 1 | the turn failed |
 | 2 | it hit `--max-steps` |
 | 3 | `--output-schema` was set and no answer matched it |
+| 4 | a turn-end hook stopped the turn and refused its answer |
 | 64 | bad usage: no `--approve`, no prompt, an unreadable schema |
 
 `--max-steps` overrides a config file's `maxSteps`, as the tree-budget flags do.

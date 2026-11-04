@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/panyam/chakra"
 )
 
 // modelReply is one scripted model answer: text, or a single tool call.
@@ -176,6 +178,16 @@ func TestExecExitsTwoAtTheStepLimit(t *testing.T) {
 	_, _, code := runExecCmd(t, srv, "", "-p", "go", "--approve", "allow", "--workspace", ws, "--max-steps", "1")
 	if code != exitMaxSteps {
 		t.Errorf("exit %d, want %d", code, exitMaxSteps)
+	}
+}
+
+// No exec run can install a turn-end hook yet, so this checks the mapping
+// rather than a run.
+func TestExecExitsFourWhenAHookStopsTheTurn(t *testing.T) {
+	stopped := fmt.Errorf("%w: same draft again", agent.ErrTurnStopped)
+	var ee *exitError
+	if err := execExit(stopped, &agent.TurnResult{}, false); !errors.As(err, &ee) || ee.code != exitTurnStopped {
+		t.Fatalf("execExit = %v, want exit %d", err, exitTurnStopped)
 	}
 }
 

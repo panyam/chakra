@@ -22,6 +22,7 @@ const (
 	exitTurnFailed    = 1
 	exitMaxSteps      = 2
 	exitSchemaInvalid = 3
+	exitTurnStopped   = 4
 	exitUsage         = 64
 )
 
@@ -147,14 +148,21 @@ func runExec(ctx context.Context, v *viper.Viper, args []string, stdin io.Reader
 		}
 	}
 
+	return execExit(turnErr, result, schema.Len() > 0)
+}
+
+// execExit maps how the turn ended to exec's exit code, or nil for 0.
+func execExit(turnErr error, result *agent.TurnResult, wantSchema bool) error {
 	switch {
 	case errors.Is(turnErr, agent.ErrMaxSteps):
 		return &exitError{code: exitMaxSteps, err: turnErr}
+	case errors.Is(turnErr, agent.ErrTurnStopped):
+		return &exitError{code: exitTurnStopped, err: turnErr}
 	case turnErr != nil:
 		return &exitError{code: exitTurnFailed, err: turnErr}
-	case schema.Len() > 0 && (result == nil || result.Structured.Len() == 0):
+	case wantSchema && (result == nil || result.Structured.Len() == 0):
 		return &exitError{code: exitSchemaInvalid, err: errors.New("no structured answer")}
-	case schema.Len() > 0 && result.StructuredError != "":
+	case wantSchema && result.StructuredError != "":
 		return &exitError{code: exitSchemaInvalid, err: fmt.Errorf("the answer doesn't match --output-schema: %s", result.StructuredError)}
 	}
 	return nil

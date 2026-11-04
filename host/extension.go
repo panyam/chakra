@@ -103,6 +103,17 @@ type Extension interface {
 	// long the added context should live. See docs/HOOKS.md, Record or view.
 	StepStages() []agent.StepStage
 
+	// TurnEndHooks judge the main agent's answer before the turn accepts it,
+	// in registration order. The first refusal
+	// wins. A hook can accept, send the model back with a note, or stop the
+	// turn on the refused answer with agent.ErrTurnStopped. The host keeps a
+	// stopped turn in history, as it keeps a step-capped one. Use one when
+	// the extension can tell the work isn't done, such as tests that are
+	// still red. Sub-agents don't run these hooks. TurnEnder only hears that a
+	// turn ended and can't change it. See agent.TurnEndHook and docs/HOOKS.md,
+	// Turn end.
+	TurnEndHooks() []agent.TurnEndHook
+
 	// ApprovalRenderers supply the question a user is asked before a gated
 	// tool call runs, for the tools this extension owns.
 	//
@@ -278,6 +289,7 @@ func (BaseExtension) PromptSections() []PromptSection       { return nil }
 func (BaseExtension) Commands() []*Command                  { return nil }
 func (BaseExtension) ContextStages() []ContextStage         { return nil }
 func (BaseExtension) StepStages() []agent.StepStage         { return nil }
+func (BaseExtension) TurnEndHooks() []agent.TurnEndHook     { return nil }
 func (BaseExtension) ApprovalRenderers() []ApprovalRenderer { return nil }
 func (BaseExtension) ApprovalChoosers() []ApprovalChooser   { return nil }
 func (BaseExtension) ApprovalClassifiers() []ApprovalClassifier {
@@ -536,6 +548,7 @@ func (a *App) applyExtensions(exts []Extension, provider agent.Provider) ([]agen
 		a.promptBuilder.Sections = append(a.promptBuilder.Sections, ext.PromptSections()...)
 		a.context.transient = append(a.context.transient, ext.ContextStages()...)
 		a.stepStages = append(a.stepStages, ext.StepStages()...)
+		a.turnEndHooks = append(a.turnEndHooks, ext.TurnEndHooks()...)
 		if ak, ok := ext.(Asker); ok && a.confirm != nil {
 			ak.SetAsk(a.confirm)
 		}
