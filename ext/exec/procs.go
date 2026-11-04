@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	osexec "os/exec"
-	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -64,7 +63,15 @@ type ProcessConfig struct {
 	// network proxy closes with the session, so a detached command that needs
 	// the network through it loses that when the session ends. Every detached
 	// call asks for approval unless the shell rules forbid the command.
+	//
+	// A later session on the same first root finds the processes an earlier
+	// one left running (#239). list_processes shows them, write_stdin with
+	// empty chars reads their output, and kill_process stops them.
 	AllowDetach bool
+	// StateDir holds the registry of detached processes, their log files and
+	// their exit codes. Empty uses $XDG_STATE_HOME, or ~/.local/state. Each
+	// workspace gets its own directory under chakra/detached.
+	StateDir string
 }
 
 const (
@@ -78,7 +85,8 @@ const (
 )
 
 // procManager owns a session's processes. They outlive the turn that started
-// them, so nothing here derives from a turn's context. Close kills them all.
+// them, so nothing here derives from a turn's context. Close kills them all,
+// except the detached ones.
 type procManager struct {
 	cfg   ProcessConfig
 	mu    sync.Mutex
@@ -86,9 +94,20 @@ type procManager struct {
 	next  int
 	// report receives output as it arrives, when the host shows it.
 	report func(host.ProcessOutput)
+
+	// reg is the workspace's registry of detached processes, and nil
+	// without AllowDetach. owner is this session's token in its entries.
+	reg   *registry
+	owner string
+	// stop ends the watchers of adopted processes when the session closes.
+	stop     chan struct{}
+	stopOnce sync.Once
 }
 
-func newProcManager(cfg ProcessConfig) *procManager {
+// newProcManager builds the manager for a session whose first root is root.
+// With AllowDetach it opens the workspace's registry and adopts the detached
+// processes earlier sessions left.
+func newProcManager(cfg ProcessConfig, root string) (*procManager, error) {
 	if cfg.Max <= 0 {
 		cfg.Max = defaultMaxProcesses
 	}
@@ -104,7 +123,91 @@ func newProcManager(cfg ProcessConfig) *procManager {
 	if cfg.StreamBudget == 0 {
 		cfg.StreamBudget = defaultStreamBudget
 	}
-	return &procManager{cfg: cfg, procs: map[string]*proc{}}
+	m := &procManager{cfg: cfg, procs: map[string]*proc{}, stop: make(chan struct{})}
+	if !cfg.AllowDetach {
+		return m, nil
+	}
+	state := cfg.StateDir
+	if state == "" {
+		state = stateDir()
+	}
+	reg, err := newRegistry(state, root)
+	if err != nil {
+		return nil, fmt.Errorf("exec: detached process registry: %w", err)
+	}
+	m.reg = reg
+	m.owner = reg.newID()
+	openOwners.Store(m.owner, true)
+	if err := m.adopt(); err != nil {
+		openOwners.Delete(m.owner)
+		return nil, fmt.Errorf("exec: detached process registry: %w", err)
+	}
+	return m, nil
+}
+
+// adopt takes over the registry's entries whose session has closed. A
+// process still running becomes this session's, marked as from an earlier
+// session. One that exited and left an exit code is kept until its output is
+// read. Any other entry is dropped: its process is gone, or its pid now
+// belongs to a process that started at another time.
+func (m *procManager) adopt() error {
+	unlock, err := lockDir(m.reg.dir)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	ownerStart, _ := procStart(os.Getpid())
+	for _, e := range m.reg.entries() {
+		if ownerOpen(e) {
+			continue
+		}
+		running := alive(e.PID, e.StartToken)
+		code, exited := m.reg.exitCode(e.ID)
+		if !running && !exited {
+			m.reg.remove(e.ID)
+			continue
+		}
+		e.Owner, e.OwnerPID, e.OwnerStart = m.owner, os.Getpid(), ownerStart
+		if err := m.reg.write(e); err != nil {
+			continue
+		}
+		p := &proc{command: e.Cmd, pid: e.PID, entry: e.ID, adopted: true, log: m.reg.path(e.ID, ".log"),
+			out: &tailBuffer{max: m.cfg.MaxOutput}, done: make(chan struct{}), started: e.Started}
+		if running {
+			go m.watch(p, e.StartToken)
+		} else {
+			p.exit = code
+			close(p.done)
+		}
+		m.next++
+		p.id = fmt.Sprintf("p%d", m.next)
+		m.procs[p.id] = p
+	}
+	return nil
+}
+
+// watch closes p.done once an adopted process exits. The exit code is the one
+// the launch wrapper recorded, or -1 when it recorded none, as when the
+// process was killed.
+func (m *procManager) watch(p *proc, tok string) {
+	t := time.NewTicker(watchPoll)
+	defer t.Stop()
+	for {
+		select {
+		case <-m.stop:
+			return
+		case <-t.C:
+		}
+		if alive(p.pid, tok) {
+			continue
+		}
+		p.exit = -1
+		if code, ok := m.reg.exitCode(p.entry); ok {
+			p.exit = code
+		}
+		close(p.done)
+		return
+	}
 }
 
 // proc is one running (or just finished) process.
@@ -117,7 +220,13 @@ type proc struct {
 	tty     bool
 	// log is where a detached process writes its output. It is empty for
 	// a process attached to the session.
-	log     string
+	log string
+	// pid is the process's id. cmd is nil for an adopted process.
+	pid int
+	// entry is a detached process's registry id, and empty otherwise.
+	entry string
+	// adopted marks a detached process an earlier session started.
+	adopted bool
 	out     *tailBuffer
 	started time.Time
 
@@ -302,7 +411,7 @@ func (s *Source) procDefs() []core.ToolDef {
 		{
 			Name:        ListProcessesTool,
 			Title:       "List running commands",
-			Description: "List the commands started with exec_command, running or finished but not yet read.",
+			Description: "List the commands started with exec_command, running or finished but not yet read, and any left running by an earlier session.",
 			Annotations: map[string]any{"readOnlyHint": true},
 			InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
 		},
@@ -413,7 +522,7 @@ func (s *Source) execCommand(args map[string]any) *core.ToolResult {
 
 	policy := Policy{Write: s.write, DenyRead: s.denyRead, Dir: dir, AllowNetwork: s.shell.allowNetwork}
 	if a.Detach {
-		if err := startDetached(p, s.sandbox, policy); err != nil {
+		if err := m.startDetached(p, s.sandbox, policy); err != nil {
 			return toolError("exec_command: " + err.Error())
 		}
 	} else if a.TTY {
@@ -435,6 +544,7 @@ func (s *Source) execCommand(args map[string]any) *core.ToolResult {
 		}
 		p.stdin, p.closeIn = in, func() { in.Close() }
 	}
+	p.pid = cmd.Process.Pid
 	go p.wait()
 
 	m.mu.Lock()
@@ -461,9 +571,12 @@ func (m *procManager) collect(p *proc, d time.Duration, header string) *core.Too
 		t.Stop()
 	}
 	p.readMu.Lock()
-	text, pos, dropped := p.out.since(p.read)
+	var text string
+	var pos, dropped int64
 	if p.log != "" {
 		text, pos, dropped = readLogSince(p.log, p.read, m.cfg.MaxOutput)
+	} else {
+		text, pos, dropped = p.out.since(p.read)
 	}
 	p.read = pos
 	p.readMu.Unlock()
@@ -481,11 +594,14 @@ func (m *procManager) collect(p *proc, d time.Duration, header string) *core.Too
 	sc := map[string]any{"session_id": p.id, "dropped": dropped}
 	elapsed := time.Since(p.started).Round(time.Millisecond)
 	if p.log != "" {
-		sc["detached"], sc["pid"], sc["log"] = true, p.cmd.Process.Pid, p.log
+		sc["detached"], sc["pid"], sc["log"] = true, p.pid, p.log
+		if p.adopted {
+			sc["earlier_session"] = true
+		}
 	}
 	if p.running() && p.log != "" {
 		fmt.Fprintf(&b, "\n[still running as %s (pid %d) after %s, detached: it keeps running after this session ends, "+
-			"with its output in %s; kill_process stops it while the session lasts]", p.id, p.cmd.Process.Pid, elapsed, p.log)
+			"with its output in %s; kill_process stops it]", p.id, p.pid, elapsed, p.log)
 		sc["running"] = true
 	} else if p.running() {
 		fmt.Fprintf(&b, "\n[still running as %s after %s; call write_stdin to send input or collect output, kill_process to stop it]", p.id, elapsed)
@@ -496,6 +612,9 @@ func (m *procManager) collect(p *proc, d time.Duration, header string) *core.Too
 		m.mu.Lock()
 		delete(m.procs, p.id)
 		m.mu.Unlock()
+		if p.entry != "" {
+			m.reg.remove(p.entry)
+		}
 	}
 	return &core.ToolResult{Content: []core.Content{{Type: "text", Text: b.String()}}, StructuredContent: sc}
 }
@@ -552,8 +671,15 @@ func (s *Source) listProcesses() *core.ToolResult {
 		if !p.running() {
 			state = fmt.Sprintf("exited %d, output not yet read", p.exit)
 		}
+		if p.adopted {
+			state += "; detached, from an earlier session"
+		}
 		fmt.Fprintf(&b, "%s  %s  (%s, started %s ago)\n", p.id, p.command, state, time.Since(p.started).Round(time.Second))
-		list = append(list, map[string]any{"session_id": p.id, "cmd": p.command, "running": p.running()})
+		item := map[string]any{"session_id": p.id, "cmd": p.command, "running": p.running()}
+		if p.adopted {
+			item["earlier_session"], item["pid"], item["log"] = true, p.pid, p.log
+		}
+		list = append(list, item)
 	}
 	return &core.ToolResult{Content: []core.Content{{Type: "text", Text: strings.TrimRight(b.String(), "\n")}}, StructuredContent: map[string]any{"processes": list}}
 }
@@ -567,13 +693,21 @@ func (s *Source) killProcess(args map[string]any) *core.ToolResult {
 	if err != nil {
 		return toolError("kill_process: " + err.Error())
 	}
-	killProcessGroup(p.cmd)
+	if p.adopted {
+		killGroup(p.pid)
+	} else {
+		killProcessGroup(p.cmd)
+	}
 	return s.procs.collect(p, 5*time.Second, "")
 }
 
 // killAll stops every process, for the end of a session, except the
-// detached ones, which are left running.
+// detached ones, which stay in the registry for a later session.
 func (m *procManager) killAll() {
+	m.stopOnce.Do(func() {
+		close(m.stop)
+		openOwners.Delete(m.owner)
+	})
 	m.mu.Lock()
 	ps := make([]*proc, 0, len(m.procs))
 	for _, p := range m.procs {
@@ -684,30 +818,56 @@ const (
 // errNoTTY is returned where pseudo-terminals aren't supported.
 var errNoTTY = errors.New("tty is not supported on this platform")
 
-// startDetached starts p in its own session with its output in a log file.
-// The process holds the file itself, so its writes don't go through a pipe
-// that closes when agentchat exits.
-func startDetached(p *proc, sb Sandbox, policy Policy) error {
-	dir := filepath.Join(os.TempDir(), "chakra-detached")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return err
-	}
-	f, err := os.CreateTemp(dir, "proc-*.log")
+// startDetached starts p in its own session with its output in a log file,
+// and records it in the registry. The process holds the file itself, so its
+// writes don't go through a pipe that closes when agentchat exits. A wrapper
+// shell writes the command's exit code to a file the parent opened, so a later
+// session can report it.
+func (m *procManager) startDetached(p *proc, sb Sandbox, policy Policy) error {
+	id := m.reg.newID()
+	logPath, exitPath := m.reg.path(id, ".log"), m.reg.path(id, ".exit")
+	f, err := os.OpenFile(logPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
+	x, err := os.OpenFile(exitPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		m.reg.remove(id)
+		return err
+	}
+	defer x.Close()
+	sh, err := osexec.LookPath("sh")
+	if err != nil {
+		m.reg.remove(id)
+		return err
+	}
+	inner := append([]string{p.cmd.Path}, p.cmd.Args[1:]...)
+	p.cmd.Path, p.cmd.Args = sh, append([]string{"sh", "-c", detachedWrapper, "sh"}, inner...)
 	setDetached(p.cmd)
 	if err := sb.Confine(p.cmd, policy); err != nil {
-		os.Remove(f.Name())
+		m.reg.remove(id)
 		return fmt.Errorf("sandbox: %w", err)
 	}
 	p.cmd.Stdin, p.cmd.Stdout, p.cmd.Stderr = nil, f, f
+	p.cmd.ExtraFiles = []*os.File{x}
 	if err := p.cmd.Start(); err != nil {
-		os.Remove(f.Name())
+		m.reg.remove(id)
 		return err
 	}
-	p.log = f.Name()
+	p.log, p.entry = logPath, id
+	tok, _ := procStart(p.cmd.Process.Pid)
+	ownerStart, _ := procStart(os.Getpid())
+	err = m.reg.write(regEntry{ID: id, PID: p.cmd.Process.Pid, Cmd: p.command, Workdir: p.cmd.Dir, Started: p.started,
+		StartToken: tok, Owner: m.owner, OwnerPID: os.Getpid(), OwnerStart: ownerStart})
+	if err != nil {
+		// A detached process no later session can find is the problem this
+		// registry exists to prevent, so don't leave one running.
+		killProcessGroup(p.cmd)
+		_ = p.cmd.Wait()
+		m.reg.remove(id)
+		return fmt.Errorf("record the detached process: %w", err)
+	}
 	return nil
 }
 

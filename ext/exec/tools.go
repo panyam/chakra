@@ -140,7 +140,9 @@ func NewSource(cfg Config) (*Source, error) {
 		}
 		s.shell = &shell{rules: rules, timeout: st, allowNetwork: cfg.Shell.AllowNetwork}
 		if cfg.Shell.Processes != nil {
-			s.procs = newProcManager(*cfg.Shell.Processes)
+			if s.procs, err = newProcManager(*cfg.Shell.Processes, roots[0]); err != nil {
+				return nil, err
+			}
 		}
 		s.defs = append(s.defs, s.shellDef())
 		if s.procs != nil {

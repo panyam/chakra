@@ -138,11 +138,24 @@ turns from a noisy process the way a per-process budget does.
 Some tasks want a server left running after the agent finishes, such as a check that
 connects to it later. A process killed by `Close` can't do that. So `AllowDetach` adds a
 `detach` argument to `exec_command` (#228). A detached command starts in its own session and
-reads stdin from `/dev/null`. It writes its output to a log file in the system temp dir under
-`chakra-detached/`, and the log stays out of the workspace so it doesn't appear among the
-task's files. `Close` leaves the command running. It still runs under the sandbox. While the
-session lasts, `write_stdin` with no chars reads the log, and `kill_process` stops it. It
-doesn't stream to the surfaces. Every detached call asks for approval, whatever the prefix
+reads stdin from `/dev/null`. It writes its output to a log file outside the workspace, so the
+log doesn't appear among the task's files. `Close` leaves the command running. It still runs
+under the sandbox. `write_stdin` with no chars reads the log, and `kill_process` stops the
+command. It doesn't stream to the surfaces.
+
+A later session on the same first root picks up where the earlier one left off (#239). Each
+detached start writes an entry to `$XDG_STATE_HOME/chakra/detached/<hash of the root>/`, or
+under `~/.local/state` when that variable is unset. `ProcessConfig.StateDir` moves it. The log
+sits beside the entry, with an exit file. A new session reads the directory at construction.
+It keeps each entry whose process is running and whose start time matches the entry, so a pid
+the OS gave to another process is dropped. `list_processes` shows the kept ones as "detached,
+from an earlier session", and the other process tools work on them as usual. The command runs
+under a small `sh` wrapper that writes the exit code to the exit file through a descriptor the
+parent opened, so the sandbox needs no write access outside the workspace. A process that
+exited between sessions is kept until its last output and exit code are read. An entry
+whose process is gone with no exit code is dropped. A session leaves alone the entries of a
+session that is still open, in this process or another. A later session can't type into a
+process an earlier one started, because its stdin is `/dev/null`. Every detached call asks for approval, whatever the prefix
 rules say, unless the rules forbid the command outright. The ask says the command keeps
 running after the session ends. The network proxy closes with the session, so a detached
 command loses network access through it at that point.
