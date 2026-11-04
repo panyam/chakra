@@ -11,10 +11,10 @@ replace github.com/panyam/chakra/ext/files => ../../ext/files
 replace github.com/panyam/chakra/ext/git => ../../ext/git
 
 require (
-	github.com/panyam/chakra v0.2.6
-	github.com/panyam/chakra/ext/files v0.2.6
-	github.com/panyam/chakra/ext/git v0.2.6
-	github.com/panyam/chakra/host v0.2.6
+	github.com/panyam/chakra v0.2.7
+	github.com/panyam/chakra/ext/files v0.2.7
+	github.com/panyam/chakra/ext/git v0.2.7
+	github.com/panyam/chakra/host v0.2.7
 	github.com/panyam/mcpkit v0.8.16
 )
 
