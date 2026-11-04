@@ -5,6 +5,18 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
+## [v0.2.8] - 2026-11-03
+
+### Added
+- `ext/exec`: a later session lists, tails and kills the detached processes an earlier session started in the same workspace. A registry under `$XDG_STATE_HOME/chakra/detached/` records each one with its pid start time, so a reused pid isn't mistaken for it. `ProcessConfig.StateDir` moves the registry, and a detached process's exit code reaches the registry when it ends (PR 254).
+- `ext/agentsmd`: an `@name` mention in a message loads that rule. `Profile.GlobalRules` reads a user rule folder, and the `claude` preset reads `~/.claude/rules`. `Profile.NestedRules` reads rule folders under subdirectories, and the `cursor` preset reads nested `.cursor/rules`. A rule edited mid-session reaches the model in the next turn's changes notice (PR 255).
+- agentweb: coding sessions persist in the session store like chat ones. `--coding-state` holds a folder per session, closing a session removes its folder when no store is set, and the roster names each session's kind. `web.Profile` gains `Close`, `coding.Profile` gains `RunStore`, and `WebSession` gains `profile` and `path` (PR 256).
+- agentweb: coding sessions get the header model picker (PR 256).
+
+### Fixed
+- `ext/exec`: polling a detached process no longer panics on its output buffer (PR 254).
+- agentweb: `/code/` works under `--session-store` (PR 256).
+
 ## [v0.2.7] - 2026-11-03
 
 ### Added
