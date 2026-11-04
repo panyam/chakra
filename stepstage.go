@@ -87,6 +87,23 @@ type StepView struct {
 	// it. It may be set without Provider, to name the configured provider.
 	// Like Provider, only a ScopeRequest stage may set it.
 	ProviderName string
+
+	// Guided is the decoding constraint for this one call. It starts as the
+	// turn's ResponseGuided, and nil when the turn has none. A ScopeRequest
+	// stage may replace it or clear it, and the next step starts from the
+	// turn's grammar again. As with Provider, a session or turn stage that
+	// changes it fails the turn.
+	//
+	// A step with no tools sends it. A step that offers tools sends no
+	// constraint, and if the model answers without calling one, the guided
+	// finalize writes the answer under this step's Guided. A nil Guided skips
+	// that finalize. The constraint is checked against the provider that will
+	// send it: the routed one for a step with no tools, and
+	// RunnerConfig.Provider for the finalize. A provider that can't send it
+	// fails the turn with ErrUnsupportedParam before the call. A grammar set
+	// here in a turn with a ResponseSchema fails the turn too, since an
+	// answer takes one constraint.
+	Guided *GuidedDecoding
 }
 
 // StepStage is one entry in RunnerConfig.StepStages, the chain that runs
@@ -211,9 +228,10 @@ func (r *Runner) stepChain(emit func(Event)) []StepStage {
 
 // runStepChain applies the chain before one model call. It returns the
 // working messages for the rest of the turn, then the messages that session
-// stages added to the record, then the view to send.
-func runStepChain(ctx context.Context, chain []StepStage, info StepInfo, working []Message, tools []core.ToolDef) (newWorking, recorded []Message, view StepView, err error) {
-	view = StepView{Messages: working, Tools: tools}
+// stages added to the record, then the view to send. The view starts with
+// guided, the turn's grammar.
+func runStepChain(ctx context.Context, chain []StepStage, info StepInfo, working []Message, tools []core.ToolDef, guided *GuidedDecoding) (newWorking, recorded []Message, view StepView, err error) {
+	view = StepView{Messages: working, Tools: tools, Guided: guided}
 	for _, st := range chain {
 		in := view.Messages
 		// A stage gets a copy it can append to without writing into the
@@ -225,6 +243,9 @@ func runStepChain(ctx context.Context, chain []StepStage, info StepInfo, working
 		}
 		if st.Scope != ScopeRequest && (out.Provider != nil || out.ProviderName != "") {
 			return nil, nil, StepView{}, fmt.Errorf("step stage %q: only a request stage may route a call to another provider", st.Name)
+		}
+		if st.Scope != ScopeRequest && out.Guided != view.Guided {
+			return nil, nil, StepView{}, fmt.Errorf("step stage %q: only a request stage may set a call's grammar", st.Name)
 		}
 		switch st.Scope {
 		case ScopeSession:
