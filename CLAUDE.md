@@ -45,6 +45,8 @@ exported API. Its exercise is `make api-report` (#143), which diffs each module'
 against a checked-in `api.txt`. The earlier missions were #57 (`mission_dogfood_coding`,
 `make dogfood`) and #89 (`mission_host_completion`, `make host-exercise`). Both closed when their
 exercises passed, and both exercises still run.
+#172 (`mission_jaala_translator`) closed on 2026-11-03 when panyam/jaala#496 moved jaala's
+translator onto the Runner. Its exercise lives in jaala.
 
 A new issue gets one of `P0`–`P3` (P1 is capped at 5 per mission), plus either a `mission_<slug>`
 label with a blocked-by link from the mission, or `waiting` with its trigger named in the body.
