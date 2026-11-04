@@ -19,7 +19,15 @@ import (
 //   - description alone lists the rule in the system prompt, with its path,
 //     so the model reads it when the task matches.
 //   - a .mdc rule with none of these is Cursor's "manual" rule, which applies
-//     only when the user mentions it. It isn't loaded.
+//     once the user writes @name, where name is the file name without its
+//     extension (#240). Any rule not already loaded can be mentioned.
+//
+// Rule folders come from three places. Profile.Rules are relative to each
+// workspace root. Profile.GlobalRules are the user's own, such as
+// ~/.claude/rules, and their globs match paths under any root.
+// Profile.NestedRules are read inside each subdirectory the agent touches,
+// as Cursor reads .cursor/rules there, and their globs are relative to that
+// subdirectory.
 
 // ruleKind is when a rule applies.
 type ruleKind int
@@ -41,17 +49,53 @@ type ruleMeta struct {
 // rule is one rule file.
 type rule struct {
 	path string // absolute
-	root string // the workspace root its globs are relative to
-	meta ruleMeta
-	kind ruleKind
-	text string // the body, without frontmatter
+	// root is the directory its globs are relative to: a workspace root, or
+	// the subdirectory a nested rule was found in. It is empty for a global
+	// rule, whose globs are relative to whichever root holds the path.
+	root string
+	// within is the subdirectory a nested rule applies in, and empty
+	// otherwise.
+	within string
+	global bool
+	meta   ruleMeta
+	kind   ruleKind
+	text   string // the body, without frontmatter
+}
+
+// name is what the user writes after @ to apply the rule.
+func (r rule) name() string {
+	return strings.TrimSuffix(strings.TrimSuffix(filepath.Base(r.path), ".mdc"), ".md")
+}
+
+// same reports whether two reads of a rule say the same thing.
+func (r rule) same(o rule) bool {
+	return r.kind == o.kind && r.text == o.text && r.meta.description == o.meta.description &&
+		strings.Join(r.meta.globs, "\x00") == strings.Join(o.meta.globs, "\x00")
+}
+
+// alwaysLabel labels an always rule in the system prompt or the block.
+func (r rule) alwaysLabel() string {
+	switch {
+	case r.within != "":
+		return "rule, applies within " + r.within
+	case r.global:
+		return "your rule, applies always"
+	}
+	return "rule, applies always"
 }
 
 func (r rule) doc(label string) doc { return doc{path: r.path, text: r.text, label: label} }
 
-// matches returns the first glob that matches abs, or "".
-func (r rule) matches(abs string) string {
-	rel, err := filepath.Rel(r.root, abs)
+// matches returns the first glob that matches abs, or "". root is the
+// workspace root holding abs, for a global rule.
+func (r rule) matches(abs, root string) string {
+	if r.root != "" {
+		root = r.root
+	}
+	if root == "" {
+		return ""
+	}
+	rel, err := filepath.Rel(root, abs)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return ""
 	}
@@ -79,9 +123,10 @@ func kindOf(file string, m ruleMeta) ruleKind {
 	}
 }
 
-// rules reads every file the profile's Rules entries name, for each root.
-// An entry is a directory, read recursively for .md and .mdc files, or a
-// single file such as .cursorrules. Files are taken in lexical order.
+// rules reads the rules that apply from the start: the user's GlobalRules,
+// then each root's Rules. An entry is a directory, read recursively for .md
+// and .mdc files, or a single file such as .cursorrules. Files are taken in
+// lexical order.
 func (l *loader) rules() []rule {
 	roots := l.roots
 	if l.p.PrimaryOnly && len(roots) > 1 {
@@ -89,27 +134,57 @@ func (l *loader) rules() []rule {
 	}
 	var out []rule
 	seen := map[string]bool{}
+	for _, entry := range l.p.GlobalRules {
+		dir := entry
+		if dir == "~" || strings.HasPrefix(dir, "~/") {
+			if l.home == "" {
+				continue
+			}
+			dir = filepath.Join(l.home, strings.TrimPrefix(dir, "~"))
+		}
+		out = l.readRules(out, seen, dir, rule{global: true})
+	}
 	for _, root := range roots {
 		for _, entry := range l.p.Rules {
-			for _, f := range ruleFiles(filepath.Join(root, filepath.FromSlash(entry))) {
-				if seen[f] {
-					continue
-				}
-				seen[f] = true
-				raw := l.r.read(f)
-				if raw == "" {
-					continue
-				}
-				meta, body := parseRuleFrontmatter(raw)
-				if l.p.StripComments {
-					body = strings.TrimSpace(stripComments(body))
-				}
-				if body == "" {
-					continue
-				}
-				out = append(out, rule{path: f, root: root, meta: meta, kind: kindOf(f, meta), text: body})
-			}
+			out = l.readRules(out, seen, filepath.Join(root, filepath.FromSlash(entry)), rule{root: root})
 		}
+	}
+	return out
+}
+
+// nestedRules reads the NestedRules folders inside dir, a subdirectory below
+// a root.
+func (l *loader) nestedRules(dir string) []rule {
+	var out []rule
+	seen := map[string]bool{}
+	for _, entry := range l.p.NestedRules {
+		out = l.readRules(out, seen, filepath.Join(dir, filepath.FromSlash(entry)), rule{root: dir, within: dir})
+	}
+	return out
+}
+
+// readRules appends the rules under p to out, each a copy of base with its
+// file's fields filled in.
+func (l *loader) readRules(out []rule, seen map[string]bool, p string, base rule) []rule {
+	for _, f := range ruleFiles(p) {
+		if seen[f] {
+			continue
+		}
+		seen[f] = true
+		raw := l.r.read(f)
+		if raw == "" {
+			continue
+		}
+		meta, body := parseRuleFrontmatter(raw)
+		if l.p.StripComments {
+			body = strings.TrimSpace(stripComments(body))
+		}
+		if body == "" {
+			continue
+		}
+		r := base
+		r.path, r.meta, r.kind, r.text = f, meta, kindOf(f, meta), body
+		out = append(out, r)
 	}
 	return out
 }

@@ -254,6 +254,16 @@ func TestWorkspaceFileInstructions(t *testing.T) {
 		t.Errorf("no preset named should start from chakra: %+v", p)
 	}
 
+	// The chakra preset reads no rule folders (#240). A workspace that
+	// wants them names them over the preset.
+	cfg = WorkspaceConfig{}
+	if err := cfg.LoadFile(writeWorkspaceFile(t, `{"instructions": {"preset": "chakra", "rules": [".cursor/rules", ".claude/rules"], "globalRules": ["~/.claude/rules"]}}`)); err != nil {
+		t.Fatal(err)
+	}
+	if p := cfg.Instructions; p == nil || len(p.Rules) != 2 || p.Rules[1] != ".claude/rules" || len(p.GlobalRules) != 1 || p.Changes != agentsmd.ChangesNotice {
+		t.Errorf("chakra preset with rule folders = %+v", p)
+	}
+
 	cfg = WorkspaceConfig{}
 	if err := cfg.LoadFile(writeWorkspaceFile(t, `{"instructions": {"off": true}}`)); err != nil || !cfg.NoInstructions {
 		t.Errorf("off: NoInstructions=%v err=%v", cfg.NoInstructions, err)
