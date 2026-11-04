@@ -20,6 +20,10 @@ func startTTY(p *proc, sb Sandbox, policy Policy) error {
 		return err
 	}
 	p.stdin, p.closeIn = f, func() { f.Close() }
+	p.cols, p.rows = TTYCols, TTYRows
+	p.resize = func(cols, rows int) error {
+		return pty.Setsize(f, &pty.Winsize{Cols: uint16(cols), Rows: uint16(rows)})
+	}
 	p.drained = make(chan struct{})
 	go func() {
 		// Ends at the terminal's EOF once the process and anything it left

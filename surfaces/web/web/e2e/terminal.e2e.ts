@@ -14,8 +14,21 @@ test("a tty process renders in a terminal view", async ({ page }) => {
   await expect(rows).toContainText("green-ok");
   await expect(rows).toContainText("progress 100%");
   await expect(rows).not.toContainText("progress 10%");
+  await expect(rows).not.toContainText("progresprogress");
   await expect(rows.getByText("green-ok")).toHaveClass(/xterm-fg-2/);
   await expect(page.locator(".tool-live")).toHaveCount(0);
+
+  // While it runs, the view fits its panel and resizes the process's
+  // terminal to match, and what the user types reaches the process.
+  await expect(rows).toContainText(/resized to \d+x\d+/);
+  // One fit, not one per output event: a terminal that remounted on every
+  // update would resize again each time the process printed.
+  await page.waitForTimeout(800);
+  expect(((await rows.textContent()) ?? "").match(/resized to/g)?.length ?? 0).toBeLessThanOrEqual(2);
+  await page.locator(".tool-term").click();
+  await page.keyboard.type("hi");
+  await expect(rows).toContainText("typed: h");
+  await expect(rows).toContainText("typed: i");
 
   // A reload replays the process's events into a new terminal, in order.
   await page.reload();

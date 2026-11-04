@@ -410,7 +410,8 @@ func runChat(v *viper.Viper) error {
 	// (issue 1063 E1/E2).
 	colorEnabled := resolveColorEnabled(v.GetBool("no-color"), os.LookupEnv)
 	applyLipglossProfile(colorEnabled)
-	var surfaceOpts []host.AppOption
+	sizer := newTTYSizer()
+	surfaceOpts := []host.AppOption{host.WithObserver(sizer)}
 	var surface *tuiObserver
 	var nbSurface *nbObserver
 	switch mode {
@@ -432,6 +433,7 @@ func runChat(v *viper.Viper) error {
 	}
 	defer setup.close()
 	app, cfg, store := setup.app, setup.cfg, setup.store
+	sizer.attach(app)
 
 	if session := v.GetString("session"); session != "" {
 		if store == nil {

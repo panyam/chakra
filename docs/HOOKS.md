@@ -27,6 +27,15 @@ an event, so it has its own path to the surfaces. A server's sampling request
 (`sampling/createMessage`) uses that path too. The host asks the user through
 it, then the session's provider answers (`host/sampling.go`).
 
+A surface can also drive an extension's process directly, outside any turn.
+An extension that implements `ProcessController` lets the user resize a
+terminal process to fit a view and type into it (`App.ResizeProcess`,
+`App.WriteProcess`, and the `ResizeProcess` and `WriteProcess` RPCs, #218).
+These calls come from the user rather than the model. So they don't pass the
+approval gate, and what is typed doesn't enter the model's context. It's the
+reverse of `ProcessReporter`, which sends output from the extension to the
+surfaces (`host/process.go`).
+
 ## A turn, end to end
 
 ```mermaid

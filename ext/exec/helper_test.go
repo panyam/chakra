@@ -159,6 +159,11 @@ func TestHelperProcess(t *testing.T) {
 	case "burst":
 		// A large write right before exit, for the tty drain (#218).
 		os.Stdout.Write([]byte(strings.Repeat("x", 256<<10) + "\nEND OF OUTPUT\n"))
+	case "winsize-on-input":
+		// Waits for a line, then reports the terminal's size then.
+		bufio.NewReader(os.Stdin).ReadString('\n')
+		rows, cols, err := pty.Getsize(os.Stdin)
+		fmt.Printf("winsize=%dx%d err=%v\n", cols, rows, err)
 	case "winsize":
 		rows, cols, err := pty.Getsize(os.Stdin)
 		fmt.Printf("winsize=%dx%d err=%v\n", cols, rows, err)

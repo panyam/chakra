@@ -176,6 +176,8 @@ describe("scoped", () => {
       submit: async (req: any) => (seen.submit = req),
       closeSession: async (req: any) => (seen.close = req),
       createSession: async (req: any) => (seen.create = req),
+      resizeProcess: async (req: any) => (seen.resize = req),
+      writeProcess: async (req: any) => (seen.write = req),
     };
     const c: any = scoped(client, "s9");
     await c.submit({ input: "hi" });
@@ -184,5 +186,9 @@ describe("scoped", () => {
     expect(seen.submit).toEqual({ input: "hi", sessionId: "s9" });
     expect(seen.close).toEqual({ sessionId: "other" });
     expect(seen.create).toEqual({});
+    await c.resizeProcess({ processId: "p1", cols: 80, rows: 24 });
+    await c.writeProcess({ processId: "p1", data: "q" });
+    expect(seen.resize.sessionId).toBe("s9");
+    expect(seen.write.sessionId).toBe("s9");
   });
 });

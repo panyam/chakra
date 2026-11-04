@@ -38,7 +38,14 @@ export function createPanelStores(client: Client<typeof HostService>, sessions: 
   const subAgents = createSubAgentStore();
   const timeline = createTimelineStore();
   const memory = createMemoryStore(client);
-  const tools = createToolStore();
+  const tools = createToolStore({
+    resize: async (source, processId, cols, rows) => {
+      await client.resizeProcess({ source, processId, cols, rows });
+    },
+    write: async (source, processId, data) => {
+      await client.writeProcess({ source, processId, data });
+    },
+  });
   const budget = createBudgetStore();
 
   const sinks = [conversation, subAgents, timeline, memory, tools, budget];

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/panyam/chakra"
+	agent "github.com/panyam/chakra"
 	"github.com/panyam/chakra/host"
 )
 
@@ -49,6 +49,35 @@ func (e *Extension) SetAnnounce(fn func(string)) {
 // ProcessConfig.StreamBudget per process. The model still reads that output
 // through write_stdin.
 func (e *Extension) SetProcessOutput(fn func(host.ProcessOutput)) { e.src.setProcessOutput(fn) }
+
+// ResizeProcess implements host.ProcessController. It resizes a tty
+// process's terminal, and the process gets SIGWINCH as it would in a real
+// terminal. Later ProcessOutput events report the new size.
+func (e *Extension) ResizeProcess(id string, cols, rows int) error {
+	p, err := e.procOf(id)
+	if err != nil {
+		return err
+	}
+	return p.setSize(cols, rows)
+}
+
+// WriteProcess implements host.ProcessController. It writes to a running
+// process's input, as write_stdin does, but for the user typing in a surface.
+// It doesn't wait for or collect output; the model reads that as before.
+func (e *Extension) WriteProcess(id, data string) error {
+	p, err := e.procOf(id)
+	if err != nil {
+		return err
+	}
+	return p.write(data)
+}
+
+func (e *Extension) procOf(id string) (*proc, error) {
+	if e.src.procs == nil {
+		return nil, fmt.Errorf("exec: process tools are off")
+	}
+	return e.src.procs.get(id)
+}
 
 // SetAsk implements host.Asker. With NetworkConfig.Ask set, a connection to an
 // unlisted host becomes a question for the user. The question goes through

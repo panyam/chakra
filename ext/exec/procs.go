@@ -123,6 +123,13 @@ type proc struct {
 
 	done chan struct{}
 	exit int
+	// resize sets a tty's size. It is nil for a process with no terminal.
+	resize func(cols, rows int) error
+	// sizeMu guards cols and rows, the tty's current size, which the output
+	// stream reports on each event.
+	sizeMu     sync.Mutex
+	cols, rows int
+
 	// drained, when set, closes once the output copier has read everything
 	// the process wrote. Only a tty process has one: for a pipe, cmd.Wait
 	// already waits for the copy.
@@ -200,6 +207,42 @@ func (b *tailBuffer) since(from int64) (string, int64, int64) {
 		dropped, from = start-from, start
 	}
 	return string(b.buf[from-start:]), b.total, dropped
+}
+
+// size returns the tty's current size.
+func (p *proc) size() (cols, rows int) {
+	p.sizeMu.Lock()
+	defer p.sizeMu.Unlock()
+	return p.cols, p.rows
+}
+
+// setSize resizes the tty and records the size the stream reports.
+func (p *proc) setSize(cols, rows int) error {
+	if p.resize == nil {
+		return fmt.Errorf("%s isn't running on a terminal, so it has no size", p.id)
+	}
+	if !p.running() {
+		return fmt.Errorf("%s has exited", p.id)
+	}
+	if err := p.resize(cols, rows); err != nil {
+		return err
+	}
+	p.sizeMu.Lock()
+	p.cols, p.rows = cols, rows
+	p.sizeMu.Unlock()
+	return nil
+}
+
+// write sends data to the process's input.
+func (p *proc) write(data string) error {
+	if !p.running() {
+		return fmt.Errorf("%s has exited", p.id)
+	}
+	if p.log != "" {
+		return fmt.Errorf("%s is detached and reads no input", p.id)
+	}
+	_, err := io.WriteString(p.stdin, data)
+	return err
 }
 
 func (p *proc) running() bool {

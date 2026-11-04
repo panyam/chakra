@@ -56,6 +56,12 @@ const (
 	// HostServiceCloseSessionProcedure is the fully-qualified name of the HostService's CloseSession
 	// RPC.
 	HostServiceCloseSessionProcedure = "/chakra.web.v1.HostService/CloseSession"
+	// HostServiceResizeProcessProcedure is the fully-qualified name of the HostService's ResizeProcess
+	// RPC.
+	HostServiceResizeProcessProcedure = "/chakra.web.v1.HostService/ResizeProcess"
+	// HostServiceWriteProcessProcedure is the fully-qualified name of the HostService's WriteProcess
+	// RPC.
+	HostServiceWriteProcessProcedure = "/chakra.web.v1.HostService/WriteProcess"
 )
 
 // HostServiceClient is a client for the chakra.web.v1.HostService service.
@@ -91,6 +97,15 @@ type HostServiceClient interface {
 	// CloseSession closes the App for session_id and drops it from the roster.
 	// An unknown session_id is CodeNotFound.
 	CloseSession(context.Context, *connect.Request[v1.CloseSessionRequest]) (*connect.Response[v1.CloseSessionResponse], error)
+	// ResizeProcess sets a terminal process's size, so a terminal view can fit
+	// its panel (#218). source and process_id are the process-output event's
+	// Source and ID. A process that isn't a terminal, has exited or is unknown
+	// is FailedPrecondition.
+	ResizeProcess(context.Context, *connect.Request[v1.ResizeProcessRequest]) (*connect.Response[v1.ResizeProcessResponse], error)
+	// WriteProcess sends what the user typed in a terminal view to the
+	// process's input. It comes from the user, so it doesn't pass the approval
+	// gate, and it doesn't enter the model's context.
+	WriteProcess(context.Context, *connect.Request[v1.WriteProcessRequest]) (*connect.Response[v1.WriteProcessResponse], error)
 }
 
 // NewHostServiceClient constructs a client for the chakra.web.v1.HostService service. By default,
@@ -158,6 +173,18 @@ func NewHostServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(hostServiceMethods.ByName("CloseSession")),
 			connect.WithClientOptions(opts...),
 		),
+		resizeProcess: connect.NewClient[v1.ResizeProcessRequest, v1.ResizeProcessResponse](
+			httpClient,
+			baseURL+HostServiceResizeProcessProcedure,
+			connect.WithSchema(hostServiceMethods.ByName("ResizeProcess")),
+			connect.WithClientOptions(opts...),
+		),
+		writeProcess: connect.NewClient[v1.WriteProcessRequest, v1.WriteProcessResponse](
+			httpClient,
+			baseURL+HostServiceWriteProcessProcedure,
+			connect.WithSchema(hostServiceMethods.ByName("WriteProcess")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -172,6 +199,8 @@ type hostServiceClient struct {
 	createSession   *connect.Client[v1.CreateSessionRequest, v1.CreateSessionResponse]
 	listWebSessions *connect.Client[v1.ListWebSessionsRequest, v1.ListWebSessionsResponse]
 	closeSession    *connect.Client[v1.CloseSessionRequest, v1.CloseSessionResponse]
+	resizeProcess   *connect.Client[v1.ResizeProcessRequest, v1.ResizeProcessResponse]
+	writeProcess    *connect.Client[v1.WriteProcessRequest, v1.WriteProcessResponse]
 }
 
 // Watch calls chakra.web.v1.HostService.Watch.
@@ -219,6 +248,16 @@ func (c *hostServiceClient) CloseSession(ctx context.Context, req *connect.Reque
 	return c.closeSession.CallUnary(ctx, req)
 }
 
+// ResizeProcess calls chakra.web.v1.HostService.ResizeProcess.
+func (c *hostServiceClient) ResizeProcess(ctx context.Context, req *connect.Request[v1.ResizeProcessRequest]) (*connect.Response[v1.ResizeProcessResponse], error) {
+	return c.resizeProcess.CallUnary(ctx, req)
+}
+
+// WriteProcess calls chakra.web.v1.HostService.WriteProcess.
+func (c *hostServiceClient) WriteProcess(ctx context.Context, req *connect.Request[v1.WriteProcessRequest]) (*connect.Response[v1.WriteProcessResponse], error) {
+	return c.writeProcess.CallUnary(ctx, req)
+}
+
 // HostServiceHandler is an implementation of the chakra.web.v1.HostService service.
 type HostServiceHandler interface {
 	// Watch streams host events: the retained backlog replayed from offset 0,
@@ -252,6 +291,15 @@ type HostServiceHandler interface {
 	// CloseSession closes the App for session_id and drops it from the roster.
 	// An unknown session_id is CodeNotFound.
 	CloseSession(context.Context, *connect.Request[v1.CloseSessionRequest]) (*connect.Response[v1.CloseSessionResponse], error)
+	// ResizeProcess sets a terminal process's size, so a terminal view can fit
+	// its panel (#218). source and process_id are the process-output event's
+	// Source and ID. A process that isn't a terminal, has exited or is unknown
+	// is FailedPrecondition.
+	ResizeProcess(context.Context, *connect.Request[v1.ResizeProcessRequest]) (*connect.Response[v1.ResizeProcessResponse], error)
+	// WriteProcess sends what the user typed in a terminal view to the
+	// process's input. It comes from the user, so it doesn't pass the approval
+	// gate, and it doesn't enter the model's context.
+	WriteProcess(context.Context, *connect.Request[v1.WriteProcessRequest]) (*connect.Response[v1.WriteProcessResponse], error)
 }
 
 // NewHostServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -315,6 +363,18 @@ func NewHostServiceHandler(svc HostServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(hostServiceMethods.ByName("CloseSession")),
 		connect.WithHandlerOptions(opts...),
 	)
+	hostServiceResizeProcessHandler := connect.NewUnaryHandler(
+		HostServiceResizeProcessProcedure,
+		svc.ResizeProcess,
+		connect.WithSchema(hostServiceMethods.ByName("ResizeProcess")),
+		connect.WithHandlerOptions(opts...),
+	)
+	hostServiceWriteProcessHandler := connect.NewUnaryHandler(
+		HostServiceWriteProcessProcedure,
+		svc.WriteProcess,
+		connect.WithSchema(hostServiceMethods.ByName("WriteProcess")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/chakra.web.v1.HostService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case HostServiceWatchProcedure:
@@ -335,6 +395,10 @@ func NewHostServiceHandler(svc HostServiceHandler, opts ...connect.HandlerOption
 			hostServiceListWebSessionsHandler.ServeHTTP(w, r)
 		case HostServiceCloseSessionProcedure:
 			hostServiceCloseSessionHandler.ServeHTTP(w, r)
+		case HostServiceResizeProcessProcedure:
+			hostServiceResizeProcessHandler.ServeHTTP(w, r)
+		case HostServiceWriteProcessProcedure:
+			hostServiceWriteProcessHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -378,4 +442,12 @@ func (UnimplementedHostServiceHandler) ListWebSessions(context.Context, *connect
 
 func (UnimplementedHostServiceHandler) CloseSession(context.Context, *connect.Request[v1.CloseSessionRequest]) (*connect.Response[v1.CloseSessionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chakra.web.v1.HostService.CloseSession is not implemented"))
+}
+
+func (UnimplementedHostServiceHandler) ResizeProcess(context.Context, *connect.Request[v1.ResizeProcessRequest]) (*connect.Response[v1.ResizeProcessResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chakra.web.v1.HostService.ResizeProcess is not implemented"))
+}
+
+func (UnimplementedHostServiceHandler) WriteProcess(context.Context, *connect.Request[v1.WriteProcessRequest]) (*connect.Response[v1.WriteProcessResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chakra.web.v1.HostService.WriteProcess is not implemented"))
 }

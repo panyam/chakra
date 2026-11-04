@@ -9,6 +9,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -38,7 +39,8 @@ func chatApp() (*host.App, error) {
 const ttyText = "\x1b[32mgreen-ok\x1b[0m\r\nprogress 10%\rprogress 100%\r\n"
 
 // fakeProcs offers run_demo, which "starts" process p1 and reports its output
-// the way ext/exec reports a tty process.
+// the way ext/exec reports a tty process. p1 keeps running, and it echoes
+// what the terminal view types and how it resizes the terminal.
 type fakeProcs struct {
 	host.BaseExtension
 	mu     sync.Mutex
@@ -53,20 +55,35 @@ func (f *fakeProcs) SetProcessOutput(report func(host.ProcessOutput)) {
 	f.mu.Unlock()
 }
 
+func (f *fakeProcs) out(text string) {
+	f.mu.Lock()
+	report := f.report
+	f.mu.Unlock()
+	if report != nil {
+		report(host.ProcessOutput{Source: "e2e-procs", ID: "p1", Command: "demo", Text: text, TTY: true, Cols: 80, Rows: 6})
+	}
+}
+
+// ResizeProcess implements host.ProcessController.
+func (f *fakeProcs) ResizeProcess(id string, cols, rows int) error {
+	f.out(fmt.Sprintf("\r\nresized to %dx%d\r\n", cols, rows))
+	return nil
+}
+
+// WriteProcess implements host.ProcessController.
+func (f *fakeProcs) WriteProcess(id, data string) error {
+	f.out("\r\ntyped: " + data + "\r\n")
+	return nil
+}
+
 func (f *fakeProcs) Tools() (agent.ToolSource, error) {
 	src := agent.NewFuncSource()
 	def := core.ToolDef{Name: "run_demo", Description: "starts a demo process", InputSchema: map[string]any{"type": "object"}}
 	err := src.AddToolFunc(def, func(context.Context, map[string]any) (*core.ToolResult, error) {
-		f.mu.Lock()
-		report := f.report
-		f.mu.Unlock()
-		if report != nil {
-			report(host.ProcessOutput{Source: "e2e", ID: "p1", Command: "demo", Text: ttyText, TTY: true, Cols: 80, Rows: 6})
-			report(host.ProcessOutput{Source: "e2e", ID: "p1", Command: "demo", TTY: true, Cols: 80, Rows: 6, Exited: true})
-		}
+		f.out(ttyText)
 		return &core.ToolResult{
 			Content:           []core.Content{{Type: "text", Text: "$ demo"}},
-			StructuredContent: map[string]any{"session_id": "p1", "running": false},
+			StructuredContent: map[string]any{"session_id": "p1", "running": true},
 		}, nil
 	})
 	return src, err
