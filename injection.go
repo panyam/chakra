@@ -87,7 +87,7 @@ type EventInjectionConfig struct {
 	Merge func(acc, next IncomingEvent) IncomingEvent
 
 	// MaxPerDrain caps how many rendered entries one Drain returns
-	// (highest priority first). Zero means DefaultMaxPerDrain.
+	// (highest priority first). Zero means 16.
 	MaxPerDrain int
 
 	// Consent gates sensitive events. Nil allows public and personal
@@ -99,8 +99,8 @@ type EventInjectionConfig struct {
 	now func() time.Time
 }
 
-// DefaultMaxPerDrain bounds injected entries per turn when unconfigured.
-const DefaultMaxPerDrain = 16
+// defaultMaxPerDrain bounds injected entries per turn when unconfigured.
+const defaultMaxPerDrain = 16
 
 // InjectedContext is one rendered entry that a Drain returns, ready to join
 // the model's context. Entries arrive in priority order. They are already
@@ -145,7 +145,7 @@ type EventInjectionPolicy struct {
 // NewEventInjectionPolicy builds the policy.
 func NewEventInjectionPolicy(cfg EventInjectionConfig) *EventInjectionPolicy {
 	if cfg.MaxPerDrain <= 0 {
-		cfg.MaxPerDrain = DefaultMaxPerDrain
+		cfg.MaxPerDrain = defaultMaxPerDrain
 	}
 	if cfg.Merge == nil {
 		cfg.Merge = ShallowMergeJSON

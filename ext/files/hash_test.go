@@ -16,7 +16,7 @@ func TestHashIsStableAndSensitive(t *testing.T) {
 }
 
 func TestHashWidth(t *testing.T) {
-	if got := len(Hash("anything")); got != HashLen {
-		t.Errorf("len(Hash()) = %d, want HashLen (%d)", got, HashLen)
+	if got := len(Hash("anything")); got != hashLen {
+		t.Errorf("len(Hash()) = %d, want hashLen (%d)", got, hashLen)
 	}
 }

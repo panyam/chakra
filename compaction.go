@@ -33,14 +33,14 @@ type TokenEstimator interface {
 	Estimate(msgs []Message) int
 }
 
-// DefaultCharsPerToken approximates English tokenization (~4 characters per
+// defaultCharsPerToken approximates English tokenization (~4 characters per
 // token) for CharTokenEstimator.
-const DefaultCharsPerToken = 4
+const defaultCharsPerToken = 4
 
 // CharTokenEstimator estimates tokens as total text length divided by
 // CharsPerToken. It counts message text plus tool-call argument JSON, because
 // argument JSON actually bloats a long tool-using conversation. Zero
-// CharsPerToken uses DefaultCharsPerToken.
+// CharsPerToken uses 4.
 type CharTokenEstimator struct {
 	CharsPerToken int
 }
@@ -49,7 +49,7 @@ type CharTokenEstimator struct {
 func (e CharTokenEstimator) Estimate(msgs []Message) int {
 	per := e.CharsPerToken
 	if per <= 0 {
-		per = DefaultCharsPerToken
+		per = defaultCharsPerToken
 	}
 	chars := 0
 	for _, m := range msgs {
@@ -61,10 +61,10 @@ func (e CharTokenEstimator) Estimate(msgs []Message) int {
 	return chars / per
 }
 
-// DefaultKeepRecent is how many trailing messages SummarizingCompactor keeps
+// defaultKeepRecent is how many trailing messages SummarizingCompactor keeps
 // verbatim when no KeepRecent is configured. That is enough to preserve the
 // active exchange and still collapse the older head.
-const DefaultKeepRecent = 6
+const defaultKeepRecent = 6
 
 // SummarizingConfig configures a SummarizingCompactor.
 type SummarizingConfig struct {
@@ -80,7 +80,7 @@ type SummarizingConfig struct {
 	MaxTokens int
 
 	// KeepRecent is how many trailing messages are kept verbatim. Zero uses
-	// DefaultKeepRecent. The cut is nudged earlier if it would orphan a
+	// 6. The cut is nudged earlier if it would orphan a
 	// tool-result message from its call, so the kept tail is always
 	// self-contained.
 	KeepRecent int
@@ -117,7 +117,7 @@ func NewSummarizingCompactor(cfg SummarizingConfig) (*SummarizingCompactor, erro
 		cfg.Estimator = CharTokenEstimator{}
 	}
 	if cfg.KeepRecent <= 0 {
-		cfg.KeepRecent = DefaultKeepRecent
+		cfg.KeepRecent = defaultKeepRecent
 	}
 	if cfg.Instructions == "" {
 		cfg.Instructions = defaultSummarizerInstructions

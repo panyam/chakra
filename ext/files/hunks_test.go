@@ -41,9 +41,9 @@ func answering(action string, content map[string]any, seen *core.ElicitationRequ
 }
 
 func TestApplyingASubsetOfHunksKeepsTheirPlaces(t *testing.T) {
-	got, err := Edit{
+	got, err := edit{
 		ExpectHash: Hash(threeLines),
-		Hunks:      []Hunk{{Old: "alpha", New: "ALPHA"}, {Old: "gamma", New: "GAMMA"}},
+		Hunks:      []hunk{{Old: "alpha", New: "ALPHA"}, {Old: "gamma", New: "GAMMA"}},
 	}.Apply(threeLines)
 	if err != nil {
 		t.Fatal(err)

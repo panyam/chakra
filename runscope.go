@@ -26,7 +26,7 @@ type AgentHop struct {
 // Read it as a stack trace rather than a graph path. Each entry is a frame,
 // so a cycle needs no special handling. An agent that reaches itself
 // appears twice, exactly as recursion shows repeated frames, and the per-source
-// depth cap (DefaultMaxAgentDepth) bounds how far that can go.
+// depth cap (3 by default) bounds how far that can go.
 type AgentPath []AgentHop
 
 // Depth reports how deep in the agent tree this path is: 0 at the top level.

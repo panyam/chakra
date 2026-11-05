@@ -1,15 +1,7 @@
-pkg github.com/panyam/chakra/ext/files, const DefaultListLimit
-pkg github.com/panyam/chakra/ext/files, const DefaultSearchLimit
-pkg github.com/panyam/chakra/ext/files, const HashLen
-pkg github.com/panyam/chakra/ext/files, const PatchAdd PatchKind
-pkg github.com/panyam/chakra/ext/files, const PatchDelete PatchKind
 pkg github.com/panyam/chakra/ext/files, const PatchTool
-pkg github.com/panyam/chakra/ext/files, const PatchUpdate PatchKind
-pkg github.com/panyam/chakra/ext/files, func ApplyChunks(string, []PatchChunk) (string, error)
 pkg github.com/panyam/chakra/ext/files, func Hash(string) string
 pkg github.com/panyam/chakra/ext/files, func New(Config) (*Extension, error)
 pkg github.com/panyam/chakra/ext/files, func NewSource(Config) (*Source, error)
-pkg github.com/panyam/chakra/ext/files, func ParsePatch(string) ([]FilePatch, error)
 pkg github.com/panyam/chakra/ext/files, func PathArg(map[string]any) []string
 pkg github.com/panyam/chakra/ext/files, method (*Extension) ApprovalChoosers() []host.ApprovalChooser
 pkg github.com/panyam/chakra/ext/files, method (*Extension) ApprovalRenderers() []host.ApprovalRenderer
@@ -20,36 +12,11 @@ pkg github.com/panyam/chakra/ext/files, method (*Extension) WritePaths(map[strin
 pkg github.com/panyam/chakra/ext/files, method (*Source) Call(context.Context, string, map[string]any) (*core.ToolResult, error)
 pkg github.com/panyam/chakra/ext/files, method (*Source) Close() error
 pkg github.com/panyam/chakra/ext/files, method (*Source) Tools(context.Context) ([]core.ToolDef, error)
-pkg github.com/panyam/chakra/ext/files, method (Edit) Apply(string) (string, error)
 pkg github.com/panyam/chakra/ext/files, type Config struct
 pkg github.com/panyam/chakra/ext/files, type Config struct, EditTools []string
 pkg github.com/panyam/chakra/ext/files, type Config struct, Exclude []string
 pkg github.com/panyam/chakra/ext/files, type Config struct, Roots []string
-pkg github.com/panyam/chakra/ext/files, type Edit struct
-pkg github.com/panyam/chakra/ext/files, type Edit struct, ExpectHash string
-pkg github.com/panyam/chakra/ext/files, type Edit struct, Hunks []Hunk
 pkg github.com/panyam/chakra/ext/files, type Extension struct
 pkg github.com/panyam/chakra/ext/files, type Extension struct, embedded host.BaseExtension
-pkg github.com/panyam/chakra/ext/files, type FilePatch struct
-pkg github.com/panyam/chakra/ext/files, type FilePatch struct, Chunks []PatchChunk
-pkg github.com/panyam/chakra/ext/files, type FilePatch struct, Content string
-pkg github.com/panyam/chakra/ext/files, type FilePatch struct, Kind PatchKind
-pkg github.com/panyam/chakra/ext/files, type FilePatch struct, MoveTo string
-pkg github.com/panyam/chakra/ext/files, type FilePatch struct, Path string
-pkg github.com/panyam/chakra/ext/files, type Hunk struct
-pkg github.com/panyam/chakra/ext/files, type Hunk struct, New string
-pkg github.com/panyam/chakra/ext/files, type Hunk struct, Old string
-pkg github.com/panyam/chakra/ext/files, type PatchChunk struct
-pkg github.com/panyam/chakra/ext/files, type PatchChunk struct, Context string
-pkg github.com/panyam/chakra/ext/files, type PatchChunk struct, EOF bool
-pkg github.com/panyam/chakra/ext/files, type PatchChunk struct, New []string
-pkg github.com/panyam/chakra/ext/files, type PatchChunk struct, Old []string
-pkg github.com/panyam/chakra/ext/files, type PatchKind int
 pkg github.com/panyam/chakra/ext/files, type Source struct
 pkg github.com/panyam/chakra/ext/files, var DefaultExclude
-pkg github.com/panyam/chakra/ext/files, var ErrAnchorAmbiguous
-pkg github.com/panyam/chakra/ext/files, var ErrAnchorNotFound
-pkg github.com/panyam/chakra/ext/files, var ErrEmptyAnchor
-pkg github.com/panyam/chakra/ext/files, var ErrNoHunks
-pkg github.com/panyam/chakra/ext/files, var ErrOverlap
-pkg github.com/panyam/chakra/ext/files, var ErrStale

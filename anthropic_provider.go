@@ -13,10 +13,10 @@ import (
 	ssehttp "github.com/panyam/servicekit/http"
 )
 
-// DefaultAnthropicVersion is the anthropic-version header sent when
+// defaultAnthropicVersion is the anthropic-version header sent when
 // AnthropicConfig.Version is empty. 2023-06-01 is the documented stable
 // Messages API version.
-const DefaultAnthropicVersion = "2023-06-01"
+const defaultAnthropicVersion = "2023-06-01"
 
 // defaultAnthropicMaxTokens is the max_tokens sent when AnthropicConfig.MaxTokens
 // is not positive. The Anthropic Messages API requires max_tokens on every
@@ -57,7 +57,7 @@ type AnthropicConfig struct {
 	MaxTokens int
 
 	// Version is the anthropic-version header. Defaults to
-	// DefaultAnthropicVersion when empty.
+	// "2023-06-01" when empty.
 	Version string
 
 	// HTTPClient overrides http.DefaultClient. Set this for proxies, custom
@@ -84,7 +84,7 @@ func NewAnthropicProvider(cfg AnthropicConfig) (*AnthropicProvider, error) {
 		cfg.BaseURL = "https://api.anthropic.com"
 	}
 	if cfg.Version == "" {
-		cfg.Version = DefaultAnthropicVersion
+		cfg.Version = defaultAnthropicVersion
 	}
 	if cfg.MaxTokens <= 0 {
 		cfg.MaxTokens = defaultAnthropicMaxTokens

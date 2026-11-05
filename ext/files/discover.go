@@ -31,11 +31,11 @@ var DefaultExclude = []string{
 // already stores oversized results out of band. Duplicating that here would
 // give two truncation mechanisms that disagree about the same output.
 const (
-	// DefaultListLimit caps paths returned by one list_files call.
-	DefaultListLimit = 500
+	// defaultListLimit caps paths returned by one list_files call.
+	defaultListLimit = 500
 
-	// DefaultSearchLimit caps matches returned by one search_files call.
-	DefaultSearchLimit = 100
+	// defaultSearchLimit caps matches returned by one search_files call.
+	defaultSearchLimit = 100
 
 	// maxSearchFileSize skips files larger than this when searching. A
 	// minified bundle or a checked-in dump matches noisily and reading it is
@@ -285,7 +285,7 @@ func (s *Source) list(args map[string]any) *core.ToolResult {
 		return toolError(err.Error())
 	}
 	dir := targetLabel(targets)
-	limit := limitArg(args, DefaultListLimit)
+	limit := limitArg(args, defaultListLimit)
 
 	res, err := s.walkAll(targets, limit)
 	if err != nil {
@@ -322,7 +322,7 @@ func (s *Source) search(args map[string]any) *core.ToolResult {
 		return toolError(err.Error())
 	}
 	dir := targetLabel(targets)
-	limit := limitArg(args, DefaultSearchLimit)
+	limit := limitArg(args, defaultSearchLimit)
 
 	// Every file is a candidate, so the walk is unbounded and the limit is
 	// applied to matches instead.

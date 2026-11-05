@@ -30,34 +30,34 @@ const (
 	patchEOF    = "*** End of File"
 )
 
-// PatchKind is what a patch does to one file.
-type PatchKind int
+// patchKind is what a patch does to one file.
+type patchKind int
 
 const (
-	// PatchAdd creates a file that must not exist yet.
-	PatchAdd PatchKind = iota
-	// PatchDelete removes a file that must exist.
-	PatchDelete
-	// PatchUpdate changes a file in place, or moves it when MoveTo is set.
-	PatchUpdate
+	// kindAdd creates a file that must not exist yet.
+	kindAdd patchKind = iota
+	// kindDelete removes a file that must exist.
+	kindDelete
+	// kindUpdate changes a file in place, or moves it when MoveTo is set.
+	kindUpdate
 )
 
-// FilePatch is one file's section of a patch.
-type FilePatch struct {
-	Kind PatchKind
+// filePatch is one file's section of a patch.
+type filePatch struct {
+	Kind patchKind
 	Path string
 	// MoveTo is the new path of an updated file, or "".
 	MoveTo string
 	// Content is an added file's text.
 	Content string
 	// Chunks are an update's hunks, in file order.
-	Chunks []PatchChunk
+	Chunks []patchChunk
 }
 
-// PatchChunk is one hunk of an update. It holds the lines that the hunk
+// patchChunk is one hunk of an update. It holds the lines that the hunk
 // replaces and the lines that it puts there. Both include the hunk's context
 // lines.
-type PatchChunk struct {
+type patchChunk struct {
 	// Context comes from an "@@ text" header. It names a line to find before
 	// looking for the hunk, and that narrows where the hunk can match.
 	Context string
@@ -67,10 +67,10 @@ type PatchChunk struct {
 	EOF bool
 }
 
-// ParsePatch reads a patch envelope. A malformed patch is an error naming the
+// parsePatch reads a patch envelope. A malformed patch is an error naming the
 // line. If a section were silently skipped, the model would believe it had
 // made that change.
-func ParsePatch(text string) ([]FilePatch, error) {
+func parsePatch(text string) ([]filePatch, error) {
 	lines := strings.Split(strings.TrimSpace(strings.ReplaceAll(text, "\r\n", "\n")), "\n")
 	if len(lines) < 2 || strings.TrimSpace(lines[0]) != patchBegin {
 		return nil, fmt.Errorf("a patch starts with %q", patchBegin)
@@ -80,7 +80,7 @@ func ParsePatch(text string) ([]FilePatch, error) {
 	}
 	body := lines[1 : len(lines)-1]
 
-	var out []FilePatch
+	var out []filePatch
 	seen := map[string]bool{}
 	claim := func(path string, n int) error {
 		if seen[path] {
@@ -94,7 +94,7 @@ func ParsePatch(text string) ([]FilePatch, error) {
 		line := body[i]
 		switch {
 		case strings.HasPrefix(line, patchAdd):
-			fp := FilePatch{Kind: PatchAdd, Path: strings.TrimSpace(strings.TrimPrefix(line, patchAdd))}
+			fp := filePatch{Kind: kindAdd, Path: strings.TrimSpace(strings.TrimPrefix(line, patchAdd))}
 			i++
 			var content []string
 			for i < len(body) && !strings.HasPrefix(body[i], "*** ") {
@@ -114,7 +114,7 @@ func ParsePatch(text string) ([]FilePatch, error) {
 			out = append(out, fp)
 
 		case strings.HasPrefix(line, patchDelete):
-			fp := FilePatch{Kind: PatchDelete, Path: strings.TrimSpace(strings.TrimPrefix(line, patchDelete))}
+			fp := filePatch{Kind: kindDelete, Path: strings.TrimSpace(strings.TrimPrefix(line, patchDelete))}
 			if err := claim(fp.Path, n); err != nil {
 				return nil, err
 			}
@@ -122,14 +122,14 @@ func ParsePatch(text string) ([]FilePatch, error) {
 			i++
 
 		case strings.HasPrefix(line, patchUpdate):
-			fp := FilePatch{Kind: PatchUpdate, Path: strings.TrimSpace(strings.TrimPrefix(line, patchUpdate))}
+			fp := filePatch{Kind: kindUpdate, Path: strings.TrimSpace(strings.TrimPrefix(line, patchUpdate))}
 			i++
 			if i < len(body) && strings.HasPrefix(body[i], patchMove) {
 				fp.MoveTo = strings.TrimSpace(strings.TrimPrefix(body[i], patchMove))
 				i++
 			}
 			for i < len(body) && !isSectionStart(body[i]) {
-				var c PatchChunk
+				var c patchChunk
 				if strings.HasPrefix(body[i], "@@") {
 					c.Context = strings.TrimSpace(strings.TrimPrefix(body[i], "@@"))
 					i++
@@ -198,12 +198,12 @@ func isSectionStart(l string) bool {
 	return strings.HasPrefix(l, patchAdd) || strings.HasPrefix(l, patchDelete) || strings.HasPrefix(l, patchUpdate)
 }
 
-// ApplyChunks applies an update's hunks to src and returns the new text. Each
+// applyChunks applies an update's hunks to src and returns the new text. Each
 // hunk's lines are found at or after the previous hunk, trying an exact match,
 // then one ignoring trailing whitespace, then one ignoring whitespace at both
 // ends. A hunk that matches nowhere is an error naming it, and nothing is
 // changed.
-func ApplyChunks(src string, chunks []PatchChunk) (string, error) {
+func applyChunks(src string, chunks []patchChunk) (string, error) {
 	lines := strings.Split(src, "\n")
 	if len(lines) > 0 && lines[len(lines)-1] == "" {
 		lines = lines[:len(lines)-1]

@@ -22,7 +22,7 @@ type AsyncAgentSourceConfig struct {
 	Runner *Runner
 
 	// MaxDepth caps sub-agent nesting, and is checked at spawn time. Zero
-	// uses DefaultMaxAgentDepth.
+	// uses 3.
 	MaxDepth int
 
 	// InputSchema, when set, replaces the default {task} schema, so a parent
@@ -89,7 +89,7 @@ func NewAsyncAgentSource(cfg AsyncAgentSourceConfig) (*AsyncAgentSource, error) 
 	}
 	maxDepth := cfg.MaxDepth
 	if maxDepth <= 0 {
-		maxDepth = DefaultMaxAgentDepth
+		maxDepth = defaultMaxAgentDepth
 	}
 	return &AsyncAgentSource{
 		cfg:      cfg,

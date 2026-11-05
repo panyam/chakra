@@ -9,10 +9,10 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// DefaultMaxHandoffs bounds how many times a Team may transfer control before
+// defaultMaxHandoffs bounds how many times a Team may transfer control before
 // giving up. It is the ping-pong backstop for two agents that keep handing the
 // conversation back and forth.
-const DefaultMaxHandoffs = 8
+const defaultMaxHandoffs = 8
 
 // ErrMaxHandoffs is returned by Team.Run when the handoff cap is exceeded.
 var ErrMaxHandoffs = errors.New("agent: max handoffs exceeded")
@@ -70,7 +70,7 @@ type TeamConfig struct {
 	Start string
 
 	// MaxHandoffs caps transfers before Run gives up with ErrMaxHandoffs.
-	// Zero uses DefaultMaxHandoffs.
+	// Zero uses 8.
 	MaxHandoffs int
 
 	// OnHandoff, when set, is called on each transfer (from, to). A surface
@@ -115,7 +115,7 @@ func NewTeam(cfg TeamConfig) (*Team, error) {
 		onEvent:     cfg.OnEvent,
 	}
 	if t.maxHandoffs <= 0 {
-		t.maxHandoffs = DefaultMaxHandoffs
+		t.maxHandoffs = defaultMaxHandoffs
 	}
 
 	for _, m := range cfg.Members {

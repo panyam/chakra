@@ -36,36 +36,36 @@ import (
 // Errors wrap these with the specifics, so match with errors.Is and read the
 // message for which hunk and how many matches.
 var (
-	// ErrStale means the content did not match ExpectHash. The file changed
+	// errStale means the content did not match ExpectHash. The file changed
 	// after the caller read it, so every anchor in the edit was written
 	// against a view that no longer exists.
-	ErrStale = errors.New("file changed since it was read")
+	errStale = errors.New("file changed since it was read")
 
-	// ErrAnchorNotFound means a hunk's Old text does not appear at all.
-	ErrAnchorNotFound = errors.New("anchor not found")
+	// errAnchorNotFound means a hunk's Old text does not appear at all.
+	errAnchorNotFound = errors.New("anchor not found")
 
-	// ErrAnchorAmbiguous means a hunk's Old text appears more than once, so
+	// errAnchorAmbiguous means a hunk's Old text appears more than once, so
 	// there is no single place the edit belongs. The fix is to extend the
 	// anchor with surrounding lines until it is unique, never to pick one.
-	ErrAnchorAmbiguous = errors.New("anchor is not unique")
+	errAnchorAmbiguous = errors.New("anchor is not unique")
 
-	// ErrOverlap means two hunks matched regions that share characters, so
+	// errOverlap means two hunks matched regions that share characters, so
 	// their replacements would contradict each other.
-	ErrOverlap = errors.New("hunks overlap")
+	errOverlap = errors.New("hunks overlap")
 
-	// ErrEmptyAnchor means a hunk has no Old text. An empty anchor matches at
+	// errEmptyAnchor means a hunk has no Old text. An empty anchor matches at
 	// every position rather than none, so it is rejected as malformed instead
 	// of being reported as ambiguous.
-	ErrEmptyAnchor = errors.New("hunk has an empty anchor")
+	errEmptyAnchor = errors.New("hunk has an empty anchor")
 
-	// ErrNoHunks means an Edit carried no hunks. Applying it would be a
+	// errNoHunks means an edit carried no hunks. Applying it would be a
 	// no-op. More likely the caller built the edit wrong than meant to change
 	// nothing.
-	ErrNoHunks = errors.New("edit has no hunks")
+	errNoHunks = errors.New("edit has no hunks")
 )
 
-// Hunk is one replacement, located by the text it replaces.
-type Hunk struct {
+// hunk is one replacement, located by the text it replaces.
+type hunk struct {
 	// Old is the exact text to replace. It must appear exactly once in the
 	// content. Matching is byte-exact: no whitespace normalization, no fuzzy
 	// or nearest match. Approximate matching produces silently wrong edits,
@@ -77,8 +77,8 @@ type Hunk struct {
 	New string
 }
 
-// Edit is a set of hunks applied to one file's content as a single unit.
-type Edit struct {
+// edit is a set of hunks applied to one file's content as a single unit.
+type edit struct {
 	// ExpectHash is the Hash of the content that the caller wrote this edit
 	// against. Empty skips the check. That is right only when the caller has
 	// some other guarantee that nothing changed in between. Without such a
@@ -89,7 +89,7 @@ type Edit struct {
 	// Hunks are applied together or not at all. Each anchor is matched
 	// against the original content rather than against the result of earlier
 	// hunks, so listing them in another order does not change the outcome.
-	Hunks []Hunk
+	Hunks []hunk
 }
 
 // Apply returns src with every hunk applied, or an error and no partial result.
@@ -100,14 +100,14 @@ type Edit struct {
 // exactly where it started. Both properties have one reason. The caller wrote
 // all these hunks while looking at one version of the content, so the hunks
 // should be interpreted against that version.
-func (e Edit) Apply(src string) (string, error) {
+func (e edit) Apply(src string) (string, error) {
 	if e.ExpectHash != "" {
 		if got := Hash(src); got != e.ExpectHash {
-			return "", fmt.Errorf("%w: expected %s, found %s; re-read it before editing", ErrStale, e.ExpectHash, got)
+			return "", fmt.Errorf("%w: expected %s, found %s; re-read it before editing", errStale, e.ExpectHash, got)
 		}
 	}
 	if len(e.Hunks) == 0 {
-		return "", ErrNoHunks
+		return "", errNoHunks
 	}
 
 	type span struct {
@@ -117,13 +117,13 @@ func (e Edit) Apply(src string) (string, error) {
 	spans := make([]span, 0, len(e.Hunks))
 	for i, h := range e.Hunks {
 		if h.Old == "" {
-			return "", fmt.Errorf("hunk %d: %w", i, ErrEmptyAnchor)
+			return "", fmt.Errorf("hunk %d: %w", i, errEmptyAnchor)
 		}
 		switch n := strings.Count(src, h.Old); {
 		case n == 0:
-			return "", fmt.Errorf("hunk %d: %w: %s", i, ErrAnchorNotFound, quote(h.Old))
+			return "", fmt.Errorf("hunk %d: %w: %s", i, errAnchorNotFound, quote(h.Old))
 		case n > 1:
-			return "", fmt.Errorf("hunk %d: %w: %s matches %d places; extend it until it matches one", i, ErrAnchorAmbiguous, quote(h.Old), n)
+			return "", fmt.Errorf("hunk %d: %w: %s matches %d places; extend it until it matches one", i, errAnchorAmbiguous, quote(h.Old), n)
 		}
 		start := strings.Index(src, h.Old)
 		spans = append(spans, span{start: start, end: start + len(h.Old), replace: h.New})
@@ -132,7 +132,7 @@ func (e Edit) Apply(src string) (string, error) {
 	sort.Slice(spans, func(i, j int) bool { return spans[i].start < spans[j].start })
 	for i := 1; i < len(spans); i++ {
 		if spans[i].start < spans[i-1].end {
-			return "", fmt.Errorf("%w: two hunks both cover offset %d", ErrOverlap, spans[i].start)
+			return "", fmt.Errorf("%w: two hunks both cover offset %d", errOverlap, spans[i].start)
 		}
 	}
 

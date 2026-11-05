@@ -16,17 +16,17 @@ import (
 // exposes this name is shadowed by the offloader's handler.
 const ReadToolResultName = "read_tool_result"
 
-// DefaultOffloadThreshold is the default offload cutoff. A successful tool
+// defaultOffloadThreshold is the default offload cutoff. A successful tool
 // result is offloaded when its model-visible size is at or above it. The
 // size is measured in bytes of flattened result text. 4 KB keeps ordinary
 // results inline and still catches the file dumps and long stdout that
 // actually bloat context.
-const DefaultOffloadThreshold = 4096
+const defaultOffloadThreshold = 4096
 
-// DefaultOffloadPreview is the number of leading characters of the
+// defaultOffloadPreview is the number of leading characters of the
 // flattened result that the stub shows inline. The model can often act on
 // that preview without a read_tool_result round-trip at all.
-const DefaultOffloadPreview = 400
+const defaultOffloadPreview = 400
 
 // defaultReadLimit bounds a read_tool_result window when the caller does
 // not set limit. It is large enough to be useful, and small enough that
@@ -38,12 +38,12 @@ const defaultReadLimit = 4000
 // input, and the constructor takes it as an argument.
 type OffloadConfig struct {
 	// Threshold is the offload cutoff in bytes of flattened result text.
-	// Zero means DefaultOffloadThreshold. Results below it inline
+	// Zero means 4096 bytes. Results below it inline
 	// unchanged.
 	Threshold int
 
 	// PreviewLen sets how many leading characters appear in the stub. Zero
-	// means DefaultOffloadPreview.
+	// means 400.
 	PreviewLen int
 
 	// PerToolThreshold overrides Threshold for named tools. An entry with
@@ -98,11 +98,11 @@ type readToolResultArgs struct {
 	Context int `json:"context,omitempty"`
 }
 
-// DefaultGrepMaxLines bounds how many lines a Pattern read returns when
+// defaultGrepMaxLines bounds how many lines a Pattern read returns when
 // Limit does not. Grep used to return every match, however many there
 // were. With a big transcript and a loose pattern, that re-inlined the
 // whole payload, and offloading exists to avoid exactly that.
-const DefaultGrepMaxLines = 200
+const defaultGrepMaxLines = 200
 
 // NewOffloadingSource wraps src, offloading over-threshold results into
 // store. Store is required; a nil store panics at construction rather
@@ -112,10 +112,10 @@ func NewOffloadingSource(src ToolSource, store ToolResultStore, cfg OffloadConfi
 		panic("agent: NewOffloadingSource requires a non-nil ToolResultStore")
 	}
 	if cfg.Threshold == 0 {
-		cfg.Threshold = DefaultOffloadThreshold
+		cfg.Threshold = defaultOffloadThreshold
 	}
 	if cfg.PreviewLen == 0 {
-		cfg.PreviewLen = DefaultOffloadPreview
+		cfg.PreviewLen = defaultOffloadPreview
 	}
 	o := &OffloadingSource{src: src, store: store, cfg: cfg, read: NewFuncSource()}
 	// Registration cannot fail for a fresh FuncSource with one unique
@@ -255,7 +255,7 @@ func (o *OffloadingSource) readToolResult(ctx context.Context, in readToolResult
 // reason. Without it, two distant failures read as one.
 //
 // The result is bounded. limit caps the lines returned and defaults to
-// DefaultGrepMaxLines. The result says what got cut instead of dropping it
+// 200. The result says what got cut instead of dropping it
 // silently. A caller that can't tell a complete answer from a truncated one
 // will read a truncated answer as complete.
 func grepLines(lines []string, re *regexp.Regexp, ctx, limit int, ref, pattern string) string {
@@ -263,7 +263,7 @@ func grepLines(lines []string, re *regexp.Regexp, ctx, limit int, ref, pattern s
 		ctx = 0
 	}
 	if limit <= 0 {
-		limit = DefaultGrepMaxLines
+		limit = defaultGrepMaxLines
 	}
 
 	var hits []int
