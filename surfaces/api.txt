@@ -1,0 +1,116 @@
+pkg github.com/panyam/chakra/surfaces, const DefaultSkillPreset
+pkg github.com/panyam/chakra/surfaces, func InstructionsProfile(json.RawMessage) (*agentsmd.Profile, bool, error)
+pkg github.com/panyam/chakra/surfaces, func LoadWorkspaceFile(string) (*WorkspaceFile, error)
+pkg github.com/panyam/chakra/surfaces, func RunStoreFromSpec(string) (agent.RunStore, error)
+pkg github.com/panyam/chakra/surfaces, func SkillFolders(string, []string) ([]string, error)
+pkg github.com/panyam/chakra/surfaces, func WorkspaceExtensions(WorkspaceConfig) ([]host.Extension, error)
+pkg github.com/panyam/chakra/surfaces, func WorkspaceSkillDirs(WorkspaceConfig) ([]host.SkillDir, error)
+pkg github.com/panyam/chakra/surfaces, method (*PrefixWord) UnmarshalJSON([]byte) error
+pkg github.com/panyam/chakra/surfaces, method (*ProcessesFile) UnmarshalJSON([]byte) error
+pkg github.com/panyam/chakra/surfaces, method (*WorkspaceConfig) LoadFile(string) error
+pkg github.com/panyam/chakra/surfaces, method (*WorkspaceFile) Apply(*WorkspaceConfig) error
+pkg github.com/panyam/chakra/surfaces, type ArgsFile struct
+pkg github.com/panyam/chakra/surfaces, type ArgsFile struct, Match string
+pkg github.com/panyam/chakra/surfaces, type ArgsFile struct, Max int
+pkg github.com/panyam/chakra/surfaces, type ArgsFile struct, Paths bool
+pkg github.com/panyam/chakra/surfaces, type CommandFile struct
+pkg github.com/panyam/chakra/surfaces, type CommandFile struct, AllowNetwork bool
+pkg github.com/panyam/chakra/surfaces, type CommandFile struct, Args *ArgsFile
+pkg github.com/panyam/chakra/surfaces, type CommandFile struct, Argv []string
+pkg github.com/panyam/chakra/surfaces, type CommandFile struct, Description string
+pkg github.com/panyam/chakra/surfaces, type CommandFile struct, Dir string
+pkg github.com/panyam/chakra/surfaces, type CommandFile struct, Name string
+pkg github.com/panyam/chakra/surfaces, type CommandFile struct, ReadOnly bool
+pkg github.com/panyam/chakra/surfaces, type CommandFile struct, Reversible bool
+pkg github.com/panyam/chakra/surfaces, type CommandFile struct, Timeout string
+pkg github.com/panyam/chakra/surfaces, type ExecFile struct
+pkg github.com/panyam/chakra/surfaces, type ExecFile struct, Commands []CommandFile
+pkg github.com/panyam/chakra/surfaces, type ExecFile struct, DenyRead []string
+pkg github.com/panyam/chakra/surfaces, type ExecFile struct, InlineOutput int
+pkg github.com/panyam/chakra/surfaces, type ExecFile struct, MaxOutput int
+pkg github.com/panyam/chakra/surfaces, type ExecFile struct, Network *exec.NetworkConfig
+pkg github.com/panyam/chakra/surfaces, type ExecFile struct, Sandbox string
+pkg github.com/panyam/chakra/surfaces, type ExecFile struct, Shell *ShellFile
+pkg github.com/panyam/chakra/surfaces, type ExecFile struct, Timeout string
+pkg github.com/panyam/chakra/surfaces, type ExecFile struct, WritePaths []string
+pkg github.com/panyam/chakra/surfaces, type GitFile struct
+pkg github.com/panyam/chakra/surfaces, type GitFile struct, Mutations bool
+pkg github.com/panyam/chakra/surfaces, type GitFile struct, Review bool
+pkg github.com/panyam/chakra/surfaces, type GitFile struct, WorktreeDir string
+pkg github.com/panyam/chakra/surfaces, type LanguageServerFile struct
+pkg github.com/panyam/chakra/surfaces, type LanguageServerFile struct, Command []string
+pkg github.com/panyam/chakra/surfaces, type LanguageServerFile struct, Extensions []string
+pkg github.com/panyam/chakra/surfaces, type LanguageServerFile struct, LanguageID string
+pkg github.com/panyam/chakra/surfaces, type PrefixWord []string
+pkg github.com/panyam/chakra/surfaces, type ProcessesFile struct
+pkg github.com/panyam/chakra/surfaces, type ProcessesFile struct, DefaultYield string
+pkg github.com/panyam/chakra/surfaces, type ProcessesFile struct, Detach bool
+pkg github.com/panyam/chakra/surfaces, type ProcessesFile struct, Max int
+pkg github.com/panyam/chakra/surfaces, type ProcessesFile struct, MaxOutput int
+pkg github.com/panyam/chakra/surfaces, type ProcessesFile struct, MaxYield string
+pkg github.com/panyam/chakra/surfaces, type ProcessesFile struct, On bool
+pkg github.com/panyam/chakra/surfaces, type ProcessesFile struct, StreamBudget int
+pkg github.com/panyam/chakra/surfaces, type ShellFile struct
+pkg github.com/panyam/chakra/surfaces, type ShellFile struct, AllowNetwork bool
+pkg github.com/panyam/chakra/surfaces, type ShellFile struct, Processes *ProcessesFile
+pkg github.com/panyam/chakra/surfaces, type ShellFile struct, Rules []ShellRuleFile
+pkg github.com/panyam/chakra/surfaces, type ShellFile struct, Timeout string
+pkg github.com/panyam/chakra/surfaces, type ShellRuleFile struct
+pkg github.com/panyam/chakra/surfaces, type ShellRuleFile struct, Decision string
+pkg github.com/panyam/chakra/surfaces, type ShellRuleFile struct, Justification string
+pkg github.com/panyam/chakra/surfaces, type ShellRuleFile struct, Match [][]string
+pkg github.com/panyam/chakra/surfaces, type ShellRuleFile struct, NotMatch [][]string
+pkg github.com/panyam/chakra/surfaces, type ShellRuleFile struct, Prefix []PrefixWord
+pkg github.com/panyam/chakra/surfaces, type SkillsFile struct
+pkg github.com/panyam/chakra/surfaces, type SkillsFile struct, Dirs []string
+pkg github.com/panyam/chakra/surfaces, type SkillsFile struct, Preset string
+pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct
+pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct, CheckpointStore string
+pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct, EditTools []string
+pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct, Exclude []string
+pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct, Exec *exec.Config
+pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct, Git *git.Config
+pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct, Instructions *agentsmd.Profile
+pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct, LanguageServers []lsp.ServerSpec
+pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct, NoCheckpoint bool
+pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct, NoInstructions bool
+pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct, Offloading bool
+pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct, Plan bool
+pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct, RepoMap bool
+pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct, Roots []string
+pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct, SkillDirs []string
+pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct, SkillsPreset string
+pkg github.com/panyam/chakra/surfaces, type WorkspaceFile struct
+pkg github.com/panyam/chakra/surfaces, type WorkspaceFile struct, EditTools []string
+pkg github.com/panyam/chakra/surfaces, type WorkspaceFile struct, Exec *ExecFile
+pkg github.com/panyam/chakra/surfaces, type WorkspaceFile struct, Git *GitFile
+pkg github.com/panyam/chakra/surfaces, type WorkspaceFile struct, Instructions json.RawMessage
+pkg github.com/panyam/chakra/surfaces, type WorkspaceFile struct, LanguageServers []LanguageServerFile
+pkg github.com/panyam/chakra/surfaces, type WorkspaceFile struct, Plan bool
+pkg github.com/panyam/chakra/surfaces, type WorkspaceFile struct, RepoMap bool
+pkg github.com/panyam/chakra/surfaces, type WorkspaceFile struct, Skills *SkillsFile
+pkg github.com/panyam/chakra/surfaces, var SkillPresets
+pkg github.com/panyam/chakra/surfaces/coding, const ConfigFile
+pkg github.com/panyam/chakra/surfaces/coding, const WorkspaceFile
+pkg github.com/panyam/chakra/surfaces/coding, func AwaitSurface(context.Context, core.ElicitationRequest) (core.ElicitationResult, error)
+pkg github.com/panyam/chakra/surfaces/coding, func BuildConnection(*host.Config, string, string) (agent.Provider, string, error)
+pkg github.com/panyam/chakra/surfaces/coding, func CopyFixture(string, string) error
+pkg github.com/panyam/chakra/surfaces/coding, method (Profile) Build(context.Context) (*host.App, error)
+pkg github.com/panyam/chakra/surfaces/coding, method (StandInSandbox) Available() error
+pkg github.com/panyam/chakra/surfaces/coding, method (StandInSandbox) Confine(*osexec.Cmd, exec.Policy) error
+pkg github.com/panyam/chakra/surfaces/coding, method (StandInSandbox) Name() string
+pkg github.com/panyam/chakra/surfaces/coding, type Profile struct
+pkg github.com/panyam/chakra/surfaces/coding, type Profile struct, Active string
+pkg github.com/panyam/chakra/surfaces/coding, type Profile struct, Approval string
+pkg github.com/panyam/chakra/surfaces/coding, type Profile struct, CheckpointStore string
+pkg github.com/panyam/chakra/surfaces/coding, type Profile struct, Dir string
+pkg github.com/panyam/chakra/surfaces/coding, type Profile struct, ElicitationUI agent.ElicitationUI
+pkg github.com/panyam/chakra/surfaces/coding, type Profile struct, Extensions func(*host.Config) ([]host.Extension, error)
+pkg github.com/panyam/chakra/surfaces/coding, type Profile struct, Instructions string
+pkg github.com/panyam/chakra/surfaces/coding, type Profile struct, Model string
+pkg github.com/panyam/chakra/surfaces/coding, type Profile struct, Provider agent.Provider
+pkg github.com/panyam/chakra/surfaces/coding, type Profile struct, Root string
+pkg github.com/panyam/chakra/surfaces/coding, type Profile struct, RunStore agent.RunStore
+pkg github.com/panyam/chakra/surfaces/coding, type Profile struct, Sandbox exec.Sandbox
+pkg github.com/panyam/chakra/surfaces/coding, type Profile struct, WrapProvider func(agent.Provider) agent.Provider
+pkg github.com/panyam/chakra/surfaces/coding, type StandInSandbox struct

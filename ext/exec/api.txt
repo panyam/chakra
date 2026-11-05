@@ -1,0 +1,95 @@
+pkg github.com/panyam/chakra/ext/exec, const Allow Decision
+pkg github.com/panyam/chakra/ext/exec, const DefaultInlineOutput
+pkg github.com/panyam/chakra/ext/exec, const DefaultMaxOutput
+pkg github.com/panyam/chakra/ext/exec, const DefaultTimeout
+pkg github.com/panyam/chakra/ext/exec, const ExecCommandTool
+pkg github.com/panyam/chakra/ext/exec, const Forbidden Decision
+pkg github.com/panyam/chakra/ext/exec, const KillProcessTool
+pkg github.com/panyam/chakra/ext/exec, const ListProcessesTool
+pkg github.com/panyam/chakra/ext/exec, const Prompt Decision
+pkg github.com/panyam/chakra/ext/exec, const ShellTool
+pkg github.com/panyam/chakra/ext/exec, const TTYCols
+pkg github.com/panyam/chakra/ext/exec, const TTYRows
+pkg github.com/panyam/chakra/ext/exec, const WriteStdinTool
+pkg github.com/panyam/chakra/ext/exec, func New(Config) (*Extension, error)
+pkg github.com/panyam/chakra/ext/exec, func NewRules([]PrefixRule) (*Rules, error)
+pkg github.com/panyam/chakra/ext/exec, func NewSource(Config) (*Source, error)
+pkg github.com/panyam/chakra/ext/exec, func Unconfined() Sandbox
+pkg github.com/panyam/chakra/ext/exec, method (*Extension) ApprovalClassifiers() []host.ApprovalClassifier
+pkg github.com/panyam/chakra/ext/exec, method (*Extension) ApprovalRenderers() []host.ApprovalRenderer
+pkg github.com/panyam/chakra/ext/exec, method (*Extension) Close() error
+pkg github.com/panyam/chakra/ext/exec, method (*Extension) Name() string
+pkg github.com/panyam/chakra/ext/exec, method (*Extension) PromptSections() []host.PromptSection
+pkg github.com/panyam/chakra/ext/exec, method (*Extension) ResizeProcess(string, int, int) error
+pkg github.com/panyam/chakra/ext/exec, method (*Extension) SetAnnounce(func(string))
+pkg github.com/panyam/chakra/ext/exec, method (*Extension) SetAsk(func(context.Context, string) (bool, error))
+pkg github.com/panyam/chakra/ext/exec, method (*Extension) SetProcessOutput(func(host.ProcessOutput))
+pkg github.com/panyam/chakra/ext/exec, method (*Extension) Tools() (agent.ToolSource, error)
+pkg github.com/panyam/chakra/ext/exec, method (*Extension) WriteProcess(string, string) error
+pkg github.com/panyam/chakra/ext/exec, method (*Source) Call(context.Context, string, map[string]any) (*core.ToolResult, error)
+pkg github.com/panyam/chakra/ext/exec, method (*Source) Close() error
+pkg github.com/panyam/chakra/ext/exec, method (*Source) Tools(context.Context) ([]core.ToolDef, error)
+pkg github.com/panyam/chakra/ext/exec, method (PrefixRule) String() string
+pkg github.com/panyam/chakra/ext/exec, type ArgPolicy struct
+pkg github.com/panyam/chakra/ext/exec, type ArgPolicy struct, Match string
+pkg github.com/panyam/chakra/ext/exec, type ArgPolicy struct, Max int
+pkg github.com/panyam/chakra/ext/exec, type ArgPolicy struct, Paths bool
+pkg github.com/panyam/chakra/ext/exec, type CommandSpec struct
+pkg github.com/panyam/chakra/ext/exec, type CommandSpec struct, AllowNetwork bool
+pkg github.com/panyam/chakra/ext/exec, type CommandSpec struct, Args *ArgPolicy
+pkg github.com/panyam/chakra/ext/exec, type CommandSpec struct, Argv []string
+pkg github.com/panyam/chakra/ext/exec, type CommandSpec struct, Description string
+pkg github.com/panyam/chakra/ext/exec, type CommandSpec struct, Dir string
+pkg github.com/panyam/chakra/ext/exec, type CommandSpec struct, Name string
+pkg github.com/panyam/chakra/ext/exec, type CommandSpec struct, ReadOnly bool
+pkg github.com/panyam/chakra/ext/exec, type CommandSpec struct, Reversible bool
+pkg github.com/panyam/chakra/ext/exec, type CommandSpec struct, Timeout time.Duration
+pkg github.com/panyam/chakra/ext/exec, type Config struct
+pkg github.com/panyam/chakra/ext/exec, type Config struct, Commands []CommandSpec
+pkg github.com/panyam/chakra/ext/exec, type Config struct, DenyRead []string
+pkg github.com/panyam/chakra/ext/exec, type Config struct, InlineOutput int
+pkg github.com/panyam/chakra/ext/exec, type Config struct, MaxOutput int
+pkg github.com/panyam/chakra/ext/exec, type Config struct, Network *NetworkConfig
+pkg github.com/panyam/chakra/ext/exec, type Config struct, Roots []string
+pkg github.com/panyam/chakra/ext/exec, type Config struct, Sandbox Sandbox
+pkg github.com/panyam/chakra/ext/exec, type Config struct, Shell *ShellConfig
+pkg github.com/panyam/chakra/ext/exec, type Config struct, Timeout time.Duration
+pkg github.com/panyam/chakra/ext/exec, type Config struct, WritePaths []string
+pkg github.com/panyam/chakra/ext/exec, type Decision string
+pkg github.com/panyam/chakra/ext/exec, type Extension struct
+pkg github.com/panyam/chakra/ext/exec, type Extension struct, embedded host.BaseExtension
+pkg github.com/panyam/chakra/ext/exec, type NetworkConfig struct
+pkg github.com/panyam/chakra/ext/exec, type NetworkConfig struct, Allow []string
+pkg github.com/panyam/chakra/ext/exec, type NetworkConfig struct, Ask bool
+pkg github.com/panyam/chakra/ext/exec, type Policy struct
+pkg github.com/panyam/chakra/ext/exec, type Policy struct, AllowNetwork bool
+pkg github.com/panyam/chakra/ext/exec, type Policy struct, DenyRead []string
+pkg github.com/panyam/chakra/ext/exec, type Policy struct, Dir string
+pkg github.com/panyam/chakra/ext/exec, type Policy struct, Write []string
+pkg github.com/panyam/chakra/ext/exec, type PrefixRule struct
+pkg github.com/panyam/chakra/ext/exec, type PrefixRule struct, Decision Decision
+pkg github.com/panyam/chakra/ext/exec, type PrefixRule struct, Justification string
+pkg github.com/panyam/chakra/ext/exec, type PrefixRule struct, Match [][]string
+pkg github.com/panyam/chakra/ext/exec, type PrefixRule struct, NotMatch [][]string
+pkg github.com/panyam/chakra/ext/exec, type PrefixRule struct, Prefix [][]string
+pkg github.com/panyam/chakra/ext/exec, type ProcessConfig struct
+pkg github.com/panyam/chakra/ext/exec, type ProcessConfig struct, AllowDetach bool
+pkg github.com/panyam/chakra/ext/exec, type ProcessConfig struct, DefaultYield time.Duration
+pkg github.com/panyam/chakra/ext/exec, type ProcessConfig struct, Max int
+pkg github.com/panyam/chakra/ext/exec, type ProcessConfig struct, MaxOutput int
+pkg github.com/panyam/chakra/ext/exec, type ProcessConfig struct, MaxYield time.Duration
+pkg github.com/panyam/chakra/ext/exec, type ProcessConfig struct, StateDir string
+pkg github.com/panyam/chakra/ext/exec, type ProcessConfig struct, StreamBudget int
+pkg github.com/panyam/chakra/ext/exec, type Rules struct
+pkg github.com/panyam/chakra/ext/exec, type Sandbox interface
+pkg github.com/panyam/chakra/ext/exec, type Sandbox interface, Available() error
+pkg github.com/panyam/chakra/ext/exec, type Sandbox interface, Confine(*osexec.Cmd, Policy) error
+pkg github.com/panyam/chakra/ext/exec, type Sandbox interface, Name() string
+pkg github.com/panyam/chakra/ext/exec, type ShellConfig struct
+pkg github.com/panyam/chakra/ext/exec, type ShellConfig struct, AllowNetwork bool
+pkg github.com/panyam/chakra/ext/exec, type ShellConfig struct, Processes *ProcessConfig
+pkg github.com/panyam/chakra/ext/exec, type ShellConfig struct, Rules []PrefixRule
+pkg github.com/panyam/chakra/ext/exec, type ShellConfig struct, Timeout time.Duration
+pkg github.com/panyam/chakra/ext/exec, type Source struct
+pkg github.com/panyam/chakra/ext/exec, var DefaultDenyRead
+pkg github.com/panyam/chakra/ext/exec, var DefaultWritePaths

@@ -1,0 +1,406 @@
+pkg github.com/panyam/chakra/host, const CmdApproval CmdKind
+pkg github.com/panyam/chakra/host, const CmdHealth CmdKind
+pkg github.com/panyam/chakra/host, const CmdHistory CmdKind
+pkg github.com/panyam/chakra/host, const CmdMessage CmdKind
+pkg github.com/panyam/chakra/host, const CmdProviders CmdKind
+pkg github.com/panyam/chakra/host, const CmdQuit CmdKind
+pkg github.com/panyam/chakra/host, const CmdServerTools CmdKind
+pkg github.com/panyam/chakra/host, const CmdServers CmdKind
+pkg github.com/panyam/chakra/host, const CmdSession CmdKind
+pkg github.com/panyam/chakra/host, const CmdSessions CmdKind
+pkg github.com/panyam/chakra/host, const CmdTasks CmdKind
+pkg github.com/panyam/chakra/host, const CmdTools CmdKind
+pkg github.com/panyam/chakra/host, const HostCommandResult HostEventKind
+pkg github.com/panyam/chakra/host, const HostElicitRequest HostEventKind
+pkg github.com/panyam/chakra/host, const HostElicitResolved HostEventKind
+pkg github.com/panyam/chakra/host, const HostEventDropped HostEventKind
+pkg github.com/panyam/chakra/host, const HostHandoff HostEventKind
+pkg github.com/panyam/chakra/host, const HostMessage HostEventKind
+pkg github.com/panyam/chakra/host, const HostProcessOutput HostEventKind
+pkg github.com/panyam/chakra/host, const HostRunnerEvent HostEventKind
+pkg github.com/panyam/chakra/host, const HostServerStateChanged HostEventKind
+pkg github.com/panyam/chakra/host, const HostSessionChanged HostEventKind
+pkg github.com/panyam/chakra/host, const HostSessionWarn HostEventKind
+pkg github.com/panyam/chakra/host, const HostSkillSkipped HostEventKind
+pkg github.com/panyam/chakra/host, const HostSkillsLoaded HostEventKind
+pkg github.com/panyam/chakra/host, const HostSubAgentEvent HostEventKind
+pkg github.com/panyam/chakra/host, const HostTaskCompleted HostEventKind
+pkg github.com/panyam/chakra/host, const HostTaskDetached HostEventKind
+pkg github.com/panyam/chakra/host, const HostTaskStatus HostEventKind
+pkg github.com/panyam/chakra/host, const HostTriggerFired HostEventKind
+pkg github.com/panyam/chakra/host, const HostTurnDone HostEventKind
+pkg github.com/panyam/chakra/host, const HostTurnFailed HostEventKind
+pkg github.com/panyam/chakra/host, const HostUserInput HostEventKind
+pkg github.com/panyam/chakra/host, func BuildEmbedder(ConnectionConfig, core.TracerProvider) (agent.Embedder, error)
+pkg github.com/panyam/chakra/host, func DefaultProviderBuilder(ConnectionConfig) (agent.Provider, error)
+pkg github.com/panyam/chakra/host, func LoadConfig(string) (*Config, error)
+pkg github.com/panyam/chakra/host, func LoadConfigWithOverlay(string) (*Config, error)
+pkg github.com/panyam/chakra/host, func NewApp(*Config, io.Writer, io.Reader, ...AppOption) (*App, error)
+pkg github.com/panyam/chakra/host, func NewCommandRegistry() *CommandRegistry
+pkg github.com/panyam/chakra/host, func NewConnectionRegistry(*ConnectionsConfig, ProviderBuilder) (*ConnectionRegistry, error)
+pkg github.com/panyam/chakra/host, func NewPersistingEmit(agent.RunStore, string, func(agent.Event)) *PersistingEmit
+pkg github.com/panyam/chakra/host, func NewPlanExtension() *PlanExtension
+pkg github.com/panyam/chakra/host, func NewTerminalRenderer(io.Writer) Observer
+pkg github.com/panyam/chakra/host, func NewTerminalRendererColor(io.Writer, bool) Observer
+pkg github.com/panyam/chakra/host, func StepRouteStage([]StepRoute, func(string) (agent.Provider, error), func() string) agent.StepStage
+pkg github.com/panyam/chakra/host, func WithBrowserOpener(func(string) error) AppOption
+pkg github.com/panyam/chakra/host, func WithConfigOverlay(string) AppOption
+pkg github.com/panyam/chakra/host, func WithElicitationUI(agent.ElicitationUI) AppOption
+pkg github.com/panyam/chakra/host, func WithExtension(...Extension) AppOption
+pkg github.com/panyam/chakra/host, func WithLogger(*slog.Logger) AppOption
+pkg github.com/panyam/chakra/host, func WithMemoryStore(agent.MemoryStore) AppOption
+pkg github.com/panyam/chakra/host, func WithMeterProvider(core.MeterProvider) AppOption
+pkg github.com/panyam/chakra/host, func WithObserver(Observer) AppOption
+pkg github.com/panyam/chakra/host, func WithProvider(agent.Provider) AppOption
+pkg github.com/panyam/chakra/host, func WithProviderBuilder(ProviderBuilder) AppOption
+pkg github.com/panyam/chakra/host, func WithRoots(...string) AppOption
+pkg github.com/panyam/chakra/host, func WithRunStore(agent.RunStore) AppOption
+pkg github.com/panyam/chakra/host, func WithSkillDirs(...SkillDir) AppOption
+pkg github.com/panyam/chakra/host, func WithSystemPromptBuilder(func(*SystemPromptBuilder)) AppOption
+pkg github.com/panyam/chakra/host, func WithToolResultStore(agent.ToolResultStore) AppOption
+pkg github.com/panyam/chakra/host, func WithTracerProvider(core.TracerProvider) AppOption
+pkg github.com/panyam/chakra/host, method (*App) AttachRun(context.Context, string) error
+pkg github.com/panyam/chakra/host, method (*App) Close()
+pkg github.com/panyam/chakra/host, method (*App) Commands() *CommandRegistry
+pkg github.com/panyam/chakra/host, method (*App) Dispatch(context.Context, string) (CmdResult, error)
+pkg github.com/panyam/chakra/host, method (*App) Fork(context.Context, string, int) (string, error)
+pkg github.com/panyam/chakra/host, method (*App) InterruptToolCalls() bool
+pkg github.com/panyam/chakra/host, method (*App) LoginServer(string)
+pkg github.com/panyam/chakra/host, method (*App) ModelLabel() string
+pkg github.com/panyam/chakra/host, method (*App) PageMore(context.Context) (SessionPage, error)
+pkg github.com/panyam/chakra/host, method (*App) Providers() ([]string, string)
+pkg github.com/panyam/chakra/host, method (*App) REPL(context.Context, io.Reader, func() (context.Context, context.CancelFunc)) error
+pkg github.com/panyam/chakra/host, method (*App) ReconnectServer(string)
+pkg github.com/panyam/chakra/host, method (*App) ResizeProcess(string, string, int, int) error
+pkg github.com/panyam/chakra/host, method (*App) RespondToAsk(int, core.ElicitationResult, string) error
+pkg github.com/panyam/chakra/host, method (*App) Resume(context.Context, string) error
+pkg github.com/panyam/chakra/host, method (*App) Roots() []core.Root
+pkg github.com/panyam/chakra/host, method (*App) RunID() string
+pkg github.com/panyam/chakra/host, method (*App) RunTurn(context.Context, string) error
+pkg github.com/panyam/chakra/host, method (*App) RunTurnWith(context.Context, string, TurnOptions) error
+pkg github.com/panyam/chakra/host, method (*App) SearchSessions(context.Context, string) ([]agent.RunInfo, error)
+pkg github.com/panyam/chakra/host, method (*App) ServerTools(context.Context, string) ([]core.ToolDef, bool, error)
+pkg github.com/panyam/chakra/host, method (*App) Sessions(context.Context) ([]agent.RunInfo, error)
+pkg github.com/panyam/chakra/host, method (*App) SessionsPage(context.Context, string) (SessionPage, error)
+pkg github.com/panyam/chakra/host, method (*App) SetRoots(context.Context, ...string) error
+pkg github.com/panyam/chakra/host, method (*App) Submit(context.Context, string, TurnOptions) (bool, error)
+pkg github.com/panyam/chakra/host, method (*App) Subscribe(context.Context) <-chan HostEvent
+pkg github.com/panyam/chakra/host, method (*App) SwitchProvider(string) error
+pkg github.com/panyam/chakra/host, method (*App) Tools(context.Context) error
+pkg github.com/panyam/chakra/host, method (*App) WriteProcess(string, string, string) error
+pkg github.com/panyam/chakra/host, method (*AuthConfig) Validate() error
+pkg github.com/panyam/chakra/host, method (*CommandRegistry) Lookup(string) (*Command, bool)
+pkg github.com/panyam/chakra/host, method (*CommandRegistry) Match(string) []string
+pkg github.com/panyam/chakra/host, method (*CommandRegistry) Names() []string
+pkg github.com/panyam/chakra/host, method (*CommandRegistry) Register(*Command)
+pkg github.com/panyam/chakra/host, method (*Config) APIKey() string
+pkg github.com/panyam/chakra/host, method (*Config) Validate() error
+pkg github.com/panyam/chakra/host, method (*ConnectionRegistry) Active() string
+pkg github.com/panyam/chakra/host, method (*ConnectionRegistry) ActiveModel() string
+pkg github.com/panyam/chakra/host, method (*ConnectionRegistry) ActiveProvider() (agent.Provider, error)
+pkg github.com/panyam/chakra/host, method (*ConnectionRegistry) ModelOf(string) string
+pkg github.com/panyam/chakra/host, method (*ConnectionRegistry) Names() []string
+pkg github.com/panyam/chakra/host, method (*ConnectionRegistry) Provider(string) (agent.Provider, error)
+pkg github.com/panyam/chakra/host, method (*ConnectionRegistry) SetActive(string) (agent.Provider, error)
+pkg github.com/panyam/chakra/host, method (*ConnectionsConfig) EmbedderConnection() (ConnectionConfig, bool)
+pkg github.com/panyam/chakra/host, method (*PersistingEmit) Emit(agent.Event)
+pkg github.com/panyam/chakra/host, method (*PersistingEmit) Flush(context.Context) error
+pkg github.com/panyam/chakra/host, method (*PlanExtension) Latest() *agent.Plan
+pkg github.com/panyam/chakra/host, method (*PlanExtension) Name() string
+pkg github.com/panyam/chakra/host, method (*PlanExtension) StepStages() []agent.StepStage
+pkg github.com/panyam/chakra/host, method (*PlanExtension) Tools() (agent.ToolSource, error)
+pkg github.com/panyam/chakra/host, method (*SystemPromptBuilder) Append(PromptSection)
+pkg github.com/panyam/chakra/host, method (*SystemPromptBuilder) Build(context.Context) string
+pkg github.com/panyam/chakra/host, method (*SystemPromptBuilder) Prepend(PromptSection)
+pkg github.com/panyam/chakra/host, method (BaseExtension) ApprovalChoosers() []ApprovalChooser
+pkg github.com/panyam/chakra/host, method (BaseExtension) ApprovalClassifiers() []ApprovalClassifier
+pkg github.com/panyam/chakra/host, method (BaseExtension) ApprovalRenderers() []ApprovalRenderer
+pkg github.com/panyam/chakra/host, method (BaseExtension) Close() error
+pkg github.com/panyam/chakra/host, method (BaseExtension) Commands() []*Command
+pkg github.com/panyam/chakra/host, method (BaseExtension) ContextStages() []ContextStage
+pkg github.com/panyam/chakra/host, method (BaseExtension) InputTransforms() []InputTransform
+pkg github.com/panyam/chakra/host, method (BaseExtension) Middleware() []agent.ToolMiddleware
+pkg github.com/panyam/chakra/host, method (BaseExtension) PromptSections() []PromptSection
+pkg github.com/panyam/chakra/host, method (BaseExtension) StepStages() []agent.StepStage
+pkg github.com/panyam/chakra/host, method (BaseExtension) Tools() (agent.ToolSource, error)
+pkg github.com/panyam/chakra/host, method (BaseExtension) TurnEndHooks() []agent.TurnEndHook
+pkg github.com/panyam/chakra/host, method (BaseExtension) TurnStart(context.Context) error
+pkg github.com/panyam/chakra/host, method (PromptSectionFunc) Section(context.Context) string
+pkg github.com/panyam/chakra/host, type Announcer interface
+pkg github.com/panyam/chakra/host, type Announcer interface, SetAnnounce(func(string))
+pkg github.com/panyam/chakra/host, type App struct
+pkg github.com/panyam/chakra/host, type AppOption func(*appOptions)
+pkg github.com/panyam/chakra/host, type ApprovalChooser func(context.Context, agent.ToolCallInfo, agent.ElicitationUI) (agent.Choice, error)
+pkg github.com/panyam/chakra/host, type ApprovalClassifier func(context.Context, agent.ToolCallInfo) (agent.CallClass, bool)
+pkg github.com/panyam/chakra/host, type ApprovalConfig struct
+pkg github.com/panyam/chakra/host, type ApprovalConfig struct, Mode string
+pkg github.com/panyam/chakra/host, type ApprovalConfig struct, Remember bool
+pkg github.com/panyam/chakra/host, type ApprovalConfig struct, Rules map[string]string
+pkg github.com/panyam/chakra/host, type ApprovalRenderer func(context.Context, agent.ToolCallInfo) (string, bool)
+pkg github.com/panyam/chakra/host, type Asker interface
+pkg github.com/panyam/chakra/host, type Asker interface, SetAsk(func(context.Context, string) (bool, error))
+pkg github.com/panyam/chakra/host, type AuthConfig struct
+pkg github.com/panyam/chakra/host, type AuthConfig struct, AllowInsecure bool
+pkg github.com/panyam/chakra/host, type AuthConfig struct, ClientIDEnv string
+pkg github.com/panyam/chakra/host, type AuthConfig struct, ClientSecretEnv string
+pkg github.com/panyam/chakra/host, type AuthConfig struct, Scopes []string
+pkg github.com/panyam/chakra/host, type AuthConfig struct, TokenEnv string
+pkg github.com/panyam/chakra/host, type AuthConfig struct, Type string
+pkg github.com/panyam/chakra/host, type BackupModelConfig struct
+pkg github.com/panyam/chakra/host, type BackupModelConfig struct, APIKeyEnv string
+pkg github.com/panyam/chakra/host, type BackupModelConfig struct, BaseURL string
+pkg github.com/panyam/chakra/host, type BackupModelConfig struct, Model string
+pkg github.com/panyam/chakra/host, type BaseExtension struct
+pkg github.com/panyam/chakra/host, type CmdKind string
+pkg github.com/panyam/chakra/host, type CmdResult struct
+pkg github.com/panyam/chakra/host, type CmdResult struct, ActiveProvider string
+pkg github.com/panyam/chakra/host, type CmdResult struct, Approval *agent.TieredApproval
+pkg github.com/panyam/chakra/host, type CmdResult struct, Failover *agent.FailoverProvider
+pkg github.com/panyam/chakra/host, type CmdResult struct, Kind CmdKind
+pkg github.com/panyam/chakra/host, type CmdResult struct, Message string
+pkg github.com/panyam/chakra/host, type CmdResult struct, Messages []agent.Message
+pkg github.com/panyam/chakra/host, type CmdResult struct, Providers []string
+pkg github.com/panyam/chakra/host, type CmdResult struct, Quit bool
+pkg github.com/panyam/chakra/host, type CmdResult struct, RunID string
+pkg github.com/panyam/chakra/host, type CmdResult struct, ServerID string
+pkg github.com/panyam/chakra/host, type CmdResult struct, Servers []ServerStatus
+pkg github.com/panyam/chakra/host, type CmdResult struct, Sessions []agent.RunInfo
+pkg github.com/panyam/chakra/host, type CmdResult struct, SessionsNote string
+pkg github.com/panyam/chakra/host, type CmdResult struct, Tasks []*client.BackgroundTask
+pkg github.com/panyam/chakra/host, type CmdResult struct, Tools []core.ToolDef
+pkg github.com/panyam/chakra/host, type Command struct
+pkg github.com/panyam/chakra/host, type Command struct, Aliases []string
+pkg github.com/panyam/chakra/host, type Command struct, Complete func(string) []string
+pkg github.com/panyam/chakra/host, type Command struct, Help string
+pkg github.com/panyam/chakra/host, type Command struct, Name string
+pkg github.com/panyam/chakra/host, type Command struct, Run func(context.Context, string) (CmdResult, error)
+pkg github.com/panyam/chakra/host, type CommandRegistry struct
+pkg github.com/panyam/chakra/host, type CompactionConfig struct
+pkg github.com/panyam/chakra/host, type CompactionConfig struct, KeepRecent int
+pkg github.com/panyam/chakra/host, type CompactionConfig struct, MaxTokens int
+pkg github.com/panyam/chakra/host, type Config struct
+pkg github.com/panyam/chakra/host, type Config struct, AllowPreempt bool
+pkg github.com/panyam/chakra/host, type Config struct, Approval *ApprovalConfig
+pkg github.com/panyam/chakra/host, type Config struct, Compaction *CompactionConfig
+pkg github.com/panyam/chakra/host, type Config struct, Connections *ConnectionsConfig
+pkg github.com/panyam/chakra/host, type Config struct, Critique *CritiqueConfig
+pkg github.com/panyam/chakra/host, type Config struct, FanOut []FanOutGroupConfig
+pkg github.com/panyam/chakra/host, type Config struct, Instructions string
+pkg github.com/panyam/chakra/host, type Config struct, Interruptible bool
+pkg github.com/panyam/chakra/host, type Config struct, MaxEventLogRetention int
+pkg github.com/panyam/chakra/host, type Config struct, MaxSteps int
+pkg github.com/panyam/chakra/host, type Config struct, MaxTreeSteps int
+pkg github.com/panyam/chakra/host, type Config struct, MaxTreeTokens int
+pkg github.com/panyam/chakra/host, type Config struct, Memory *MemoryConfig
+pkg github.com/panyam/chakra/host, type Config struct, MetaTools bool
+pkg github.com/panyam/chakra/host, type Config struct, Model ModelConfig
+pkg github.com/panyam/chakra/host, type Config struct, Offload *OffloadConfig
+pkg github.com/panyam/chakra/host, type Config struct, Roots []string
+pkg github.com/panyam/chakra/host, type Config struct, RunnerControl bool
+pkg github.com/panyam/chakra/host, type Config struct, Sampling *SamplingConfig
+pkg github.com/panyam/chakra/host, type Config struct, Servers []ServerConfig
+pkg github.com/panyam/chakra/host, type Config struct, SignalPolicy string
+pkg github.com/panyam/chakra/host, type Config struct, SkillDirs []SkillDir
+pkg github.com/panyam/chakra/host, type Config struct, Spotlight *SpotlightConfig
+pkg github.com/panyam/chakra/host, type Config struct, StepBudgetWithin int
+pkg github.com/panyam/chakra/host, type Config struct, SubAgents []SubAgentConfig
+pkg github.com/panyam/chakra/host, type Config struct, TaskGraceSec int
+pkg github.com/panyam/chakra/host, type Config struct, Team *HostTeamConfig
+pkg github.com/panyam/chakra/host, type Config struct, Triggers []TriggerConfig
+pkg github.com/panyam/chakra/host, type ConnectionConfig struct
+pkg github.com/panyam/chakra/host, type ConnectionConfig struct, APIKey string
+pkg github.com/panyam/chakra/host, type ConnectionConfig struct, APIKeyEnv string
+pkg github.com/panyam/chakra/host, type ConnectionConfig struct, BaseURL string
+pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Dim int
+pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Model string
+pkg github.com/panyam/chakra/host, type ConnectionConfig struct, ReasoningEffort string
+pkg github.com/panyam/chakra/host, type ConnectionConfig struct, ResponseSchema *bool
+pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Temperature *bool
+pkg github.com/panyam/chakra/host, type ConnectionConfig struct, ThinkingHint *ThinkingHint
+pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Type string
+pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Vision bool
+pkg github.com/panyam/chakra/host, type ConnectionRegistry struct
+pkg github.com/panyam/chakra/host, type ConnectionsConfig struct
+pkg github.com/panyam/chakra/host, type ConnectionsConfig struct, Active string
+pkg github.com/panyam/chakra/host, type ConnectionsConfig struct, AgentRoles map[string]string
+pkg github.com/panyam/chakra/host, type ConnectionsConfig struct, Connections map[string]ConnectionConfig
+pkg github.com/panyam/chakra/host, type ConnectionsConfig struct, Embedder string
+pkg github.com/panyam/chakra/host, type ConnectionsConfig struct, StepRoutes []StepRoute
+pkg github.com/panyam/chakra/host, type ContextStage struct
+pkg github.com/panyam/chakra/host, type ContextStage struct, Name string
+pkg github.com/panyam/chakra/host, type ContextStage struct, Run func(context.Context, []agent.Message) []agent.Message
+pkg github.com/panyam/chakra/host, type CritiqueConfig struct
+pkg github.com/panyam/chakra/host, type CritiqueConfig struct, AllowOnError bool
+pkg github.com/panyam/chakra/host, type CritiqueConfig struct, Principles string
+pkg github.com/panyam/chakra/host, type CritiqueConfig struct, Tools []string
+pkg github.com/panyam/chakra/host, type EventConfig struct
+pkg github.com/panyam/chakra/host, type EventConfig struct, Hint *agent.ContextHint
+pkg github.com/panyam/chakra/host, type EventConfig struct, Name string
+pkg github.com/panyam/chakra/host, type Extension interface
+pkg github.com/panyam/chakra/host, type Extension interface, ApprovalChoosers() []ApprovalChooser
+pkg github.com/panyam/chakra/host, type Extension interface, ApprovalClassifiers() []ApprovalClassifier
+pkg github.com/panyam/chakra/host, type Extension interface, ApprovalRenderers() []ApprovalRenderer
+pkg github.com/panyam/chakra/host, type Extension interface, Close() error
+pkg github.com/panyam/chakra/host, type Extension interface, Commands() []*Command
+pkg github.com/panyam/chakra/host, type Extension interface, ContextStages() []ContextStage
+pkg github.com/panyam/chakra/host, type Extension interface, InputTransforms() []InputTransform
+pkg github.com/panyam/chakra/host, type Extension interface, Middleware() []agent.ToolMiddleware
+pkg github.com/panyam/chakra/host, type Extension interface, Name() string
+pkg github.com/panyam/chakra/host, type Extension interface, PromptSections() []PromptSection
+pkg github.com/panyam/chakra/host, type Extension interface, StepStages() []agent.StepStage
+pkg github.com/panyam/chakra/host, type Extension interface, Tools() (agent.ToolSource, error)
+pkg github.com/panyam/chakra/host, type Extension interface, TurnEndHooks() []agent.TurnEndHook
+pkg github.com/panyam/chakra/host, type Extension interface, TurnStart(context.Context) error
+pkg github.com/panyam/chakra/host, type FanOutGroupConfig struct
+pkg github.com/panyam/chakra/host, type FanOutGroupConfig struct, Description string
+pkg github.com/panyam/chakra/host, type FanOutGroupConfig struct, Members []SubAgentConfig
+pkg github.com/panyam/chakra/host, type FanOutGroupConfig struct, Name string
+pkg github.com/panyam/chakra/host, type HostEvent struct
+pkg github.com/panyam/chakra/host, type HostEvent struct, AskID int64
+pkg github.com/panyam/chakra/host, type HostEvent struct, By string
+pkg github.com/panyam/chakra/host, type HostEvent struct, Command CmdResult
+pkg github.com/panyam/chakra/host, type HostEvent struct, Elicit *core.ElicitationRequest
+pkg github.com/panyam/chakra/host, type HostEvent struct, Err string
+pkg github.com/panyam/chakra/host, type HostEvent struct, EventName string
+pkg github.com/panyam/chakra/host, type HostEvent struct, From string
+pkg github.com/panyam/chakra/host, type HostEvent struct, Kind HostEventKind
+pkg github.com/panyam/chakra/host, type HostEvent struct, Label string
+pkg github.com/panyam/chakra/host, type HostEvent struct, Loaded int
+pkg github.com/panyam/chakra/host, type HostEvent struct, Message string
+pkg github.com/panyam/chakra/host, type HostEvent struct, ProcessOutput *ProcessOutput
+pkg github.com/panyam/chakra/host, type HostEvent struct, Result *agent.TurnResult
+pkg github.com/panyam/chakra/host, type HostEvent struct, RunID string
+pkg github.com/panyam/chakra/host, type HostEvent struct, RunnerEvent agent.Event
+pkg github.com/panyam/chakra/host, type HostEvent struct, ServerID string
+pkg github.com/panyam/chakra/host, type HostEvent struct, ServerState string
+pkg github.com/panyam/chakra/host, type HostEvent struct, Skipped int
+pkg github.com/panyam/chakra/host, type HostEvent struct, SubAgent agent.SubAgentEvent
+pkg github.com/panyam/chakra/host, type HostEvent struct, Task *client.BackgroundTask
+pkg github.com/panyam/chakra/host, type HostEvent struct, TaskStatus *core.DetailedTask
+pkg github.com/panyam/chakra/host, type HostEvent struct, To string
+pkg github.com/panyam/chakra/host, type HostEvent struct, URI string
+pkg github.com/panyam/chakra/host, type HostEventKind string
+pkg github.com/panyam/chakra/host, type HostTeamConfig struct
+pkg github.com/panyam/chakra/host, type HostTeamConfig struct, MaxHandoffs int
+pkg github.com/panyam/chakra/host, type HostTeamConfig struct, Members []TeamMemberConfig
+pkg github.com/panyam/chakra/host, type HostTeamConfig struct, Start string
+pkg github.com/panyam/chakra/host, type InputTransform func(context.Context, string) (string, error)
+pkg github.com/panyam/chakra/host, type MemoryConfig struct
+pkg github.com/panyam/chakra/host, type MemoryConfig struct, InjectRecall bool
+pkg github.com/panyam/chakra/host, type MemoryConfig struct, InjectSummary bool
+pkg github.com/panyam/chakra/host, type MemoryConfig struct, RecallMinScore float64
+pkg github.com/panyam/chakra/host, type MemoryConfig struct, RecallTopK int
+pkg github.com/panyam/chakra/host, type MemoryConfig struct, SessionScoped bool
+pkg github.com/panyam/chakra/host, type MemoryConfig struct, SummaryMaxChars int
+pkg github.com/panyam/chakra/host, type MemoryConfig struct, SummaryMaxItems int
+pkg github.com/panyam/chakra/host, type ModelConfig struct
+pkg github.com/panyam/chakra/host, type ModelConfig struct, APIKeyEnv string
+pkg github.com/panyam/chakra/host, type ModelConfig struct, Backup *BackupModelConfig
+pkg github.com/panyam/chakra/host, type ModelConfig struct, BaseURL string
+pkg github.com/panyam/chakra/host, type ModelConfig struct, Model string
+pkg github.com/panyam/chakra/host, type Observer interface
+pkg github.com/panyam/chakra/host, type Observer interface, On(HostEvent)
+pkg github.com/panyam/chakra/host, type OffloadConfig struct
+pkg github.com/panyam/chakra/host, type OffloadConfig struct, PerTool map[string]int
+pkg github.com/panyam/chakra/host, type OffloadConfig struct, PreviewLen int
+pkg github.com/panyam/chakra/host, type OffloadConfig struct, ThresholdBytes int
+pkg github.com/panyam/chakra/host, type PersistingEmit struct
+pkg github.com/panyam/chakra/host, type PlanExtension struct
+pkg github.com/panyam/chakra/host, type PlanExtension struct, embedded BaseExtension
+pkg github.com/panyam/chakra/host, type ProcessController interface
+pkg github.com/panyam/chakra/host, type ProcessController interface, ResizeProcess(string, int, int) error
+pkg github.com/panyam/chakra/host, type ProcessController interface, WriteProcess(string, string) error
+pkg github.com/panyam/chakra/host, type ProcessOutput struct
+pkg github.com/panyam/chakra/host, type ProcessOutput struct, Cols int
+pkg github.com/panyam/chakra/host, type ProcessOutput struct, Command string
+pkg github.com/panyam/chakra/host, type ProcessOutput struct, Dropped int64
+pkg github.com/panyam/chakra/host, type ProcessOutput struct, ExitCode int
+pkg github.com/panyam/chakra/host, type ProcessOutput struct, Exited bool
+pkg github.com/panyam/chakra/host, type ProcessOutput struct, ID string
+pkg github.com/panyam/chakra/host, type ProcessOutput struct, Paused bool
+pkg github.com/panyam/chakra/host, type ProcessOutput struct, Rows int
+pkg github.com/panyam/chakra/host, type ProcessOutput struct, Source string
+pkg github.com/panyam/chakra/host, type ProcessOutput struct, TTY bool
+pkg github.com/panyam/chakra/host, type ProcessOutput struct, Text string
+pkg github.com/panyam/chakra/host, type ProcessReporter interface
+pkg github.com/panyam/chakra/host, type ProcessReporter interface, SetProcessOutput(func(ProcessOutput))
+pkg github.com/panyam/chakra/host, type PromptSection interface
+pkg github.com/panyam/chakra/host, type PromptSection interface, Section(context.Context) string
+pkg github.com/panyam/chakra/host, type PromptSectionFunc func(context.Context) string
+pkg github.com/panyam/chakra/host, type ProviderBuilder func(ConnectionConfig) (agent.Provider, error)
+pkg github.com/panyam/chakra/host, type SamplingConfig struct
+pkg github.com/panyam/chakra/host, type SamplingConfig struct, Connection string
+pkg github.com/panyam/chakra/host, type SamplingConfig struct, Enabled bool
+pkg github.com/panyam/chakra/host, type SamplingConfig struct, MaxTokens int
+pkg github.com/panyam/chakra/host, type SamplingConfig struct, ReviewResponse bool
+pkg github.com/panyam/chakra/host, type ServerConfig struct
+pkg github.com/panyam/chakra/host, type ServerConfig struct, Agents *bool
+pkg github.com/panyam/chakra/host, type ServerConfig struct, Allow []string
+pkg github.com/panyam/chakra/host, type ServerConfig struct, Args []string
+pkg github.com/panyam/chakra/host, type ServerConfig struct, Auth *AuthConfig
+pkg github.com/panyam/chakra/host, type ServerConfig struct, CallTimeoutSec int
+pkg github.com/panyam/chakra/host, type ServerConfig struct, Command string
+pkg github.com/panyam/chakra/host, type ServerConfig struct, Dir string
+pkg github.com/panyam/chakra/host, type ServerConfig struct, Env map[string]string
+pkg github.com/panyam/chakra/host, type ServerConfig struct, EnvPass []string
+pkg github.com/panyam/chakra/host, type ServerConfig struct, Events []EventConfig
+pkg github.com/panyam/chakra/host, type ServerConfig struct, ID string
+pkg github.com/panyam/chakra/host, type ServerConfig struct, Required bool
+pkg github.com/panyam/chakra/host, type ServerConfig struct, Skills *bool
+pkg github.com/panyam/chakra/host, type ServerConfig struct, SkillsAllow []string
+pkg github.com/panyam/chakra/host, type ServerConfig struct, SkillsMode string
+pkg github.com/panyam/chakra/host, type ServerConfig struct, StartupTimeoutSec int
+pkg github.com/panyam/chakra/host, type ServerConfig struct, URL string
+pkg github.com/panyam/chakra/host, type ServerStatus struct
+pkg github.com/panyam/chakra/host, type ServerStatus struct, CanLogin bool
+pkg github.com/panyam/chakra/host, type ServerStatus struct, embedded client.MemberStatus
+pkg github.com/panyam/chakra/host, type SessionPage struct
+pkg github.com/panyam/chakra/host, type SessionPage struct, HasMore bool
+pkg github.com/panyam/chakra/host, type SessionPage struct, Runs []agent.RunInfo
+pkg github.com/panyam/chakra/host, type SkillDir struct
+pkg github.com/panyam/chakra/host, type SkillDir struct, Label string
+pkg github.com/panyam/chakra/host, type SkillDir struct, Own bool
+pkg github.com/panyam/chakra/host, type SkillDir struct, Path string
+pkg github.com/panyam/chakra/host, type SpotlightConfig struct
+pkg github.com/panyam/chakra/host, type SpotlightConfig struct, Tools map[string]string
+pkg github.com/panyam/chakra/host, type StepRoute struct
+pkg github.com/panyam/chakra/host, type StepRoute struct, Connection string
+pkg github.com/panyam/chakra/host, type StepRoute struct, FromStep int
+pkg github.com/panyam/chakra/host, type StepRoute struct, ToStep int
+pkg github.com/panyam/chakra/host, type SubAgentConfig struct
+pkg github.com/panyam/chakra/host, type SubAgentConfig struct, Allow []string
+pkg github.com/panyam/chakra/host, type SubAgentConfig struct, Async bool
+pkg github.com/panyam/chakra/host, type SubAgentConfig struct, CanSignal bool
+pkg github.com/panyam/chakra/host, type SubAgentConfig struct, Description string
+pkg github.com/panyam/chakra/host, type SubAgentConfig struct, InputSchema json.RawMessage
+pkg github.com/panyam/chakra/host, type SubAgentConfig struct, Instructions string
+pkg github.com/panyam/chakra/host, type SubAgentConfig struct, MaxDepth int
+pkg github.com/panyam/chakra/host, type SubAgentConfig struct, Name string
+pkg github.com/panyam/chakra/host, type SubAgentConfig struct, ResponseSchema json.RawMessage
+pkg github.com/panyam/chakra/host, type SubAgentHost struct
+pkg github.com/panyam/chakra/host, type SubAgentHost struct, OnEvent func(agent.SubAgentEvent)
+pkg github.com/panyam/chakra/host, type SubAgentHost struct, Provider agent.Provider
+pkg github.com/panyam/chakra/host, type SubAgentHost struct, ReadOnlyTools agent.ToolSource
+pkg github.com/panyam/chakra/host, type SubAgentUser interface
+pkg github.com/panyam/chakra/host, type SubAgentUser interface, UseSubAgents(SubAgentHost)
+pkg github.com/panyam/chakra/host, type SystemPromptBuilder struct
+pkg github.com/panyam/chakra/host, type SystemPromptBuilder struct, Sections []PromptSection
+pkg github.com/panyam/chakra/host, type TeamMemberConfig struct
+pkg github.com/panyam/chakra/host, type TeamMemberConfig struct, HandoffTo []string
+pkg github.com/panyam/chakra/host, type TeamMemberConfig struct, embedded SubAgentConfig
+pkg github.com/panyam/chakra/host, type ThinkingHint struct
+pkg github.com/panyam/chakra/host, type ThinkingHint struct, CloseTag string
+pkg github.com/panyam/chakra/host, type ThinkingHint struct, OpenTag string
+pkg github.com/panyam/chakra/host, type TriggerConfig struct
+pkg github.com/panyam/chakra/host, type TriggerConfig struct, CooldownSec int
+pkg github.com/panyam/chakra/host, type TriggerConfig struct, Event string
+pkg github.com/panyam/chakra/host, type TriggerConfig struct, Filter map[string]string
+pkg github.com/panyam/chakra/host, type TriggerConfig struct, Instructions string
+pkg github.com/panyam/chakra/host, type TriggerConfig struct, Label string
+pkg github.com/panyam/chakra/host, type TriggerConfig struct, Server string
+pkg github.com/panyam/chakra/host, type TurnEnder interface
+pkg github.com/panyam/chakra/host, type TurnEnder interface, TurnEnd(context.Context, *agent.TurnResult, error)
+pkg github.com/panyam/chakra/host, type TurnOptions struct
+pkg github.com/panyam/chakra/host, type TurnOptions struct, ResponseSchema core.RawJSON
+pkg github.com/panyam/chakra/host, var ErrNoProcessControl
+pkg github.com/panyam/chakra/host, var ErrUnknownCommand

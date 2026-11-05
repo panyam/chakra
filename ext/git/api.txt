@@ -1,0 +1,56 @@
+pkg github.com/panyam/chakra/ext/git, const DefaultMaxOutput
+pkg github.com/panyam/chakra/ext/git, const DefaultRubric
+pkg github.com/panyam/chakra/ext/git, func New(Config) (*Extension, error)
+pkg github.com/panyam/chakra/ext/git, func NewSource(Config) (*Source, error)
+pkg github.com/panyam/chakra/ext/git, method (*Extension) Commands() []*host.Command
+pkg github.com/panyam/chakra/ext/git, method (*Extension) LastTurn() TurnDiff
+pkg github.com/panyam/chakra/ext/git, method (*Extension) Name() string
+pkg github.com/panyam/chakra/ext/git, method (*Extension) SetAnnounce(func(string))
+pkg github.com/panyam/chakra/ext/git, method (*Extension) Source() *Source
+pkg github.com/panyam/chakra/ext/git, method (*Extension) Tools() (agent.ToolSource, error)
+pkg github.com/panyam/chakra/ext/git, method (*Extension) TurnEnd(context.Context, *agent.TurnResult, error)
+pkg github.com/panyam/chakra/ext/git, method (*Extension) TurnStart(context.Context) error
+pkg github.com/panyam/chakra/ext/git, method (*Extension) UseSubAgents(host.SubAgentHost)
+pkg github.com/panyam/chakra/ext/git, method (*Source) Call(context.Context, string, map[string]any) (*core.ToolResult, error)
+pkg github.com/panyam/chakra/ext/git, method (*Source) Diff(context.Context, DiffTarget) (string, error)
+pkg github.com/panyam/chakra/ext/git, method (*Source) Tools(context.Context) ([]core.ToolDef, error)
+pkg github.com/panyam/chakra/ext/git, method (TurnDiff) Empty() bool
+pkg github.com/panyam/chakra/ext/git, method (TurnDiff) Summary() string
+pkg github.com/panyam/chakra/ext/git, type Config struct
+pkg github.com/panyam/chakra/ext/git, type Config struct, MaxOutput int
+pkg github.com/panyam/chakra/ext/git, type Config struct, Mutations bool
+pkg github.com/panyam/chakra/ext/git, type Config struct, Review *ReviewConfig
+pkg github.com/panyam/chakra/ext/git, type Config struct, Root string
+pkg github.com/panyam/chakra/ext/git, type Config struct, WorktreeDir string
+pkg github.com/panyam/chakra/ext/git, type DiffTarget struct
+pkg github.com/panyam/chakra/ext/git, type DiffTarget struct, Base string
+pkg github.com/panyam/chakra/ext/git, type DiffTarget struct, Commit string
+pkg github.com/panyam/chakra/ext/git, type DiffTarget struct, Path string
+pkg github.com/panyam/chakra/ext/git, type DiffTarget struct, Stat bool
+pkg github.com/panyam/chakra/ext/git, type Extension struct
+pkg github.com/panyam/chakra/ext/git, type Extension struct, embedded host.BaseExtension
+pkg github.com/panyam/chakra/ext/git, type Finding struct
+pkg github.com/panyam/chakra/ext/git, type Finding struct, Body string
+pkg github.com/panyam/chakra/ext/git, type Finding struct, Confidence float64
+pkg github.com/panyam/chakra/ext/git, type Finding struct, File string
+pkg github.com/panyam/chakra/ext/git, type Finding struct, LineEnd int
+pkg github.com/panyam/chakra/ext/git, type Finding struct, LineStart int
+pkg github.com/panyam/chakra/ext/git, type Finding struct, Priority int
+pkg github.com/panyam/chakra/ext/git, type Finding struct, Title string
+pkg github.com/panyam/chakra/ext/git, type Review struct
+pkg github.com/panyam/chakra/ext/git, type Review struct, Findings []Finding
+pkg github.com/panyam/chakra/ext/git, type Review struct, Summary string
+pkg github.com/panyam/chakra/ext/git, type Review struct, Verdict string
+pkg github.com/panyam/chakra/ext/git, type ReviewConfig struct
+pkg github.com/panyam/chakra/ext/git, type ReviewConfig struct, MaxSteps int
+pkg github.com/panyam/chakra/ext/git, type ReviewConfig struct, Rubric string
+pkg github.com/panyam/chakra/ext/git, type Source struct
+pkg github.com/panyam/chakra/ext/git, type TurnDiff struct
+pkg github.com/panyam/chakra/ext/git, type TurnDiff struct, Added int
+pkg github.com/panyam/chakra/ext/git, type TurnDiff struct, After string
+pkg github.com/panyam/chakra/ext/git, type TurnDiff struct, Before string
+pkg github.com/panyam/chakra/ext/git, type TurnDiff struct, Deleted int
+pkg github.com/panyam/chakra/ext/git, type TurnDiff struct, Files int
+pkg github.com/panyam/chakra/ext/git, type TurnDiff struct, Patch string
+pkg github.com/panyam/chakra/ext/git, type TurnDiff struct, Stat string
+pkg github.com/panyam/chakra/ext/git, var ErrNothingToReview

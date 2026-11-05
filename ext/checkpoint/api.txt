@@ -1,0 +1,59 @@
+pkg github.com/panyam/chakra/ext/checkpoint, func New(Config) (*Extension, error)
+pkg github.com/panyam/chakra/ext/checkpoint, func NewModelProposer(*agent.Runner) (*ModelProposer, error)
+pkg github.com/panyam/chakra/ext/checkpoint, func NewStore(string) (*Store, error)
+pkg github.com/panyam/chakra/ext/checkpoint, func ProposalSchema() core.RawJSON
+pkg github.com/panyam/chakra/ext/checkpoint, method (*Checkpoint) Add(...string) error
+pkg github.com/panyam/chakra/ext/checkpoint, method (*Checkpoint) ID() string
+pkg github.com/panyam/chakra/ext/checkpoint, method (*Checkpoint) Paths() []string
+pkg github.com/panyam/chakra/ext/checkpoint, method (*Checkpoint) Restore() (RestoreResult, error)
+pkg github.com/panyam/chakra/ext/checkpoint, method (*Checkpoint) Reversal() Reversal
+pkg github.com/panyam/chakra/ext/checkpoint, method (*Extension) Commands() []*host.Command
+pkg github.com/panyam/chakra/ext/checkpoint, method (*Extension) Middleware() []agent.ToolMiddleware
+pkg github.com/panyam/chakra/ext/checkpoint, method (*Extension) Name() string
+pkg github.com/panyam/chakra/ext/checkpoint, method (*Extension) TurnStart(context.Context) error
+pkg github.com/panyam/chakra/ext/checkpoint, method (*ModelProposer) Propose(context.Context, []Gap) ([]Proposal, error)
+pkg github.com/panyam/chakra/ext/checkpoint, method (*Store) List() ([]Info, error)
+pkg github.com/panyam/chakra/ext/checkpoint, method (*Store) Load(string) (*Checkpoint, error)
+pkg github.com/panyam/chakra/ext/checkpoint, method (*Store) Open(string) (*Checkpoint, error)
+pkg github.com/panyam/chakra/ext/checkpoint, method (RestoreResult) Complete() bool
+pkg github.com/panyam/chakra/ext/checkpoint, method (Reversal) IsZero() bool
+pkg github.com/panyam/chakra/ext/checkpoint, method (Reversal) Reversible() bool
+pkg github.com/panyam/chakra/ext/checkpoint, type Checkpoint struct
+pkg github.com/panyam/chakra/ext/checkpoint, type Config struct
+pkg github.com/panyam/chakra/ext/checkpoint, type Config struct, Approve func(context.Context, Proposal) (bool, error)
+pkg github.com/panyam/chakra/ext/checkpoint, type Config struct, Proposer Proposer
+pkg github.com/panyam/chakra/ext/checkpoint, type Config struct, Root string
+pkg github.com/panyam/chakra/ext/checkpoint, type Config struct, Tools agent.ToolSource
+pkg github.com/panyam/chakra/ext/checkpoint, type Config struct, Writes []WriteSpec
+pkg github.com/panyam/chakra/ext/checkpoint, type Extension struct
+pkg github.com/panyam/chakra/ext/checkpoint, type Extension struct, embedded host.BaseExtension
+pkg github.com/panyam/chakra/ext/checkpoint, type Gap struct
+pkg github.com/panyam/chakra/ext/checkpoint, type Gap struct, Args string
+pkg github.com/panyam/chakra/ext/checkpoint, type Gap struct, Tool string
+pkg github.com/panyam/chakra/ext/checkpoint, type Info struct
+pkg github.com/panyam/chakra/ext/checkpoint, type Info struct, Created time.Time
+pkg github.com/panyam/chakra/ext/checkpoint, type Info struct, Files int
+pkg github.com/panyam/chakra/ext/checkpoint, type Info struct, ID string
+pkg github.com/panyam/chakra/ext/checkpoint, type ModelProposer struct
+pkg github.com/panyam/chakra/ext/checkpoint, type Proposal struct
+pkg github.com/panyam/chakra/ext/checkpoint, type Proposal struct, Args map[string]any
+pkg github.com/panyam/chakra/ext/checkpoint, type Proposal struct, Gap Gap
+pkg github.com/panyam/chakra/ext/checkpoint, type Proposal struct, Rationale string
+pkg github.com/panyam/chakra/ext/checkpoint, type Proposal struct, Tool string
+pkg github.com/panyam/chakra/ext/checkpoint, type Proposer interface
+pkg github.com/panyam/chakra/ext/checkpoint, type Proposer interface, Propose(context.Context, []Gap) ([]Proposal, error)
+pkg github.com/panyam/chakra/ext/checkpoint, type Refusal struct
+pkg github.com/panyam/chakra/ext/checkpoint, type Refusal struct, Path string
+pkg github.com/panyam/chakra/ext/checkpoint, type Refusal struct, Reason string
+pkg github.com/panyam/chakra/ext/checkpoint, type RestoreResult struct
+pkg github.com/panyam/chakra/ext/checkpoint, type RestoreResult struct, Refused []Refusal
+pkg github.com/panyam/chakra/ext/checkpoint, type RestoreResult struct, Restored []string
+pkg github.com/panyam/chakra/ext/checkpoint, type Reversal struct
+pkg github.com/panyam/chakra/ext/checkpoint, type Reversal struct, Compensate *agent.ToolCall
+pkg github.com/panyam/chakra/ext/checkpoint, type Reversal struct, Restore func(context.Context) error
+pkg github.com/panyam/chakra/ext/checkpoint, type Reverser interface
+pkg github.com/panyam/chakra/ext/checkpoint, type Reverser interface, Capture(context.Context, agent.ToolCallInfo) (Reversal, error)
+pkg github.com/panyam/chakra/ext/checkpoint, type Store struct
+pkg github.com/panyam/chakra/ext/checkpoint, type WriteSpec struct
+pkg github.com/panyam/chakra/ext/checkpoint, type WriteSpec struct, Paths func(map[string]any) []string
+pkg github.com/panyam/chakra/ext/checkpoint, type WriteSpec struct, Tool string

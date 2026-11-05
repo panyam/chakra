@@ -1,0 +1,34 @@
+pkg github.com/panyam/chakra/ext/lsp, const DefaultDiagnosticsTimeout
+pkg github.com/panyam/chakra/ext/lsp, const DefaultMaxDiagnostics
+pkg github.com/panyam/chakra/ext/lsp, const DefaultRepoMapBudget
+pkg github.com/panyam/chakra/ext/lsp, const DefaultRepoMapMaxFiles
+pkg github.com/panyam/chakra/ext/lsp, const DefaultSettleDelay
+pkg github.com/panyam/chakra/ext/lsp, func New(Config) (*Extension, error)
+pkg github.com/panyam/chakra/ext/lsp, method (*Extension) Close() error
+pkg github.com/panyam/chakra/ext/lsp, method (*Extension) ContextStages() []host.ContextStage
+pkg github.com/panyam/chakra/ext/lsp, method (*Extension) Middleware() []agent.ToolMiddleware
+pkg github.com/panyam/chakra/ext/lsp, method (*Extension) Name() string
+pkg github.com/panyam/chakra/ext/lsp, method (*Extension) PromptSections() []host.PromptSection
+pkg github.com/panyam/chakra/ext/lsp, method (*Extension) Tools() (agent.ToolSource, error)
+pkg github.com/panyam/chakra/ext/lsp, type Config struct
+pkg github.com/panyam/chakra/ext/lsp, type Config struct, DiagnosticsTimeout time.Duration
+pkg github.com/panyam/chakra/ext/lsp, type Config struct, MaxDiagnostics int
+pkg github.com/panyam/chakra/ext/lsp, type Config struct, RepoMap *RepoMapConfig
+pkg github.com/panyam/chakra/ext/lsp, type Config struct, Roots []string
+pkg github.com/panyam/chakra/ext/lsp, type Config struct, Servers []ServerSpec
+pkg github.com/panyam/chakra/ext/lsp, type Config struct, Writes []WriteSpec
+pkg github.com/panyam/chakra/ext/lsp, type Extension struct
+pkg github.com/panyam/chakra/ext/lsp, type Extension struct, embedded host.BaseExtension
+pkg github.com/panyam/chakra/ext/lsp, type RepoMapConfig struct
+pkg github.com/panyam/chakra/ext/lsp, type RepoMapConfig struct, Exclude []string
+pkg github.com/panyam/chakra/ext/lsp, type RepoMapConfig struct, MaxFiles int
+pkg github.com/panyam/chakra/ext/lsp, type RepoMapConfig struct, TokenBudget int
+pkg github.com/panyam/chakra/ext/lsp, type ServerSpec struct
+pkg github.com/panyam/chakra/ext/lsp, type ServerSpec struct, Command []string
+pkg github.com/panyam/chakra/ext/lsp, type ServerSpec struct, Extensions []string
+pkg github.com/panyam/chakra/ext/lsp, type ServerSpec struct, LanguageID string
+pkg github.com/panyam/chakra/ext/lsp, type ServerSpec struct, SettleDelay time.Duration
+pkg github.com/panyam/chakra/ext/lsp, type WriteSpec struct
+pkg github.com/panyam/chakra/ext/lsp, type WriteSpec struct, Paths func(map[string]any) []string
+pkg github.com/panyam/chakra/ext/lsp, type WriteSpec struct, Tool string
+pkg github.com/panyam/chakra/ext/lsp, var DefaultRepoMapExclude

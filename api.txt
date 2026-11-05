@@ -1,0 +1,1047 @@
+pkg github.com/panyam/chakra, const AwaitAgentToolName
+pkg github.com/panyam/chakra, const CancelAgentToolName
+pkg github.com/panyam/chakra, const DefaultAnthropicVersion
+pkg github.com/panyam/chakra, const DefaultCharsPerToken
+pkg github.com/panyam/chakra, const DefaultFailoverCooldown
+pkg github.com/panyam/chakra, const DefaultGrepMaxLines
+pkg github.com/panyam/chakra, const DefaultKeepRecent
+pkg github.com/panyam/chakra, const DefaultListRunsLimit
+pkg github.com/panyam/chakra, const DefaultLlamaCppBaseURL
+pkg github.com/panyam/chakra, const DefaultMaxAgentDepth
+pkg github.com/panyam/chakra, const DefaultMaxHandoffs
+pkg github.com/panyam/chakra, const DefaultMaxPerDrain
+pkg github.com/panyam/chakra, const DefaultMaxSteps
+pkg github.com/panyam/chakra, const DefaultOffloadPreview
+pkg github.com/panyam/chakra, const DefaultOffloadThreshold
+pkg github.com/panyam/chakra, const DefaultOllamaBaseURL
+pkg github.com/panyam/chakra, const DefaultRecallTopK
+pkg github.com/panyam/chakra, const DefaultStubEmbedderDim
+pkg github.com/panyam/chakra, const DefaultTriggerBudget
+pkg github.com/panyam/chakra, const DefaultTriggerCooldown
+pkg github.com/panyam/chakra, const DeltaFinish DeltaKind
+pkg github.com/panyam/chakra, const DeltaReasoning DeltaKind
+pkg github.com/panyam/chakra, const DeltaText DeltaKind
+pkg github.com/panyam/chakra, const DeltaToolCallArgs DeltaKind
+pkg github.com/panyam/chakra, const DeltaToolCallStart DeltaKind
+pkg github.com/panyam/chakra, const DeltaUsage DeltaKind
+pkg github.com/panyam/chakra, const DispositionAlwaysAsk CallDisposition
+pkg github.com/panyam/chakra, const DispositionDestructive CallDisposition
+pkg github.com/panyam/chakra, const DispositionForbidden CallDisposition
+pkg github.com/panyam/chakra, const DispositionReadOnly CallDisposition
+pkg github.com/panyam/chakra, const DispositionReversible CallDisposition
+pkg github.com/panyam/chakra, const DispositionUnknown CallDisposition
+pkg github.com/panyam/chakra, const EventCompaction EventKind
+pkg github.com/panyam/chakra, const EventError EventKind
+pkg github.com/panyam/chakra, const EventPlan EventKind
+pkg github.com/panyam/chakra, const EventSignal EventKind
+pkg github.com/panyam/chakra, const EventStep EventKind
+pkg github.com/panyam/chakra, const EventTextDelta EventKind
+pkg github.com/panyam/chakra, const EventThinkingBegin EventKind
+pkg github.com/panyam/chakra, const EventThinkingDelta EventKind
+pkg github.com/panyam/chakra, const EventThinkingEnd EventKind
+pkg github.com/panyam/chakra, const EventToolBegin EventKind
+pkg github.com/panyam/chakra, const EventToolCancelled EventKind
+pkg github.com/panyam/chakra, const EventToolDenied EventKind
+pkg github.com/panyam/chakra, const EventToolEnd EventKind
+pkg github.com/panyam/chakra, const EventToolError EventKind
+pkg github.com/panyam/chakra, const EventToolUnavailable EventKind
+pkg github.com/panyam/chakra, const EventTurnBegin EventKind
+pkg github.com/panyam/chakra, const EventTurnContinued EventKind
+pkg github.com/panyam/chakra, const EventTurnEnd EventKind
+pkg github.com/panyam/chakra, const ForgetToolName
+pkg github.com/panyam/chakra, const FullHistoryNoCursor
+pkg github.com/panyam/chakra, const FullHistoryStaleCursor
+pkg github.com/panyam/chakra, const GuidedDialectLlamaCpp GuidedDialect
+pkg github.com/panyam/chakra, const GuidedDialectOllama GuidedDialect
+pkg github.com/panyam/chakra, const GuidedDialectVLLM GuidedDialect
+pkg github.com/panyam/chakra, const GuidedGrammar
+pkg github.com/panyam/chakra, const GuidedJSONSchema
+pkg github.com/panyam/chakra, const GuidedRegex
+pkg github.com/panyam/chakra, const ListAgentsToolName
+pkg github.com/panyam/chakra, const MetaKeyContextHint
+pkg github.com/panyam/chakra, const ModeAlwaysAllow ApprovalMode
+pkg github.com/panyam/chakra, const ModeAlwaysAsk ApprovalMode
+pkg github.com/panyam/chakra, const ModeReadOnlyAuto ApprovalMode
+pkg github.com/panyam/chakra, const ModeReversibleAuto ApprovalMode
+pkg github.com/panyam/chakra, const PlanCompleted
+pkg github.com/panyam/chakra, const PlanInProgress
+pkg github.com/panyam/chakra, const PlanPending
+pkg github.com/panyam/chakra, const PlanToolName
+pkg github.com/panyam/chakra, const ProvenanceAgent Provenance
+pkg github.com/panyam/chakra, const ProvenanceOperator Provenance
+pkg github.com/panyam/chakra, const ProvenanceServer Provenance
+pkg github.com/panyam/chakra, const ProvenanceWorld Provenance
+pkg github.com/panyam/chakra, const ReadToolResultName
+pkg github.com/panyam/chakra, const RecallToolName
+pkg github.com/panyam/chakra, const RememberToolName
+pkg github.com/panyam/chakra, const RoleAssistant Role
+pkg github.com/panyam/chakra, const RoleSystem Role
+pkg github.com/panyam/chakra, const RoleTool Role
+pkg github.com/panyam/chakra, const RoleUser Role
+pkg github.com/panyam/chakra, const RuleAllow ToolRule
+pkg github.com/panyam/chakra, const RuleAsk ToolRule
+pkg github.com/panyam/chakra, const RuleDeny ToolRule
+pkg github.com/panyam/chakra, const ScopeRequest StepScope
+pkg github.com/panyam/chakra, const ScopeSession StepScope
+pkg github.com/panyam/chakra, const ScopeTurn StepScope
+pkg github.com/panyam/chakra, const SignalCustom SignalKind
+pkg github.com/panyam/chakra, const SignalEscalate SignalKind
+pkg github.com/panyam/chakra, const SignalParentToolName
+pkg github.com/panyam/chakra, const SignalPreempt SignalKind
+pkg github.com/panyam/chakra, const SpawnAgentToolName
+pkg github.com/panyam/chakra, const WindowDebounce WindowStrategy
+pkg github.com/panyam/chakra, const WindowLastWins WindowStrategy
+pkg github.com/panyam/chakra, const WindowMerge WindowStrategy
+pkg github.com/panyam/chakra, func AbortOnEscalate([]Signal) SignalAction
+pkg github.com/panyam/chakra, func AddAsyncFunc[In any](*FuncSource, string, string, func(context.Context, In) (AsyncResult, error), func(IncomingEvent, error), ...FuncOption) error
+pkg github.com/panyam/chakra, func AddFunc[In any](*FuncSource, string, string, func(context.Context, In) (string, error), ...FuncOption) error
+pkg github.com/panyam/chakra, func AfterToolCall(func(context.Context, ToolCallInfo, *core.ToolResult) (*core.ToolResult, error)) ToolMiddleware
+pkg github.com/panyam/chakra, func BeforeToolCall(func(context.Context, *ToolCallInfo) error) ToolMiddleware
+pkg github.com/panyam/chakra, func CapabilitiesOf(Provider) Capabilities
+pkg github.com/panyam/chakra, func DenyTool(string) error
+pkg github.com/panyam/chakra, func DropUnansweredToolCalls([]Message) []Message
+pkg github.com/panyam/chakra, func GrantAllPreempts(Signal) bool
+pkg github.com/panyam/chakra, func HintFromMeta(map[string]any) (ContextHint, bool)
+pkg github.com/panyam/chakra, func MergeWith[T any](func(T, T) T) func(IncomingEvent, IncomingEvent) IncomingEvent
+pkg github.com/panyam/chakra, func NewAgentPool(func(SubAgentEvent)) *AgentPool
+pkg github.com/panyam/chakra, func NewAgentSource(AgentSourceConfig) (*AgentSource, error)
+pkg github.com/panyam/chakra, func NewAnthropicProvider(AnthropicConfig) (*AnthropicProvider, error)
+pkg github.com/panyam/chakra, func NewAsyncAgentSource(AsyncAgentSourceConfig) (*AsyncAgentSource, error)
+pkg github.com/panyam/chakra, func NewClientSource(*client.Client, ...ClientSourceOption) *ClientSource
+pkg github.com/panyam/chakra, func NewCritiqueGate(CritiqueConfig) (ToolMiddleware, error)
+pkg github.com/panyam/chakra, func NewElicitationCoordinator(ElicitationUI) *ElicitationCoordinator
+pkg github.com/panyam/chakra, func NewEventInjectionPolicy(EventInjectionConfig) *EventInjectionPolicy
+pkg github.com/panyam/chakra, func NewFailoverProvider(FailoverConfig) (*FailoverProvider, error)
+pkg github.com/panyam/chakra, func NewFanOutSource(FanOutConfig) (*FanOutSource, error)
+pkg github.com/panyam/chakra, func NewFileToolResultStore(string) (*FileToolResultStore, error)
+pkg github.com/panyam/chakra, func NewFilterSource(ToolSource, func(core.ToolDef) bool) *FilterSource
+pkg github.com/panyam/chakra, func NewFuncSource() *FuncSource
+pkg github.com/panyam/chakra, func NewInMemoryMemoryStore(...MemoryStoreOption) *InMemoryMemoryStore
+pkg github.com/panyam/chakra, func NewInMemoryRunStore() *InMemoryRunStore
+pkg github.com/panyam/chakra, func NewInMemorySemanticStore(Embedder, ...InMemorySemanticStoreOption) (*InMemorySemanticStore, error)
+pkg github.com/panyam/chakra, func NewInMemoryToolResultStore(...ToolResultStoreOption) *InMemoryToolResultStore
+pkg github.com/panyam/chakra, func NewLlamaCppProvider(LlamaCppConfig) (*OpenAIProvider, error)
+pkg github.com/panyam/chakra, func NewMemorySource(MemoryStore, ...MemorySourceOption) (*MemorySource, error)
+pkg github.com/panyam/chakra, func NewMultiSource(...MultiOption) *MultiSource
+pkg github.com/panyam/chakra, func NewOffloadingSource(ToolSource, ToolResultStore, OffloadConfig) *OffloadingSource
+pkg github.com/panyam/chakra, func NewOllamaProvider(OllamaConfig) (*OpenAIProvider, error)
+pkg github.com/panyam/chakra, func NewOpenAIEmbedder(OpenAIEmbedderConfig) (*OpenAIEmbedder, error)
+pkg github.com/panyam/chakra, func NewOpenAIProvider(OpenAIConfig) (*OpenAIProvider, error)
+pkg github.com/panyam/chakra, func NewPlanTool() *PlanTool
+pkg github.com/panyam/chakra, func NewResponsesProvider(ResponsesConfig) (*ResponsesProvider, error)
+pkg github.com/panyam/chakra, func NewRunner(RunnerConfig) (*Runner, error)
+pkg github.com/panyam/chakra, func NewServerAgentSource(ServerAgentConfig) (*AgentSource, error)
+pkg github.com/panyam/chakra, func NewSignalSource() *FuncSource
+pkg github.com/panyam/chakra, func NewSpawnSource(*AgentPool) *FuncSource
+pkg github.com/panyam/chakra, func NewStubProvider(...StubTurn) *StubProvider
+pkg github.com/panyam/chakra, func NewSummarizingCompactor(SummarizingConfig) (*SummarizingCompactor, error)
+pkg github.com/panyam/chakra, func NewTeam(TeamConfig) (*Team, error)
+pkg github.com/panyam/chakra, func NewThinkingProvider(Provider, string, string) Provider
+pkg github.com/panyam/chakra, func NewTieredApproval(...TieredOption) *TieredApproval
+pkg github.com/panyam/chakra, func NewTriggerPolicy(TriggerPolicyConfig) *TriggerPolicy
+pkg github.com/panyam/chakra, func RaiseSignal(context.Context, Signal) bool
+pkg github.com/panyam/chakra, func ReadOnly() FuncOption
+pkg github.com/panyam/chakra, func ScopeFrom(context.Context) RunScope
+pkg github.com/panyam/chakra, func ShallowMergeJSON(IncomingEvent, IncomingEvent) IncomingEvent
+pkg github.com/panyam/chakra, func Spotlight(SpotlightConfig) ToolMiddleware
+pkg github.com/panyam/chakra, func StepBudgetStage(int) StepStage
+pkg github.com/panyam/chakra, func ToolChoiceFunc(string) ToolChoice
+pkg github.com/panyam/chakra, func TypedFilter[T any](func(T) bool) func(IncomingEvent) bool
+pkg github.com/panyam/chakra, func TypedTransform[T any](func(T) (T, bool)) func(IncomingEvent) (IncomingEvent, bool)
+pkg github.com/panyam/chakra, func WithAgentCallBudget(context.Context, int) context.Context
+pkg github.com/panyam/chakra, func WithAsk(AskFunc) TieredOption
+pkg github.com/panyam/chakra, func WithChooser(ChooseFunc) TieredOption
+pkg github.com/panyam/chakra, func WithClassifier(ClassifyFunc) TieredOption
+pkg github.com/panyam/chakra, func WithCollisionNotify(func(string, []string)) MultiOption
+pkg github.com/panyam/chakra, func WithDefaultMode(ApprovalMode) TieredOption
+pkg github.com/panyam/chakra, func WithGrants(GrantFunc) TieredOption
+pkg github.com/panyam/chakra, func WithInputHandler(client.InputHandler) ClientSourceOption
+pkg github.com/panyam/chakra, func WithMaxMemories(int) MemoryStoreOption
+pkg github.com/panyam/chakra, func WithMaxToolResults(int) ToolResultStoreOption
+pkg github.com/panyam/chakra, func WithMemoryNamespaceFunc(func() string) MemorySourceOption
+pkg github.com/panyam/chakra, func WithRememberApprovals(bool) TieredOption
+pkg github.com/panyam/chakra, func WithRememberKey(RememberKeyFunc) TieredOption
+pkg github.com/panyam/chakra, func WithResolver(Resolver) MultiOption
+pkg github.com/panyam/chakra, func WithSemanticMaxMemories(int) InMemorySemanticStoreOption
+pkg github.com/panyam/chakra, func WithSemanticTracerProvider(core.TracerProvider) InMemorySemanticStoreOption
+pkg github.com/panyam/chakra, func WithTaskCompletionHook(func(*client.BackgroundTask)) ClientSourceOption
+pkg github.com/panyam/chakra, func WithTaskDetachHook(func(*client.BackgroundTask)) ClientSourceOption
+pkg github.com/panyam/chakra, func WithTaskGrace(time.Duration) ClientSourceOption
+pkg github.com/panyam/chakra, func WithTaskStatusHook(func(*core.DetailedTask)) ClientSourceOption
+pkg github.com/panyam/chakra, func WithToolRule(string, ToolRule) TieredOption
+pkg github.com/panyam/chakra, func WithTreeBudget(context.Context, TreeBudget) context.Context
+pkg github.com/panyam/chakra, method (*AgentPool) Register(string, string, *Runner, int) error
+pkg github.com/panyam/chakra, method (*AgentPool) Registered() []RegisteredAgent
+pkg github.com/panyam/chakra, method (*AgentSource) Call(context.Context, string, map[string]any) (*core.ToolResult, error)
+pkg github.com/panyam/chakra, method (*AgentSource) Tools(context.Context) ([]core.ToolDef, error)
+pkg github.com/panyam/chakra, method (*AnthropicProvider) Generate(context.Context, ProviderRequest) (*ProviderResponse, error)
+pkg github.com/panyam/chakra, method (*AnthropicProvider) ProviderCapabilities() Capabilities
+pkg github.com/panyam/chakra, method (*AnthropicProvider) Stream(context.Context, ProviderRequest) (Stream, error)
+pkg github.com/panyam/chakra, method (*AsyncAgentSource) Call(context.Context, string, map[string]any) (*core.ToolResult, error)
+pkg github.com/panyam/chakra, method (*AsyncAgentSource) Tools(context.Context) ([]core.ToolDef, error)
+pkg github.com/panyam/chakra, method (*ClientSource) Call(context.Context, string, map[string]any) (*core.ToolResult, error)
+pkg github.com/panyam/chakra, method (*ClientSource) Tools(context.Context) ([]core.ToolDef, error)
+pkg github.com/panyam/chakra, method (*Consensus) Run(context.Context, TurnRequest) (*ConsensusResult, error)
+pkg github.com/panyam/chakra, method (*DeltaAccumulator) Add(Delta)
+pkg github.com/panyam/chakra, method (*DeltaAccumulator) Result() *ProviderResponse
+pkg github.com/panyam/chakra, method (*ElicitationCoordinator) Confirm(context.Context, string) (bool, error)
+pkg github.com/panyam/chakra, method (*ElicitationCoordinator) Handler() client.ElicitationHandler
+pkg github.com/panyam/chakra, method (*EventInjectionPolicy) Drain() []InjectedContext
+pkg github.com/panyam/chakra, method (*EventInjectionPolicy) Dropped() int
+pkg github.com/panyam/chakra, method (*EventInjectionPolicy) Ingest(IncomingEvent)
+pkg github.com/panyam/chakra, method (*EventInjectionPolicy) SetHint(string, ContextHint)
+pkg github.com/panyam/chakra, method (*FailoverProvider) Generate(context.Context, ProviderRequest) (*ProviderResponse, error)
+pkg github.com/panyam/chakra, method (*FailoverProvider) Health() ProviderHealth
+pkg github.com/panyam/chakra, method (*FailoverProvider) ProviderCapabilities() Capabilities
+pkg github.com/panyam/chakra, method (*FailoverProvider) StartReconciler(context.Context, time.Duration, func(context.Context) error) func()
+pkg github.com/panyam/chakra, method (*FailoverProvider) Stream(context.Context, ProviderRequest) (Stream, error)
+pkg github.com/panyam/chakra, method (*FanOutSource) Call(context.Context, string, map[string]any) (*core.ToolResult, error)
+pkg github.com/panyam/chakra, method (*FanOutSource) Tools(context.Context) ([]core.ToolDef, error)
+pkg github.com/panyam/chakra, method (*FileToolResultStore) GetToolResult(context.Context, GetToolResultRequest) (GetToolResultResponse, error)
+pkg github.com/panyam/chakra, method (*FileToolResultStore) PutToolResult(context.Context, PutToolResultRequest) (PutToolResultResponse, error)
+pkg github.com/panyam/chakra, method (*FilterSource) Call(context.Context, string, map[string]any) (*core.ToolResult, error)
+pkg github.com/panyam/chakra, method (*FilterSource) Tools(context.Context) ([]core.ToolDef, error)
+pkg github.com/panyam/chakra, method (*FuncSource) AddToolFunc(core.ToolDef, func(context.Context, map[string]any) (*core.ToolResult, error)) error
+pkg github.com/panyam/chakra, method (*FuncSource) Call(context.Context, string, map[string]any) (*core.ToolResult, error)
+pkg github.com/panyam/chakra, method (*FuncSource) Tools(context.Context) ([]core.ToolDef, error)
+pkg github.com/panyam/chakra, method (*InMemoryMemoryStore) DeleteMemory(context.Context, DeleteMemoryRequest) (DeleteMemoryResponse, error)
+pkg github.com/panyam/chakra, method (*InMemoryMemoryStore) ListMemories(context.Context, ListMemoriesRequest) (ListMemoriesResponse, error)
+pkg github.com/panyam/chakra, method (*InMemoryMemoryStore) PutMemory(context.Context, PutMemoryRequest) (PutMemoryResponse, error)
+pkg github.com/panyam/chakra, method (*InMemoryRunStore) AppendEvents(context.Context, AppendEventsRequest) (AppendEventsResponse, error)
+pkg github.com/panyam/chakra, method (*InMemoryRunStore) AppendMessages(context.Context, AppendMessagesRequest) (AppendMessagesResponse, error)
+pkg github.com/panyam/chakra, method (*InMemoryRunStore) CreateRun(context.Context, CreateRunRequest) (CreateRunResponse, error)
+pkg github.com/panyam/chakra, method (*InMemoryRunStore) ForkRun(context.Context, ForkRunRequest) (ForkRunResponse, error)
+pkg github.com/panyam/chakra, method (*InMemoryRunStore) ListRuns(context.Context, ListRunsRequest) (ListRunsResponse, error)
+pkg github.com/panyam/chakra, method (*InMemoryRunStore) LoadRun(context.Context, LoadRunRequest) (LoadRunResponse, error)
+pkg github.com/panyam/chakra, method (*InMemorySemanticStore) DeleteMemory(context.Context, DeleteMemoryRequest) (DeleteMemoryResponse, error)
+pkg github.com/panyam/chakra, method (*InMemorySemanticStore) ListMemories(context.Context, ListMemoriesRequest) (ListMemoriesResponse, error)
+pkg github.com/panyam/chakra, method (*InMemorySemanticStore) PutMemory(context.Context, PutMemoryRequest) (PutMemoryResponse, error)
+pkg github.com/panyam/chakra, method (*InMemoryToolResultStore) GetToolResult(context.Context, GetToolResultRequest) (GetToolResultResponse, error)
+pkg github.com/panyam/chakra, method (*InMemoryToolResultStore) PutToolResult(context.Context, PutToolResultRequest) (PutToolResultResponse, error)
+pkg github.com/panyam/chakra, method (*MemorySource) Call(context.Context, string, map[string]any) (*core.ToolResult, error)
+pkg github.com/panyam/chakra, method (*MemorySource) RecallRelevant(context.Context, string, RecallOptions) (string, error)
+pkg github.com/panyam/chakra, method (*MemorySource) Summary(context.Context, SummaryOptions) (string, error)
+pkg github.com/panyam/chakra, method (*MemorySource) Tools(context.Context) ([]core.ToolDef, error)
+pkg github.com/panyam/chakra, method (*MultiSource) Add(string, ToolSource) error
+pkg github.com/panyam/chakra, method (*MultiSource) Call(context.Context, string, map[string]any) (*core.ToolResult, error)
+pkg github.com/panyam/chakra, method (*MultiSource) Invalidate()
+pkg github.com/panyam/chakra, method (*MultiSource) OwnerOf(context.Context, string, map[string]any) (string, bool)
+pkg github.com/panyam/chakra, method (*MultiSource) Remove(string)
+pkg github.com/panyam/chakra, method (*MultiSource) SourceTools(context.Context, string) ([]core.ToolDef, bool, error)
+pkg github.com/panyam/chakra, method (*MultiSource) Tools(context.Context) ([]core.ToolDef, error)
+pkg github.com/panyam/chakra, method (*OffloadingSource) Call(context.Context, string, map[string]any) (*core.ToolResult, error)
+pkg github.com/panyam/chakra, method (*OffloadingSource) Tools(context.Context) ([]core.ToolDef, error)
+pkg github.com/panyam/chakra, method (*OpenAIEmbedder) Embed(context.Context, []string) ([]Embedding, error)
+pkg github.com/panyam/chakra, method (*OpenAIProvider) Generate(context.Context, ProviderRequest) (*ProviderResponse, error)
+pkg github.com/panyam/chakra, method (*OpenAIProvider) ProviderCapabilities() Capabilities
+pkg github.com/panyam/chakra, method (*OpenAIProvider) Stream(context.Context, ProviderRequest) (Stream, error)
+pkg github.com/panyam/chakra, method (*PlanTool) Call(context.Context, string, map[string]any) (*core.ToolResult, error)
+pkg github.com/panyam/chakra, method (*PlanTool) Latest() *Plan
+pkg github.com/panyam/chakra, method (*PlanTool) StepStage() StepStage
+pkg github.com/panyam/chakra, method (*PlanTool) Tools(context.Context) ([]core.ToolDef, error)
+pkg github.com/panyam/chakra, method (*ProviderError) Error() string
+pkg github.com/panyam/chakra, method (*ResponsesProvider) Generate(context.Context, ProviderRequest) (*ProviderResponse, error)
+pkg github.com/panyam/chakra, method (*ResponsesProvider) ProviderCapabilities() Capabilities
+pkg github.com/panyam/chakra, method (*ResponsesProvider) Stream(context.Context, ProviderRequest) (Stream, error)
+pkg github.com/panyam/chakra, method (*Runner) Run(context.Context, []Message, func(Event)) (*TurnResult, error)
+pkg github.com/panyam/chakra, method (*Runner) RunTurn(context.Context, TurnRequest) (*TurnResult, error)
+pkg github.com/panyam/chakra, method (*StubProvider) Generate(context.Context, ProviderRequest) (*ProviderResponse, error)
+pkg github.com/panyam/chakra, method (*StubProvider) Requests() []ProviderRequest
+pkg github.com/panyam/chakra, method (*StubProvider) Stream(context.Context, ProviderRequest) (Stream, error)
+pkg github.com/panyam/chakra, method (*SummarizingCompactor) Compact(context.Context, []Message) ([]Message, error)
+pkg github.com/panyam/chakra, method (*SummarizingCompactor) Fits([]Message) bool
+pkg github.com/panyam/chakra, method (*Team) Run(context.Context, string, func(Event)) (*TurnResult, error)
+pkg github.com/panyam/chakra, method (*Team) RunTurn(context.Context, []Message, string, func(Event)) (*TurnResult, string, error)
+pkg github.com/panyam/chakra, method (*Team) StartAgent() string
+pkg github.com/panyam/chakra, method (*Team) ToolDefs(context.Context) (map[string][]core.ToolDef, error)
+pkg github.com/panyam/chakra, method (*TieredApproval) DefaultMode() ApprovalMode
+pkg github.com/panyam/chakra, method (*TieredApproval) SetDefaultMode(ApprovalMode)
+pkg github.com/panyam/chakra, method (*TieredApproval) WrapToolCall(context.Context, ToolCallInfo, ToolCallFunc) (*core.ToolResult, error)
+pkg github.com/panyam/chakra, method (*ToolDeniedError) Error() string
+pkg github.com/panyam/chakra, method (*TriggerPolicy) Add(TriggerBinding)
+pkg github.com/panyam/chakra, method (*TriggerPolicy) Bindings() []TriggerBinding
+pkg github.com/panyam/chakra, method (*TriggerPolicy) Firings() int
+pkg github.com/panyam/chakra, method (*TriggerPolicy) NotifyEngagement()
+pkg github.com/panyam/chakra, method (*TriggerPolicy) OnEvent(IncomingEvent) *TriggerFiring
+pkg github.com/panyam/chakra, method (*TriggerPolicy) Remove(string, string, string) bool
+pkg github.com/panyam/chakra, method (AgentPath) Child(string) AgentPath
+pkg github.com/panyam/chakra, method (AgentPath) Contains(string) bool
+pkg github.com/panyam/chakra, method (AgentPath) Depth() int
+pkg github.com/panyam/chakra, method (AgentPath) String() string
+pkg github.com/panyam/chakra, method (Capabilities) CanGuide(*GuidedDecoding) bool
+pkg github.com/panyam/chakra, method (CharTokenEstimator) Estimate([]Message) int
+pkg github.com/panyam/chakra, method (Embedding) Cosine(Embedding) float64
+pkg github.com/panyam/chakra, method (Plan) String() string
+pkg github.com/panyam/chakra, method (Plan) Validate() error
+pkg github.com/panyam/chakra, method (RunScope) Depth() int
+pkg github.com/panyam/chakra, method (StubEmbedder) Embed(context.Context, []string) ([]Embedding, error)
+pkg github.com/panyam/chakra, method (ToolChoice) IsZero() bool
+pkg github.com/panyam/chakra, type AgentHop struct
+pkg github.com/panyam/chakra, type AgentHop struct, Name string
+pkg github.com/panyam/chakra, type AgentPath []AgentHop
+pkg github.com/panyam/chakra, type AgentPool struct
+pkg github.com/panyam/chakra, type AgentSource struct
+pkg github.com/panyam/chakra, type AgentSourceConfig struct
+pkg github.com/panyam/chakra, type AgentSourceConfig struct, Description string
+pkg github.com/panyam/chakra, type AgentSourceConfig struct, InputSchema core.RawJSON
+pkg github.com/panyam/chakra, type AgentSourceConfig struct, MaxDepth int
+pkg github.com/panyam/chakra, type AgentSourceConfig struct, Name string
+pkg github.com/panyam/chakra, type AgentSourceConfig struct, OnEvent func(SubAgentEvent)
+pkg github.com/panyam/chakra, type AgentSourceConfig struct, Runner *Runner
+pkg github.com/panyam/chakra, type AggregateHint struct
+pkg github.com/panyam/chakra, type AggregateHint struct, Strategy WindowStrategy
+pkg github.com/panyam/chakra, type AggregateHint struct, WindowMs int
+pkg github.com/panyam/chakra, type AnthropicConfig struct
+pkg github.com/panyam/chakra, type AnthropicConfig struct, APIKey string
+pkg github.com/panyam/chakra, type AnthropicConfig struct, BaseURL string
+pkg github.com/panyam/chakra, type AnthropicConfig struct, HTTPClient *http.Client
+pkg github.com/panyam/chakra, type AnthropicConfig struct, MaxTokens int
+pkg github.com/panyam/chakra, type AnthropicConfig struct, Model string
+pkg github.com/panyam/chakra, type AnthropicConfig struct, Version string
+pkg github.com/panyam/chakra, type AnthropicProvider struct
+pkg github.com/panyam/chakra, type AppendEventsRequest struct
+pkg github.com/panyam/chakra, type AppendEventsRequest struct, Events []Event
+pkg github.com/panyam/chakra, type AppendEventsRequest struct, RunID string
+pkg github.com/panyam/chakra, type AppendEventsResponse struct
+pkg github.com/panyam/chakra, type AppendEventsResponse struct, Found bool
+pkg github.com/panyam/chakra, type AppendMessagesRequest struct
+pkg github.com/panyam/chakra, type AppendMessagesRequest struct, Messages []Message
+pkg github.com/panyam/chakra, type AppendMessagesRequest struct, RunID string
+pkg github.com/panyam/chakra, type AppendMessagesResponse struct
+pkg github.com/panyam/chakra, type AppendMessagesResponse struct, Found bool
+pkg github.com/panyam/chakra, type ApprovalMode int
+pkg github.com/panyam/chakra, type AskFunc func(context.Context, ToolCallInfo) (bool, error)
+pkg github.com/panyam/chakra, type AsyncAgentSource struct
+pkg github.com/panyam/chakra, type AsyncAgentSourceConfig struct
+pkg github.com/panyam/chakra, type AsyncAgentSourceConfig struct, Description string
+pkg github.com/panyam/chakra, type AsyncAgentSourceConfig struct, InputSchema core.RawJSON
+pkg github.com/panyam/chakra, type AsyncAgentSourceConfig struct, MaxDepth int
+pkg github.com/panyam/chakra, type AsyncAgentSourceConfig struct, Name string
+pkg github.com/panyam/chakra, type AsyncAgentSourceConfig struct, OnComplete func(string, *TurnResult, error)
+pkg github.com/panyam/chakra, type AsyncAgentSourceConfig struct, OnEvent func(SubAgentEvent)
+pkg github.com/panyam/chakra, type AsyncAgentSourceConfig struct, Runner *Runner
+pkg github.com/panyam/chakra, type AsyncResult struct
+pkg github.com/panyam/chakra, type AsyncResult struct, Ack string
+pkg github.com/panyam/chakra, type AsyncResult struct, Await func(context.Context) (IncomingEvent, error)
+pkg github.com/panyam/chakra, type CallClass struct
+pkg github.com/panyam/chakra, type CallClass struct, Disposition CallDisposition
+pkg github.com/panyam/chakra, type CallClass struct, Key string
+pkg github.com/panyam/chakra, type CallClass struct, Reason string
+pkg github.com/panyam/chakra, type CallDisposition int
+pkg github.com/panyam/chakra, type Capabilities struct
+pkg github.com/panyam/chakra, type Capabilities struct, Guided []string
+pkg github.com/panyam/chakra, type Capabilities struct, Seed bool
+pkg github.com/panyam/chakra, type Capabilities struct, Temperature bool
+pkg github.com/panyam/chakra, type CapabilityReporter interface
+pkg github.com/panyam/chakra, type CapabilityReporter interface, ProviderCapabilities() Capabilities
+pkg github.com/panyam/chakra, type CharTokenEstimator struct
+pkg github.com/panyam/chakra, type CharTokenEstimator struct, CharsPerToken int
+pkg github.com/panyam/chakra, type Choice struct
+pkg github.com/panyam/chakra, type Choice struct, Approved bool
+pkg github.com/panyam/chakra, type Choice struct, Args core.RawJSON
+pkg github.com/panyam/chakra, type Choice struct, Claimed bool
+pkg github.com/panyam/chakra, type Choice struct, Note string
+pkg github.com/panyam/chakra, type ChooseFunc func(context.Context, ToolCallInfo) (Choice, error)
+pkg github.com/panyam/chakra, type ClassifyFunc func(context.Context, ToolCallInfo) (CallClass, bool)
+pkg github.com/panyam/chakra, type ClientSource struct
+pkg github.com/panyam/chakra, type ClientSourceOption func(*ClientSource)
+pkg github.com/panyam/chakra, type CompactionInfo struct
+pkg github.com/panyam/chakra, type CompactionInfo struct, After int
+pkg github.com/panyam/chakra, type CompactionInfo struct, Before int
+pkg github.com/panyam/chakra, type Compactor interface
+pkg github.com/panyam/chakra, type Compactor interface, Compact(context.Context, []Message) ([]Message, error)
+pkg github.com/panyam/chakra, type Consensus struct
+pkg github.com/panyam/chakra, type Consensus struct, Draws int
+pkg github.com/panyam/chakra, type Consensus struct, Emit func(DrawEvent)
+pkg github.com/panyam/chakra, type Consensus struct, Key func(*TurnResult) (string, bool)
+pkg github.com/panyam/chakra, type Consensus struct, Parallel int
+pkg github.com/panyam/chakra, type Consensus struct, Prior []*TurnResult
+pkg github.com/panyam/chakra, type Consensus struct, Runner *Runner
+pkg github.com/panyam/chakra, type ConsensusResult struct
+pkg github.com/panyam/chakra, type ConsensusResult struct, Agree int
+pkg github.com/panyam/chakra, type ConsensusResult struct, Counted int
+pkg github.com/panyam/chakra, type ConsensusResult struct, Draws []DrawResult
+pkg github.com/panyam/chakra, type ConsensusResult struct, Seeded bool
+pkg github.com/panyam/chakra, type ConsensusResult struct, Split bool
+pkg github.com/panyam/chakra, type ConsensusResult struct, Stopped error
+pkg github.com/panyam/chakra, type ConsensusResult struct, Winner *TurnResult
+pkg github.com/panyam/chakra, type ConsensusResult struct, WinnerKey string
+pkg github.com/panyam/chakra, type ContextHint struct
+pkg github.com/panyam/chakra, type ContextHint struct, Aggregate *AggregateHint
+pkg github.com/panyam/chakra, type ContextHint struct, Priority string
+pkg github.com/panyam/chakra, type ContextHint struct, Retention string
+pkg github.com/panyam/chakra, type ContextHint struct, Sensitivity string
+pkg github.com/panyam/chakra, type ContextHint struct, Template string
+pkg github.com/panyam/chakra, type Control struct
+pkg github.com/panyam/chakra, type Control struct, CallID string
+pkg github.com/panyam/chakra, type CreateRunRequest struct
+pkg github.com/panyam/chakra, type CreateRunRequest struct, RunID string
+pkg github.com/panyam/chakra, type CreateRunResponse struct
+pkg github.com/panyam/chakra, type CreateRunResponse struct, Created bool
+pkg github.com/panyam/chakra, type CreateRunResponse struct, RunID string
+pkg github.com/panyam/chakra, type CritiqueConfig struct
+pkg github.com/panyam/chakra, type CritiqueConfig struct, AllowOnError bool
+pkg github.com/panyam/chakra, type CritiqueConfig struct, Instructions string
+pkg github.com/panyam/chakra, type CritiqueConfig struct, Principles string
+pkg github.com/panyam/chakra, type CritiqueConfig struct, Provider Provider
+pkg github.com/panyam/chakra, type CritiqueConfig struct, Tools func(string) bool
+pkg github.com/panyam/chakra, type DeleteMemoryRequest struct
+pkg github.com/panyam/chakra, type DeleteMemoryRequest struct, Key string
+pkg github.com/panyam/chakra, type DeleteMemoryRequest struct, Namespace string
+pkg github.com/panyam/chakra, type DeleteMemoryResponse struct
+pkg github.com/panyam/chakra, type DeleteMemoryResponse struct, Deleted bool
+pkg github.com/panyam/chakra, type Delta struct
+pkg github.com/panyam/chakra, type Delta struct, FinishReason string
+pkg github.com/panyam/chakra, type Delta struct, Index int
+pkg github.com/panyam/chakra, type Delta struct, Kind DeltaKind
+pkg github.com/panyam/chakra, type Delta struct, Text string
+pkg github.com/panyam/chakra, type Delta struct, ToolCallID string
+pkg github.com/panyam/chakra, type Delta struct, ToolName string
+pkg github.com/panyam/chakra, type Delta struct, Usage *Usage
+pkg github.com/panyam/chakra, type DeltaAccumulator struct
+pkg github.com/panyam/chakra, type DeltaKind string
+pkg github.com/panyam/chakra, type DrawEvent struct
+pkg github.com/panyam/chakra, type DrawEvent struct, Draw int
+pkg github.com/panyam/chakra, type DrawEvent struct, Event Event
+pkg github.com/panyam/chakra, type DrawResult struct
+pkg github.com/panyam/chakra, type DrawResult struct, Err string
+pkg github.com/panyam/chakra, type DrawResult struct, Key string
+pkg github.com/panyam/chakra, type DrawResult struct, OK bool
+pkg github.com/panyam/chakra, type DrawResult struct, Prior bool
+pkg github.com/panyam/chakra, type DrawResult struct, Result *TurnResult
+pkg github.com/panyam/chakra, type DrawResult struct, Seed *int
+pkg github.com/panyam/chakra, type ElicitationCoordinator struct
+pkg github.com/panyam/chakra, type ElicitationUI func(context.Context, core.ElicitationRequest) (core.ElicitationResult, error)
+pkg github.com/panyam/chakra, type Embedder interface
+pkg github.com/panyam/chakra, type Embedder interface, Embed(context.Context, []string) ([]Embedding, error)
+pkg github.com/panyam/chakra, type Embedding []float32
+pkg github.com/panyam/chakra, type Event struct
+pkg github.com/panyam/chakra, type Event struct, Compaction *CompactionInfo
+pkg github.com/panyam/chakra, type Event struct, Error string
+pkg github.com/panyam/chakra, type Event struct, Kind EventKind
+pkg github.com/panyam/chakra, type Event struct, Model string
+pkg github.com/panyam/chakra, type Event struct, Plan *Plan
+pkg github.com/panyam/chakra, type Event struct, Reason string
+pkg github.com/panyam/chakra, type Event struct, Result *TurnResult
+pkg github.com/panyam/chakra, type Event struct, Signal *Signal
+pkg github.com/panyam/chakra, type Event struct, Step int
+pkg github.com/panyam/chakra, type Event struct, Text string
+pkg github.com/panyam/chakra, type Event struct, ToolCall *ToolCall
+pkg github.com/panyam/chakra, type Event struct, ToolResult *core.ToolResult
+pkg github.com/panyam/chakra, type Event struct, Usage *Usage
+pkg github.com/panyam/chakra, type EventInjectionConfig struct
+pkg github.com/panyam/chakra, type EventInjectionConfig struct, Consent func(ContextHint, IncomingEvent) bool
+pkg github.com/panyam/chakra, type EventInjectionConfig struct, Filters []func(IncomingEvent) bool
+pkg github.com/panyam/chakra, type EventInjectionConfig struct, Hints map[string]ContextHint
+pkg github.com/panyam/chakra, type EventInjectionConfig struct, MaxPerDrain int
+pkg github.com/panyam/chakra, type EventInjectionConfig struct, Merge func(IncomingEvent, IncomingEvent) IncomingEvent
+pkg github.com/panyam/chakra, type EventInjectionConfig struct, Transforms []func(IncomingEvent) (IncomingEvent, bool)
+pkg github.com/panyam/chakra, type EventInjectionPolicy struct
+pkg github.com/panyam/chakra, type EventKind string
+pkg github.com/panyam/chakra, type FailoverConfig struct
+pkg github.com/panyam/chakra, type FailoverConfig struct, Backup Provider
+pkg github.com/panyam/chakra, type FailoverConfig struct, Cooldown time.Duration
+pkg github.com/panyam/chakra, type FailoverConfig struct, Logger *slog.Logger
+pkg github.com/panyam/chakra, type FailoverConfig struct, Primary Provider
+pkg github.com/panyam/chakra, type FailoverProvider struct
+pkg github.com/panyam/chakra, type FanOutConfig struct
+pkg github.com/panyam/chakra, type FanOutConfig struct, Aggregate func([]FanOutResult) string
+pkg github.com/panyam/chakra, type FanOutConfig struct, Description string
+pkg github.com/panyam/chakra, type FanOutConfig struct, Members []*AgentSource
+pkg github.com/panyam/chakra, type FanOutConfig struct, Name string
+pkg github.com/panyam/chakra, type FanOutResult struct
+pkg github.com/panyam/chakra, type FanOutResult struct, IsError bool
+pkg github.com/panyam/chakra, type FanOutResult struct, Name string
+pkg github.com/panyam/chakra, type FanOutResult struct, Text string
+pkg github.com/panyam/chakra, type FanOutSource struct
+pkg github.com/panyam/chakra, type FileToolResultStore struct
+pkg github.com/panyam/chakra, type FilterSource struct
+pkg github.com/panyam/chakra, type ForkRunRequest struct
+pkg github.com/panyam/chakra, type ForkRunRequest struct, AtMessage int
+pkg github.com/panyam/chakra, type ForkRunRequest struct, NewRunID string
+pkg github.com/panyam/chakra, type ForkRunRequest struct, RunID string
+pkg github.com/panyam/chakra, type ForkRunResponse struct
+pkg github.com/panyam/chakra, type ForkRunResponse struct, Created bool
+pkg github.com/panyam/chakra, type ForkRunResponse struct, ForkPoint int
+pkg github.com/panyam/chakra, type ForkRunResponse struct, Found bool
+pkg github.com/panyam/chakra, type ForkRunResponse struct, RunID string
+pkg github.com/panyam/chakra, type FuncOption func(*core.ToolDef)
+pkg github.com/panyam/chakra, type FuncSource struct
+pkg github.com/panyam/chakra, type GenerationParams struct
+pkg github.com/panyam/chakra, type GenerationParams struct, MaxTokens int
+pkg github.com/panyam/chakra, type GenerationParams struct, Seed *int
+pkg github.com/panyam/chakra, type GenerationParams struct, Temperature *float64
+pkg github.com/panyam/chakra, type GenerationParams struct, ToolChoice ToolChoice
+pkg github.com/panyam/chakra, type GetToolResultRequest struct
+pkg github.com/panyam/chakra, type GetToolResultRequest struct, Ref string
+pkg github.com/panyam/chakra, type GetToolResultResponse struct
+pkg github.com/panyam/chakra, type GetToolResultResponse struct, Found bool
+pkg github.com/panyam/chakra, type GetToolResultResponse struct, Result core.ToolResult
+pkg github.com/panyam/chakra, type GrantFunc func(context.Context, ToolCallInfo) bool
+pkg github.com/panyam/chakra, type GuidedDecoding struct
+pkg github.com/panyam/chakra, type GuidedDecoding struct, Grammar string
+pkg github.com/panyam/chakra, type GuidedDecoding struct, JSONSchema core.RawJSON
+pkg github.com/panyam/chakra, type GuidedDecoding struct, Regex string
+pkg github.com/panyam/chakra, type GuidedDialect string
+pkg github.com/panyam/chakra, type InMemoryMemoryStore struct
+pkg github.com/panyam/chakra, type InMemoryRunStore struct
+pkg github.com/panyam/chakra, type InMemorySemanticStore struct
+pkg github.com/panyam/chakra, type InMemorySemanticStoreOption func(*InMemorySemanticStore)
+pkg github.com/panyam/chakra, type InMemoryToolResultStore struct
+pkg github.com/panyam/chakra, type IncomingEvent struct
+pkg github.com/panyam/chakra, type IncomingEvent struct, Cursor string
+pkg github.com/panyam/chakra, type IncomingEvent struct, Data core.RawJSON
+pkg github.com/panyam/chakra, type IncomingEvent struct, ID string
+pkg github.com/panyam/chakra, type IncomingEvent struct, Meta map[string]any
+pkg github.com/panyam/chakra, type IncomingEvent struct, Name string
+pkg github.com/panyam/chakra, type IncomingEvent struct, Server string
+pkg github.com/panyam/chakra, type IncomingEvent struct, Time time.Time
+pkg github.com/panyam/chakra, type InjectedContext struct
+pkg github.com/panyam/chakra, type InjectedContext struct, Event IncomingEvent
+pkg github.com/panyam/chakra, type InjectedContext struct, Priority string
+pkg github.com/panyam/chakra, type InjectedContext struct, Text string
+pkg github.com/panyam/chakra, type ListMemoriesRequest struct
+pkg github.com/panyam/chakra, type ListMemoriesRequest struct, Limit int
+pkg github.com/panyam/chakra, type ListMemoriesRequest struct, Namespace string
+pkg github.com/panyam/chakra, type ListMemoriesRequest struct, Query string
+pkg github.com/panyam/chakra, type ListMemoriesResponse struct
+pkg github.com/panyam/chakra, type ListMemoriesResponse struct, Items []ScoredMemory
+pkg github.com/panyam/chakra, type ListRunsRequest struct
+pkg github.com/panyam/chakra, type ListRunsRequest struct, Cursor string
+pkg github.com/panyam/chakra, type ListRunsRequest struct, Limit int
+pkg github.com/panyam/chakra, type ListRunsResponse struct
+pkg github.com/panyam/chakra, type ListRunsResponse struct, NextCursor string
+pkg github.com/panyam/chakra, type ListRunsResponse struct, Runs []RunInfo
+pkg github.com/panyam/chakra, type LlamaCppConfig struct
+pkg github.com/panyam/chakra, type LlamaCppConfig struct, APIKey string
+pkg github.com/panyam/chakra, type LlamaCppConfig struct, BaseURL string
+pkg github.com/panyam/chakra, type LlamaCppConfig struct, HTTPClient *http.Client
+pkg github.com/panyam/chakra, type LlamaCppConfig struct, Model string
+pkg github.com/panyam/chakra, type LoadRunRequest struct
+pkg github.com/panyam/chakra, type LoadRunRequest struct, RunID string
+pkg github.com/panyam/chakra, type LoadRunResponse struct
+pkg github.com/panyam/chakra, type LoadRunResponse struct, Found bool
+pkg github.com/panyam/chakra, type LoadRunResponse struct, Run Run
+pkg github.com/panyam/chakra, type MarkRequest struct
+pkg github.com/panyam/chakra, type MarkRequest struct, Content string
+pkg github.com/panyam/chakra, type MarkRequest struct, Marker string
+pkg github.com/panyam/chakra, type MarkRequest struct, Provenance Provenance
+pkg github.com/panyam/chakra, type MarkRequest struct, ToolName string
+pkg github.com/panyam/chakra, type MemoryItem struct
+pkg github.com/panyam/chakra, type MemoryItem struct, CreatedAt time.Time
+pkg github.com/panyam/chakra, type MemoryItem struct, Key string
+pkg github.com/panyam/chakra, type MemoryItem struct, Value string
+pkg github.com/panyam/chakra, type MemorySource struct
+pkg github.com/panyam/chakra, type MemorySourceOption func(*MemorySource)
+pkg github.com/panyam/chakra, type MemoryStore interface
+pkg github.com/panyam/chakra, type MemoryStore interface, DeleteMemory(context.Context, DeleteMemoryRequest) (DeleteMemoryResponse, error)
+pkg github.com/panyam/chakra, type MemoryStore interface, ListMemories(context.Context, ListMemoriesRequest) (ListMemoriesResponse, error)
+pkg github.com/panyam/chakra, type MemoryStore interface, PutMemory(context.Context, PutMemoryRequest) (PutMemoryResponse, error)
+pkg github.com/panyam/chakra, type MemoryStoreOption func(*InMemoryMemoryStore)
+pkg github.com/panyam/chakra, type Message struct
+pkg github.com/panyam/chakra, type Message struct, Role Role
+pkg github.com/panyam/chakra, type Message struct, Text string
+pkg github.com/panyam/chakra, type Message struct, Timestamp time.Time
+pkg github.com/panyam/chakra, type Message struct, ToolCallID string
+pkg github.com/panyam/chakra, type Message struct, ToolCalls []ToolCall
+pkg github.com/panyam/chakra, type MultiOption func(*MultiSource)
+pkg github.com/panyam/chakra, type MultiSource struct
+pkg github.com/panyam/chakra, type OffloadConfig struct
+pkg github.com/panyam/chakra, type OffloadConfig struct, PerToolThreshold map[string]int
+pkg github.com/panyam/chakra, type OffloadConfig struct, PreviewLen int
+pkg github.com/panyam/chakra, type OffloadConfig struct, Threshold int
+pkg github.com/panyam/chakra, type OffloadingSource struct
+pkg github.com/panyam/chakra, type OllamaConfig struct
+pkg github.com/panyam/chakra, type OllamaConfig struct, APIKey string
+pkg github.com/panyam/chakra, type OllamaConfig struct, BaseURL string
+pkg github.com/panyam/chakra, type OllamaConfig struct, HTTPClient *http.Client
+pkg github.com/panyam/chakra, type OllamaConfig struct, Model string
+pkg github.com/panyam/chakra, type OpenAIConfig struct
+pkg github.com/panyam/chakra, type OpenAIConfig struct, APIKey string
+pkg github.com/panyam/chakra, type OpenAIConfig struct, BaseURL string
+pkg github.com/panyam/chakra, type OpenAIConfig struct, ExtraBody map[string]any
+pkg github.com/panyam/chakra, type OpenAIConfig struct, GuidedDialect GuidedDialect
+pkg github.com/panyam/chakra, type OpenAIConfig struct, HTTPClient *http.Client
+pkg github.com/panyam/chakra, type OpenAIConfig struct, Model string
+pkg github.com/panyam/chakra, type OpenAIConfig struct, NoResponseSchema bool
+pkg github.com/panyam/chakra, type OpenAIConfig struct, NoTemperature bool
+pkg github.com/panyam/chakra, type OpenAIEmbedder struct
+pkg github.com/panyam/chakra, type OpenAIEmbedderConfig struct
+pkg github.com/panyam/chakra, type OpenAIEmbedderConfig struct, APIKey string
+pkg github.com/panyam/chakra, type OpenAIEmbedderConfig struct, BaseURL string
+pkg github.com/panyam/chakra, type OpenAIEmbedderConfig struct, HTTPClient *http.Client
+pkg github.com/panyam/chakra, type OpenAIEmbedderConfig struct, Model string
+pkg github.com/panyam/chakra, type OpenAIEmbedderConfig struct, TracerProvider core.TracerProvider
+pkg github.com/panyam/chakra, type OpenAIProvider struct
+pkg github.com/panyam/chakra, type Plan struct
+pkg github.com/panyam/chakra, type Plan struct, Explanation string
+pkg github.com/panyam/chakra, type Plan struct, Steps []PlanStep
+pkg github.com/panyam/chakra, type PlanStep struct
+pkg github.com/panyam/chakra, type PlanStep struct, Status string
+pkg github.com/panyam/chakra, type PlanStep struct, Step string
+pkg github.com/panyam/chakra, type PlanTool struct
+pkg github.com/panyam/chakra, type Provenance string
+pkg github.com/panyam/chakra, type Provider interface
+pkg github.com/panyam/chakra, type Provider interface, Generate(context.Context, ProviderRequest) (*ProviderResponse, error)
+pkg github.com/panyam/chakra, type Provider interface, Stream(context.Context, ProviderRequest) (Stream, error)
+pkg github.com/panyam/chakra, type ProviderError struct
+pkg github.com/panyam/chakra, type ProviderError struct, Body string
+pkg github.com/panyam/chakra, type ProviderError struct, StatusCode int
+pkg github.com/panyam/chakra, type ProviderHealth struct
+pkg github.com/panyam/chakra, type ProviderHealth struct, Active string
+pkg github.com/panyam/chakra, type ProviderHealth struct, ConsecutiveFailures int
+pkg github.com/panyam/chakra, type ProviderHealth struct, LastError string
+pkg github.com/panyam/chakra, type ProviderHealth struct, LastFailureAt time.Time
+pkg github.com/panyam/chakra, type ProviderRequest struct
+pkg github.com/panyam/chakra, type ProviderRequest struct, Guided *GuidedDecoding
+pkg github.com/panyam/chakra, type ProviderRequest struct, Instructions string
+pkg github.com/panyam/chakra, type ProviderRequest struct, MaxTokens int
+pkg github.com/panyam/chakra, type ProviderRequest struct, Messages []Message
+pkg github.com/panyam/chakra, type ProviderRequest struct, ResponseSchema core.RawJSON
+pkg github.com/panyam/chakra, type ProviderRequest struct, Seed *int
+pkg github.com/panyam/chakra, type ProviderRequest struct, Temperature *float64
+pkg github.com/panyam/chakra, type ProviderRequest struct, ToolChoice ToolChoice
+pkg github.com/panyam/chakra, type ProviderRequest struct, Tools []core.ToolDef
+pkg github.com/panyam/chakra, type ProviderResponse struct
+pkg github.com/panyam/chakra, type ProviderResponse struct, FinishReason string
+pkg github.com/panyam/chakra, type ProviderResponse struct, Reasoning string
+pkg github.com/panyam/chakra, type ProviderResponse struct, Text string
+pkg github.com/panyam/chakra, type ProviderResponse struct, ToolCalls []ToolCall
+pkg github.com/panyam/chakra, type ProviderResponse struct, Usage *Usage
+pkg github.com/panyam/chakra, type PutMemoryRequest struct
+pkg github.com/panyam/chakra, type PutMemoryRequest struct, Item MemoryItem
+pkg github.com/panyam/chakra, type PutMemoryRequest struct, Namespace string
+pkg github.com/panyam/chakra, type PutMemoryResponse struct
+pkg github.com/panyam/chakra, type PutToolResultRequest struct
+pkg github.com/panyam/chakra, type PutToolResultRequest struct, Ref string
+pkg github.com/panyam/chakra, type PutToolResultRequest struct, Result core.ToolResult
+pkg github.com/panyam/chakra, type PutToolResultResponse struct
+pkg github.com/panyam/chakra, type RecallOptions struct
+pkg github.com/panyam/chakra, type RecallOptions struct, MinScore float64
+pkg github.com/panyam/chakra, type RecallOptions struct, TopK int
+pkg github.com/panyam/chakra, type RegisteredAgent struct
+pkg github.com/panyam/chakra, type RegisteredAgent struct, Description string
+pkg github.com/panyam/chakra, type RegisteredAgent struct, Name string
+pkg github.com/panyam/chakra, type RememberKeyFunc func(ToolCallInfo) (string, bool)
+pkg github.com/panyam/chakra, type Resolver func(string, []ToolOwner, map[string]any) (string, error)
+pkg github.com/panyam/chakra, type ResponsesConfig struct
+pkg github.com/panyam/chakra, type ResponsesConfig struct, APIKey string
+pkg github.com/panyam/chakra, type ResponsesConfig struct, BaseURL string
+pkg github.com/panyam/chakra, type ResponsesConfig struct, CursorCacheSize int
+pkg github.com/panyam/chakra, type ResponsesConfig struct, HTTPClient *http.Client
+pkg github.com/panyam/chakra, type ResponsesConfig struct, Model string
+pkg github.com/panyam/chakra, type ResponsesConfig struct, NoStore bool
+pkg github.com/panyam/chakra, type ResponsesConfig struct, OnFullHistory func(string)
+pkg github.com/panyam/chakra, type ResponsesConfig struct, ReasoningEffort string
+pkg github.com/panyam/chakra, type ResponsesConfig struct, ReasoningSummary string
+pkg github.com/panyam/chakra, type ResponsesConfig struct, Temperature bool
+pkg github.com/panyam/chakra, type ResponsesProvider struct
+pkg github.com/panyam/chakra, type Role string
+pkg github.com/panyam/chakra, type Run struct
+pkg github.com/panyam/chakra, type Run struct, CreatedAt time.Time
+pkg github.com/panyam/chakra, type Run struct, Events []Event
+pkg github.com/panyam/chakra, type Run struct, ForkPoint int
+pkg github.com/panyam/chakra, type Run struct, ID string
+pkg github.com/panyam/chakra, type Run struct, Messages []Message
+pkg github.com/panyam/chakra, type Run struct, ParentID string
+pkg github.com/panyam/chakra, type RunInfo struct
+pkg github.com/panyam/chakra, type RunInfo struct, CreatedAt time.Time
+pkg github.com/panyam/chakra, type RunInfo struct, ForkPoint int
+pkg github.com/panyam/chakra, type RunInfo struct, ID string
+pkg github.com/panyam/chakra, type RunInfo struct, MessageCount int
+pkg github.com/panyam/chakra, type RunInfo struct, ParentID string
+pkg github.com/panyam/chakra, type RunScope struct
+pkg github.com/panyam/chakra, type RunScope struct, CallBudget int
+pkg github.com/panyam/chakra, type RunScope struct, Path AgentPath
+pkg github.com/panyam/chakra, type RunScope struct, Tree TreeUsage
+pkg github.com/panyam/chakra, type RunStore interface
+pkg github.com/panyam/chakra, type RunStore interface, AppendEvents(context.Context, AppendEventsRequest) (AppendEventsResponse, error)
+pkg github.com/panyam/chakra, type RunStore interface, AppendMessages(context.Context, AppendMessagesRequest) (AppendMessagesResponse, error)
+pkg github.com/panyam/chakra, type RunStore interface, CreateRun(context.Context, CreateRunRequest) (CreateRunResponse, error)
+pkg github.com/panyam/chakra, type RunStore interface, ForkRun(context.Context, ForkRunRequest) (ForkRunResponse, error)
+pkg github.com/panyam/chakra, type RunStore interface, ListRuns(context.Context, ListRunsRequest) (ListRunsResponse, error)
+pkg github.com/panyam/chakra, type RunStore interface, LoadRun(context.Context, LoadRunRequest) (LoadRunResponse, error)
+pkg github.com/panyam/chakra, type Runner struct
+pkg github.com/panyam/chakra, type RunnerConfig struct
+pkg github.com/panyam/chakra, type RunnerConfig struct, Compactor Compactor
+pkg github.com/panyam/chakra, type RunnerConfig struct, Generation GenerationParams
+pkg github.com/panyam/chakra, type RunnerConfig struct, Instructions string
+pkg github.com/panyam/chakra, type RunnerConfig struct, InstructionsFunc func(context.Context) string
+pkg github.com/panyam/chakra, type RunnerConfig struct, Interruptible bool
+pkg github.com/panyam/chakra, type RunnerConfig struct, MaxSteps int
+pkg github.com/panyam/chakra, type RunnerConfig struct, MeterProvider core.MeterProvider
+pkg github.com/panyam/chakra, type RunnerConfig struct, PreemptGrant func(Signal) bool
+pkg github.com/panyam/chakra, type RunnerConfig struct, Provider Provider
+pkg github.com/panyam/chakra, type RunnerConfig struct, ResponseGuided *GuidedDecoding
+pkg github.com/panyam/chakra, type RunnerConfig struct, ResponseSchema core.RawJSON
+pkg github.com/panyam/chakra, type RunnerConfig struct, Selector ToolSelector
+pkg github.com/panyam/chakra, type RunnerConfig struct, SignalPolicy SignalPolicy
+pkg github.com/panyam/chakra, type RunnerConfig struct, StepStages []StepStage
+pkg github.com/panyam/chakra, type RunnerConfig struct, ToolMiddleware []ToolMiddleware
+pkg github.com/panyam/chakra, type RunnerConfig struct, Tools ToolSource
+pkg github.com/panyam/chakra, type RunnerConfig struct, TracerProvider core.TracerProvider
+pkg github.com/panyam/chakra, type RunnerConfig struct, TreeBudget TreeBudget
+pkg github.com/panyam/chakra, type RunnerConfig struct, TurnEnd []TurnEndHook
+pkg github.com/panyam/chakra, type ScoredMemory struct
+pkg github.com/panyam/chakra, type ScoredMemory struct, Item MemoryItem
+pkg github.com/panyam/chakra, type ScoredMemory struct, Score float64
+pkg github.com/panyam/chakra, type ServerAgentConfig struct
+pkg github.com/panyam/chakra, type ServerAgentConfig struct, Backing ToolSource
+pkg github.com/panyam/chakra, type ServerAgentConfig struct, Description string
+pkg github.com/panyam/chakra, type ServerAgentConfig struct, Instructions string
+pkg github.com/panyam/chakra, type ServerAgentConfig struct, MaxDepth int
+pkg github.com/panyam/chakra, type ServerAgentConfig struct, MaxSteps int
+pkg github.com/panyam/chakra, type ServerAgentConfig struct, MeterProvider core.MeterProvider
+pkg github.com/panyam/chakra, type ServerAgentConfig struct, Name string
+pkg github.com/panyam/chakra, type ServerAgentConfig struct, OnEvent func(SubAgentEvent)
+pkg github.com/panyam/chakra, type ServerAgentConfig struct, Provider Provider
+pkg github.com/panyam/chakra, type ServerAgentConfig struct, ResponseSchema core.RawJSON
+pkg github.com/panyam/chakra, type ServerAgentConfig struct, Tools []core.ToolDef
+pkg github.com/panyam/chakra, type ServerAgentConfig struct, TracerProvider core.TracerProvider
+pkg github.com/panyam/chakra, type Signal struct
+pkg github.com/panyam/chakra, type Signal struct, Data core.RawJSON
+pkg github.com/panyam/chakra, type Signal struct, Kind SignalKind
+pkg github.com/panyam/chakra, type Signal struct, Name string
+pkg github.com/panyam/chakra, type Signal struct, Note string
+pkg github.com/panyam/chakra, type Signal struct, Source string
+pkg github.com/panyam/chakra, type SignalAction struct
+pkg github.com/panyam/chakra, type SignalAction struct, AbortTurn bool
+pkg github.com/panyam/chakra, type SignalAction struct, Reason string
+pkg github.com/panyam/chakra, type SignalKind string
+pkg github.com/panyam/chakra, type SignalPolicy func([]Signal) SignalAction
+pkg github.com/panyam/chakra, type SpawnStatus struct
+pkg github.com/panyam/chakra, type SpawnStatus struct, ID string
+pkg github.com/panyam/chakra, type SpawnStatus struct, Name string
+pkg github.com/panyam/chakra, type SpawnStatus struct, Status string
+pkg github.com/panyam/chakra, type SpotlightConfig struct
+pkg github.com/panyam/chakra, type SpotlightConfig struct, Classify func(ToolCallInfo) Provenance
+pkg github.com/panyam/chakra, type SpotlightConfig struct, Mark func(MarkRequest) string
+pkg github.com/panyam/chakra, type StepInfo struct
+pkg github.com/panyam/chakra, type StepInfo struct, MaxSteps int
+pkg github.com/panyam/chakra, type StepInfo struct, Step int
+pkg github.com/panyam/chakra, type StepInfo struct, Usage Usage
+pkg github.com/panyam/chakra, type StepScope int
+pkg github.com/panyam/chakra, type StepStage struct
+pkg github.com/panyam/chakra, type StepStage struct, Name string
+pkg github.com/panyam/chakra, type StepStage struct, Run func(context.Context, StepInfo, StepView) (StepView, error)
+pkg github.com/panyam/chakra, type StepStage struct, Scope StepScope
+pkg github.com/panyam/chakra, type StepView struct
+pkg github.com/panyam/chakra, type StepView struct, Guided *GuidedDecoding
+pkg github.com/panyam/chakra, type StepView struct, Messages []Message
+pkg github.com/panyam/chakra, type StepView struct, Provider Provider
+pkg github.com/panyam/chakra, type StepView struct, ProviderName string
+pkg github.com/panyam/chakra, type StepView struct, Tools []core.ToolDef
+pkg github.com/panyam/chakra, type Stream interface
+pkg github.com/panyam/chakra, type Stream interface, Close() error
+pkg github.com/panyam/chakra, type Stream interface, Recv() (Delta, error)
+pkg github.com/panyam/chakra, type StubEmbedder struct
+pkg github.com/panyam/chakra, type StubEmbedder struct, Dim int
+pkg github.com/panyam/chakra, type StubProvider struct
+pkg github.com/panyam/chakra, type StubTurn struct
+pkg github.com/panyam/chakra, type StubTurn struct, Deltas []Delta
+pkg github.com/panyam/chakra, type StubTurn struct, Err error
+pkg github.com/panyam/chakra, type StubTurn struct, FinishReason string
+pkg github.com/panyam/chakra, type StubTurn struct, Text string
+pkg github.com/panyam/chakra, type StubTurn struct, ToolCalls []ToolCall
+pkg github.com/panyam/chakra, type SubAgentEvent struct
+pkg github.com/panyam/chakra, type SubAgentEvent struct, Depth int
+pkg github.com/panyam/chakra, type SubAgentEvent struct, Event Event
+pkg github.com/panyam/chakra, type SubAgentEvent struct, Scope string
+pkg github.com/panyam/chakra, type SummarizingCompactor struct
+pkg github.com/panyam/chakra, type SummarizingConfig struct
+pkg github.com/panyam/chakra, type SummarizingConfig struct, Estimator TokenEstimator
+pkg github.com/panyam/chakra, type SummarizingConfig struct, Instructions string
+pkg github.com/panyam/chakra, type SummarizingConfig struct, KeepRecent int
+pkg github.com/panyam/chakra, type SummarizingConfig struct, MaxTokens int
+pkg github.com/panyam/chakra, type SummarizingConfig struct, Provider Provider
+pkg github.com/panyam/chakra, type SummaryOptions struct
+pkg github.com/panyam/chakra, type SummaryOptions struct, MaxChars int
+pkg github.com/panyam/chakra, type SummaryOptions struct, MaxItems int
+pkg github.com/panyam/chakra, type Team struct
+pkg github.com/panyam/chakra, type TeamConfig struct
+pkg github.com/panyam/chakra, type TeamConfig struct, MaxHandoffs int
+pkg github.com/panyam/chakra, type TeamConfig struct, Members []TeamMember
+pkg github.com/panyam/chakra, type TeamConfig struct, OnEvent func(SubAgentEvent)
+pkg github.com/panyam/chakra, type TeamConfig struct, OnHandoff func(string, string)
+pkg github.com/panyam/chakra, type TeamConfig struct, Start string
+pkg github.com/panyam/chakra, type TeamMember struct
+pkg github.com/panyam/chakra, type TeamMember struct, Config RunnerConfig
+pkg github.com/panyam/chakra, type TeamMember struct, HandoffTo []string
+pkg github.com/panyam/chakra, type TeamMember struct, Name string
+pkg github.com/panyam/chakra, type TieredApproval struct
+pkg github.com/panyam/chakra, type TieredOption func(*TieredApproval)
+pkg github.com/panyam/chakra, type TokenEstimator interface
+pkg github.com/panyam/chakra, type TokenEstimator interface, Estimate([]Message) int
+pkg github.com/panyam/chakra, type ToolCall struct
+pkg github.com/panyam/chakra, type ToolCall struct, Args core.RawJSON
+pkg github.com/panyam/chakra, type ToolCall struct, ID string
+pkg github.com/panyam/chakra, type ToolCall struct, Name string
+pkg github.com/panyam/chakra, type ToolCallFunc func(context.Context, ToolCallInfo) (*core.ToolResult, error)
+pkg github.com/panyam/chakra, type ToolCallInfo struct
+pkg github.com/panyam/chakra, type ToolCallInfo struct, Call ToolCall
+pkg github.com/panyam/chakra, type ToolCallInfo struct, Class *CallClass
+pkg github.com/panyam/chakra, type ToolCallInfo struct, Destructive bool
+pkg github.com/panyam/chakra, type ToolCallInfo struct, Idempotent bool
+pkg github.com/panyam/chakra, type ToolCallInfo struct, ReadOnly bool
+pkg github.com/panyam/chakra, type ToolCallInfo struct, Scope RunScope
+pkg github.com/panyam/chakra, type ToolCallInfo struct, Step int
+pkg github.com/panyam/chakra, type ToolChoice struct
+pkg github.com/panyam/chakra, type ToolChoice struct, Mode string
+pkg github.com/panyam/chakra, type ToolChoice struct, Name string
+pkg github.com/panyam/chakra, type ToolDeniedError struct
+pkg github.com/panyam/chakra, type ToolDeniedError struct, ModelReason string
+pkg github.com/panyam/chakra, type ToolDeniedError struct, Reason string
+pkg github.com/panyam/chakra, type ToolMiddleware func(context.Context, ToolCallInfo, ToolCallFunc) (*core.ToolResult, error)
+pkg github.com/panyam/chakra, type ToolOwner struct
+pkg github.com/panyam/chakra, type ToolOwner struct, Def core.ToolDef
+pkg github.com/panyam/chakra, type ToolOwner struct, SourceID string
+pkg github.com/panyam/chakra, type ToolResultStore interface
+pkg github.com/panyam/chakra, type ToolResultStore interface, GetToolResult(context.Context, GetToolResultRequest) (GetToolResultResponse, error)
+pkg github.com/panyam/chakra, type ToolResultStore interface, PutToolResult(context.Context, PutToolResultRequest) (PutToolResultResponse, error)
+pkg github.com/panyam/chakra, type ToolResultStoreOption func(*InMemoryToolResultStore)
+pkg github.com/panyam/chakra, type ToolRule int
+pkg github.com/panyam/chakra, type ToolSelector func(context.Context, []Message, []core.ToolDef) ([]core.ToolDef, error)
+pkg github.com/panyam/chakra, type ToolSource interface
+pkg github.com/panyam/chakra, type ToolSource interface, Call(context.Context, string, map[string]any) (*core.ToolResult, error)
+pkg github.com/panyam/chakra, type ToolSource interface, Tools(context.Context) ([]core.ToolDef, error)
+pkg github.com/panyam/chakra, type TreeBudget struct
+pkg github.com/panyam/chakra, type TreeBudget struct, MaxSteps int
+pkg github.com/panyam/chakra, type TreeBudget struct, MaxTokens int
+pkg github.com/panyam/chakra, type TreeUsage struct
+pkg github.com/panyam/chakra, type TreeUsage struct, MaxSteps int
+pkg github.com/panyam/chakra, type TreeUsage struct, MaxTokens int
+pkg github.com/panyam/chakra, type TreeUsage struct, StepsUsed int
+pkg github.com/panyam/chakra, type TreeUsage struct, TokensUsed int
+pkg github.com/panyam/chakra, type TriggerBinding struct
+pkg github.com/panyam/chakra, type TriggerBinding struct, Cooldown time.Duration
+pkg github.com/panyam/chakra, type TriggerBinding struct, Event string
+pkg github.com/panyam/chakra, type TriggerBinding struct, Filter func(IncomingEvent) bool
+pkg github.com/panyam/chakra, type TriggerBinding struct, Instructions string
+pkg github.com/panyam/chakra, type TriggerBinding struct, Label string
+pkg github.com/panyam/chakra, type TriggerBinding struct, Server string
+pkg github.com/panyam/chakra, type TriggerFiring struct
+pkg github.com/panyam/chakra, type TriggerFiring struct, Binding TriggerBinding
+pkg github.com/panyam/chakra, type TriggerFiring struct, Event IncomingEvent
+pkg github.com/panyam/chakra, type TriggerPolicy struct
+pkg github.com/panyam/chakra, type TriggerPolicyConfig struct
+pkg github.com/panyam/chakra, type TriggerPolicyConfig struct, Bindings []TriggerBinding
+pkg github.com/panyam/chakra, type TriggerPolicyConfig struct, Budget int
+pkg github.com/panyam/chakra, type TriggerPolicyConfig struct, Consent func(TriggerBinding, IncomingEvent) bool
+pkg github.com/panyam/chakra, type TriggerPolicyConfig struct, Logger *slog.Logger
+pkg github.com/panyam/chakra, type TurnEndHook func(context.Context, TurnEndInfo) (TurnEndVerdict, error)
+pkg github.com/panyam/chakra, type TurnEndInfo struct
+pkg github.com/panyam/chakra, type TurnEndInfo struct, Draft string
+pkg github.com/panyam/chakra, type TurnEndInfo struct, MaxSteps int
+pkg github.com/panyam/chakra, type TurnEndInfo struct, Messages []Message
+pkg github.com/panyam/chakra, type TurnEndInfo struct, Step int
+pkg github.com/panyam/chakra, type TurnEndInfo struct, StructuredError string
+pkg github.com/panyam/chakra, type TurnEndInfo struct, Text string
+pkg github.com/panyam/chakra, type TurnEndInfo struct, Usage Usage
+pkg github.com/panyam/chakra, type TurnEndVerdict struct
+pkg github.com/panyam/chakra, type TurnEndVerdict struct, AsUser bool
+pkg github.com/panyam/chakra, type TurnEndVerdict struct, Continue string
+pkg github.com/panyam/chakra, type TurnEndVerdict struct, Stop string
+pkg github.com/panyam/chakra, type TurnRequest struct
+pkg github.com/panyam/chakra, type TurnRequest struct, Control <-chan Control
+pkg github.com/panyam/chakra, type TurnRequest struct, Emit func(Event)
+pkg github.com/panyam/chakra, type TurnRequest struct, Generation GenerationParams
+pkg github.com/panyam/chakra, type TurnRequest struct, History []Message
+pkg github.com/panyam/chakra, type TurnRequest struct, ResponseGuided *GuidedDecoding
+pkg github.com/panyam/chakra, type TurnRequest struct, ResponseSchema core.RawJSON
+pkg github.com/panyam/chakra, type TurnResult struct
+pkg github.com/panyam/chakra, type TurnResult struct, FinishReason string
+pkg github.com/panyam/chakra, type TurnResult struct, Messages []Message
+pkg github.com/panyam/chakra, type TurnResult struct, Steps int
+pkg github.com/panyam/chakra, type TurnResult struct, Structured core.RawJSON
+pkg github.com/panyam/chakra, type TurnResult struct, StructuredError string
+pkg github.com/panyam/chakra, type TurnResult struct, Text string
+pkg github.com/panyam/chakra, type TurnResult struct, Usage Usage
+pkg github.com/panyam/chakra, type TurnResult struct, UsageByModel map[string]Usage
+pkg github.com/panyam/chakra, type Usage struct
+pkg github.com/panyam/chakra, type Usage struct, CachedInputTokens int
+pkg github.com/panyam/chakra, type Usage struct, InputTokens int
+pkg github.com/panyam/chakra, type Usage struct, OutputTokens int
+pkg github.com/panyam/chakra, type WindowStrategy string
+pkg github.com/panyam/chakra, var ErrContextBudget
+pkg github.com/panyam/chakra, var ErrInputRequired
+pkg github.com/panyam/chakra, var ErrMaxHandoffs
+pkg github.com/panyam/chakra, var ErrMaxSteps
+pkg github.com/panyam/chakra, var ErrNotAvailableNow
+pkg github.com/panyam/chakra, var ErrSignalAbort
+pkg github.com/panyam/chakra, var ErrTreeBudget
+pkg github.com/panyam/chakra, var ErrTurnStopped
+pkg github.com/panyam/chakra, var ErrUnknownTool
+pkg github.com/panyam/chakra, var ErrUnsupportedParam
+pkg github.com/panyam/chakra, var ToolChoiceAuto
+pkg github.com/panyam/chakra, var ToolChoiceNone
+pkg github.com/panyam/chakra, var ToolChoiceRequired
+pkg github.com/panyam/chakra/eval, func Contains(string) Scorer
+pkg github.com/panyam/chakra/eval, func ExactMatch(string) Scorer
+pkg github.com/panyam/chakra/eval, func Final([]Result) Result
+pkg github.com/panyam/chakra/eval, func Judge(agent.Provider, string) Scorer
+pkg github.com/panyam/chakra/eval, func LoadSuite(agent.RunnerConfig, Adapter) (Suite, bool, error)
+pkg github.com/panyam/chakra/eval, func MaxSteps(int) Scorer
+pkg github.com/panyam/chakra/eval, func NoError() Scorer
+pkg github.com/panyam/chakra/eval, func NotContains(string) Scorer
+pkg github.com/panyam/chakra/eval, func NotDenied() Scorer
+pkg github.com/panyam/chakra/eval, func Run(context.Context, agent.RunnerConfig, Case) (Result, error)
+pkg github.com/panyam/chakra/eval, func RunScenario(context.Context, agent.RunnerConfig, Scenario) ([]Result, error)
+pkg github.com/panyam/chakra/eval, func Single(Case, ...Scorer) SuiteCase
+pkg github.com/panyam/chakra/eval, func StepCount(int) Scorer
+pkg github.com/panyam/chakra/eval, func SuitePath(string) (string, bool, error)
+pkg github.com/panyam/chakra/eval, func ToolCalled(string) Scorer
+pkg github.com/panyam/chakra/eval, func Transcript(Result) string
+pkg github.com/panyam/chakra/eval, func Ungradeable(string, string) Scorer
+pkg github.com/panyam/chakra/eval, method (DimensionReport) CostPerPass() (float64, bool)
+pkg github.com/panyam/chakra/eval, method (DimensionReport) Rate() float64
+pkg github.com/panyam/chakra/eval, method (Prices) Cost(...map[string]agent.Usage) (float64, bool)
+pkg github.com/panyam/chakra/eval, method (Suite) Run(context.Context) SuiteReport
+pkg github.com/panyam/chakra/eval, method (SuiteReport) Cost() (float64, bool)
+pkg github.com/panyam/chakra/eval, method (SuiteReport) CostPerCorrect() (float64, bool)
+pkg github.com/panyam/chakra/eval, method (SuiteReport) Dimensions() []DimensionReport
+pkg github.com/panyam/chakra/eval, method (SuiteReport) Pass() bool
+pkg github.com/panyam/chakra/eval, method (SuiteReport) String() string
+pkg github.com/panyam/chakra/eval, type Adapter interface
+pkg github.com/panyam/chakra/eval, type Adapter interface, Load() ([]SuiteCase, error)
+pkg github.com/panyam/chakra/eval, type Adapter interface, Name() string
+pkg github.com/panyam/chakra/eval, type Case struct
+pkg github.com/panyam/chakra/eval, type Case struct, History []agent.Message
+pkg github.com/panyam/chakra/eval, type Case struct, Input string
+pkg github.com/panyam/chakra/eval, type Case struct, Instructions string
+pkg github.com/panyam/chakra/eval, type Case struct, MaxSteps int
+pkg github.com/panyam/chakra/eval, type Case struct, Name string
+pkg github.com/panyam/chakra/eval, type Case struct, Tools agent.ToolSource
+pkg github.com/panyam/chakra/eval, type CaseReport struct
+pkg github.com/panyam/chakra/eval, type CaseReport struct, Case string
+pkg github.com/panyam/chakra/eval, type CaseReport struct, Cost *float64
+pkg github.com/panyam/chakra/eval, type CaseReport struct, Elapsed time.Duration
+pkg github.com/panyam/chakra/eval, type CaseReport struct, Pass bool
+pkg github.com/panyam/chakra/eval, type CaseReport struct, RunErr string
+pkg github.com/panyam/chakra/eval, type CaseReport struct, Scores []Score
+pkg github.com/panyam/chakra/eval, type CaseReport struct, SetupElapsed time.Duration
+pkg github.com/panyam/chakra/eval, type CaseReport struct, SetupUsage map[string]agent.Usage
+pkg github.com/panyam/chakra/eval, type CaseReport struct, Usage map[string]agent.Usage
+pkg github.com/panyam/chakra/eval, type DimensionReport struct
+pkg github.com/panyam/chakra/eval, type DimensionReport struct, Cost *float64
+pkg github.com/panyam/chakra/eval, type DimensionReport struct, Failed int
+pkg github.com/panyam/chakra/eval, type DimensionReport struct, Name string
+pkg github.com/panyam/chakra/eval, type DimensionReport struct, Passed int
+pkg github.com/panyam/chakra/eval, type DimensionReport struct, Total int
+pkg github.com/panyam/chakra/eval, type Price struct
+pkg github.com/panyam/chakra/eval, type Price struct, InputPerM float64
+pkg github.com/panyam/chakra/eval, type Price struct, OutputPerM float64
+pkg github.com/panyam/chakra/eval, type Prices map[string]Price
+pkg github.com/panyam/chakra/eval, type Result struct
+pkg github.com/panyam/chakra/eval, type Result struct, Case Case
+pkg github.com/panyam/chakra/eval, type Result struct, Err error
+pkg github.com/panyam/chakra/eval, type Result struct, Events []agent.Event
+pkg github.com/panyam/chakra/eval, type Result struct, Turn *agent.TurnResult
+pkg github.com/panyam/chakra/eval, type Scenario struct
+pkg github.com/panyam/chakra/eval, type Scenario struct, History []agent.Message
+pkg github.com/panyam/chakra/eval, type Scenario struct, Instructions string
+pkg github.com/panyam/chakra/eval, type Scenario struct, MaxSteps int
+pkg github.com/panyam/chakra/eval, type Scenario struct, Memory bool
+pkg github.com/panyam/chakra/eval, type Scenario struct, Name string
+pkg github.com/panyam/chakra/eval, type Scenario struct, NewMemoryStore func() (agent.MemoryStore, error)
+pkg github.com/panyam/chakra/eval, type Scenario struct, Tools agent.ToolSource
+pkg github.com/panyam/chakra/eval, type Scenario struct, Turns []string
+pkg github.com/panyam/chakra/eval, type Score struct
+pkg github.com/panyam/chakra/eval, type Score struct, Detail string
+pkg github.com/panyam/chakra/eval, type Score struct, Name string
+pkg github.com/panyam/chakra/eval, type Score struct, Pass bool
+pkg github.com/panyam/chakra/eval, type Score struct, Value float64
+pkg github.com/panyam/chakra/eval, type Scorer interface
+pkg github.com/panyam/chakra/eval, type Scorer interface, Score(Result) Score
+pkg github.com/panyam/chakra/eval, type Setup struct
+pkg github.com/panyam/chakra/eval, type Setup struct, History []agent.Message
+pkg github.com/panyam/chakra/eval, type Setup struct, Instructions string
+pkg github.com/panyam/chakra/eval, type Setup struct, Tools agent.ToolSource
+pkg github.com/panyam/chakra/eval, type Setup struct, Usage map[string]agent.Usage
+pkg github.com/panyam/chakra/eval, type Suite struct
+pkg github.com/panyam/chakra/eval, type Suite struct, Cases []SuiteCase
+pkg github.com/panyam/chakra/eval, type Suite struct, Config agent.RunnerConfig
+pkg github.com/panyam/chakra/eval, type Suite struct, ModelName string
+pkg github.com/panyam/chakra/eval, type Suite struct, Prices Prices
+pkg github.com/panyam/chakra/eval, type SuiteCase struct
+pkg github.com/panyam/chakra/eval, type SuiteCase struct, Configure func(agent.RunnerConfig) (agent.RunnerConfig, error)
+pkg github.com/panyam/chakra/eval, type SuiteCase struct, Scenario Scenario
+pkg github.com/panyam/chakra/eval, type SuiteCase struct, Scorers func(agent.Provider) []Scorer
+pkg github.com/panyam/chakra/eval, type SuiteCase struct, Setup func(context.Context) (Setup, error)
+pkg github.com/panyam/chakra/eval, type SuiteReport struct
+pkg github.com/panyam/chakra/eval, type SuiteReport struct, Cases []CaseReport
+pkg github.com/panyam/chakra/eval, type SuiteReport struct, Failed int
+pkg github.com/panyam/chakra/eval, type SuiteReport struct, Passed int
+pkg github.com/panyam/chakra/eval, type SuiteReport struct, Total int
+pkg github.com/panyam/chakra/eval/agentdojo, const ScoreSecurity
+pkg github.com/panyam/chakra/eval/agentdojo, const ScoreUtility
+pkg github.com/panyam/chakra/eval/agentdojo, func AttackSuccessRate(eval.SuiteReport) float64
+pkg github.com/panyam/chakra/eval/agentdojo, func Cases() []Case
+pkg github.com/panyam/chakra/eval/agentdojo, func UtilityRate(eval.SuiteReport) float64
+pkg github.com/panyam/chakra/eval/agentdojo, method (Adapter) Load() ([]eval.SuiteCase, error)
+pkg github.com/panyam/chakra/eval/agentdojo, method (Adapter) Name() string
+pkg github.com/panyam/chakra/eval/agentdojo, type Adapter struct
+pkg github.com/panyam/chakra/eval/agentdojo, type Adapter struct, Middleware func() []agent.ToolMiddleware
+pkg github.com/panyam/chakra/eval/agentdojo, type Case struct
+pkg github.com/panyam/chakra/eval/agentdojo, type Case struct, Inbox []Email
+pkg github.com/panyam/chakra/eval/agentdojo, type Case struct, Name string
+pkg github.com/panyam/chakra/eval/agentdojo, type Case struct, Prompt string
+pkg github.com/panyam/chakra/eval/agentdojo, type Case struct, Security func(State) bool
+pkg github.com/panyam/chakra/eval/agentdojo, type Case struct, Utility func(State, string) bool
+pkg github.com/panyam/chakra/eval/agentdojo, type Email struct
+pkg github.com/panyam/chakra/eval/agentdojo, type Email struct, Body string
+pkg github.com/panyam/chakra/eval/agentdojo, type Email struct, From string
+pkg github.com/panyam/chakra/eval/agentdojo, type Email struct, Subject string
+pkg github.com/panyam/chakra/eval/agentdojo, type Payment struct
+pkg github.com/panyam/chakra/eval/agentdojo, type Payment struct, Amount string
+pkg github.com/panyam/chakra/eval/agentdojo, type Payment struct, To string
+pkg github.com/panyam/chakra/eval/agentdojo, type State struct
+pkg github.com/panyam/chakra/eval/agentdojo, type State struct, Payments []Payment
+pkg github.com/panyam/chakra/eval/agentdojo, type State struct, ReadMail bool
+pkg github.com/panyam/chakra/eval/agentdojo, type State struct, Sent []Email
+pkg github.com/panyam/chakra/eval/longmemeval, const CatAbstention Category
+pkg github.com/panyam/chakra/eval/longmemeval, const CatCompaction Category
+pkg github.com/panyam/chakra/eval/longmemeval, const CatExtraction Category
+pkg github.com/panyam/chakra/eval/longmemeval, const CatKnowledgeUpdate Category
+pkg github.com/panyam/chakra/eval/longmemeval, const CatMultiSession Category
+pkg github.com/panyam/chakra/eval/longmemeval, const CatTemporal Category
+pkg github.com/panyam/chakra/eval/longmemeval, const DataPathEnv
+pkg github.com/panyam/chakra/eval/longmemeval, const LimitEnv
+pkg github.com/panyam/chakra/eval/longmemeval, func SmokeScenarios() []MemCase
+pkg github.com/panyam/chakra/eval/longmemeval, method (DatasetAdapter) Load() ([]eval.SuiteCase, error)
+pkg github.com/panyam/chakra/eval/longmemeval, method (DatasetAdapter) Name() string
+pkg github.com/panyam/chakra/eval/longmemeval, method (Instance) Abstention() bool
+pkg github.com/panyam/chakra/eval/longmemeval, method (MemCase) Deterministic() []eval.Scorer
+pkg github.com/panyam/chakra/eval/longmemeval, method (MemCase) SuiteCase() eval.SuiteCase
+pkg github.com/panyam/chakra/eval/longmemeval, method (SmokeAdapter) Load() ([]eval.SuiteCase, error)
+pkg github.com/panyam/chakra/eval/longmemeval, method (SmokeAdapter) Name() string
+pkg github.com/panyam/chakra/eval/longmemeval, type Category string
+pkg github.com/panyam/chakra/eval/longmemeval, type DatasetAdapter struct
+pkg github.com/panyam/chakra/eval/longmemeval, type DatasetAdapter struct, Arm func(context.Context, Instance) (eval.Setup, error)
+pkg github.com/panyam/chakra/eval/longmemeval, type DatasetAdapter struct, Limit int
+pkg github.com/panyam/chakra/eval/longmemeval, type DatasetAdapter struct, LongContext bool
+pkg github.com/panyam/chakra/eval/longmemeval, type DatasetAdapter struct, NewStore func() (agent.MemoryStore, error)
+pkg github.com/panyam/chakra/eval/longmemeval, type DatasetAdapter struct, OfficialJudge bool
+pkg github.com/panyam/chakra/eval/longmemeval, type DatasetAdapter struct, Path string
+pkg github.com/panyam/chakra/eval/longmemeval, type DatasetAdapter struct, Types func(string) bool
+pkg github.com/panyam/chakra/eval/longmemeval, type Instance struct
+pkg github.com/panyam/chakra/eval/longmemeval, type Instance struct, Answer string
+pkg github.com/panyam/chakra/eval/longmemeval, type Instance struct, AnswerSessionIDs []string
+pkg github.com/panyam/chakra/eval/longmemeval, type Instance struct, HaystackDates []string
+pkg github.com/panyam/chakra/eval/longmemeval, type Instance struct, HaystackSessionIDs []string
+pkg github.com/panyam/chakra/eval/longmemeval, type Instance struct, HaystackSessions [][]Turn
+pkg github.com/panyam/chakra/eval/longmemeval, type Instance struct, Question string
+pkg github.com/panyam/chakra/eval/longmemeval, type Instance struct, QuestionDate string
+pkg github.com/panyam/chakra/eval/longmemeval, type Instance struct, QuestionID string
+pkg github.com/panyam/chakra/eval/longmemeval, type Instance struct, QuestionType string
+pkg github.com/panyam/chakra/eval/longmemeval, type MemCase struct
+pkg github.com/panyam/chakra/eval/longmemeval, type MemCase struct, Category Category
+pkg github.com/panyam/chakra/eval/longmemeval, type MemCase struct, Must []string
+pkg github.com/panyam/chakra/eval/longmemeval, type MemCase struct, MustNot []string
+pkg github.com/panyam/chakra/eval/longmemeval, type MemCase struct, NewCompactor func(agent.Provider) (agent.Compactor, error)
+pkg github.com/panyam/chakra/eval/longmemeval, type MemCase struct, Rubric string
+pkg github.com/panyam/chakra/eval/longmemeval, type MemCase struct, Scenario eval.Scenario
+pkg github.com/panyam/chakra/eval/longmemeval, type SmokeAdapter struct
+pkg github.com/panyam/chakra/eval/longmemeval, type Turn struct
+pkg github.com/panyam/chakra/eval/longmemeval, type Turn struct, Content string
+pkg github.com/panyam/chakra/eval/longmemeval, type Turn struct, HasAnswer bool
+pkg github.com/panyam/chakra/eval/longmemeval, type Turn struct, Role string

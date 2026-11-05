@@ -1,0 +1,26 @@
+pkg example.com/mod, const KindA Kind
+pkg example.com/mod, const KindB Kind
+pkg example.com/mod, const Untyped
+pkg example.com/mod, func New[T comparable](T, ...string) *Thing[T]
+pkg example.com/mod, func Platform() string
+pkg example.com/mod, method (*Thing[T]) Get(context.Context, string) (T, error)
+pkg example.com/mod, method (Thing[T]) Len() int
+pkg example.com/mod, type Alias = Base
+pkg example.com/mod, type Base struct
+pkg example.com/mod, type Base struct, Name string
+pkg example.com/mod, type Kind int
+pkg example.com/mod, type Number interface
+pkg example.com/mod, type Number interface, embedded ~int | ~float64
+pkg example.com/mod, type Source interface
+pkg example.com/mod, type Source interface, List(context.Context) ([]string, error)
+pkg example.com/mod, type Source interface, embedded io.Closer
+pkg example.com/mod, type Source interface, unexported methods
+pkg example.com/mod, type Thing struct, Alt T
+pkg example.com/mod, type Thing struct, Fn func(context.Context) (string, error)
+pkg example.com/mod, type Thing struct, ID T
+pkg example.com/mod, type Thing struct, embedded *io.PipeReader
+pkg example.com/mod, type Thing struct, embedded Base
+pkg example.com/mod, type Thing[T any] struct
+pkg example.com/mod, var ErrX
+pkg example.com/mod, var Hook func(context.Context, int) error
+pkg example.com/mod/sub, func Sub()

@@ -35,7 +35,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/h
 GOTESTFLAGS ?= -race -timeout 300s
 
 .PHONY: help build test test-examples test-web test-web-e2e testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report tbench-ingest tbench-matrix tbench-stale deploy-web weblogs \
-        check-no-binaries check-ext-isolation check-dep-consistency setup-hooks
+        check-no-binaries check-ext-isolation check-dep-consistency setup-hooks api-report api-update
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -61,7 +61,7 @@ test-examples: ## Test the SDK examples (and the host exercise)
 	@cd examples/terminal-bench && python3 -m unittest -q test_chakra_config
 	@python3 -m unittest discover -q -s scripts -p 'test_*.py'
 
-testall: test test-examples check-fmt check-no-binaries check-ext-isolation check-dep-consistency ## Everything CI runs
+testall: test test-examples check-fmt api-report check-no-binaries check-ext-isolation check-dep-consistency ## Everything CI runs
 
 vet: ## go vet every module
 	@for m in $(MODULES) $(EXAMPLES); do \
@@ -102,6 +102,25 @@ sync-mcpkit: ## tidy-all, then raise lagging pins so no dependency is split
 	@python3 scripts/check_dep_consistency.py --fix
 	@$(MAKE) -s tidy-all
 	@python3 scripts/check_dep_consistency.py
+
+# api-report lists every exported symbol in each module and diffs it against
+# that module's api.txt (#143, the exercise for mission #142). A PR that adds,
+# removes or changes an exported name runs api-update and commits the api.txt
+# diff, so the change is reviewed. Doc comments and parameter names don't
+# count. See scripts/apireport for what the report lists and leaves out.
+api-report: ## Fail if any module's exported API differs from its api.txt
+	@bin=$$(mktemp -d)/apireport; go build -o $$bin ./scripts/apireport || exit 1; \
+	fail=0; for m in $(MODULES); do \
+		$$bin $$m | diff -u --label $$m/api.txt --label "$$m (exported now)" $$m/api.txt - || fail=1; \
+	done; \
+	rm -rf $$(dirname $$bin); \
+	if [ $$fail = 1 ]; then echo "==> exported API changed; run make api-update and commit the api.txt diff"; exit 1; fi; \
+	echo "==> exported API matches api.txt in every module"
+
+api-update: ## Rewrite every module's api.txt from its exported API
+	@bin=$$(mktemp -d)/apireport; go build -o $$bin ./scripts/apireport || exit 1; \
+	for m in $(MODULES); do $$bin $$m > $$m/api.txt || exit 1; done; \
+	rm -rf $$(dirname $$bin); echo "==> api.txt rewritten in every module"
 
 check-no-binaries: ## Fail if a compiled executable is tracked
 	@sh scripts/check-no-binaries.sh

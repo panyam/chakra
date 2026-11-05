@@ -91,6 +91,9 @@ integrated with a dedicated engine.
 - **Background goroutines use `core.DetachForBackground(ctx)`, never `context.WithoutCancel`.** Some
   background work outlives a turn *and* calls MCP server tools. That work needs the session-level
   persistent push. Applies to async sub-agents, the agent pool, and task dispatch.
+- **CI fails on any change to an exported name until `api.txt` records it.** `make api-report`
+  diffs each module's exported API against its `api.txt` (#143). Run `make api-update` and commit
+  the diff with the change. Doc comments and parameter names don't count.
 - **Run tests with `-race`.** The signal, pool, and interruptible tests exist to catch races.
 - **Host behavioral tests race on a shared sequential StubProvider** when a main turn and a
   background child both pull from it. Assert *wiring* in host tests and test the *behavior* at

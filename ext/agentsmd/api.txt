@@ -1,0 +1,43 @@
+pkg github.com/panyam/chakra/ext/agentsmd, const ChangesFreeze Changes
+pkg github.com/panyam/chakra/ext/agentsmd, const ChangesNotice Changes
+pkg github.com/panyam/chakra/ext/agentsmd, const DefaultPreset
+pkg github.com/panyam/chakra/ext/agentsmd, const SubdirsLazy Subdirs
+pkg github.com/panyam/chakra/ext/agentsmd, const SubdirsOff Subdirs
+pkg github.com/panyam/chakra/ext/agentsmd, const WalkFSRoot Walk
+pkg github.com/panyam/chakra/ext/agentsmd, const WalkMarker Walk
+pkg github.com/panyam/chakra/ext/agentsmd, func New(Config) (*Extension, error)
+pkg github.com/panyam/chakra/ext/agentsmd, func Preset(string) (Profile, error)
+pkg github.com/panyam/chakra/ext/agentsmd, method (*Extension) InputTransforms() []host.InputTransform
+pkg github.com/panyam/chakra/ext/agentsmd, method (*Extension) Middleware() []agent.ToolMiddleware
+pkg github.com/panyam/chakra/ext/agentsmd, method (*Extension) Name() string
+pkg github.com/panyam/chakra/ext/agentsmd, method (*Extension) PromptSections() []host.PromptSection
+pkg github.com/panyam/chakra/ext/agentsmd, method (*Extension) SetAnnounce(func(string))
+pkg github.com/panyam/chakra/ext/agentsmd, method (*Extension) StepStages() []agent.StepStage
+pkg github.com/panyam/chakra/ext/agentsmd, type Changes string
+pkg github.com/panyam/chakra/ext/agentsmd, type Config struct
+pkg github.com/panyam/chakra/ext/agentsmd, type Config struct, Home string
+pkg github.com/panyam/chakra/ext/agentsmd, type Config struct, Paths func(agent.ToolCallInfo) []string
+pkg github.com/panyam/chakra/ext/agentsmd, type Config struct, Profile Profile
+pkg github.com/panyam/chakra/ext/agentsmd, type Config struct, Roots []string
+pkg github.com/panyam/chakra/ext/agentsmd, type Extension struct
+pkg github.com/panyam/chakra/ext/agentsmd, type Extension struct, embedded host.BaseExtension
+pkg github.com/panyam/chakra/ext/agentsmd, type Profile struct
+pkg github.com/panyam/chakra/ext/agentsmd, type Profile struct, Changes Changes
+pkg github.com/panyam/chakra/ext/agentsmd, type Profile struct, Fallback []string
+pkg github.com/panyam/chakra/ext/agentsmd, type Profile struct, GlobalDir string
+pkg github.com/panyam/chakra/ext/agentsmd, type Profile struct, GlobalRules []string
+pkg github.com/panyam/chakra/ext/agentsmd, type Profile struct, Imports bool
+pkg github.com/panyam/chakra/ext/agentsmd, type Profile struct, Local string
+pkg github.com/panyam/chakra/ext/agentsmd, type Profile struct, Markers []string
+pkg github.com/panyam/chakra/ext/agentsmd, type Profile struct, MaxBytes int
+pkg github.com/panyam/chakra/ext/agentsmd, type Profile struct, Names []string
+pkg github.com/panyam/chakra/ext/agentsmd, type Profile struct, NestedRules []string
+pkg github.com/panyam/chakra/ext/agentsmd, type Profile struct, Override string
+pkg github.com/panyam/chakra/ext/agentsmd, type Profile struct, PrimaryOnly bool
+pkg github.com/panyam/chakra/ext/agentsmd, type Profile struct, Rules []string
+pkg github.com/panyam/chakra/ext/agentsmd, type Profile struct, StripComments bool
+pkg github.com/panyam/chakra/ext/agentsmd, type Profile struct, Subdirs Subdirs
+pkg github.com/panyam/chakra/ext/agentsmd, type Profile struct, Walk Walk
+pkg github.com/panyam/chakra/ext/agentsmd, type Subdirs string
+pkg github.com/panyam/chakra/ext/agentsmd, type Walk string
+pkg github.com/panyam/chakra/ext/agentsmd, var Presets
