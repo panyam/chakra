@@ -335,10 +335,45 @@ def trial_cost(t, price):
     return ((tin - tcache) * pin + tcache * pcache + tout * pout) / 1e6
 
 
+def avg(xs):
+    return sum(xs) / len(xs) if xs else None
+
+
+def from_references(task, ours, refs, price):
+    """Dollars for task, scaled from published runs that covered it. Each
+    reference setup that ran the task and shares tasks with ours gives one
+    figure. That's its average cost on the task at our price, times the median
+    ratio of our cost to its cost over the tasks both have run. The result is
+    the mean of those figures, or None when no reference qualifies."""
+    our_by = {}
+    for t in ours:
+        our_by.setdefault(t["task"], []).append(trial_cost(t, price))
+    figures = []
+    for setup in sorted({t["setup"] for t in refs}):
+        ref_by = {}
+        for t in refs:
+            if t["setup"] == setup:
+                ref_by.setdefault(t["task"], []).append(trial_cost(t, price))
+        shared = [k for k in our_by if k in ref_by and avg(ref_by[k])]
+        if task not in ref_by or not shared:
+            continue
+        ratio = statistics.median(avg(our_by[k]) / avg(ref_by[k]) for k in shared)
+        figures.append(avg(ref_by[task]) * ratio)
+    return avg(figures)
+
+
 def estimate(task, setup, trials):
-    """Dollars for one more trial of task on setup, at list price. It uses the
-    task's average on this setup, then on any setup with the same model, then
-    the median trial on this setup's model. None means no price is known."""
+    """Dollars for one more trial of task on setup, at list price. None means
+    no price is known for the setup's model. It tries, in order:
+
+    1. the task's average on this setup;
+    2. the task's average on any setup with the same model;
+    3. published runs of the task, scaled to our cost (from_references);
+    4. the median trial on this model.
+
+    Step 3 matters for tasks we never ran. Their cost varies by more than ten
+    times, so the median alone undercounted #263's batch by about 2.5 times.
+    """
     _, model, _ = parse_setup_key(setup)
     price = PRICES.get(model)
     if price is None:
@@ -348,7 +383,11 @@ def estimate(task, setup, trials):
     for pick in (lambda t: t["task"] == task and t["setup"] == setup, lambda t: t["task"] == task):
         hits = [trial_cost(t, price) for t in priced if pick(t)]
         if hits:
-            return sum(hits) / len(hits)
+            return avg(hits)
+    refs = [t for t in trials if t.get("in") is not None and t["source"] != "local"]
+    scaled = from_references(task, priced, refs, price)
+    if scaled is not None:
+        return scaled
     allc = [trial_cost(t, price) for t in priced]
     return statistics.median(allc) if allc else None
 

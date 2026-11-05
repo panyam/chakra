@@ -32,7 +32,13 @@ with each trial's logs and trajectory.
 | `TB_EFFORT` | `medium` | reasoning effort for every agent, through Harbor's `reasoning_effort` option; empty leaves each agent at its own default |
 | `TB_PATH` | `~/newstack/chakra/benchmarks/terminal-bench-2` | the task checkout |
 | `TB_JOBS` | `~/newstack/chakra/benchmarks/jobs` | where Harbor writes results |
+| `TB_REFS` | `~/newstack/chakra/benchmarks/refs` | where `tbench-ref` downloads leaderboard submissions |
+| `TB_PREFLIGHT` | on | `0` skips the quota check before a run |
 | `TB_CONCURRENT` | 2 | tasks at once |
+
+`make tbench` first sends one tiny request for `TB_MODEL` (`scripts/tbench_preflight.py`, #266). An
+exhausted account, a refused key or an unknown model stops it there with one line, and a rate limit
+only warns. `TB_PREFLIGHT=0` skips the check.
 
 Needs Docker, `harbor` on PATH (`uv tool install --from <harbor checkout> harbor`), and
 `OPENAI_API_KEY` (or the key for `TB_MODEL`).
@@ -78,20 +84,23 @@ we don't control when Codex changes.
 `tbench-stale` picks from the setups `make tbench` would run with the current `TB_AGENTS`,
 `TB_MODEL` and `TB_EFFORT`. Cells that never ran come first, then the oldest. Each cell's cost is
 that task's average past tokens at list price (`PRICES` in `scripts/tbench_matrix.py`). If the task
-never ran on this model, the estimate falls back to the median trial. Hard tasks cost more than the
-median, so the budget can undercount a batch of never-run tasks.
+never ran on this model, the estimate scales the reference columns' cost on that task by how our
+cost compares with theirs on tasks both have run (#267). Only a task no reference covers falls back
+to the median trial. On #263's ten-task batch, the median alone predicted $2.08 and the batch cost
+over $5. The scaled estimate predicted $5.69.
 
 Published runs come in as reference columns. The
 [leaderboard](https://huggingface.co/datasets/harborframework/terminal-bench-2-leaderboard)
-publishes each submission as plain Harbor job folders, so ingest reads them directly. Fetch a
-submission's `config.json` and trial `result.json` files, then run:
+publishes each submission as plain Harbor job folders, so ingest reads them directly:
 
 ```
-python3 scripts/tbench_matrix.py ingest <folder> --name ref-<agent>-<model>-<yyyy-mm> \
-    --source <submission url> --notes "<harness, model, effort, hardware, attempts>"
+make tbench-ref SUB=Terminus2__GPT-5.3-Codex
 ```
 
-`ref-terminus2-claude-opus-4.6-2026-02.json` is the first one. A reference column is never picked
+`SUB` is the folder name under `submissions/terminal-bench/2.0/`. The target downloads the
+submission's `metadata.yaml`, job configs and trial results into `TB_REFS`, and skips files it already
+has. It writes `ref-<submission>-<yyyy-mm>.json` with notes on the harness, model, effort, sandbox
+and attempts. Terminus 2 on Claude Opus 4.6 and on GPT-5.3-Codex are in so far. A reference column is never picked
 as stale. Its model, effort and hardware are the submitter's, so comparing it with our columns
 mixes harness with model. Codex stays a column we run, on chakra's model and provider.
 
@@ -101,6 +110,5 @@ mixes harness with model. Codex stays a column we run, on chakra's model and pro
   16 GB with `TB_CONCURRENT=1` got through every task. Move a crashed job's folder aside before
   rerunning, or `tbench-report` picks up its partial results as the newest job.
 - An exhausted OpenAI account answers `429` with `insufficient_quota` / `credit_balance_exhausted`.
-  chakra's retry deliberately doesn't retry it, so every trial fails fast with a model error, and
-  the report reads as 0/10 rather than "could not run". Check the error in a trial's log before
-  reading anything into a score of zero.
+  chakra's retry deliberately doesn't retry it, so every trial used to fail fast and the report
+  read 0/10. The preflight now stops the run before it starts.

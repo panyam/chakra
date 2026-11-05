@@ -34,7 +34,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/h
 # explicitly and the platform's own backend refuses. See the module README.
 GOTESTFLAGS ?= -race -timeout 300s
 
-.PHONY: help build test test-examples test-web test-web-e2e testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report tbench-ingest tbench-matrix tbench-stale deploy-web weblogs \
+.PHONY: help build test test-examples test-web test-web-e2e testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report tbench-ingest tbench-matrix tbench-stale tbench-ref deploy-web weblogs \
         check-no-binaries check-ext-isolation check-dep-consistency setup-hooks api-report api-update
 
 help: ## Show this help
@@ -231,6 +231,7 @@ coding-harness-web: ## agentweb with chat at / and the coding agent at /code/, o
 # default, which is how runs before this option were made.
 TB_PATH ?= $(HOME)/newstack/chakra/benchmarks/terminal-bench-2
 TB_JOBS ?= $(HOME)/newstack/chakra/benchmarks/jobs
+TB_REFS ?= $(HOME)/newstack/chakra/benchmarks/refs
 TB_AGENTS ?= chakra codex
 TB_MODEL ?= openai/gpt-5.5
 TB_K ?= 1
@@ -254,7 +255,8 @@ tbench-build: ## Static Linux agentchat for the Terminal-Bench containers (amd64
 	@cd surfaces/chat && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../../examples/terminal-bench/bin/agentchat-linux-amd64 .
 	@echo "$$(git rev-parse --short=12 HEAD)$$(git diff --quiet HEAD -- . || echo -dirty)" > examples/terminal-bench/bin/VERSION
 
-tbench: tbench-build ## Terminal-Bench 2 via Harbor: TB_AGENTS on TB_SET or TB_TASKS, TB_K attempts each (TB_MODEL=openai/gpt-5.5, TB_EFFORT=medium)
+tbench: tbench-build ## Terminal-Bench 2 via Harbor: TB_AGENTS on TB_SET or TB_TASKS, TB_K attempts each (TB_MODEL=openai/gpt-5.5, TB_EFFORT=medium; TB_PREFLIGHT=0 skips the quota check)
+	@$(if $(filter 0,$(TB_PREFLIGHT)),true,python3 scripts/tbench_preflight.py $(TB_MODEL))
 	@for a in $(TB_AGENTS); do \
 		case $$a in chakra) agent=chakra_agent:ChakraAgent ;; *) agent=$$a ;; esac; \
 		echo "==> $$a"; \
@@ -271,6 +273,10 @@ tbench-ingest: ## Copy new Harbor jobs in TB_JOBS into benchmarks/results/, one 
 
 tbench-matrix: ## Task x setup matrix of last runs from benchmarks/results/, as markdown and benchmarks/matrix/index.html
 	@python3 scripts/tbench_matrix.py render $(TB_PATH)
+
+tbench-ref: ## Import a leaderboard submission as a reference column, e.g. SUB=Terminus2__Claude-Opus-4.6 (downloads into TB_REFS)
+	@test -n "$(SUB)" || { echo "SUB=<submission folder name> is required"; exit 1; }
+	@python3 scripts/tbench_ref.py $(SUB) --out $(TB_REFS)
 
 tbench-stale: ## The N oldest or never-run cells of TB_SETUPS, up to BUDGET dollars at list price (N=10 BUDGET=5); RUN=1 runs them
 	@mkdir -p benchmarks/matrix && python3 scripts/tbench_matrix.py stale $(TB_PATH) $(N) $(BUDGET) --setups "$(TB_SETUPS)" > benchmarks/matrix/stale-picks
