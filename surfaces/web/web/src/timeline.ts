@@ -54,7 +54,7 @@ export function summarize(ev: HostEvent): { kind: string; summary: string } {
         case "step":
           return {
             kind: inner,
-            summary: `step ${re?.step ?? "?"} on ${re?.model || "?"} (${re?.usage?.inputTokens ?? 0} in / ${re?.usage?.outputTokens ?? 0} out)`,
+            summary: `step ${re?.step ?? "?"}${re?.model ? ` on ${re.model}` : ""} (${re?.usage?.inputTokens ?? 0} in / ${re?.usage?.outputTokens ?? 0} out)`,
           };
         case "compaction":
           return { kind: inner, summary: `compacted ${re?.compaction?.before ?? "?"} → ${re?.compaction?.after ?? "?"} msgs` };

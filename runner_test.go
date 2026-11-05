@@ -82,7 +82,7 @@ func TestRunnerSingleStepText(t *testing.T) {
 	if res.Text != "Hello there" || res.Steps != 1 || res.FinishReason != "stop" {
 		t.Fatalf("result = %+v", res)
 	}
-	want := []EventKind{EventTurnBegin, EventTextDelta, EventTextDelta, EventTurnEnd}
+	want := []EventKind{EventTurnBegin, EventTextDelta, EventTextDelta, EventStep, EventTurnEnd}
 	if fmt.Sprint(kinds(*events)) != fmt.Sprint(want) {
 		t.Fatalf("events = %v, want %v", kinds(*events), want)
 	}
@@ -116,7 +116,7 @@ func TestRunnerMultiStepToolLoopThreadsHistory(t *testing.T) {
 		t.Fatalf("result = %+v", res)
 	}
 
-	want := []EventKind{EventTurnBegin, EventToolBegin, EventToolEnd, EventTextDelta, EventTurnEnd}
+	want := []EventKind{EventTurnBegin, EventStep, EventToolBegin, EventToolEnd, EventTextDelta, EventStep, EventTurnEnd}
 	if fmt.Sprint(kinds(*events)) != fmt.Sprint(want) {
 		t.Fatalf("events = %v, want %v", kinds(*events), want)
 	}
@@ -467,7 +467,7 @@ func TestRunnerThinkingMarkers(t *testing.T) {
 	if _, err := newRunner(t, stub, nil).Run(context.Background(), nil, emit); err != nil {
 		t.Fatal(err)
 	}
-	want := []EventKind{EventTurnBegin, EventThinkingBegin, EventThinkingDelta, EventThinkingDelta, EventThinkingEnd, EventTextDelta, EventTurnEnd}
+	want := []EventKind{EventTurnBegin, EventThinkingBegin, EventThinkingDelta, EventThinkingDelta, EventThinkingEnd, EventTextDelta, EventStep, EventTurnEnd}
 	if fmt.Sprint(kinds(*events)) != fmt.Sprint(want) {
 		t.Fatalf("events = %v, want %v", kinds(*events), want)
 	}
@@ -571,7 +571,7 @@ func TestRunnerApprovalDeniedFeedsBackAndContinues(t *testing.T) {
 	}
 
 	// The denial shows up as a distinct event and as model-visible tool text.
-	want := []EventKind{EventTurnBegin, EventToolBegin, EventToolDenied, EventTextDelta, EventTurnEnd}
+	want := []EventKind{EventTurnBegin, EventStep, EventToolBegin, EventToolDenied, EventTextDelta, EventStep, EventTurnEnd}
 	if fmt.Sprint(kinds(*events)) != fmt.Sprint(want) {
 		t.Fatalf("events = %v, want %v", kinds(*events), want)
 	}
@@ -614,7 +614,7 @@ func TestRunnerApprovalAllowedRunsTool(t *testing.T) {
 	if !called {
 		t.Fatal("allowed tool should execute")
 	}
-	want := []EventKind{EventTurnBegin, EventToolBegin, EventToolEnd, EventTextDelta, EventTurnEnd}
+	want := []EventKind{EventTurnBegin, EventStep, EventToolBegin, EventToolEnd, EventTextDelta, EventStep, EventTurnEnd}
 	if fmt.Sprint(kinds(*events)) != fmt.Sprint(want) {
 		t.Fatalf("allowed path should reach tool-end: %v", kinds(*events))
 	}

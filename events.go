@@ -63,12 +63,14 @@ const (
 	// (#148). Plan holds the whole plan each time, so a surface replaces the
 	// plan it showed. Step is the step whose tool call published it.
 	EventPlan EventKind = "plan"
-	// EventStep closes one model call that a StepStage named through
-	// StepView.ProviderName (#185). Step is the call and Model is the name.
-	// Usage holds what the provider reported for the call, or nil when it
-	// reported none. It fires after the call's deltas and before its tool
-	// calls run. When no stage names a step, that step emits no EventStep. So
-	// a turn without routing streams exactly what it did before.
+	// EventStep closes one model call. Step is the call. Model is the name a
+	// StepStage gave it through StepView.ProviderName (#185), and it is empty
+	// when no stage named the step. Usage holds what the provider reported for
+	// the call, or nil when it reported none. It fires after the call's deltas
+	// and before its tool calls run. Every step emits one, so a watcher can
+	// sum the usage of a turn that is killed before EventTurnEnd (#262). The
+	// sum leaves out a structured or guided finalize call, which TurnResult
+	// counts. Surfaces show a line only for a named step.
 	EventStep    EventKind = "step"
 	EventTurnEnd EventKind = "turn-end"
 	EventError   EventKind = "error"

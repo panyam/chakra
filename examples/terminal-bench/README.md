@@ -48,7 +48,10 @@ table says how it was made.
 Chakra's turn is capped at 400 model calls, so the task's time budget ends a run, as it does for
 Codex. Chakra's default cap of 8 would end most tasks early. `agentchat exec --json` writes JSON
 lines, and the adapter reads token usage, steps, tool calls and denied asks from them. So those
-numbers show up in Harbor's results next to the other agents'.
+numbers show up in Harbor's results next to the other agents'. A trial that hits its time limit
+never finishes the turn. Its usage is then the sum of the model calls that finished, and the
+trial's metadata says `usage_partial` (#262). The call in flight at the kill isn't counted, so a
+partial figure is a lower bound.
 
 ## Run history and stale cells
 

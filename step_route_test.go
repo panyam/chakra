@@ -106,13 +106,44 @@ func TestStepEventCarriesModelAndUsage(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	// Step 1 was not named, so it emits nothing. An unrouted turn's stream
-	// is unchanged.
-	if len(steps) != 1 {
-		t.Fatalf("got %d step events, want 1 (the named step only)", len(steps))
+	if len(steps) != 2 {
+		t.Fatalf("got %d step events, want 2 (one per model call)", len(steps))
 	}
-	if s := steps[0]; s.Step != 2 || s.Model != "small" || s.Usage == nil || s.Usage.InputTokens != 50 || s.Usage.OutputTokens != 5 {
+	if s := steps[0]; s.Step != 1 || s.Model != "" || s.Usage == nil || s.Usage.InputTokens != 100 || s.Usage.OutputTokens != 10 {
+		t.Errorf("step event = %+v, want unnamed step 1 with 100/10 tokens", s)
+	}
+	if s := steps[1]; s.Step != 2 || s.Model != "small" || s.Usage == nil || s.Usage.InputTokens != 50 || s.Usage.OutputTokens != 5 {
 		t.Errorf("step event = %+v, want step 2 on small with 50/5 tokens", s)
+	}
+}
+
+// A run killed mid-turn never reaches EventTurnEnd, so a watcher that sums
+// step usage still knows what the finished calls spent (#262).
+func TestUnroutedTurnEmitsAStepPerModelCall(t *testing.T) {
+	p := NewStubProvider(withUsage(dumpCalls(1)[0], 100, 10), withUsage(StubTurn{Text: "done"}, 70, 7))
+	r, _ := NewRunner(RunnerConfig{Provider: p, Tools: bigTool(1)})
+	var steps []Event
+	res, err := r.Run(context.Background(), []Message{{Role: RoleUser, Text: "go"}}, func(e Event) {
+		if e.Kind == EventStep {
+			steps = append(steps, e)
+		}
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(steps) != 2 {
+		t.Fatalf("got %d step events, want 2", len(steps))
+	}
+	var in, out int
+	for i, s := range steps {
+		if s.Step != i+1 || s.Model != "" || s.Usage == nil {
+			t.Fatalf("step event %d = %+v, want step %d, no model, with usage", i, s, i+1)
+		}
+		in += s.Usage.InputTokens
+		out += s.Usage.OutputTokens
+	}
+	if in != res.Usage.InputTokens || out != res.Usage.OutputTokens {
+		t.Errorf("summed step usage %d/%d, turn usage %d/%d", in, out, res.Usage.InputTokens, res.Usage.OutputTokens)
 	}
 }
 

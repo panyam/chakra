@@ -96,6 +96,25 @@ class IngestTest(unittest.TestCase):
             with open(written[0]) as f:
                 self.assertEqual(f.read(), first)
 
+    def test_a_timed_out_trial_keeps_its_partial_usage_flag(self):
+        with tempfile.TemporaryDirectory() as root:
+            jobs, results = os.path.join(root, "jobs"), os.path.join(root, "results")
+            j = job(jobs, "tbench-chakra-1")
+            trial(j, "fix-git", "chakra", version="abc123")
+            trial(j, "kv-store-grpc", "chakra", version="abc123")
+            path = os.path.join(j, sorted(os.listdir(j))[-1], "result.json")
+            with open(path) as f:
+                r = json.load(f)
+            r["agent_result"]["metadata"] = {"usage_partial": True}
+            r["exception_info"] = {"exception_type": "AgentTimeoutError"}
+            with open(path, "w") as f:
+                json.dump(r, f)
+            m.ingest(jobs, results=results)
+            by = {t["task"]: t for t in m.load(results)}
+            self.assertNotIn("usage_partial", by["fix-git"])
+            self.assertTrue(by["kv-store-grpc"]["usage_partial"])
+            self.assertEqual(by["kv-store-grpc"]["in"], 100_000)
+
     def test_infers_sha_from_date_when_the_build_was_not_stamped(self):
         with tempfile.TemporaryDirectory() as root:
             repo, first = git_repo(root)

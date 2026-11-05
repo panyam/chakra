@@ -107,6 +107,8 @@ def read_job(job_dir, source=None, cwd=REPO):
             "out": t["out"],
             "job": job,
         }
+        if t["usage_partial"]:
+            rec["usage_partial"] = True
         if agent in CHAKRA_AGENTS and source is None:
             if rec["agent_version"]:
                 rec["chakra_sha"] = rec["agent_version"]
