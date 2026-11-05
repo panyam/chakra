@@ -130,7 +130,8 @@ go run . --config chat.json --workspace ~/code/project \
   and `maxOutput` (bytes held per stream; default 1 MiB). The model gets 32
   KiB of each stream. When offloading is on (`--offload-threshold`, or
   `offload` in the config), the store holds the output, and the model gets all
-  of it.
+  of it. The store is `--offload-dir` when set, and otherwise `--session-store`'s
+  backend, so a resumed session can still read it.
 - **`languageServers`**: LSP in the loop. Diagnostics follow each edit, and the
   model gets `goto_definition` and `find_references`.
 - **`repoMap`**: puts a ranked map of the repository in the system prompt.

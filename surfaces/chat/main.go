@@ -19,16 +19,13 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 
 	agent "github.com/panyam/chakra"
 	"github.com/panyam/chakra/host"
 	gormstore "github.com/panyam/chakra/store/gorm"
-	redisstore "github.com/panyam/chakra/store/redis"
 	"github.com/panyam/chakra/surfaces"
 	"github.com/panyam/mcpkit/core"
 
@@ -45,47 +42,6 @@ func openGormDB(dial gorm.Dialector) (*gorm.DB, error) {
 		return nil, fmt.Errorf("agentchat: opening store: %w", err)
 	}
 	return db, nil
-}
-
-// buildToolResultStore chooses the offload blob backend. A non-empty dir
-// wins, and offloaded results become files under it. That is the no-server
-// local path (see agent.FileToolResultStore). Otherwise it maps
-// --session-store, so blobs share the run store's backend. "" and "memory"
-// give the in-memory store, and its blobs die with the process. sqlite, redis
-// and postgres give blobs that survive a restart. A nil return means "use the
-// host's in-memory default".
-func buildToolResultStore(spec, dir string) (agent.ToolResultStore, error) {
-	if dir != "" {
-		return agent.NewFileToolResultStore(dir)
-	}
-	switch {
-	case spec == "" || spec == "memory":
-		return nil, nil
-	case strings.HasPrefix(spec, "redis://"):
-		addr := strings.TrimPrefix(spec, "redis://")
-		if addr == "" {
-			return nil, fmt.Errorf("agentchat: --session-store redis:// needs host:port")
-		}
-		return redisstore.NewToolResultStore(redis.NewClient(&redis.Options{Addr: addr})), nil
-	case strings.HasPrefix(spec, "sqlite://"):
-		path := strings.TrimPrefix(spec, "sqlite://")
-		if path == "" {
-			return nil, fmt.Errorf("agentchat: --session-store sqlite:// needs a file path")
-		}
-		db, err := openGormDB(sqlite.Open(path + "?_busy_timeout=5000"))
-		if err != nil {
-			return nil, err
-		}
-		return gormstore.NewToolResultStore(db)
-	case strings.HasPrefix(spec, "postgres://") || strings.HasPrefix(spec, "postgresql://"):
-		db, err := openGormDB(postgres.Open(spec))
-		if err != nil {
-			return nil, err
-		}
-		return gormstore.NewToolResultStore(db)
-	default:
-		return nil, fmt.Errorf("agentchat: unknown --session-store %q", spec)
-	}
 }
 
 // resolveEmbedder picks the embedder for semantic memory and its vector
@@ -210,7 +166,10 @@ type appSetup struct {
 	app   *host.App
 	cfg   *host.Config
 	store agent.RunStore
-	close func()
+	// toolResults is the offload blob store handed to the App, or nil when
+	// the App uses its in-memory default.
+	toolResults agent.ToolResultStore
+	close       func()
 }
 
 // buildApp builds the App from the flags, and every agentchat mode shares it.
@@ -308,6 +267,7 @@ func buildApp(ctx context.Context, v *viper.Viper, surfaceOpts []host.AppOption,
 		appOpts = append(appOpts, host.WithConfigOverlay(configPath))
 	}
 	sessionStore := v.GetString("session-store")
+	var toolResults agent.ToolResultStore
 	store, err := surfaces.RunStoreFromSpec(sessionStore)
 	if err != nil {
 		closeAll()
@@ -319,14 +279,6 @@ func buildApp(ctx context.Context, v *viper.Viper, surfaceOpts []host.AppOption,
 
 	if threshold := v.GetInt("offload-threshold"); threshold > 0 {
 		cfg.Offload = &host.OffloadConfig{ThresholdBytes: threshold}
-		trStore, err := buildToolResultStore(sessionStore, v.GetString("offload-dir"))
-		if err != nil {
-			closeAll()
-			return nil, err
-		}
-		if trStore != nil {
-			appOpts = append(appOpts, host.WithToolResultStore(trStore))
-		}
 	}
 
 	if v.GetBool("memory") {
@@ -392,13 +344,25 @@ func buildApp(ctx context.Context, v *viper.Viper, surfaceOpts []host.AppOption,
 			return nil, err
 		}
 	}
+	// Offload can come from --offload-threshold, config.json or configure.
+	// Whichever set it, blobs go where --offload-dir or --session-store say,
+	// so a resumed session's stubs still resolve (#93).
+	if cfg.Offload != nil {
+		if toolResults, err = surfaces.ToolResultStoreFromSpec(sessionStore, v.GetString("offload-dir")); err != nil {
+			closeAll()
+			return nil, err
+		}
+		if toolResults != nil {
+			appOpts = append(appOpts, host.WithToolResultStore(toolResults))
+		}
+	}
 	app, err := host.NewApp(cfg, out, in, appOpts...)
 	if err != nil {
 		closeAll()
 		return nil, err
 	}
 	closers = append(closers, app.Close)
-	return &appSetup{app: app, cfg: cfg, store: store, close: closeAll}, nil
+	return &appSetup{app: app, cfg: cfg, store: store, toolResults: toolResults, close: closeAll}, nil
 }
 
 func runChat(v *viper.Viper) error {
