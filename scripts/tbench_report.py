@@ -47,6 +47,7 @@ def trials_from(results):
             "in": res.get("n_input_tokens"),
             "cached": res.get("n_cache_tokens"),
             "out": res.get("n_output_tokens"),
+            "usage_partial": bool((res.get("metadata") or {}).get("usage_partial")),
         }
 
 

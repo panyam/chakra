@@ -595,9 +595,7 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 			treeBudget.addTokens(resp.Usage.InputTokens + resp.Usage.OutputTokens)
 		}
 		byModel.add(view.ProviderName, resp.Usage)
-		if view.ProviderName != "" {
-			emit(Event{Kind: EventStep, Step: step, Model: view.ProviderName, Usage: resp.Usage})
-		}
+		emit(Event{Kind: EventStep, Step: step, Model: view.ProviderName, Usage: resp.Usage})
 
 		assistant := Message{Role: RoleAssistant, Text: resp.Text, ToolCalls: resp.ToolCalls}
 		msgs = append(msgs, assistant)

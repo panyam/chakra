@@ -530,6 +530,28 @@ func TestNotebookEnterDuringATurnSteersIt(t *testing.T) {
 	}
 }
 
+// An unrouted step adds no cell and doesn't split the prose around it (#262).
+func TestNBObserver_UnnamedStepAddsNoCell(t *testing.T) {
+	cells := nbCollectCells(
+		runnerEv(agent.Event{Kind: agent.EventTextDelta, Text: "first look"}),
+		runnerEv(agent.Event{Kind: agent.EventStep, Step: 1, Usage: &agent.Usage{InputTokens: 5}}),
+		runnerEv(agent.Event{Kind: agent.EventTextDelta, Text: " and the answer"}),
+		turnDoneEv(),
+	)
+	var assistant []string
+	for _, c := range cells {
+		if c.label == "step" {
+			t.Fatalf("unnamed step made a cell: %+v", cells)
+		}
+		if c.label == "assistant" {
+			assistant = append(assistant, c.body)
+		}
+	}
+	if len(assistant) != 1 || !strings.Contains(assistant[0], "first look and the answer") {
+		t.Fatalf("want one assistant cell with the whole prose, got %q", assistant)
+	}
+}
+
 // A routed step's line is its own collapsed verbatim cell, so the dim ANSI
 // never reaches the glamoured prose before it (#215).
 func TestNBObserver_StepLineIsCollapsedVerbatimCell(t *testing.T) {

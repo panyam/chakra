@@ -797,10 +797,13 @@ A few things fell out of it that are easy to trip over:
 - The structured or guided finalize always uses `RunnerConfig.Provider`, and its tokens go under
   `""` in `TurnResult.UsageByModel`. With a host route configured, unrouted steps are named after
   the active connection, so the same provider can show up under two keys. The totals still add up.
-- `EventStep` only fires for steps a stage named. The runner tests pin exact event sequences
-  (`TestRunnerSingleStepText` and four more). An event emitted on every step would break all of
-  them, and it would send every surface an event per step for nothing. Any new per-step event
-  kind runs into the same thing.
+- `EventStep` used to fire only for steps a stage named, so surfaces got no event per step for
+  nothing. That changed in #262. A Terminal-Bench trial killed at its time limit never reached
+  `turn-done`, so nothing outside the Runner knew what its finished calls had spent. Now every
+  step emits one, with `Model` empty when no stage named it. The TUI, the notebook and the web
+  timeline skip or shorten an unnamed one, so the terminal looks as it did. The runner tests pin
+  exact event sequences (`TestRunnerSingleStepText` and four more), and they now include the
+  step events.
 - Switching makes the next call cold. The prompt cache misses on the new provider. On the
   way back the Responses cursor (#157) misses too. The history now holds a step its server never
   saw, so it resends in full (`TestRoutedStepMakesTheNextResponsesCallResendInFull`).

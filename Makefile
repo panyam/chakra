@@ -58,7 +58,7 @@ test-examples: ## Test the SDK examples (and the host exercise)
 		(cd $$m && go test ./... $(GOTESTFLAGS)) || exit 1; \
 	done
 	@echo "==> test examples/terminal-bench and scripts (python)"
-	@cd examples/terminal-bench && python3 -m unittest -q test_chakra_config
+	@cd examples/terminal-bench && python3 -m unittest discover -q -p 'test_*.py'
 	@python3 -m unittest discover -q -s scripts -p 'test_*.py'
 
 testall: test test-examples check-fmt api-report check-no-binaries check-ext-isolation check-dep-consistency ## Everything CI runs

@@ -179,7 +179,8 @@ func (s *nbObserver) render(ev host.HostEvent) []tea.Msg {
 		// after the step's text and is dim ANSI as well. It gets the same cut,
 		// then closes as its own verbatim cell. That cell is collapsed, so only
 		// its header shows the line.
-		if re.Kind == agent.EventThinkingBegin || re.Kind == agent.EventStep {
+		namedStep := re.Kind == agent.EventStep && re.Model != ""
+		if re.Kind == agent.EventThinkingBegin || namedStep {
 			if txt := seg(); txt != "" {
 				msgs = append(msgs, s.cell("assistant", txt))
 			}
@@ -193,6 +194,9 @@ func (s *nbObserver) render(ev host.HostEvent) []tea.Msg {
 			msgs = append(msgs, s.cell("thinking", seg())) // verbatim: cell() only glamours "assistant"
 			s.buf.Reset()
 		case agent.EventStep:
+			if !namedStep {
+				break
+			}
 			c := s.cell("step", seg())
 			c.collapsed = true
 			msgs = append(msgs, c)

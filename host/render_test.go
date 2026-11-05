@@ -122,6 +122,19 @@ func TestAPlanRendersAsAChecklist(t *testing.T) {
 	}
 }
 
+// An unrouted step prints nothing, so the TUI shows what it did before
+// every step started emitting (#262).
+func TestRendererSkipsUnnamedStep(t *testing.T) {
+	var out strings.Builder
+	r := newRenderer(&out, false)
+	r.handle(agent.Event{Kind: agent.EventTextDelta, Text: "looking"})
+	r.handle(agent.Event{Kind: agent.EventStep, Step: 1, Usage: &agent.Usage{InputTokens: 5}})
+	r.handle(agent.Event{Kind: agent.EventTextDelta, Text: " still"})
+	if got, want := out.String(), "looking still"; got != want {
+		t.Fatalf("render = %q, want %q", got, want)
+	}
+}
+
 // A routed step prints which connection answered it (#215).
 func TestRendererStepLine(t *testing.T) {
 	var out strings.Builder

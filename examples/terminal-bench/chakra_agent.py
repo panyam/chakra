@@ -26,6 +26,7 @@ from harbor.models.agent.context import AgentContext
 from harbor.models.model_api_format import ModelApiFormat
 
 from chakra_config import build
+from chakra_jsonl import summarize
 
 _HERE = Path(__file__).resolve().parent
 
@@ -116,26 +117,19 @@ class ChakraAgent(BaseInstalledAgent):
         )
 
     def populate_context_post_run(self, context: AgentContext) -> None:
-        """Reads the turn's usage from the JSON lines exec wrote."""
+        """Reads the turn's usage from the JSON lines exec wrote. Harbor calls
+        this after a timeout too, and then the usage is a partial sum."""
         path = self.logs_dir / _OUTPUT
         if not path.is_file():
             return
-        usage, steps, tools, denied = {}, 0, 0, 0
-        for line in path.read_text().splitlines():
-            try:
-                frame = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            kind, payload = frame.get("kind"), frame.get("payload") or {}
-            if kind == "turn-done":
-                result = payload.get("Result") or {}
-                usage = result.get("usage") or {}
-                steps = result.get("steps") or 0
-            elif kind == "runner-event" and (payload.get("RunnerEvent") or {}).get("kind") == "tool-begin":
-                tools += 1
-            elif kind == "ask-denied":
-                denied += 1
-        context.n_input_tokens = usage.get("inputTokens")
-        context.n_cache_tokens = usage.get("cachedInputTokens")
-        context.n_output_tokens = usage.get("outputTokens")
-        context.metadata = {**(context.metadata or {}), "steps": steps, "tool_calls": tools, "asks_denied": denied}
+        s = summarize(path.read_text().splitlines())
+        context.n_input_tokens = s["input"]
+        context.n_cache_tokens = s["cached"]
+        context.n_output_tokens = s["output"]
+        context.metadata = {
+            **(context.metadata or {}),
+            "steps": s["steps"],
+            "tool_calls": s["tool_calls"],
+            "asks_denied": s["asks_denied"],
+            "usage_partial": s["usage_partial"],
+        }

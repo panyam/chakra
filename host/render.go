@@ -101,8 +101,11 @@ func (r *renderer) handle(e agent.Event) {
 			fmt.Fprintf(r.out, "%s\n", r.dim("  "+l))
 		}
 	case agent.EventStep:
-		// Sent only when a step route labelled the call, so an unrouted turn
-		// prints none of these.
+		// Every model call sends one. Only a routed call has a name worth a
+		// line, so an unrouted turn prints none of these.
+		if e.Model == "" {
+			return
+		}
 		r.breakLine()
 		fmt.Fprintf(r.out, "%s\n", r.dim(fmt.Sprintf("↳ step %d on %s", e.Step, e.Model)))
 	case agent.EventTurnContinued:

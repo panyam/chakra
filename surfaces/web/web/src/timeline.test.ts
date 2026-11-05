@@ -28,6 +28,11 @@ describe("timeline summarize", () => {
       summarize({ Kind: "runner-event", RunnerEvent: { kind: "step", step: 2, model: "mini", usage: { inputTokens: 1200, outputTokens: 40 } } }),
     ).toEqual({ kind: "step", summary: "step 2 on mini (1200 in / 40 out)" });
   });
+  it("summarizes an unrouted step by its usage alone", () => {
+    expect(
+      summarize({ Kind: "runner-event", RunnerEvent: { kind: "step", step: 1, usage: { inputTokens: 900, outputTokens: 30 } } }),
+    ).toEqual({ kind: "step", summary: "step 1 (900 in / 30 out)" });
+  });
 });
 
 describe("TimelineStore reduce", () => {
