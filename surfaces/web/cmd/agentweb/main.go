@@ -72,6 +72,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("agentweb: %v", err)
 	}
+	// Offloaded tool results go in the same backend, and every App shares the
+	// one store. A session's stubs then resolve after a restart, or after the
+	// manager drops and rehydrates it (#93). The host reads it only when the
+	// App's config sets Offload.
+	toolResults, err := agentsurfaces.ToolResultStoreFromSpec(*sessionStore, "")
+	if err != nil {
+		log.Fatalf("agentweb: %v", err)
+	}
 
 	// One factory builds a fresh App per web session from the same config, so a
 	// CreateSession over the wire mints an independent conversation. Every App
@@ -85,6 +93,7 @@ func main() {
 		active:          *active,
 		model:           *model,
 		store:           store,
+		toolResults:     toolResults,
 		workspace:       workspace,
 		workspaceConfig: *workspaceConfig,
 		checkpointStore: *checkpointStore,
@@ -202,11 +211,24 @@ type appOptions struct {
 	active          string
 	model           string
 	store           agent.RunStore
+	toolResults     agent.ToolResultStore
 	workspace       []string
 	workspaceConfig string
 	checkpointStore string
 	noCheckpoint    bool
 	instructions    string
+}
+
+// storeOpts attaches the run store and the offload blob store, each when set.
+func (o appOptions) storeOpts() []host.AppOption {
+	var opts []host.AppOption
+	if o.store != nil {
+		opts = append(opts, host.WithRunStore(o.store))
+	}
+	if o.toolResults != nil {
+		opts = append(opts, host.WithToolResultStore(o.toolResults))
+	}
+	return opts
 }
 
 // checkInstructions rejects an --instructions value that names no preset. It
@@ -228,10 +250,7 @@ func checkInstructions(name string) error {
 // session persists its turns, the default one included. The store-backed
 // SessionManager relies on that when it rehydrates a dropped session.
 func buildApp(o appOptions) (*host.App, error) {
-	var storeOpt []host.AppOption
-	if o.store != nil {
-		storeOpt = append(storeOpt, host.WithRunStore(o.store))
-	}
+	storeOpt := o.storeOpts()
 	// withWorkspace builds the workspace options. The demo path and the config
 	// path both append them to their App, so the two paths can't offer
 	// different tools. The options always include skill dirs and roots, plus
@@ -364,10 +383,7 @@ func buildSessionApp(o appOptions, spec *webv1.ProviderSpec) (*host.App, error) 
 	}
 	// The surfaces show this model label. The provider makes the model calls.
 	cfg.Model = host.ModelConfig{BaseURL: "byok://" + spec.GetType(), Model: spec.GetModel()}
-	var opts []host.AppOption
-	if o.store != nil {
-		opts = append(opts, host.WithRunStore(o.store))
-	}
+	opts := o.storeOpts()
 	return host.NewApp(cfg, io.Discard, strings.NewReader(""), append(opts, host.WithProvider(p), host.WithElicitationUI(awaitSurface))...)
 }
 

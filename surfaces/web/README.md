@@ -132,7 +132,8 @@ the list.
 Each coding session works in `--coding-workspace` or in a fresh git copy of `--coding-fixture`.
 Its file snapshots, and its fixture copy, go to a folder named by its session id under
 `--coding-state` (default: `agentweb-coding` in the system temp dir), outside the workspace. With
-`--session-store`, coding sessions persist like chat ones. After a restart the next request
+`--session-store`, coding sessions persist like chat ones, and a config that sets `offload` keeps
+offloaded tool results in the same backend. After a restart the next request
 rebuilds the session on the same folder, so its fixture copy keeps the agent's edits. A session
 whose folder is gone can't be resumed, and the page starts a fresh one. Without a store, closing a
 session, or stopping the server, removes its folder.
