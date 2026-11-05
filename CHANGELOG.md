@@ -5,6 +5,16 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
+## [v0.2.9] - 2026-11-04
+
+### Added
+- Runner: a request stage sets the grammar for one call through `StepView.Guided`. It starts as the turn's `ResponseGuided`, a request stage may replace or clear it, and the next step starts from the turn's grammar again. A step with no tools sends it. A step that offers tools finalizes under its own grammar, and a cleared one skips the finalize. A stage's grammar is checked against the provider that sends it before the call (PR 260).
+- `examples/terminal-bench`: `scripts/tbench_matrix.py` keeps a task by setup matrix of the last runs, and runs only the stale cells (PR 261).
+
+### Changed
+- Runner: a session or turn stage that changes `StepView.Guided` fails the turn. A stage that returns a `StepView` built from scratch, rather than the one it was given, now clears that call's grammar (PR 260).
+- Runner: the error for a routed provider that can't guide now reads "step N's grammar (the step is routed to ...)". It still wraps `ErrUnsupportedParam` (PR 260).
+
 ## [v0.2.8] - 2026-11-03
 
 ### Added
