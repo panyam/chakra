@@ -230,6 +230,37 @@ class StaleTest(unittest.TestCase):
         self.assertAlmostEqual(m.estimate("b", CHAKRA, trials), 3.0)
         self.assertAlmostEqual(m.estimate("never", CHAKRA, trials), 2.0)
 
+    def test_a_never_run_task_heavy_in_a_reference_costs_more_than_the_median(self):
+        ref = "terminus-2/openai-gpt-5.3-codex/xhigh"
+        trials = [
+            rec("a", CHAKRA, tokens=(100_000, 0, 0)),
+            rec("b", CHAKRA, tokens=(200_000, 0, 0)),
+            rec("a", ref, tokens=(200_000, 0, 0), source="https://x"),
+            rec("b", ref, tokens=(400_000, 0, 0), source="https://x"),
+            rec("heavy", ref, tokens=(4_000_000, 0, 0), source="https://x"),
+        ]
+        # We spend half what the reference does on shared tasks, so heavy is
+        # 4M x $5/M x 0.5.
+        self.assertAlmostEqual(m.estimate("heavy", CHAKRA, trials), 10.0)
+        self.assertGreater(m.estimate("heavy", CHAKRA, trials), m.estimate("never", CHAKRA, trials))
+
+    def test_reference_scaling_uses_only_tasks_both_have_run(self):
+        ref = "terminus-2/openai-gpt-5.3-codex/xhigh"
+        trials = [
+            rec("a", CHAKRA, tokens=(100_000, 0, 0)),
+            rec("ours-only", CHAKRA, tokens=(9_000_000, 0, 0)),
+            rec("a", ref, tokens=(100_000, 0, 0), source="https://x"),
+            rec("heavy", ref, tokens=(1_000_000, 0, 0), source="https://x"),
+        ]
+        self.assertAlmostEqual(m.estimate("heavy", CHAKRA, trials), 5.0)
+
+    def test_a_reference_with_no_shared_task_is_not_used(self):
+        trials = [
+            rec("a", CHAKRA, tokens=(100_000, 0, 0)),
+            rec("heavy", "terminus-2/openai-gpt-5.3-codex/xhigh", tokens=(4_000_000, 0, 0), source="https://x"),
+        ]
+        self.assertAlmostEqual(m.estimate("heavy", CHAKRA, trials), 0.5)
+
     def test_cached_and_output_tokens_use_their_own_prices(self):
         t = rec("a", CHAKRA, tokens=(1_000_000, 400_000, 100_000))
         self.assertAlmostEqual(m.trial_cost(t, m.PRICES["openai/gpt-5.5"]), 0.6 * 5 + 0.4 * 0.5 + 0.1 * 30)
