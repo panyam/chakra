@@ -92,6 +92,11 @@ jobs:
       - name: Vet
         run: make vet
 
+      # The exercise for mission #142. A changed exported name fails here
+      # until the PR commits the api.txt diff that make api-update writes.
+      - name: Exported API matches api.txt
+        run: make api-report
+
       - name: Test every module
         run: make test GOTESTFLAGS='-v -race -count=1 -timeout 300s'
 

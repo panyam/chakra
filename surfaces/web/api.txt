@@ -1,0 +1,335 @@
+pkg github.com/panyam/chakra/surfaces/web, const DefaultSessionID
+pkg github.com/panyam/chakra/surfaces/web, func Handler(*host.App) http.Handler
+pkg github.com/panyam/chakra/surfaces/web, func HandlerWithSessions(*SessionManager, ...Option) http.Handler
+pkg github.com/panyam/chakra/surfaces/web, func NewHostService(*host.App) *HostService
+pkg github.com/panyam/chakra/surfaces/web, func NewHostServiceWithSessions(*SessionManager, ...Option) *HostService
+pkg github.com/panyam/chakra/surfaces/web, func NewSessionManager(func(context.Context) (*host.App, error)) *SessionManager
+pkg github.com/panyam/chakra/surfaces/web, func NewSessionManagerWithStore(func(context.Context) (*host.App, error), agent.RunStore) *SessionManager
+pkg github.com/panyam/chakra/surfaces/web, func ProfileOf(string) string
+pkg github.com/panyam/chakra/surfaces/web, func WithPrivateSessions() Option
+pkg github.com/panyam/chakra/surfaces/web, func WithProfile(Profile) Option
+pkg github.com/panyam/chakra/surfaces/web, func WithSessionBuilder(SessionBuilder) Option
+pkg github.com/panyam/chakra/surfaces/web, func WithWatchWindow(time.Duration) Option
+pkg github.com/panyam/chakra/surfaces/web, method (*HostService) CloseSession(context.Context, *connect.Request[webv1.CloseSessionRequest]) (*connect.Response[webv1.CloseSessionResponse], error)
+pkg github.com/panyam/chakra/surfaces/web, method (*HostService) CreateSession(context.Context, *connect.Request[webv1.CreateSessionRequest]) (*connect.Response[webv1.CreateSessionResponse], error)
+pkg github.com/panyam/chakra/surfaces/web, method (*HostService) Dispatch(context.Context, *connect.Request[webv1.DispatchRequest]) (*connect.Response[webv1.DispatchResponse], error)
+pkg github.com/panyam/chakra/surfaces/web, method (*HostService) GetStatus(context.Context, *connect.Request[webv1.GetStatusRequest]) (*connect.Response[webv1.GetStatusResponse], error)
+pkg github.com/panyam/chakra/surfaces/web, method (*HostService) ListSessions(context.Context, *connect.Request[webv1.ListSessionsRequest]) (*connect.Response[webv1.ListSessionsResponse], error)
+pkg github.com/panyam/chakra/surfaces/web, method (*HostService) ListWebSessions(context.Context, *connect.Request[webv1.ListWebSessionsRequest]) (*connect.Response[webv1.ListWebSessionsResponse], error)
+pkg github.com/panyam/chakra/surfaces/web, method (*HostService) ResizeProcess(context.Context, *connect.Request[webv1.ResizeProcessRequest]) (*connect.Response[webv1.ResizeProcessResponse], error)
+pkg github.com/panyam/chakra/surfaces/web, method (*HostService) RespondToAsk(context.Context, *connect.Request[webv1.RespondToAskRequest]) (*connect.Response[webv1.RespondToAskResponse], error)
+pkg github.com/panyam/chakra/surfaces/web, method (*HostService) Submit(context.Context, *connect.Request[webv1.SubmitRequest]) (*connect.Response[webv1.SubmitResponse], error)
+pkg github.com/panyam/chakra/surfaces/web, method (*HostService) Watch(context.Context, *connect.Request[webv1.WatchRequest], *connect.ServerStream[webv1.Frame]) error
+pkg github.com/panyam/chakra/surfaces/web, method (*HostService) WriteProcess(context.Context, *connect.Request[webv1.WriteProcessRequest]) (*connect.Response[webv1.WriteProcessResponse], error)
+pkg github.com/panyam/chakra/surfaces/web, method (*SessionManager) Adopt(context.Context, *host.App) (string, error)
+pkg github.com/panyam/chakra/surfaces/web, method (*SessionManager) Close(string) bool
+pkg github.com/panyam/chakra/surfaces/web, method (*SessionManager) CloseAll()
+pkg github.com/panyam/chakra/surfaces/web, method (*SessionManager) Create(context.Context) (string, *host.App, error)
+pkg github.com/panyam/chakra/surfaces/web, method (*SessionManager) CreateProfile(context.Context, string) (string, error)
+pkg github.com/panyam/chakra/surfaces/web, method (*SessionManager) Get(context.Context, string) (*host.App, bool)
+pkg github.com/panyam/chakra/surfaces/web, method (*SessionManager) List(context.Context) []string
+pkg github.com/panyam/chakra/surfaces/web, method (*SessionManager) SetDefault(*host.App)
+pkg github.com/panyam/chakra/surfaces/web, type HostService struct
+pkg github.com/panyam/chakra/surfaces/web, type HostService struct, embedded webv1connect.UnimplementedHostServiceHandler
+pkg github.com/panyam/chakra/surfaces/web, type Option func(*HostService)
+pkg github.com/panyam/chakra/surfaces/web, type Profile struct
+pkg github.com/panyam/chakra/surfaces/web, type Profile struct, Build func(context.Context, string) (*host.App, error)
+pkg github.com/panyam/chakra/surfaces/web, type Profile struct, Close func(string)
+pkg github.com/panyam/chakra/surfaces/web, type Profile struct, Name string
+pkg github.com/panyam/chakra/surfaces/web, type Profile struct, Path string
+pkg github.com/panyam/chakra/surfaces/web, type SessionBuilder func(context.Context, *webv1.ProviderSpec) (*host.App, error)
+pkg github.com/panyam/chakra/surfaces/web, type SessionManager struct
+pkg github.com/panyam/chakra/surfaces/web, var ErrNoSessionFactory
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CloseSessionRequest) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CloseSessionRequest) GetSessionId() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CloseSessionRequest) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CloseSessionRequest) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CloseSessionRequest) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CloseSessionRequest) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CloseSessionResponse) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CloseSessionResponse) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CloseSessionResponse) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CloseSessionResponse) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CloseSessionResponse) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CreateSessionRequest) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CreateSessionRequest) GetProfile() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CreateSessionRequest) GetProvider() *ProviderSpec
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CreateSessionRequest) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CreateSessionRequest) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CreateSessionRequest) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CreateSessionRequest) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CreateSessionResponse) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CreateSessionResponse) GetSessionId() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CreateSessionResponse) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CreateSessionResponse) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CreateSessionResponse) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*CreateSessionResponse) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*DispatchRequest) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*DispatchRequest) GetLine() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*DispatchRequest) GetSessionId() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*DispatchRequest) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*DispatchRequest) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*DispatchRequest) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*DispatchRequest) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*DispatchResponse) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*DispatchResponse) GetKind() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*DispatchResponse) GetPayload() []byte
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*DispatchResponse) GetQuit() bool
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*DispatchResponse) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*DispatchResponse) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*DispatchResponse) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*DispatchResponse) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*Frame) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*Frame) GetKind() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*Frame) GetPayload() []byte
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*Frame) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*Frame) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*Frame) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*Frame) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*GetStatusRequest) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*GetStatusRequest) GetSessionId() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*GetStatusRequest) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*GetStatusRequest) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*GetStatusRequest) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*GetStatusRequest) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*GetStatusResponse) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*GetStatusResponse) GetActiveProvider() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*GetStatusResponse) GetModelLabel() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*GetStatusResponse) GetProviders() []string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*GetStatusResponse) GetRunId() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*GetStatusResponse) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*GetStatusResponse) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*GetStatusResponse) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*GetStatusResponse) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListSessionsRequest) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListSessionsRequest) GetCursor() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListSessionsRequest) GetSessionId() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListSessionsRequest) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListSessionsRequest) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListSessionsRequest) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListSessionsRequest) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListSessionsResponse) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListSessionsResponse) GetActiveRunId() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListSessionsResponse) GetHasMore() bool
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListSessionsResponse) GetRuns() []byte
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListSessionsResponse) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListSessionsResponse) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListSessionsResponse) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListSessionsResponse) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListWebSessionsRequest) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListWebSessionsRequest) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListWebSessionsRequest) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListWebSessionsRequest) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListWebSessionsRequest) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListWebSessionsResponse) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListWebSessionsResponse) GetSessionIds() []string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListWebSessionsResponse) GetSessions() []*WebSession
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListWebSessionsResponse) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListWebSessionsResponse) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListWebSessionsResponse) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ListWebSessionsResponse) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ProviderSpec) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ProviderSpec) GetApiKey() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ProviderSpec) GetBaseUrl() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ProviderSpec) GetModel() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ProviderSpec) GetType() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ProviderSpec) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ProviderSpec) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ProviderSpec) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ProviderSpec) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ResizeProcessRequest) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ResizeProcessRequest) GetCols() int32
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ResizeProcessRequest) GetProcessId() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ResizeProcessRequest) GetRows() int32
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ResizeProcessRequest) GetSessionId() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ResizeProcessRequest) GetSource() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ResizeProcessRequest) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ResizeProcessRequest) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ResizeProcessRequest) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ResizeProcessRequest) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ResizeProcessResponse) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ResizeProcessResponse) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ResizeProcessResponse) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ResizeProcessResponse) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*ResizeProcessResponse) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*RespondToAskRequest) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*RespondToAskRequest) GetAskId() int64
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*RespondToAskRequest) GetBy() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*RespondToAskRequest) GetResult() []byte
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*RespondToAskRequest) GetSessionId() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*RespondToAskRequest) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*RespondToAskRequest) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*RespondToAskRequest) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*RespondToAskRequest) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*RespondToAskResponse) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*RespondToAskResponse) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*RespondToAskResponse) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*RespondToAskResponse) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*RespondToAskResponse) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*SubmitRequest) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*SubmitRequest) GetInput() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*SubmitRequest) GetResponseSchema() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*SubmitRequest) GetSessionId() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*SubmitRequest) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*SubmitRequest) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*SubmitRequest) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*SubmitRequest) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*SubmitResponse) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*SubmitResponse) GetSteered() bool
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*SubmitResponse) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*SubmitResponse) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*SubmitResponse) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*SubmitResponse) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WatchRequest) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WatchRequest) GetResumeAfter() uint64
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WatchRequest) GetSessionId() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WatchRequest) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WatchRequest) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WatchRequest) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WatchRequest) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WebSession) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WebSession) GetPath() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WebSession) GetProfile() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WebSession) GetSessionId() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WebSession) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WebSession) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WebSession) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WebSession) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WriteProcessRequest) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WriteProcessRequest) GetData() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WriteProcessRequest) GetProcessId() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WriteProcessRequest) GetSessionId() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WriteProcessRequest) GetSource() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WriteProcessRequest) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WriteProcessRequest) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WriteProcessRequest) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WriteProcessRequest) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WriteProcessResponse) Descriptor() ([]byte, []int)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WriteProcessResponse) ProtoMessage()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WriteProcessResponse) ProtoReflect() protoreflect.Message
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WriteProcessResponse) Reset()
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, method (*WriteProcessResponse) String() string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type CloseSessionRequest struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type CloseSessionRequest struct, SessionId string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type CloseSessionResponse struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type CreateSessionRequest struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type CreateSessionRequest struct, Profile string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type CreateSessionRequest struct, Provider *ProviderSpec
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type CreateSessionResponse struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type CreateSessionResponse struct, SessionId string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type DispatchRequest struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type DispatchRequest struct, Line string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type DispatchRequest struct, SessionId string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type DispatchResponse struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type DispatchResponse struct, Kind string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type DispatchResponse struct, Payload []byte
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type DispatchResponse struct, Quit bool
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type Frame struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type Frame struct, Kind string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type Frame struct, Payload []byte
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type GetStatusRequest struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type GetStatusRequest struct, SessionId string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type GetStatusResponse struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type GetStatusResponse struct, ActiveProvider string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type GetStatusResponse struct, ModelLabel string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type GetStatusResponse struct, Providers []string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type GetStatusResponse struct, RunId string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ListSessionsRequest struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ListSessionsRequest struct, Cursor string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ListSessionsRequest struct, SessionId string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ListSessionsResponse struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ListSessionsResponse struct, ActiveRunId string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ListSessionsResponse struct, HasMore bool
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ListSessionsResponse struct, Runs []byte
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ListWebSessionsRequest struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ListWebSessionsResponse struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ListWebSessionsResponse struct, SessionIds []string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ListWebSessionsResponse struct, Sessions []*WebSession
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ProviderSpec struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ProviderSpec struct, ApiKey string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ProviderSpec struct, BaseUrl string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ProviderSpec struct, Model string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ProviderSpec struct, Type string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ResizeProcessRequest struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ResizeProcessRequest struct, Cols int32
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ResizeProcessRequest struct, ProcessId string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ResizeProcessRequest struct, Rows int32
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ResizeProcessRequest struct, SessionId string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ResizeProcessRequest struct, Source string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type ResizeProcessResponse struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type RespondToAskRequest struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type RespondToAskRequest struct, AskId int64
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type RespondToAskRequest struct, By string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type RespondToAskRequest struct, Result []byte
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type RespondToAskRequest struct, SessionId string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type RespondToAskResponse struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type SubmitRequest struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type SubmitRequest struct, Input string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type SubmitRequest struct, ResponseSchema string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type SubmitRequest struct, SessionId string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type SubmitResponse struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type SubmitResponse struct, Steered bool
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type WatchRequest struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type WatchRequest struct, ResumeAfter uint64
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type WatchRequest struct, SessionId string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type WebSession struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type WebSession struct, Path string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type WebSession struct, Profile string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type WebSession struct, SessionId string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type WriteProcessRequest struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type WriteProcessRequest struct, Data string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type WriteProcessRequest struct, ProcessId string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type WriteProcessRequest struct, SessionId string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type WriteProcessRequest struct, Source string
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, type WriteProcessResponse struct
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1, var File_chakra_web_v1_host_proto protoreflect.FileDescriptor
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, const HostServiceCloseSessionProcedure
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, const HostServiceCreateSessionProcedure
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, const HostServiceDispatchProcedure
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, const HostServiceGetStatusProcedure
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, const HostServiceListSessionsProcedure
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, const HostServiceListWebSessionsProcedure
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, const HostServiceName
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, const HostServiceResizeProcessProcedure
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, const HostServiceRespondToAskProcedure
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, const HostServiceSubmitProcedure
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, const HostServiceWatchProcedure
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, const HostServiceWriteProcessProcedure
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, func NewHostServiceClient(connect.HTTPClient, string, ...connect.ClientOption) HostServiceClient
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, func NewHostServiceHandler(HostServiceHandler, ...connect.HandlerOption) (string, http.Handler)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, method (UnimplementedHostServiceHandler) CloseSession(context.Context, *connect.Request[v1.CloseSessionRequest]) (*connect.Response[v1.CloseSessionResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, method (UnimplementedHostServiceHandler) CreateSession(context.Context, *connect.Request[v1.CreateSessionRequest]) (*connect.Response[v1.CreateSessionResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, method (UnimplementedHostServiceHandler) Dispatch(context.Context, *connect.Request[v1.DispatchRequest]) (*connect.Response[v1.DispatchResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, method (UnimplementedHostServiceHandler) GetStatus(context.Context, *connect.Request[v1.GetStatusRequest]) (*connect.Response[v1.GetStatusResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, method (UnimplementedHostServiceHandler) ListSessions(context.Context, *connect.Request[v1.ListSessionsRequest]) (*connect.Response[v1.ListSessionsResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, method (UnimplementedHostServiceHandler) ListWebSessions(context.Context, *connect.Request[v1.ListWebSessionsRequest]) (*connect.Response[v1.ListWebSessionsResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, method (UnimplementedHostServiceHandler) ResizeProcess(context.Context, *connect.Request[v1.ResizeProcessRequest]) (*connect.Response[v1.ResizeProcessResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, method (UnimplementedHostServiceHandler) RespondToAsk(context.Context, *connect.Request[v1.RespondToAskRequest]) (*connect.Response[v1.RespondToAskResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, method (UnimplementedHostServiceHandler) Submit(context.Context, *connect.Request[v1.SubmitRequest]) (*connect.Response[v1.SubmitResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, method (UnimplementedHostServiceHandler) Watch(context.Context, *connect.Request[v1.WatchRequest], *connect.ServerStream[v1.Frame]) error
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, method (UnimplementedHostServiceHandler) WriteProcess(context.Context, *connect.Request[v1.WriteProcessRequest]) (*connect.Response[v1.WriteProcessResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceClient interface
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceClient interface, CloseSession(context.Context, *connect.Request[v1.CloseSessionRequest]) (*connect.Response[v1.CloseSessionResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceClient interface, CreateSession(context.Context, *connect.Request[v1.CreateSessionRequest]) (*connect.Response[v1.CreateSessionResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceClient interface, Dispatch(context.Context, *connect.Request[v1.DispatchRequest]) (*connect.Response[v1.DispatchResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceClient interface, GetStatus(context.Context, *connect.Request[v1.GetStatusRequest]) (*connect.Response[v1.GetStatusResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceClient interface, ListSessions(context.Context, *connect.Request[v1.ListSessionsRequest]) (*connect.Response[v1.ListSessionsResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceClient interface, ListWebSessions(context.Context, *connect.Request[v1.ListWebSessionsRequest]) (*connect.Response[v1.ListWebSessionsResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceClient interface, ResizeProcess(context.Context, *connect.Request[v1.ResizeProcessRequest]) (*connect.Response[v1.ResizeProcessResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceClient interface, RespondToAsk(context.Context, *connect.Request[v1.RespondToAskRequest]) (*connect.Response[v1.RespondToAskResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceClient interface, Submit(context.Context, *connect.Request[v1.SubmitRequest]) (*connect.Response[v1.SubmitResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceClient interface, Watch(context.Context, *connect.Request[v1.WatchRequest]) (*connect.ServerStreamForClient[v1.Frame], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceClient interface, WriteProcess(context.Context, *connect.Request[v1.WriteProcessRequest]) (*connect.Response[v1.WriteProcessResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceHandler interface
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceHandler interface, CloseSession(context.Context, *connect.Request[v1.CloseSessionRequest]) (*connect.Response[v1.CloseSessionResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceHandler interface, CreateSession(context.Context, *connect.Request[v1.CreateSessionRequest]) (*connect.Response[v1.CreateSessionResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceHandler interface, Dispatch(context.Context, *connect.Request[v1.DispatchRequest]) (*connect.Response[v1.DispatchResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceHandler interface, GetStatus(context.Context, *connect.Request[v1.GetStatusRequest]) (*connect.Response[v1.GetStatusResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceHandler interface, ListSessions(context.Context, *connect.Request[v1.ListSessionsRequest]) (*connect.Response[v1.ListSessionsResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceHandler interface, ListWebSessions(context.Context, *connect.Request[v1.ListWebSessionsRequest]) (*connect.Response[v1.ListWebSessionsResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceHandler interface, ResizeProcess(context.Context, *connect.Request[v1.ResizeProcessRequest]) (*connect.Response[v1.ResizeProcessResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceHandler interface, RespondToAsk(context.Context, *connect.Request[v1.RespondToAskRequest]) (*connect.Response[v1.RespondToAskResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceHandler interface, Submit(context.Context, *connect.Request[v1.SubmitRequest]) (*connect.Response[v1.SubmitResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceHandler interface, Watch(context.Context, *connect.Request[v1.WatchRequest], *connect.ServerStream[v1.Frame]) error
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type HostServiceHandler interface, WriteProcess(context.Context, *connect.Request[v1.WriteProcessRequest]) (*connect.Response[v1.WriteProcessResponse], error)
+pkg github.com/panyam/chakra/surfaces/web/gen/go/chakra/web/v1/webv1connect, type UnimplementedHostServiceHandler struct
