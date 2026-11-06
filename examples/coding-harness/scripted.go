@@ -8,7 +8,8 @@ import (
 )
 
 // scriptedProvider plays a competent agent with today's tools. It reads the
-// code, fixes the loop, runs the tests, and answers. The driver sends a steer
+// code, runs the failing tests three times over, fixes the loop, runs the
+// tests, and answers. The driver sends a steer
 // after the first tool result, and the steer joins the turn (#149), so the
 // answer covers it. As tickets merge, the script moves to their tools
 // (apply_patch, update_plan), so the scripted run keeps exercising the wiring
@@ -31,6 +32,18 @@ func scriptedProvider(fixture string) (agent.Provider, error) {
 		}},
 		agent.StubTurn{ToolCalls: []agent.ToolCall{
 			call("c1", "read_file", map[string]any{"path": "stats/stats.go"}),
+		}},
+		// Runs the failing tests three times before changing anything, the
+		// way a stuck agent does. The detector (#285) sees the same call and
+		// the same failure three times, and notes it on the next call.
+		agent.StubTurn{ToolCalls: []agent.ToolCall{
+			call("s1", "shell", map[string]any{"command": []string{"go", "test", "./..."}}),
+		}},
+		agent.StubTurn{ToolCalls: []agent.ToolCall{
+			call("s2", "shell", map[string]any{"command": []string{"go", "test", "./..."}}),
+		}},
+		agent.StubTurn{ToolCalls: []agent.ToolCall{
+			call("s3", "shell", map[string]any{"command": []string{"go", "test", "./..."}}),
 		}},
 		agent.StubTurn{ToolCalls: []agent.ToolCall{
 			call("c2", "apply_patch", map[string]any{"input": "*** Begin Patch\n*** Update File: stats/stats.go\n@@ func Sum(xs []int) int {\n-\tfor i := 1; i < len(xs); i++ {\n+\tfor i := 0; i < len(xs); i++ {\n*** End Patch"}),

@@ -166,7 +166,7 @@ func (p Profile) Build(context.Context) (*host.App, error) {
 		ui = AwaitSurface
 	}
 	opts := []host.AppOption{
-		host.WithExtension(append(exts, extra...)...),
+		host.WithExtension(append(append(exts, stuckExtension{}), extra...)...),
 		host.WithSkillDirs(skillDirs...),
 		host.WithRoots(ws.Roots...),
 		host.WithElicitationUI(ui),

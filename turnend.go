@@ -64,11 +64,14 @@ type TurnEndVerdict struct {
 	Stop string
 }
 
-// ErrTurnStopped means a TurnEndHook's verdict set Stop. Run returns it
-// wrapped, with the hook's reason. Like ErrMaxSteps, it comes with a partial
-// TurnResult. Text is empty, and Messages holds the turn's record with the
-// refused answer last.
-var ErrTurnStopped = errors.New("agent: turn stopped by a turn-end hook")
+// ErrTurnStopped means a TurnEndHook's verdict set Stop, or a StepStage
+// returned an error wrapping it, such as NewStuckDetector under StuckStop
+// (#278). Run returns it wrapped, with the reason. Like ErrMaxSteps, it comes
+// with a partial TurnResult, and Text is empty. After a turn-end Stop,
+// Messages holds the turn's record with the refused answer last. After a
+// stage stop, it holds the record up to the step the stage ran before, and
+// that step's model call never happens.
+var ErrTurnStopped = errors.New("agent: turn stopped")
 
 // turnEnd runs the hooks in order and returns the first verdict that doesn't
 // accept. When every hook accepts, it returns the zero verdict.

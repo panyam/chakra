@@ -538,12 +538,16 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 				return nil, r.failSpan(emit, turnSpan, fmt.Errorf("agent: listing tools: %w", err))
 			}
 		}
-		working, recorded, view, err := runStepChain(stepCtx, chain, StepInfo{Step: step, MaxSteps: r.cfg.MaxSteps, Usage: usage}, msgs, tools, guided)
+		info := StepInfo{Step: step, MaxSteps: r.cfg.MaxSteps, Usage: usage, Turn: slices.Clone(added), Emit: emit}
+		working, recorded, view, err := runStepChain(stepCtx, chain, info, msgs, tools, guided, gen)
 		if err != nil {
 			stepSpan.RecordError(err)
 			stepSpan.End()
 			if errors.Is(err, ErrContextBudget) {
 				return r.partialResult(added, usage, byModel, step-1, err, "context_budget", emit, turnSpan)
+			}
+			if errors.Is(err, ErrTurnStopped) {
+				return r.partialResult(added, usage, byModel, step-1, err, "stopped", emit, turnSpan)
 			}
 			return nil, r.failSpan(emit, turnSpan, err)
 		}
@@ -556,7 +560,7 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 			Messages:     view.Messages,
 			Tools:        tools,
 		}
-		gen.applyTo(&stepReq)
+		view.Generation.applyTo(&stepReq)
 		prov := r.cfg.Provider
 		if view.Provider == nil && view.ProviderName != "" {
 			defaultName = view.ProviderName
@@ -1189,7 +1193,7 @@ func (r *Runner) callTool(ctx context.Context, parent context.Context, step int,
 		status = "error"
 		span.RecordError(err)
 		emit(Event{Kind: EventToolError, Step: step, ToolCall: &call, Error: err.Error()})
-		return fmt.Sprintf("tool call failed: %v", err)
+		return fmt.Sprintf(toolFailedPrefix+"%v", err)
 	}
 
 	if r.cfg.Tools == nil {
@@ -1226,7 +1230,7 @@ func (r *Runner) callTool(ctx context.Context, parent context.Context, step int,
 			status = "denied"
 			span.SetAttribute("agent.tool.denied", "true")
 			emit(Event{Kind: EventToolDenied, Step: step, ToolCall: &call, Reason: reason})
-			return "tool call not permitted: " + deniedModelReason(err, reason)
+			return toolDeniedPrefix + deniedModelReason(err, reason)
 		}
 		// The tool's server may be unreachable right now. That is a non-fatal
 		// miss, not a failure. As with a denial or a cancellation, the model is
@@ -1249,10 +1253,18 @@ func (r *Runner) callTool(ctx context.Context, parent context.Context, step int,
 	text := toolResultText(res)
 	if res.IsError {
 		status = "tool_error"
-		return "tool reported an error: " + text
+		return toolErrorPrefix + text
 	}
 	return text
 }
+
+// The text the model gets for a tool call that didn't succeed starts with
+// one of these. Message has no error flag, so DefaultStuckKey reads them.
+const (
+	toolErrorPrefix  = "tool reported an error: "
+	toolFailedPrefix = "tool call failed: "
+	toolDeniedPrefix = "tool call not permitted: "
+)
 
 // toolResultText flattens a tool result for the model. It joins the text
 // content items with newlines. Without text it falls back to marshaled

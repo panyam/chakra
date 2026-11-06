@@ -157,6 +157,32 @@ var checks = []check{
 		},
 	},
 	{
+		id:        "stuck_noticed",
+		behaviour: "a call repeated with the same result was noticed, and the next call carried a note saying so",
+		wiring:    "stuck detector step stage (#278, #285)",
+		// The model decides whether it repeats itself. So a run with no
+		// repeat passes and says so, and a repeat with no event fails.
+		run: func(r *runResult, _ string) (bool, string) {
+			for _, ev := range r.events {
+				if ev.Kind != host.HostRunnerEvent || ev.RunnerEvent.Kind != agent.EventStuck || ev.RunnerEvent.Stuck == nil {
+					continue
+				}
+				step, note := ev.RunnerEvent.Step, "You have "+ev.RunnerEvent.Stuck.String()
+				if step < 1 || step > len(r.requests) {
+					return false, fmt.Sprintf("stuck event at step %d, but %d requests recorded", step, len(r.requests))
+				}
+				if !slices.ContainsFunc(r.requests[step-1].SystemTexts, func(s string) bool { return strings.HasPrefix(s, note) }) {
+					return false, fmt.Sprintf("step %d had no note starting %q", step, note)
+				}
+				return true, ""
+			}
+			if name, n := longestRepeat(r.toolCalls()); n >= 3 {
+				return false, fmt.Sprintf("%s ran %d times in a row with no stuck event (did its results differ?)", name, n)
+			}
+			return true, "the model didn't repeat itself"
+		},
+	},
+	{
 		id:        "steered_mid_turn",
 		behaviour: "input sent during a turn reached the model inside that turn",
 		wiring:    "step-boundary input queue (#149)",
@@ -224,6 +250,23 @@ func toolUsed(name string) func(*runResult, string) (bool, string) {
 		}
 		return false, "no " + name + " call; tools used: " + toolNames(r.toolCalls())
 	}
+}
+
+// longestRepeat finds the longest run of identical calls, by name and
+// arguments, and returns the tool's name and the run's length.
+func longestRepeat(calls []agent.ToolCall) (string, int) {
+	best, name, run := 0, "", 0
+	for i, c := range calls {
+		if i > 0 && c.Name == calls[i-1].Name && string(c.Args.Raw()) == string(calls[i-1].Args.Raw()) {
+			run++
+		} else {
+			run = 1
+		}
+		if run > best {
+			best, name = run, c.Name
+		}
+	}
+	return name, best
 }
 
 func toolNames(calls []agent.ToolCall) string {

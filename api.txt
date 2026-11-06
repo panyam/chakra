@@ -21,6 +21,7 @@ pkg github.com/panyam/chakra, const EventError EventKind
 pkg github.com/panyam/chakra, const EventPlan EventKind
 pkg github.com/panyam/chakra, const EventSignal EventKind
 pkg github.com/panyam/chakra, const EventStep EventKind
+pkg github.com/panyam/chakra, const EventStuck EventKind
 pkg github.com/panyam/chakra, const EventTextDelta EventKind
 pkg github.com/panyam/chakra, const EventThinkingBegin EventKind
 pkg github.com/panyam/chakra, const EventThinkingDelta EventKind
@@ -79,6 +80,9 @@ pkg github.com/panyam/chakra, const SignalEscalate SignalKind
 pkg github.com/panyam/chakra, const SignalParentToolName
 pkg github.com/panyam/chakra, const SignalPreempt SignalKind
 pkg github.com/panyam/chakra, const SpawnAgentToolName
+pkg github.com/panyam/chakra, const StuckAlternate
+pkg github.com/panyam/chakra, const StuckRepeat
+pkg github.com/panyam/chakra, const StuckSameError
 pkg github.com/panyam/chakra, const WindowDebounce WindowStrategy
 pkg github.com/panyam/chakra, const WindowLastWins WindowStrategy
 pkg github.com/panyam/chakra, const WindowMerge WindowStrategy
@@ -88,6 +92,7 @@ pkg github.com/panyam/chakra, func AddFunc[In any](*FuncSource, string, string, 
 pkg github.com/panyam/chakra, func AfterToolCall(func(context.Context, ToolCallInfo, *core.ToolResult) (*core.ToolResult, error)) ToolMiddleware
 pkg github.com/panyam/chakra, func BeforeToolCall(func(context.Context, *ToolCallInfo) error) ToolMiddleware
 pkg github.com/panyam/chakra, func CapabilitiesOf(Provider) Capabilities
+pkg github.com/panyam/chakra, func DefaultStuckKey(StepRecord) (StuckKey, bool)
 pkg github.com/panyam/chakra, func DenyTool(string) error
 pkg github.com/panyam/chakra, func DropUnansweredToolCalls([]Message) []Message
 pkg github.com/panyam/chakra, func GrantAllPreempts(Signal) bool
@@ -124,6 +129,7 @@ pkg github.com/panyam/chakra, func NewServerAgentSource(ServerAgentConfig) (*Age
 pkg github.com/panyam/chakra, func NewSignalSource() *FuncSource
 pkg github.com/panyam/chakra, func NewSpawnSource(*AgentPool) *FuncSource
 pkg github.com/panyam/chakra, func NewStubProvider(...StubTurn) *StubProvider
+pkg github.com/panyam/chakra, func NewStuckDetector(StuckConfig) StepStage
 pkg github.com/panyam/chakra, func NewSummarizingCompactor(SummarizingConfig) (*SummarizingCompactor, error)
 pkg github.com/panyam/chakra, func NewTeam(TeamConfig) (*Team, error)
 pkg github.com/panyam/chakra, func NewThinkingProvider(Provider, string, string) Provider
@@ -135,6 +141,12 @@ pkg github.com/panyam/chakra, func ScopeFrom(context.Context) RunScope
 pkg github.com/panyam/chakra, func ShallowMergeJSON(IncomingEvent, IncomingEvent) IncomingEvent
 pkg github.com/panyam/chakra, func Spotlight(SpotlightConfig) ToolMiddleware
 pkg github.com/panyam/chakra, func StepBudgetStage(int) StepStage
+pkg github.com/panyam/chakra, func StuckAll(...StuckPolicy) StuckPolicy
+pkg github.com/panyam/chakra, func StuckDropTools() StuckPolicy
+pkg github.com/panyam/chakra, func StuckGeneration(GenerationParams) StuckPolicy
+pkg github.com/panyam/chakra, func StuckNote() StuckPolicy
+pkg github.com/panyam/chakra, func StuckRoute(Provider, string) StuckPolicy
+pkg github.com/panyam/chakra, func StuckStop() StuckPolicy
 pkg github.com/panyam/chakra, func ToolChoiceFunc(string) ToolChoice
 pkg github.com/panyam/chakra, func TypedFilter[T any](func(T) bool) func(IncomingEvent) bool
 pkg github.com/panyam/chakra, func TypedTransform[T any](func(T) (T, bool)) func(IncomingEvent) (IncomingEvent, bool)
@@ -266,6 +278,7 @@ pkg github.com/panyam/chakra, method (Plan) String() string
 pkg github.com/panyam/chakra, method (Plan) Validate() error
 pkg github.com/panyam/chakra, method (RunScope) Depth() int
 pkg github.com/panyam/chakra, method (StubEmbedder) Embed(context.Context, []string) ([]Embedding, error)
+pkg github.com/panyam/chakra, method (StuckFinding) String() string
 pkg github.com/panyam/chakra, method (ToolChoice) IsZero() bool
 pkg github.com/panyam/chakra, type AgentHop struct
 pkg github.com/panyam/chakra, type AgentHop struct, Name string
@@ -417,6 +430,7 @@ pkg github.com/panyam/chakra, type Event struct, Reason string
 pkg github.com/panyam/chakra, type Event struct, Result *TurnResult
 pkg github.com/panyam/chakra, type Event struct, Signal *Signal
 pkg github.com/panyam/chakra, type Event struct, Step int
+pkg github.com/panyam/chakra, type Event struct, Stuck *StuckFinding
 pkg github.com/panyam/chakra, type Event struct, Text string
 pkg github.com/panyam/chakra, type Event struct, ToolCall *ToolCall
 pkg github.com/panyam/chakra, type Event struct, ToolResult *core.ToolResult
@@ -716,15 +730,22 @@ pkg github.com/panyam/chakra, type SpotlightConfig struct
 pkg github.com/panyam/chakra, type SpotlightConfig struct, Classify func(ToolCallInfo) Provenance
 pkg github.com/panyam/chakra, type SpotlightConfig struct, Mark func(MarkRequest) string
 pkg github.com/panyam/chakra, type StepInfo struct
+pkg github.com/panyam/chakra, type StepInfo struct, Emit func(Event)
 pkg github.com/panyam/chakra, type StepInfo struct, MaxSteps int
 pkg github.com/panyam/chakra, type StepInfo struct, Step int
+pkg github.com/panyam/chakra, type StepInfo struct, Turn []Message
 pkg github.com/panyam/chakra, type StepInfo struct, Usage Usage
+pkg github.com/panyam/chakra, type StepRecord struct
+pkg github.com/panyam/chakra, type StepRecord struct, Assistant Message
+pkg github.com/panyam/chakra, type StepRecord struct, Results []Message
+pkg github.com/panyam/chakra, type StepRecord struct, Step int
 pkg github.com/panyam/chakra, type StepScope int
 pkg github.com/panyam/chakra, type StepStage struct
 pkg github.com/panyam/chakra, type StepStage struct, Name string
 pkg github.com/panyam/chakra, type StepStage struct, Run func(context.Context, StepInfo, StepView) (StepView, error)
 pkg github.com/panyam/chakra, type StepStage struct, Scope StepScope
 pkg github.com/panyam/chakra, type StepView struct
+pkg github.com/panyam/chakra, type StepView struct, Generation GenerationParams
 pkg github.com/panyam/chakra, type StepView struct, Guided *GuidedDecoding
 pkg github.com/panyam/chakra, type StepView struct, Messages []Message
 pkg github.com/panyam/chakra, type StepView struct, Provider Provider
@@ -742,6 +763,25 @@ pkg github.com/panyam/chakra, type StubTurn struct, Err error
 pkg github.com/panyam/chakra, type StubTurn struct, FinishReason string
 pkg github.com/panyam/chakra, type StubTurn struct, Text string
 pkg github.com/panyam/chakra, type StubTurn struct, ToolCalls []ToolCall
+pkg github.com/panyam/chakra, type StuckConfig struct
+pkg github.com/panyam/chakra, type StuckConfig struct, Alternations int
+pkg github.com/panyam/chakra, type StuckConfig struct, Errors int
+pkg github.com/panyam/chakra, type StuckConfig struct, Key StuckKeyFunc
+pkg github.com/panyam/chakra, type StuckConfig struct, Policy StuckPolicy
+pkg github.com/panyam/chakra, type StuckConfig struct, Repeats int
+pkg github.com/panyam/chakra, type StuckFinding struct
+pkg github.com/panyam/chakra, type StuckFinding struct, Call string
+pkg github.com/panyam/chakra, type StuckFinding struct, Count int
+pkg github.com/panyam/chakra, type StuckFinding struct, Pattern string
+pkg github.com/panyam/chakra, type StuckFinding struct, Steps []int
+pkg github.com/panyam/chakra, type StuckFinding struct, Tools []string
+pkg github.com/panyam/chakra, type StuckKey struct
+pkg github.com/panyam/chakra, type StuckKey struct, Call string
+pkg github.com/panyam/chakra, type StuckKey struct, Error bool
+pkg github.com/panyam/chakra, type StuckKey struct, Result string
+pkg github.com/panyam/chakra, type StuckKey struct, Tools []string
+pkg github.com/panyam/chakra, type StuckKeyFunc func(StepRecord) (StuckKey, bool)
+pkg github.com/panyam/chakra, type StuckPolicy func(context.Context, StepInfo, StepView, StuckFinding) (StepView, error)
 pkg github.com/panyam/chakra, type SubAgentEvent struct
 pkg github.com/panyam/chakra, type SubAgentEvent struct, Depth int
 pkg github.com/panyam/chakra, type SubAgentEvent struct, Event Event

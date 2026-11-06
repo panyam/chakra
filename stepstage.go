@@ -58,6 +58,16 @@ type StepInfo struct {
 	MaxSteps int
 	// Usage counts what the turn has spent so far, before this step.
 	Usage Usage
+	// Turn is this turn's record so far, oldest first (#278). It starts after
+	// the history the turn was given, so it holds this turn's assistant
+	// replies, tool results, turn-end continuations and session-stage notes.
+	// Compaction never shrinks it, unlike StepView.Messages. It is a copy,
+	// so a stage can keep it.
+	Turn []Message
+	// Emit sends an event to the turn's emit callback, the one Run and
+	// RunTurn were given, as EventStuck does. It is never nil. Call it only
+	// from inside Run, since the turn's callback may not outlive the turn.
+	Emit func(Event)
 }
 
 // StepView holds the parts of one model call's request that stages may
@@ -104,6 +114,14 @@ type StepView struct {
 	// here in a turn with a ResponseSchema fails the turn too, since an
 	// answer takes one constraint.
 	Guided *GuidedDecoding
+
+	// Generation holds this one call's generation params (#278). It starts
+	// as the turn's, RunnerConfig.Generation merged with
+	// TurnRequest.Generation. A ScopeRequest stage may change it, and the
+	// next step starts from the turn's again. As with Provider, a session or
+	// turn stage that changes it fails the turn. The structured or guided
+	// finalize after the last step always uses the turn's params.
+	Generation GenerationParams
 }
 
 // StepStage is one entry in RunnerConfig.StepStages, the chain that runs
@@ -119,7 +137,9 @@ type StepStage struct {
 	Scope StepScope
 
 	// Run returns the view with this stage's contribution folded in, or the
-	// view unchanged when it has nothing to add. An error ends the turn.
+	// view unchanged when it has nothing to add. An error ends the turn. An
+	// error that wraps ErrTurnStopped ends it with a partial TurnResult, as a
+	// turn-end Stop does, and any other error fails it.
 	Run func(ctx context.Context, info StepInfo, view StepView) (StepView, error)
 }
 
@@ -229,9 +249,9 @@ func (r *Runner) stepChain(emit func(Event)) []StepStage {
 // runStepChain applies the chain before one model call. It returns the
 // working messages for the rest of the turn, then the messages that session
 // stages added to the record, then the view to send. The view starts with
-// guided, the turn's grammar.
-func runStepChain(ctx context.Context, chain []StepStage, info StepInfo, working []Message, tools []core.ToolDef, guided *GuidedDecoding) (newWorking, recorded []Message, view StepView, err error) {
-	view = StepView{Messages: working, Tools: tools, Guided: guided}
+// guided, the turn's grammar, and gen, the turn's generation params.
+func runStepChain(ctx context.Context, chain []StepStage, info StepInfo, working []Message, tools []core.ToolDef, guided *GuidedDecoding, gen GenerationParams) (newWorking, recorded []Message, view StepView, err error) {
+	view = StepView{Messages: working, Tools: tools, Guided: guided, Generation: gen}
 	for _, st := range chain {
 		in := view.Messages
 		// A stage gets a copy it can append to without writing into the
@@ -246,6 +266,9 @@ func runStepChain(ctx context.Context, chain []StepStage, info StepInfo, working
 		}
 		if st.Scope != ScopeRequest && out.Guided != view.Guided {
 			return nil, nil, StepView{}, fmt.Errorf("step stage %q: only a request stage may set a call's grammar", st.Name)
+		}
+		if st.Scope != ScopeRequest && out.Generation != view.Generation {
+			return nil, nil, StepView{}, fmt.Errorf("step stage %q: only a request stage may set a call's generation params", st.Name)
 		}
 		switch st.Scope {
 		case ScopeSession:

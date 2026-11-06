@@ -1026,6 +1026,24 @@ The other three, all recorded on #1240:
    so the duplication is cheap, and exporting it would widen the surface being frozen. But with a
    second copy, the rule now exists in two places.
 
+### The stuck detector reads the turn's record, not the view (#278)
+
+Imagine jaala's translator on a 14B model. It writes `try⏎<draft>` as a plain reply and makes no
+tool call. A TurnEnd hook runs the draft and continues with "matched nothing" as a user message.
+The model sends the same draft six times (panyam/jaala#512, x05).
+
+A detector keyed on tool calls never sees this. So `NewStuckDetector` splits `StepInfo.Turn` into
+one `StepRecord` per step, and the host's key reads the reply and the continuation. The Runner
+appends a continuation to the working messages too, so `view.Messages` holds it as well. But the
+view also holds earlier turns, and a compactor can rewrite it. `StepInfo.Turn` holds only this
+turn, and compaction never shrinks it.
+
+The detector keeps no state. It looks only at the steps at the end of the turn, so a pattern stops
+firing once the model does something new. While the pattern holds, it fires before every call.
+
+`Message` has no error flag, so `DefaultStuckKey` reads the prefixes the Runner puts on a failed
+call's text (`toolErrorPrefix` and the two beside it in `runner.go`).
+
 ### One server is not the protocol (#1303)
 
 `ext/lsp` shipped after running against gopls and nothing else. We then probed the four other
