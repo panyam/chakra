@@ -42,6 +42,7 @@ CODE_PATHS = ["*.go", "examples/terminal-bench"]
 # OpenAI's cached rate is assumed at a tenth of input, as for earlier GPT-5 models.
 PRICES = {
     "openai/gpt-5.5": (5.00, 0.50, 30.00),
+    "anthropic/claude-sonnet-5-5": (2.00, 0.20, 10.00),
 }
 
 
@@ -204,14 +205,26 @@ class Cell:
         return self.last.get("date") if self.last else None
 
 
+# Errors that count against the agent: it ran out of time, or it exited with
+# an error. Any other error, such as a setup timeout or a sandbox that failed
+# to build, means the agent never got to try. That trial goes in no tally,
+# and tbench-stale picks the cell again.
+AGENT_ERRORS = {"AgentTimeoutError", "NonZeroAgentExitCodeError"}
+
+
+def counted(t):
+    return not t.get("error") or t["error"] in AGENT_ERRORS
+
+
 def matrix(trials, tasks):
-    """Returns (setups, cells): cells[(task, setup)] is a Cell. Tasks absent
-    from tasks still get rows, so a renamed task doesn't vanish."""
+    """Returns (setups, rows, cells): cells[(task, setup)] is a Cell of the
+    counted trials. Tasks absent from tasks still get rows, so a renamed task
+    doesn't vanish."""
     setups = sorted({t["setup"] for t in trials}, key=lambda s: (any(
         t["source"] != "local" for t in trials if t["setup"] == s), s))
     rows = sorted(set(tasks) | {t["task"] for t in trials})
     by = {}
-    for t in trials:
+    for t in filter(counted, trials):
         by.setdefault((t["task"], t["setup"]), []).append(t)
     return setups, rows, {(r, s): Cell(by.get((r, s), [])) for r in rows for s in setups}
 
@@ -459,12 +472,13 @@ def report(trials, tasks, since, setups=None):
         k = sum(sum(map(solved, c.trials)) for c in mine)
         lines.append(f"| {s} | {k}/{n} | {len(mine)}/{len(rows)} |")
     lines += ["", "| task | setup | before | after |", "|---|---|---|---|"]
-    for task, setup in sorted({(t["task"], t["setup"]) for t in new}):
-        cell = [t for t in trials if t["task"] == task and t["setup"] == setup]
+    for task, setup in sorted({(t["task"], t["setup"]) for t in new if counted(t)}):
+        cell = [t for t in trials if t["task"] == task and t["setup"] == setup and counted(t)]
         old = Cell([t for t in cell if (t.get("date") or "") < since])
         after = Cell(cell)
         lines.append(f"| {task} | {setup} | {old.tally if old.last else 'never run'} | {after.tally} |")
     cost, missing, partial = 0.0, 0, 0
+    skipped = sorted(f"{t['task']} on {t['setup'].split('/')[0]} ({t['error']})" for t in new if not counted(t))
     for t in new:
         price = PRICES.get(parse_setup_key(t["setup"])[1])
         if t.get("in") is None or price is None:
@@ -479,6 +493,8 @@ def report(trials, tasks, since, setups=None):
         caveat.append(f"{partial} cut off by the time limit, counted up to the cut")
     lines += ["", f"{len(new)} trials, ${cost:.2f} at list price"
               + (f" ({', '.join(caveat)}, so this is a lower bound)" if caveat else "") + "."]
+    if skipped:
+        lines.append(f"Didn't run, so not counted: {'; '.join(skipped)}.")
     return "\n".join(lines) + "\n"
 
 

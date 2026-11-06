@@ -212,6 +212,7 @@ pkg github.com/panyam/chakra/host, type ConnectionConfig struct, APIKey string
 pkg github.com/panyam/chakra/host, type ConnectionConfig struct, APIKeyEnv string
 pkg github.com/panyam/chakra/host, type ConnectionConfig struct, BaseURL string
 pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Dim int
+pkg github.com/panyam/chakra/host, type ConnectionConfig struct, MaxTokens int
 pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Model string
 pkg github.com/panyam/chakra/host, type ConnectionConfig struct, ReasoningEffort string
 pkg github.com/panyam/chakra/host, type ConnectionConfig struct, ResponseSchema *bool

@@ -51,6 +51,25 @@ and time columns compare like with like. Jobs before #195's fairness fixes ran c
 Completions with neither effort pinned, and `make tbench-report` prints each job's effort so a
 table says how it was made.
 
+### Chakra next to Claude Code on a Claude model (#264)
+
+```
+make tbench TB_AGENTS="chakra claude-code" TB_MODEL=anthropic/claude-sonnet-5-5 TB_EFFORT=high
+```
+
+With an `anthropic/` model, the adapter gives chakra an `anthropic` connection with `maxTokens`
+at 64000. The provider's default of 4096 would cut a long file write short. Both agents think
+adaptively at effort `high`. Chakra's Anthropic provider sends no `thinking` or effort field, so
+Sonnet 5.5 runs at its default, which is adaptive at `high`. `TB_EFFORT=high` pins Claude Code to
+the same level. Sonnet 5.5 has no plain "thinking off". Its only off mode is `between_tools`, which
+chakra can't send, so matching at the default is the closest pair.
+
+Two differences remain, and both come from A9 in `CONSTRAINTS.md`. Chakra sends no prompt caching,
+so its cost column pays full price for every resent token, and Claude Code's doesn't. That makes the
+cost columns not comparable. Chakra also drops thinking blocks from the history it resends. So the
+model doesn't see its earlier reasoning between tool calls, while Claude Code passes it back. The
+solved columns compare the harnesses with that gap included.
+
 Chakra's turn is capped at 400 model calls, so the task's time budget ends a run, as it does for
 Codex. Chakra's default cap of 8 would end most tasks early. `agentchat exec --json` writes JSON
 lines, and the adapter reads token usage, steps, tool calls and denied asks from them. So those
