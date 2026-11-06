@@ -367,12 +367,16 @@ def estimate(task, setup, trials):
     no price is known for the setup's model. It tries, in order:
 
     1. the task's average on this setup;
-    2. the task's average on any setup with the same model;
+    2. the task's cost on our other setups with the same model, scaled to this
+       setup the same way as step 3, or their plain average when this setup
+       shares no task with them yet;
     3. published runs of the task, scaled to our cost (from_references);
     4. the median trial on this model.
 
     Step 3 matters for tasks we never ran. Their cost varies by more than ten
     times, so the median alone undercounted #263's batch by about 2.5 times.
+    Step 2 scales because Codex spends about twice what chakra does on the
+    same task. Unscaled, it undercounted the first mission batch by half.
     """
     _, model, _ = parse_setup_key(setup)
     price = PRICES.get(model)
@@ -380,10 +384,16 @@ def estimate(task, setup, trials):
         return None
     priced = [t for t in trials if t.get("in") is not None and t["source"] == "local"
               and parse_setup_key(t["setup"])[1] == model]
-    for pick in (lambda t: t["task"] == task and t["setup"] == setup, lambda t: t["task"] == task):
-        hits = [trial_cost(t, price) for t in priced if pick(t)]
-        if hits:
-            return avg(hits)
+    mine = [t for t in priced if t["setup"] == setup]
+    hits = [trial_cost(t, price) for t in mine if t["task"] == task]
+    if hits:
+        return avg(hits)
+    others = [t for t in priced if t["setup"] != setup]
+    if any(t["task"] == task for t in others):
+        scaled = from_references(task, mine, others, price)
+        if scaled is not None:
+            return scaled
+        return avg([trial_cost(t, price) for t in others if t["task"] == task])
     refs = [t for t in trials if t.get("in") is not None and t["source"] != "local"]
     scaled = from_references(task, priced, refs, price)
     if scaled is not None:
@@ -432,6 +442,46 @@ def commands(picks):
     return out
 
 
+def report(trials, tasks, since, setups=None):
+    """Markdown for the mission log after a batch that started at since (an
+    ISO time in UTC). It prints three things: the summary row of each setup
+    the batch touched (or each of setups), every cell the batch changed as
+    before -> after, and what the batch cost at list price. Trials whose
+    usage is missing or partial are counted, so the cost reads as a lower
+    bound when there are any."""
+    new = [t for t in trials if t["source"] == "local" and (t.get("date") or "") >= since]
+    want = setups or sorted({t["setup"] for t in new})
+    _, rows, cells = matrix(trials, tasks)
+    lines = ["| setup | solved | tasks run |", "|---|---|---|"]
+    for s in want:
+        mine = [c for (r, s2), c in cells.items() if s2 == s and c.last]
+        n = sum(len(c.trials) for c in mine)
+        k = sum(sum(map(solved, c.trials)) for c in mine)
+        lines.append(f"| {s} | {k}/{n} | {len(mine)}/{len(rows)} |")
+    lines += ["", "| task | setup | before | after |", "|---|---|---|---|"]
+    for task, setup in sorted({(t["task"], t["setup"]) for t in new}):
+        cell = [t for t in trials if t["task"] == task and t["setup"] == setup]
+        old = Cell([t for t in cell if (t.get("date") or "") < since])
+        after = Cell(cell)
+        lines.append(f"| {task} | {setup} | {old.tally if old.last else 'never run'} | {after.tally} |")
+    cost, missing, partial = 0.0, 0, 0
+    for t in new:
+        price = PRICES.get(parse_setup_key(t["setup"])[1])
+        if t.get("in") is None or price is None:
+            missing += 1
+            continue
+        partial += bool(t.get("usage_partial"))
+        cost += trial_cost(t, price)
+    caveat = []
+    if missing:
+        caveat.append(f"{missing} without token counts")
+    if partial:
+        caveat.append(f"{partial} cut off by the time limit, counted up to the cut")
+    lines += ["", f"{len(new)} trials, ${cost:.2f} at list price"
+              + (f" ({', '.join(caveat)}, so this is a lower bound)" if caveat else "") + "."]
+    return "\n".join(lines) + "\n"
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -448,6 +498,10 @@ def main(argv=None):
     s.add_argument("n", type=int)
     s.add_argument("budget", type=float)
     s.add_argument("--setups", help="space-separated setup keys to pick from; default every local setup with a run")
+    rp = sub.add_parser("report")
+    rp.add_argument("tasks_dir")
+    rp.add_argument("since", help="ISO time in UTC; trials started at or after it are the batch")
+    rp.add_argument("--setups", help="space-separated setup keys for the summary rows")
     a = p.parse_args(argv)
 
     if a.cmd == "ingest":
@@ -465,6 +519,8 @@ def main(argv=None):
             f.write(render_html(trials, tasks))
         print(md)
         print(f"wrote {os.path.relpath(os.path.join(a.out, 'index.html'), REPO)}")
+    elif a.cmd == "report":
+        print(report(load(), task_names(a.tasks_dir), a.since, a.setups.split() if a.setups else None), end="")
     else:
         trials, tasks = load(), task_names(a.tasks_dir)
         picks, total = stale(trials, tasks, a.n, a.budget, a.setups.split() if a.setups else None)

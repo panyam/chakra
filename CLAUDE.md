@@ -37,9 +37,13 @@ profile at `/code/` (`make coding-harness-web`). Its exercise is
 `make coding-harness-exercise` (#163). The exercise drives the agent over agentweb's Connect API on
 a fixture repo with a failing test, and prints PASS or FAIL per behaviour. Known failures are pinned
 in `examples/coding-harness/expected.go`. The `-live` variant also prints steps, tokens, wall time
-and whether the tests passed. `make coding-harness-parity` runs `codex exec` beside it on the same
-fixture and model. Run the live and parity targets after each merge on the mission and log both
-tables on #162.
+and whether the tests passed. After each merge on the mission, run `make coding-harness-exercise-live`
+and `make mission-tbench`, and log both outputs on #162 (#265). `mission-tbench` runs the oldest or
+never-run Terminal-Bench cells for chakra and Codex on the same model, 8 cells within $6 at list
+price. It prints each side's solved count, the cells that changed, and what the batch cost. The new
+`benchmarks/results/` files go in with the next PR on the mission. `make coding-harness-parity`
+still runs `codex exec` beside the exercise on one fixture. Both agents always pass that fixture,
+so its table no longer goes in the log.
 #142 (`mission_api_v1`) is paused, not closed. Its goal is a chakra 1.0 with a reviewed, settled
 exported API. Its exercise is `make api-report` (#143), which diffs each module's exported symbols
 against a checked-in `api.txt`. The earlier missions were #57 (`mission_dogfood_coding`,
