@@ -3,8 +3,8 @@ module github.com/panyam/chakra/examples/critic
 go 1.26.9
 
 require (
-	github.com/panyam/chakra v0.2.9
-	github.com/panyam/chakra/host v0.2.9
+	github.com/panyam/chakra v0.3.0
+	github.com/panyam/chakra/host v0.3.0
 	github.com/panyam/mcpkit v0.8.16
 )
 

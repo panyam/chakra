@@ -3,7 +3,7 @@ module github.com/panyam/chakra/host
 go 1.26.9
 
 require (
-	github.com/panyam/chakra v0.2.9
+	github.com/panyam/chakra v0.3.0
 	github.com/panyam/gocurrent v0.1.2
 	github.com/panyam/mcpkit v0.8.16
 	github.com/panyam/mcpkit/experimental/ext/agents v0.8.16

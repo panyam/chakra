@@ -5,6 +5,26 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
+## [v0.3.0] - 2026-11-06
+
+Full notes in [docs/releases/v0.3.0.md](docs/releases/v0.3.0.md).
+
+### Breaking
+- The root package's 14 `Default*` consts and `SpawnStatus` are unexported. Leave a field zero to get its default, which its doc comment gives (PR 272).
+- `ext/files` unexports its edit and patch engines, `HashLen`, `DefaultListLimit` and `DefaultSearchLimit`. The tools don't change (PR 272).
+- `ErrTurnStopped`'s message is now "agent: turn stopped". `errors.Is` is unaffected (PR 284).
+
+### Added
+- `GenerationParams.Penalties`: repeat, frequency and presence penalties and DRY, with `Capabilities.Penalties` and `CanPenalize`. llama.cpp sends all four kinds, and OpenAI and Ollama send frequency and presence. An unsupported kind is refused before the request leaves (PR 283).
+- `NewStuckDetector`: a step stage that finds a repeat, an alternation or the same error at the end of a turn, emits `EventStuck`, and runs a policy. A host key reads text-action steps too (PR 284).
+- Step stages get `StepInfo.Turn`, `StepInfo.Emit` and `StepView.Generation`, and can stop a turn with `ErrTurnStopped` (PR 284).
+- The coding profile runs the stuck detector, with a key that ignores timings (PR 284).
+- `EventStep` on every model call, so a killed turn's usage still shows (PR 269).
+- `ConnectionConfig.MaxTokens` for Anthropic connections (PR 275).
+- Offloaded tool results go in the session store whatever turned offload on, and `surfaces.ToolResultStoreFromSpec` (PR 270).
+- `make api-report` and `make api-update` (PR 268).
+- Terminal-Bench: a quota check, reference pricing and `tbench-ref` (PR 271), Claude models (PR 275), `TB_SETUP_TIMEOUT` (PR 286), and `make mission-tbench` (PRs 273, 263).
+
 ## [v0.2.9] - 2026-11-04
 
 ### Added
