@@ -1,0 +1,36 @@
+{
+ "jobs": [
+  "tbench-chakra-20261105-202509"
+ ],
+ "source": "local",
+ "trials": [
+  {
+   "agent_s": 68.492612,
+   "agent_version": "a4dbde9758f6",
+   "cached": 58368,
+   "chakra_sha": "a4dbde9758f6",
+   "date": "2026-11-06T04:25:12.244790Z",
+   "error": null,
+   "in": 78078,
+   "job": "tbench-chakra-20261105-202509",
+   "out": 3110,
+   "reward": 0.0,
+   "setup": "chakra/openai-gpt-5.5/medium",
+   "task": "db-wal-recovery"
+  },
+  {
+   "agent_s": 71.009355,
+   "agent_version": "a4dbde9758f6",
+   "cached": 33792,
+   "chakra_sha": "a4dbde9758f6",
+   "date": "2026-11-06T04:25:12.268674Z",
+   "error": null,
+   "in": 46374,
+   "job": "tbench-chakra-20261105-202509",
+   "out": 4288,
+   "reward": 1.0,
+   "setup": "chakra/openai-gpt-5.5/medium",
+   "task": "distribution-search"
+  }
+ ]
+}

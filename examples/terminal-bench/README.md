@@ -135,8 +135,10 @@ mixes harness with model. Codex stays a column we run, on chakra's model and pro
   with a `RuntimeError` from `docker compose` before the agent starts. The matrix doesn't count a
   trial that never ran, and `tbench-stale` picks the cell again, so rerun later.
 - Installing Codex (nvm and npm, under emulation) on `constraints-scheduling` takes longer than
-  Harbor's 360-second agent setup limit. That task ends in `AgentSetupTimeoutError` for Codex every
-  time so far, and the trial isn't counted. Harbor's `--agent-setup-timeout-multiplier` would fix
-  it, but `make tbench` doesn't pass it through yet.
+  Harbor's 360-second agent setup limit. The trial ended in `AgentSetupTimeoutError` twice, and an
+  uncounted trial gets picked again. So `make tbench` now passes `TB_SETUP_TIMEOUT=3` as
+  `--agent-setup-timeout-multiplier`, for 18 minutes (#277). Setup runs before the agent starts, so
+  the agent's budget and the score don't change. A failed install still exits at once, because the
+  install script runs under `set -euo pipefail`. `TB_SETUP_TIMEOUT=` keeps Harbor's default.
 - Harbor imports `chakra_agent.py` and the scripts from the checkout at the start of each job. So
   don't edit a worktree while a batch runs from it. Make a second worktree for the edits.
