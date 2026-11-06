@@ -193,6 +193,37 @@ CHAKRA = "chakra/openai-gpt-5.5/medium"
 CODEX = "codex/openai-gpt-5.5/medium"
 
 
+class ReportTest(unittest.TestCase):
+    def test_shows_each_changed_cell_before_and_after_and_the_batch_cost(self):
+        since = "2026-11-05T00:00:00Z"
+        trials = [
+            {**rec("a", CHAKRA, "2026-11-03T00:00:00Z"), "reward": 0.0},
+            rec("a", CHAKRA, "2026-11-05T01:00:00Z", tokens=(100_000, 0, 0)),
+            rec("b", CODEX, "2026-11-05T02:00:00Z", tokens=(200_000, 0, 10_000)),
+            rec("c", CODEX, "2026-11-01T00:00:00Z"),
+            rec("a", "terminus-2/openai-gpt-5.3-codex/xhigh", "2026-11-06T00:00:00Z", source="https://x"),
+        ]
+        out = m.report(trials, ["a", "b", "c"], since, [CHAKRA, CODEX])
+        self.assertIn(f"| {CHAKRA} | 1/2 | 1/3 |", out)
+        self.assertIn(f"| {CODEX} | 2/2 | 2/3 |", out)
+        self.assertIn(f"| a | {CHAKRA} | 0/1 | 1/2 |", out)
+        self.assertIn(f"| b | {CODEX} | never run | 1/1 |", out)
+        self.assertNotIn("| c |", out)
+        self.assertNotIn("terminus", out)
+        # $0.50 for a, $1.00 + $0.30 for b.
+        self.assertIn("2 trials, $1.80 at list price.", out)
+
+    def test_says_the_cost_is_a_lower_bound_when_usage_is_missing_or_partial(self):
+        since = "2026-11-05T00:00:00Z"
+        trials = [
+            {**rec("a", CHAKRA, "2026-11-05T01:00:00Z"), "in": None, "error": "AgentTimeoutError"},
+            {**rec("b", CHAKRA, "2026-11-05T01:00:00Z"), "usage_partial": True},
+        ]
+        out = m.report(trials, ["a", "b"], since)
+        self.assertIn("2 trials, $0.50 at list price (1 without token counts, "
+                      "1 cut off by the time limit, counted up to the cut, so this is a lower bound).", out)
+
+
 class StaleTest(unittest.TestCase):
     def test_never_run_first_then_oldest_and_no_published_columns(self):
         trials = [
@@ -227,7 +258,9 @@ class StaleTest(unittest.TestCase):
             rec("z", CODEX, tokens=(1_000_000, 1_000_000, 100_000), source="https://x"),
         ]
         self.assertAlmostEqual(m.estimate("a", CHAKRA, trials), 1.0)
-        self.assertAlmostEqual(m.estimate("b", CHAKRA, trials), 3.0)
+        # Chakra spends half what Codex does on a, so Codex's $3.00 on b
+        # scales to $1.50.
+        self.assertAlmostEqual(m.estimate("b", CHAKRA, trials), 1.5)
         self.assertAlmostEqual(m.estimate("never", CHAKRA, trials), 2.0)
 
     def test_a_never_run_task_heavy_in_a_reference_costs_more_than_the_median(self):
@@ -260,6 +293,10 @@ class StaleTest(unittest.TestCase):
             rec("heavy", "terminus-2/openai-gpt-5.3-codex/xhigh", tokens=(4_000_000, 0, 0), source="https://x"),
         ]
         self.assertAlmostEqual(m.estimate("heavy", CHAKRA, trials), 0.5)
+
+    def test_another_setup_counts_unscaled_until_the_two_share_a_task(self):
+        trials = [rec("a", CHAKRA, tokens=(200_000, 0, 0)), rec("b", CODEX, tokens=(600_000, 0, 0))]
+        self.assertAlmostEqual(m.estimate("b", CHAKRA, trials), 3.0)
 
     def test_cached_and_output_tokens_use_their_own_prices(self):
         t = rec("a", CHAKRA, tokens=(1_000_000, 400_000, 100_000))

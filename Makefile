@@ -34,7 +34,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/h
 # explicitly and the platform's own backend refuses. See the module README.
 GOTESTFLAGS ?= -race -timeout 300s
 
-.PHONY: help build test test-examples test-web test-web-e2e testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report tbench-ingest tbench-matrix tbench-stale tbench-ref deploy-web weblogs \
+.PHONY: help build test test-examples test-web test-web-e2e testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report tbench-ingest tbench-matrix tbench-stale tbench-ref mission-tbench deploy-web weblogs \
         check-no-binaries check-ext-isolation check-dep-consistency setup-hooks api-report api-update
 
 help: ## Show this help
@@ -249,6 +249,8 @@ TB_TASKS ?= $(if $(filter hard,$(TB_SET)),$(TB_TASKS_HARD),$(TB_TASKS_STARTER))
 TB_SETUPS = $(foreach a,$(TB_AGENTS),$(a)/$(subst /,-,$(TB_MODEL))/$(or $(TB_EFFORT),default))
 N ?= 10
 BUDGET ?= 5
+MISSION_N ?= 8
+MISSION_BUDGET ?= 6
 
 tbench-build: ## Static Linux agentchat for the Terminal-Bench containers (amd64, as the task images are)
 	@mkdir -p examples/terminal-bench/bin
@@ -273,6 +275,11 @@ tbench-ingest: ## Copy new Harbor jobs in TB_JOBS into benchmarks/results/, one 
 
 tbench-matrix: ## Task x setup matrix of last runs from benchmarks/results/, as markdown and benchmarks/matrix/index.html
 	@python3 scripts/tbench_matrix.py render $(TB_PATH)
+
+mission-tbench: ## After a mission merge: run the MISSION_N stale cells of TB_SETUPS within MISSION_BUDGET dollars, ingest, and print the table for the #162 log
+	@since=$$(date -u +%Y-%m-%dT%H:%M:%SZ); \
+	$(MAKE) --no-print-directory tbench-stale N=$(MISSION_N) BUDGET=$(MISSION_BUDGET) RUN=1 && \
+	python3 scripts/tbench_matrix.py report $(TB_PATH) $$since --setups "$(TB_SETUPS)"
 
 tbench-ref: ## Import a leaderboard submission as a reference column, e.g. SUB=Terminus2__Claude-Opus-4.6 (downloads into TB_REFS)
 	@test -n "$(SUB)" || { echo "SUB=<submission folder name> is required"; exit 1; }

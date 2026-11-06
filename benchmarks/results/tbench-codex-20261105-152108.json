@@ -1,0 +1,120 @@
+{
+ "jobs": [
+  "tbench-codex-20261105-152108"
+ ],
+ "source": "local",
+ "trials": [
+  {
+   "agent_s": 175.668652,
+   "agent_version": "0.166.0",
+   "cached": 169984,
+   "chakra_sha": null,
+   "date": "2026-11-05T23:21:11.802584Z",
+   "error": null,
+   "in": 199587,
+   "job": "tbench-codex-20261105-152108",
+   "out": 8604,
+   "reward": 1.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "adaptive-rejection-sampler"
+  },
+  {
+   "agent_s": 142.450769,
+   "agent_version": "0.166.0",
+   "cached": 142464,
+   "chakra_sha": null,
+   "date": "2026-11-05T23:21:11.834023Z",
+   "error": null,
+   "in": 164093,
+   "job": "tbench-codex-20261105-152108",
+   "out": 4084,
+   "reward": 1.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "bn-fit-modify"
+  },
+  {
+   "agent_s": 284.969045,
+   "agent_version": "0.166.0",
+   "cached": 377088,
+   "chakra_sha": null,
+   "date": "2026-11-05T23:27:18.370212Z",
+   "error": null,
+   "in": 394583,
+   "job": "tbench-codex-20261105-152108",
+   "out": 9463,
+   "reward": 1.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "break-filter-js-from-html"
+  },
+  {
+   "agent_s": 366.200179,
+   "agent_version": "0.166.0",
+   "cached": 1204608,
+   "chakra_sha": null,
+   "date": "2026-11-05T23:29:42.933107Z",
+   "error": null,
+   "in": 1272791,
+   "job": "tbench-codex-20261105-152108",
+   "out": 10022,
+   "reward": 1.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "build-cython-ext"
+  },
+  {
+   "agent_s": 92.651305,
+   "agent_version": "0.166.0",
+   "cached": 488192,
+   "chakra_sha": null,
+   "date": "2026-11-05T23:36:19.365957Z",
+   "error": null,
+   "in": 528218,
+   "job": "tbench-codex-20261105-152108",
+   "out": 3732,
+   "reward": 1.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "build-pmars"
+  },
+  {
+   "agent_s": 152.802685,
+   "agent_version": "0.166.0",
+   "cached": 639872,
+   "chakra_sha": null,
+   "date": "2026-11-05T23:38:47.785556Z",
+   "error": null,
+   "in": 702846,
+   "job": "tbench-codex-20261105-152108",
+   "out": 5313,
+   "reward": 1.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "build-pov-ray"
+  },
+  {
+   "agent_s": 1200.529389,
+   "agent_version": "0.166.0",
+   "cached": 8953472,
+   "chakra_sha": null,
+   "date": "2026-11-05T23:42:59.956215Z",
+   "error": "AgentTimeoutError",
+   "in": 9158774,
+   "job": "tbench-codex-20261105-152108",
+   "out": 12722,
+   "reward": 1.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "caffe-cifar-10"
+  },
+  {
+   "agent_s": 85.043667,
+   "agent_version": "0.166.0",
+   "cached": 96256,
+   "chakra_sha": null,
+   "date": "2026-11-05T23:45:24.294932Z",
+   "error": null,
+   "in": 128258,
+   "job": "tbench-codex-20261105-152108",
+   "out": 3042,
+   "reward": 1.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "chess-best-move"
+  }
+ ]
+}
