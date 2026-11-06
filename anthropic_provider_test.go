@@ -333,7 +333,7 @@ func TestAnthropicHeaders(t *testing.T) {
 	if gotKey != "sk-test" {
 		t.Fatalf("x-api-key = %q", gotKey)
 	}
-	if gotVersion != DefaultAnthropicVersion {
+	if gotVersion != defaultAnthropicVersion {
 		t.Fatalf("anthropic-version = %q", gotVersion)
 	}
 	if gotType != "application/json" {

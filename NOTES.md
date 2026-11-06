@@ -288,7 +288,7 @@ grepping the marker needs the opposite side in the two cases, and it can't tell 
 looking at. One knob always reaches the detail. Two knobs would need knowledge the caller does
 not have. Both shapes are pinned by real captured transcripts in `testdata/`.
 
-Grep is also **bounded** now (`DefaultGrepMaxLines`, overridable by `limit`) and says what it cut.
+Grep is also **bounded** now (`defaultGrepMaxLines`, overridable by `limit`) and says what it cut.
 It used to return every match however many there were. Imagine a loose pattern over a big
 transcript. Grep would put back inline the payload that offloading had just removed. Context
 multiplies that by `2N+1`, so once we added the field, the bound was no longer optional.
@@ -1727,7 +1727,7 @@ only the member that already worked:
   parent-resolution catches exactly that. A symlink as the *final* component escaped the root. The
   suite was green, and the property did not hold.
 - **Malformed `edit_file` arguments.** Every case was an *entirely* malformed list. Dropping a bad
-  element left zero hunks, so the call still failed, via `ErrNoHunks`, for the wrong reason. A
+  element left zero hunks, so the call still failed, via `errNoHunks`, for the wrong reason. A
   list with one good edit and one bad one would have applied the good one and reported success.
 - **`checkpoint` capture through a symlink.** `TestSymlinkAtCaptureIsNotFollowed` leaves the link in
   place at restore time, so the restore-side guard refuses either way. Swapping `Lstat` for `Stat`

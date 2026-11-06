@@ -9,9 +9,9 @@ import (
 	"time"
 )
 
-// DefaultFailoverCooldown is how long the failover provider routes to the
+// defaultFailoverCooldown is how long the failover provider routes to the
 // backup after a primary failure. After that it re-tries the primary.
-const DefaultFailoverCooldown = 30 * time.Second
+const defaultFailoverCooldown = 30 * time.Second
 
 // FailoverConfig assembles a FailoverProvider.
 type FailoverConfig struct {
@@ -24,7 +24,7 @@ type FailoverConfig struct {
 
 	// Cooldown is how long the primary is benched after a failure. After
 	// that, the next call re-tries it, which is lazy recovery. Zero means
-	// DefaultFailoverCooldown.
+	// 30s.
 	Cooldown time.Duration
 
 	// Logger receives failover transitions at Warn and recoveries at
@@ -82,7 +82,7 @@ func NewFailoverProvider(cfg FailoverConfig) (*FailoverProvider, error) {
 		return nil, errors.New("agent: FailoverConfig requires Primary and Backup")
 	}
 	if cfg.Cooldown <= 0 {
-		cfg.Cooldown = DefaultFailoverCooldown
+		cfg.Cooldown = defaultFailoverCooldown
 	}
 	if cfg.Logger == nil {
 		cfg.Logger = slog.New(slog.DiscardHandler)

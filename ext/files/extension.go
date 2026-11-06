@@ -133,7 +133,7 @@ func (e *Extension) ApprovalChoosers() []host.ApprovalChooser {
 // chooseHunks claims an edit_file call with two or more hunks and asks about
 // each one in a single form, with every hunk ticked at first. The call that
 // runs then holds only the hunks still ticked. Partial application needs
-// nothing more than leaving hunks out. Edit.Apply resolves every anchor
+// nothing more than leaving hunks out. edit.Apply resolves every anchor
 // against the original content. So the kept hunks go exactly where they would
 // have gone with the others present, and expect_hash still describes the
 // file.
@@ -278,7 +278,7 @@ func (e *Extension) renderEditApproval(_ context.Context, info agent.ToolCallInf
 // doesn't parse falls back to the generic rendering, which shows the raw text.
 func renderPatchApproval(args map[string]any) (string, bool) {
 	text, _ := args["input"].(string)
-	patches, err := ParsePatch(text)
+	patches, err := parsePatch(text)
 	if err != nil {
 		return "", false
 	}
@@ -287,11 +287,11 @@ func renderPatchApproval(args map[string]any) (string, bool) {
 	for _, fp := range patches {
 		b.WriteString("\n")
 		switch fp.Kind {
-		case PatchAdd:
+		case kindAdd:
 			fmt.Fprintf(&b, "Add %s:\n%s\n", fp.Path, indent(preview(strings.TrimRight(fp.Content, "\n"))))
-		case PatchDelete:
+		case kindDelete:
 			fmt.Fprintf(&b, "Delete %s\n", fp.Path)
-		case PatchUpdate:
+		case kindUpdate:
 			if fp.MoveTo != "" {
 				fmt.Fprintf(&b, "Move %s to %s\n", fp.Path, fp.MoveTo)
 			} else {

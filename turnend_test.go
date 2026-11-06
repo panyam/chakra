@@ -52,7 +52,7 @@ func TestTurnEndHookThatAcceptsChangesNothing(t *testing.T) {
 	if err != nil || res.Text != "done" || res.Steps != 1 || len(res.Messages) != 1 {
 		t.Fatalf("%+v %v", res, err)
 	}
-	if len(seen) != 1 || seen[0].Text != "done" || seen[0].Step != 1 || seen[0].MaxSteps != DefaultMaxSteps || len(seen[0].Messages) != 1 {
+	if len(seen) != 1 || seen[0].Text != "done" || seen[0].Step != 1 || seen[0].MaxSteps != defaultMaxSteps || len(seen[0].Messages) != 1 {
 		t.Errorf("the hook saw %+v", seen)
 	}
 	if len(kindsOf(events, EventTurnContinued)) != 0 {

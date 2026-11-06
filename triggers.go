@@ -14,12 +14,12 @@ import (
 // parser that reads it, the same way MetaKeyContextHint pairs with HintFromMeta
 // in injection.go. Bindings today are host-configured only.
 
-// DefaultTriggerCooldown gates re-arming when a binding does not set its own.
-const DefaultTriggerCooldown = 5 * time.Minute
+// defaultTriggerCooldown gates re-arming when a binding does not set its own.
+const defaultTriggerCooldown = 5 * time.Minute
 
-// DefaultTriggerBudget caps proactive firings per policy lifetime when
+// defaultTriggerBudget caps proactive firings per policy lifetime when
 // unconfigured.
-const DefaultTriggerBudget = 10
+const defaultTriggerBudget = 10
 
 // TriggerBinding declares one event-to-turn binding.
 type TriggerBinding struct {
@@ -39,7 +39,7 @@ type TriggerBinding struct {
 	Label string
 
 	// Cooldown is this binding's re-arm floor. Zero means
-	// DefaultTriggerCooldown.
+	// 5 minutes.
 	Cooldown time.Duration
 }
 
@@ -55,7 +55,7 @@ type TriggerPolicyConfig struct {
 	Bindings []TriggerBinding
 
 	// Budget caps total firings for this policy's lifetime (a session,
-	// in agentchat's wiring). Zero means DefaultTriggerBudget.
+	// in agentchat's wiring). Zero means 10.
 	Budget int
 
 	// Consent, when non-nil, approves each firing after the slot and
@@ -95,7 +95,7 @@ type triggerSlot struct {
 // NewTriggerPolicy builds the policy.
 func NewTriggerPolicy(cfg TriggerPolicyConfig) *TriggerPolicy {
 	if cfg.Budget <= 0 {
-		cfg.Budget = DefaultTriggerBudget
+		cfg.Budget = defaultTriggerBudget
 	}
 	if cfg.Logger == nil {
 		cfg.Logger = slog.New(slog.DiscardHandler)
@@ -183,7 +183,7 @@ func (t *TriggerPolicy) OnEvent(ev IncomingEvent) *TriggerFiring {
 		if slot.spent {
 			cooldown := b.Cooldown
 			if cooldown <= 0 {
-				cooldown = DefaultTriggerCooldown
+				cooldown = defaultTriggerCooldown
 			}
 			if !slot.engaged || now.Before(slot.spentAt.Add(cooldown)) {
 				t.cfg.Logger.Debug("trigger suppressed: slot spent",

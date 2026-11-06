@@ -22,13 +22,13 @@ func farewell() string {
 // this edit happily. Only the hash knows the caller was looking at something
 // else.
 func TestStaleContentIsRejected(t *testing.T) {
-	e := Edit{
+	e := edit{
 		ExpectHash: Hash("the file as it was read"),
-		Hunks:      []Hunk{{Old: `"hello"`, New: `"hi"`}},
+		Hunks:      []hunk{{Old: `"hello"`, New: `"hi"`}},
 	}
 	got, err := e.Apply(src)
-	if !errors.Is(err, ErrStale) {
-		t.Fatalf("Apply() error = %v, want ErrStale", err)
+	if !errors.Is(err, errStale) {
+		t.Fatalf("Apply() error = %v, want errStale", err)
 	}
 	if got != "" {
 		t.Errorf("Apply() returned %q on failure, want no partial result", got)
@@ -36,9 +36,9 @@ func TestStaleContentIsRejected(t *testing.T) {
 }
 
 func TestMatchingHashApplies(t *testing.T) {
-	e := Edit{
+	e := edit{
 		ExpectHash: Hash(src),
-		Hunks:      []Hunk{{Old: `"hello"`, New: `"hi"`}},
+		Hunks:      []hunk{{Old: `"hello"`, New: `"hi"`}},
 	}
 	got, err := e.Apply(src)
 	if err != nil {
@@ -50,7 +50,7 @@ func TestMatchingHashApplies(t *testing.T) {
 }
 
 func TestEmptyExpectHashSkipsTheCheck(t *testing.T) {
-	e := Edit{Hunks: []Hunk{{Old: `"hello"`, New: `"hi"`}}}
+	e := edit{Hunks: []hunk{{Old: `"hello"`, New: `"hi"`}}}
 	if _, err := e.Apply(src); err != nil {
 		t.Fatalf("Apply() error = %v, want nil", err)
 	}
@@ -60,10 +60,10 @@ func TestEmptyExpectHashSkipsTheCheck(t *testing.T) {
 // than a first-match-wins guess. Picking one would apply the edit somewhere the
 // caller did not look at.
 func TestAmbiguousAnchorIsRejected(t *testing.T) {
-	e := Edit{Hunks: []Hunk{{Old: "string {", New: "string { // edited"}}}
+	e := edit{Hunks: []hunk{{Old: "string {", New: "string { // edited"}}}
 	_, err := e.Apply(src)
-	if !errors.Is(err, ErrAnchorAmbiguous) {
-		t.Fatalf("Apply() error = %v, want ErrAnchorAmbiguous", err)
+	if !errors.Is(err, errAnchorAmbiguous) {
+		t.Fatalf("Apply() error = %v, want errAnchorAmbiguous", err)
 	}
 	if !strings.Contains(err.Error(), "2 places") {
 		t.Errorf("error should report how many matches, got: %v", err)
@@ -71,7 +71,7 @@ func TestAmbiguousAnchorIsRejected(t *testing.T) {
 }
 
 func TestUniqueMultilineAnchorApplies(t *testing.T) {
-	e := Edit{Hunks: []Hunk{{
+	e := edit{Hunks: []hunk{{
 		Old: "func farewell() string {\n\treturn \"goodbye\"\n}",
 		New: "func farewell() string {\n\treturn \"bye\"\n}",
 	}}}
@@ -85,9 +85,9 @@ func TestUniqueMultilineAnchorApplies(t *testing.T) {
 }
 
 func TestMissingAnchorIsRejected(t *testing.T) {
-	e := Edit{Hunks: []Hunk{{Old: `"never in the file"`, New: "x"}}}
-	if _, err := e.Apply(src); !errors.Is(err, ErrAnchorNotFound) {
-		t.Fatalf("Apply() error = %v, want ErrAnchorNotFound", err)
+	e := edit{Hunks: []hunk{{Old: `"never in the file"`, New: "x"}}}
+	if _, err := e.Apply(src); !errors.Is(err, errAnchorNotFound) {
+		t.Fatalf("Apply() error = %v, want errAnchorNotFound", err)
 	}
 }
 
@@ -95,13 +95,13 @@ func TestMissingAnchorIsRejected(t *testing.T) {
 // hunk is perfectly valid. Applying it and reporting the second as failed would
 // leave the file in a state that no caller asked for.
 func TestOneBadHunkAbandonsTheWholeEdit(t *testing.T) {
-	e := Edit{Hunks: []Hunk{
+	e := edit{Hunks: []hunk{
 		{Old: `"hello"`, New: `"hi"`},
 		{Old: `"not present"`, New: "x"},
 	}}
 	got, err := e.Apply(src)
-	if !errors.Is(err, ErrAnchorNotFound) {
-		t.Fatalf("Apply() error = %v, want ErrAnchorNotFound", err)
+	if !errors.Is(err, errAnchorNotFound) {
+		t.Fatalf("Apply() error = %v, want errAnchorNotFound", err)
 	}
 	if got != "" {
 		t.Errorf("Apply() returned %q on failure, want no partial result", got)
@@ -112,24 +112,24 @@ func TestOneBadHunkAbandonsTheWholeEdit(t *testing.T) {
 // The second anchor exists only in what the first hunk produces, so a
 // sequential implementation would apply it and this would pass silently.
 func TestAnchorsResolveAgainstTheOriginal(t *testing.T) {
-	e := Edit{Hunks: []Hunk{
+	e := edit{Hunks: []hunk{
 		{Old: `"hello"`, New: `"aloha"`},
 		{Old: `"aloha"`, New: `"ciao"`},
 	}}
-	if _, err := e.Apply(src); !errors.Is(err, ErrAnchorNotFound) {
-		t.Fatalf("Apply() error = %v, want ErrAnchorNotFound", err)
+	if _, err := e.Apply(src); !errors.Is(err, errAnchorNotFound) {
+		t.Fatalf("Apply() error = %v, want errAnchorNotFound", err)
 	}
 }
 
 func TestHunkOrderDoesNotChangeTheResult(t *testing.T) {
-	first := Hunk{Old: `"hello"`, New: `"hi"`}
-	second := Hunk{Old: `"goodbye"`, New: `"bye"`}
+	first := hunk{Old: `"hello"`, New: `"hi"`}
+	second := hunk{Old: `"goodbye"`, New: `"bye"`}
 
-	forward, err := Edit{Hunks: []Hunk{first, second}}.Apply(src)
+	forward, err := edit{Hunks: []hunk{first, second}}.Apply(src)
 	if err != nil {
 		t.Fatalf("forward order error = %v", err)
 	}
-	reverse, err := Edit{Hunks: []Hunk{second, first}}.Apply(src)
+	reverse, err := edit{Hunks: []hunk{second, first}}.Apply(src)
 	if err != nil {
 		t.Fatalf("reverse order error = %v", err)
 	}
@@ -142,26 +142,26 @@ func TestHunkOrderDoesNotChangeTheResult(t *testing.T) {
 }
 
 func TestOverlappingHunksAreRejected(t *testing.T) {
-	e := Edit{Hunks: []Hunk{
+	e := edit{Hunks: []hunk{
 		{Old: `return "hello"`, New: `return "hi"`},
 		{Old: `"hello"`, New: `"aloha"`},
 	}}
-	if _, err := e.Apply(src); !errors.Is(err, ErrOverlap) {
-		t.Fatalf("Apply() error = %v, want ErrOverlap", err)
+	if _, err := e.Apply(src); !errors.Is(err, errOverlap) {
+		t.Fatalf("Apply() error = %v, want errOverlap", err)
 	}
 }
 
 // TestIdenticalHunksOverlap covers the degenerate case of the same edit listed
 // twice. Both resolve to the one occurrence, so they collide with each other.
 func TestIdenticalHunksOverlap(t *testing.T) {
-	h := Hunk{Old: `"hello"`, New: `"hi"`}
-	if _, err := (Edit{Hunks: []Hunk{h, h}}).Apply(src); !errors.Is(err, ErrOverlap) {
-		t.Fatalf("Apply() error = %v, want ErrOverlap", err)
+	h := hunk{Old: `"hello"`, New: `"hi"`}
+	if _, err := (edit{Hunks: []hunk{h, h}}).Apply(src); !errors.Is(err, errOverlap) {
+		t.Fatalf("Apply() error = %v, want errOverlap", err)
 	}
 }
 
 func TestEmptyNewDeletesTheAnchor(t *testing.T) {
-	e := Edit{Hunks: []Hunk{{Old: "\nfunc farewell() string {\n\treturn \"goodbye\"\n}\n"}}}
+	e := edit{Hunks: []hunk{{Old: "\nfunc farewell() string {\n\treturn \"goodbye\"\n}\n"}}}
 	got, err := e.Apply(src)
 	if err != nil {
 		t.Fatalf("Apply() error = %v, want nil", err)
@@ -175,15 +175,15 @@ func TestEmptyNewDeletesTheAnchor(t *testing.T) {
 // found at every offset. Reporting it as ambiguous would send the caller off
 // to add context to an anchor that does not exist.
 func TestEmptyAnchorIsMalformedNotAmbiguous(t *testing.T) {
-	e := Edit{Hunks: []Hunk{{Old: "", New: "x"}}}
-	if _, err := e.Apply(src); !errors.Is(err, ErrEmptyAnchor) {
-		t.Fatalf("Apply() error = %v, want ErrEmptyAnchor", err)
+	e := edit{Hunks: []hunk{{Old: "", New: "x"}}}
+	if _, err := e.Apply(src); !errors.Is(err, errEmptyAnchor) {
+		t.Fatalf("Apply() error = %v, want errEmptyAnchor", err)
 	}
 }
 
 func TestNoHunksIsRejected(t *testing.T) {
-	if _, err := (Edit{}).Apply(src); !errors.Is(err, ErrNoHunks) {
-		t.Fatalf("Apply() error = %v, want ErrNoHunks", err)
+	if _, err := (edit{}).Apply(src); !errors.Is(err, errNoHunks) {
+		t.Fatalf("Apply() error = %v, want errNoHunks", err)
 	}
 }
 
@@ -192,11 +192,11 @@ func TestNoHunksIsRejected(t *testing.T) {
 // told to fix an anchor. That anchor is fine in the file they have not read
 // yet.
 func TestStaleIsCheckedBeforeAnchors(t *testing.T) {
-	e := Edit{
+	e := edit{
 		ExpectHash: Hash("something else"),
-		Hunks:      []Hunk{{Old: "not present either", New: "x"}},
+		Hunks:      []hunk{{Old: "not present either", New: "x"}},
 	}
-	if _, err := e.Apply(src); !errors.Is(err, ErrStale) {
-		t.Fatalf("Apply() error = %v, want ErrStale", err)
+	if _, err := e.Apply(src); !errors.Is(err, errStale) {
+		t.Fatalf("Apply() error = %v, want errStale", err)
 	}
 }

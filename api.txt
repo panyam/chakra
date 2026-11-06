@@ -1,23 +1,9 @@
 pkg github.com/panyam/chakra, const AwaitAgentToolName
 pkg github.com/panyam/chakra, const CancelAgentToolName
-pkg github.com/panyam/chakra, const DefaultAnthropicVersion
-pkg github.com/panyam/chakra, const DefaultCharsPerToken
-pkg github.com/panyam/chakra, const DefaultFailoverCooldown
-pkg github.com/panyam/chakra, const DefaultGrepMaxLines
-pkg github.com/panyam/chakra, const DefaultKeepRecent
 pkg github.com/panyam/chakra, const DefaultListRunsLimit
 pkg github.com/panyam/chakra, const DefaultLlamaCppBaseURL
-pkg github.com/panyam/chakra, const DefaultMaxAgentDepth
-pkg github.com/panyam/chakra, const DefaultMaxHandoffs
-pkg github.com/panyam/chakra, const DefaultMaxPerDrain
-pkg github.com/panyam/chakra, const DefaultMaxSteps
-pkg github.com/panyam/chakra, const DefaultOffloadPreview
-pkg github.com/panyam/chakra, const DefaultOffloadThreshold
 pkg github.com/panyam/chakra, const DefaultOllamaBaseURL
-pkg github.com/panyam/chakra, const DefaultRecallTopK
 pkg github.com/panyam/chakra, const DefaultStubEmbedderDim
-pkg github.com/panyam/chakra, const DefaultTriggerBudget
-pkg github.com/panyam/chakra, const DefaultTriggerCooldown
 pkg github.com/panyam/chakra, const DeltaFinish DeltaKind
 pkg github.com/panyam/chakra, const DeltaReasoning DeltaKind
 pkg github.com/panyam/chakra, const DeltaText DeltaKind
@@ -709,10 +695,6 @@ pkg github.com/panyam/chakra, type SignalAction struct, AbortTurn bool
 pkg github.com/panyam/chakra, type SignalAction struct, Reason string
 pkg github.com/panyam/chakra, type SignalKind string
 pkg github.com/panyam/chakra, type SignalPolicy func([]Signal) SignalAction
-pkg github.com/panyam/chakra, type SpawnStatus struct
-pkg github.com/panyam/chakra, type SpawnStatus struct, ID string
-pkg github.com/panyam/chakra, type SpawnStatus struct, Name string
-pkg github.com/panyam/chakra, type SpawnStatus struct, Status string
 pkg github.com/panyam/chakra, type SpotlightConfig struct
 pkg github.com/panyam/chakra, type SpotlightConfig struct, Classify func(ToolCallInfo) Provenance
 pkg github.com/panyam/chakra, type SpotlightConfig struct, Mark func(MarkRequest) string

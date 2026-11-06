@@ -14,7 +14,7 @@ import (
 )
 
 func TestParsePatchReadsEverySectionKind(t *testing.T) {
-	patches, err := ParsePatch(`*** Begin Patch
+	patches, err := parsePatch(`*** Begin Patch
 *** Add File: a/new.go
 +package a
 +
@@ -36,13 +36,13 @@ func TestParsePatchReadsEverySectionKind(t *testing.T) {
 		t.Fatalf("%d sections", len(patches))
 	}
 	add, del, up := patches[0], patches[1], patches[2]
-	if add.Kind != PatchAdd || add.Path != "a/new.go" || add.Content != "package a\n\n" {
+	if add.Kind != kindAdd || add.Path != "a/new.go" || add.Content != "package a\n\n" {
 		t.Errorf("add = %+v", add)
 	}
-	if del.Kind != PatchDelete || del.Path != "old.go" {
+	if del.Kind != kindDelete || del.Path != "old.go" {
 		t.Errorf("delete = %+v", del)
 	}
-	if up.Kind != PatchUpdate || up.MoveTo != "lib/stats.go" || len(up.Chunks) != 2 {
+	if up.Kind != kindUpdate || up.MoveTo != "lib/stats.go" || len(up.Chunks) != 2 {
 		t.Fatalf("update = %+v", up)
 	}
 	if c := up.Chunks[0]; c.Context != "func Sum" || len(c.Old) != 1 || len(c.New) != 1 || c.EOF {
@@ -65,7 +65,7 @@ func TestParsePatchRefusesMalformedInput(t *testing.T) {
 		"same file twice":  "*** Begin Patch\n*** Delete File: a\n*** Delete File: a\n*** End Patch",
 		"move onto itself": "*** Begin Patch\n*** Update File: a\n*** Move to: b\n*** Delete File: b\n*** End Patch",
 	} {
-		if _, err := ParsePatch(text); err == nil {
+		if _, err := parsePatch(text); err == nil {
 			t.Errorf("%s: parsed", name)
 		}
 	}
@@ -73,32 +73,32 @@ func TestParsePatchRefusesMalformedInput(t *testing.T) {
 
 func TestApplyChunksToleratesWhitespaceInThreeSteps(t *testing.T) {
 	src := "a\nb  \n  c\nd\n"
-	cases := map[string]PatchChunk{
+	cases := map[string]patchChunk{
 		"exact":           {Old: []string{"a"}, New: []string{"A"}},
 		"trailing spaces": {Old: []string{"b"}, New: []string{"B"}},
 		"both ends":       {Old: []string{"c"}, New: []string{"C"}},
 	}
 	for name, c := range cases {
-		if _, err := ApplyChunks(src, []PatchChunk{c}); err != nil {
+		if _, err := applyChunks(src, []patchChunk{c}); err != nil {
 			t.Errorf("%s: %v", name, err)
 		}
 	}
-	if _, err := ApplyChunks(src, []PatchChunk{{Old: []string{"zz"}, New: []string{"y"}}}); err == nil || !strings.Contains(err.Error(), "hunk 1") {
+	if _, err := applyChunks(src, []patchChunk{{Old: []string{"zz"}, New: []string{"y"}}}); err == nil || !strings.Contains(err.Error(), "hunk 1") {
 		t.Errorf("a hunk matching nothing: %v", err)
 	}
 }
 
 func TestApplyChunksUsesContextOrderAndEOF(t *testing.T) {
 	src := "func A() {\n\tx := 1\n}\nfunc B() {\n\tx := 1\n}\nx := 1\n"
-	got, err := ApplyChunks(src, []PatchChunk{{Context: "func B() {", Old: []string{"\tx := 1"}, New: []string{"\tx := 2"}}})
+	got, err := applyChunks(src, []patchChunk{{Context: "func B() {", Old: []string{"\tx := 1"}, New: []string{"\tx := 2"}}})
 	if err != nil || !strings.Contains(got, "func B() {\n\tx := 2") || !strings.HasPrefix(got, "func A() {\n\tx := 1") {
 		t.Errorf("@@ context: %q, %v", got, err)
 	}
-	got, err = ApplyChunks(src, []PatchChunk{{Old: []string{"x := 1"}, New: []string{"x := 3"}, EOF: true}})
+	got, err = applyChunks(src, []patchChunk{{Old: []string{"x := 1"}, New: []string{"x := 3"}, EOF: true}})
 	if err != nil || !strings.HasSuffix(got, "}\nx := 3\n") {
 		t.Errorf("EOF anchor: %q, %v", got, err)
 	}
-	got, err = ApplyChunks("a\nb\n", []PatchChunk{{New: []string{"c"}}})
+	got, err = applyChunks("a\nb\n", []patchChunk{{New: []string{"c"}}})
 	if err != nil || got != "a\nb\nc\n" {
 		t.Errorf("pure insertion: %q, %v", got, err)
 	}

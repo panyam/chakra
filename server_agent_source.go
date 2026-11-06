@@ -57,7 +57,7 @@ type ServerAgentConfig struct {
 	// default.
 	MaxSteps int
 
-	// MaxDepth caps sub-agent nesting depth. Zero uses DefaultMaxAgentDepth.
+	// MaxDepth caps sub-agent nesting depth. Zero uses 3.
 	MaxDepth int
 
 	// OnEvent receives the child's event stream when set. Each event comes

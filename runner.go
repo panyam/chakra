@@ -15,10 +15,10 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// DefaultMaxSteps bounds a turn when RunnerConfig.MaxSteps is zero. Eight
+// defaultMaxSteps bounds a turn when RunnerConfig.MaxSteps is zero. Eight
 // model calls is generous for real workflows; hitting it usually means the
 // model is looping on a failing tool.
-const DefaultMaxSteps = 8
+const defaultMaxSteps = 8
 
 // ErrMaxSteps is returned (wrapped) by Run when the model keeps requesting
 // tool calls past the step cap. Check with errors.Is.
@@ -64,7 +64,7 @@ type RunnerConfig struct {
 	// for cancellation and deadlines only.
 	InstructionsFunc func(context.Context) string
 
-	// MaxSteps caps model calls per turn. Zero means DefaultMaxSteps.
+	// MaxSteps caps model calls per turn. Zero means 8.
 	MaxSteps int
 
 	// TreeBudget caps the total steps and tokens across the whole sub-agent
@@ -266,7 +266,7 @@ func NewRunner(cfg RunnerConfig) (*Runner, error) {
 		return nil, fmt.Errorf("agent: RunnerConfig requires a Provider")
 	}
 	if cfg.MaxSteps <= 0 {
-		cfg.MaxSteps = DefaultMaxSteps
+		cfg.MaxSteps = defaultMaxSteps
 	}
 	if cfg.TracerProvider == nil {
 		cfg.TracerProvider = core.NoopTracerProvider{}

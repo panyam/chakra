@@ -10,10 +10,10 @@ import (
 	"github.com/panyam/mcpkit/core"
 )
 
-// DefaultMaxAgentDepth bounds how deep a sub-agent call tree may nest when an
+// defaultMaxAgentDepth bounds how deep a sub-agent call tree may nest when an
 // AgentSource is constructed without a MaxDepth. It is the runaway-recursion
 // backstop for an agent that keeps delegating to itself.
-const DefaultMaxAgentDepth = 3
+const defaultMaxAgentDepth = 3
 
 // AgentSource exposes a child Runner to a parent agent as a single tool. This
 // is the agent-as-tool pattern. Calling the tool runs the child over its OWN
@@ -48,7 +48,7 @@ type AgentSourceConfig struct {
 
 	// MaxDepth caps sub-agent nesting depth. The depth counts this source's
 	// calls and any deeper sub-agent calls by the child. Zero uses
-	// DefaultMaxAgentDepth.
+	// 3.
 	MaxDepth int
 
 	// OnEvent, when set, receives the child's event stream wrapped in a
@@ -107,7 +107,7 @@ func NewAgentSource(cfg AgentSourceConfig) (*AgentSource, error) {
 	}
 	maxDepth := cfg.MaxDepth
 	if maxDepth <= 0 {
-		maxDepth = DefaultMaxAgentDepth
+		maxDepth = defaultMaxAgentDepth
 	}
 	return &AgentSource{
 		cfg:      cfg,

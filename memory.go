@@ -427,13 +427,13 @@ func (m *MemorySource) Summary(ctx context.Context, opts SummaryOptions) (string
 	return "Working memory (notes you saved earlier):\n" + renderMemories(items), nil
 }
 
-// DefaultRecallTopK bounds a relevance recall when RecallOptions.TopK is unset.
-const DefaultRecallTopK = 5
+// defaultRecallTopK bounds a relevance recall when RecallOptions.TopK is unset.
+const defaultRecallTopK = 5
 
 // RecallOptions bounds a pre-turn relevance recall (RecallRelevant).
 type RecallOptions struct {
 	// TopK caps how many of the most-relevant notes are returned. Zero uses
-	// DefaultRecallTopK.
+	// 5.
 	TopK int
 	// MinScore drops notes scoring below it. It is the poison guard. With a
 	// semantic store every note gets some cosine score. Without a floor, a
@@ -465,7 +465,7 @@ func (m *MemorySource) RecallRelevant(ctx context.Context, query string, opts Re
 	}
 	topK := opts.TopK
 	if topK <= 0 {
-		topK = DefaultRecallTopK
+		topK = defaultRecallTopK
 	}
 	resp, err := m.store.ListMemories(ctx, ListMemoriesRequest{Query: query, Limit: topK, Namespace: m.ns()})
 	if err != nil {

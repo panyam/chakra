@@ -289,7 +289,7 @@ func toolDefs() []core.ToolDef {
 					},
 					"limit": map[string]any{
 						"type":        "integer",
-						"description": fmt.Sprintf("Maximum paths to return. Default %d. The reply says how many were left out.", DefaultListLimit),
+						"description": fmt.Sprintf("Maximum paths to return. Default %d. The reply says how many were left out.", defaultListLimit),
 					},
 				},
 			},
@@ -317,7 +317,7 @@ func toolDefs() []core.ToolDef {
 					},
 					"limit": map[string]any{
 						"type":        "integer",
-						"description": fmt.Sprintf("Maximum matches to return. Default %d. The reply says how many were left out.", DefaultSearchLimit),
+						"description": fmt.Sprintf("Maximum matches to return. Default %d. The reply says how many were left out.", defaultSearchLimit),
 					},
 				},
 				"required": []string{"query"},
@@ -468,7 +468,7 @@ func (s *Source) edit(args map[string]any) *core.ToolResult {
 		return toolError(escapeMessage(path, err))
 	}
 
-	out, err := (Edit{ExpectHash: expect, Hunks: hunks}).Apply(string(b))
+	out, err := (edit{ExpectHash: expect, Hunks: hunks}).Apply(string(b))
 	if err != nil {
 		return toolError(fmt.Sprintf("%s: %v", path, err))
 	}
@@ -530,7 +530,7 @@ func (s *Source) write(args map[string]any) *core.ToolResult {
 		}
 		if got := Hash(string(b)); got != expect {
 			return toolError(fmt.Sprintf(
-				"%s: %v: expected %s, found %s; re-read it before writing", path, ErrStale, expect, got))
+				"%s: %v: expected %s, found %s; re-read it before writing", path, errStale, expect, got))
 		}
 
 	case !errors.Is(statErr, os.ErrNotExist):
@@ -618,7 +618,7 @@ func (s *Source) delete(args map[string]any) *core.ToolResult {
 	}
 	if got := Hash(string(b)); got != expect {
 		return toolError(fmt.Sprintf(
-			"%s: %v: expected %s, found %s; re-read it before deleting", path, ErrStale, expect, got))
+			"%s: %v: expected %s, found %s; re-read it before deleting", path, errStale, expect, got))
 	}
 
 	// Remove through the root handle, so the unlink cannot be redirected at a
@@ -641,12 +641,12 @@ func (s *Source) delete(args map[string]any) *core.ToolResult {
 // hunks. A malformed edits list is reported, not silently skipped. Imagine the
 // model believes it made an edit that never applied. That is the same class of
 // failure as a stale write.
-func parseHunks(raw any) ([]Hunk, error) {
+func parseHunks(raw any) ([]hunk, error) {
 	list, ok := raw.([]any)
 	if !ok || len(list) == 0 {
 		return nil, fmt.Errorf("edit_file needs a non-empty edits array")
 	}
-	hunks := make([]Hunk, 0, len(list))
+	hunks := make([]hunk, 0, len(list))
 	for i, item := range list {
 		m, ok := item.(map[string]any)
 		if !ok {
@@ -664,7 +664,7 @@ func parseHunks(raw any) ([]Hunk, error) {
 				return nil, fmt.Errorf("edit %d has a non-string `new`", i)
 			}
 		}
-		hunks = append(hunks, Hunk{Old: old, New: nw})
+		hunks = append(hunks, hunk{Old: old, New: nw})
 	}
 	return hunks, nil
 }

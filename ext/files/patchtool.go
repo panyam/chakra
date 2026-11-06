@@ -37,7 +37,7 @@ func patchDef() core.ToolDef {
 
 // patchOp is one file change, worked out in full before anything is written.
 type patchOp struct {
-	fp FilePatch
+	fp filePatch
 
 	wr   *workspaceRoot
 	rel  string
@@ -63,7 +63,7 @@ func (s *Source) applyPatch(args map[string]any) *core.ToolResult {
 	if !ok || strings.TrimSpace(text) == "" {
 		return toolError("apply_patch needs input: the patch, from *** Begin Patch to *** End Patch")
 	}
-	patches, err := ParsePatch(text)
+	patches, err := parsePatch(text)
 	if err != nil {
 		return toolError("apply_patch: " + err.Error())
 	}
@@ -82,9 +82,9 @@ func (s *Source) applyPatch(args map[string]any) *core.ToolResult {
 		path, verb := op.wr.abs(op.rel), ""
 		entry := map[string]any{}
 		switch {
-		case op.fp.Kind == PatchAdd:
+		case op.fp.Kind == kindAdd:
 			verb = "A"
-		case op.fp.Kind == PatchDelete:
+		case op.fp.Kind == kindDelete:
 			verb = "D"
 		case op.to != nil:
 			verb = "R"
@@ -94,7 +94,7 @@ func (s *Source) applyPatch(args map[string]any) *core.ToolResult {
 			verb = "M"
 		}
 		entry["path"], entry["change"] = path, verb
-		if op.fp.Kind != PatchDelete {
+		if op.fp.Kind != kindDelete {
 			entry["hash"] = Hash(op.nw)
 			fmt.Fprintf(&b, "%s %s (hash: %s)\n", verb, path, Hash(op.nw))
 		} else {
@@ -108,7 +108,7 @@ func (s *Source) applyPatch(args map[string]any) *core.ToolResult {
 	}
 }
 
-func (s *Source) planPatch(patches []FilePatch) ([]patchOp, error) {
+func (s *Source) planPatch(patches []filePatch) ([]patchOp, error) {
 	ops := make([]patchOp, 0, len(patches))
 	for _, fp := range patches {
 		wr, rel, err := s.resolve(fp.Path)
@@ -131,22 +131,22 @@ func (s *Source) planPatch(patches []FilePatch) ([]patchOp, error) {
 		}
 
 		switch fp.Kind {
-		case PatchAdd:
+		case kindAdd:
 			if op.had {
 				return nil, fmt.Errorf("can't add %s: it already exists; use *** Update File to change it", fp.Path)
 			}
 			op.nw = fp.Content
-		case PatchDelete:
+		case kindDelete:
 			if !op.had {
 				return nil, fmt.Errorf("can't delete %s: it doesn't exist", fp.Path)
 			}
-		case PatchUpdate:
+		case kindUpdate:
 			if !op.had {
 				return nil, fmt.Errorf("can't update %s: it doesn't exist; use *** Add File to create it", fp.Path)
 			}
 			op.nw = op.old
 			if len(fp.Chunks) > 0 {
-				nw, err := ApplyChunks(op.old, fp.Chunks)
+				nw, err := applyChunks(op.old, fp.Chunks)
 				if err != nil {
 					return nil, fmt.Errorf("%s: %v", fp.Path, err)
 				}
@@ -195,7 +195,7 @@ func (s *Source) commitPatch(ops []patchOp) error {
 	}
 	for _, op := range ops {
 		switch {
-		case op.fp.Kind == PatchDelete:
+		case op.fp.Kind == kindDelete:
 			if err := op.wr.h.Remove(op.rel); err != nil {
 				return fail(fmt.Errorf("can't delete %s: %v", op.fp.Path, err))
 			}
@@ -246,7 +246,7 @@ func (s *Source) mkdirFor(wr *workspaceRoot, rel string) error {
 // outside the roots, touches nothing.
 func (s *Source) patchPaths(args map[string]any) []string {
 	text, _ := args["input"].(string)
-	patches, err := ParsePatch(text)
+	patches, err := parsePatch(text)
 	if err != nil {
 		return nil
 	}

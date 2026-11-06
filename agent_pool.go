@@ -143,13 +143,13 @@ type spawnHandle struct {
 	err    error
 }
 
-// SpawnStatus is a wire-serializable snapshot of one handle for list_agents
+// spawnStatus is a wire-serializable snapshot of one handle for list_agents
 // (constraint A2). It is a point-in-time copy. A running child may have
 // finished by the time the caller reads it.
 //
 // It describes handles only. For the agents a pool can spawn, before any
 // spawn has happened, see Registered.
-type SpawnStatus struct {
+type spawnStatus struct {
 	// ID is the handle the model passes to await_agent and cancel_agent.
 	ID string `json:"id"`
 
@@ -191,13 +191,13 @@ func NewAgentPool(onEvent func(SubAgentEvent)) *AgentPool {
 
 // Register adds a spawnable agent under name. It takes the child Runner, a
 // description for the model, and a depth cap. A zero cap uses
-// DefaultMaxAgentDepth. A duplicate name is an error.
+// 3. A duplicate name is an error.
 func (p *AgentPool) Register(name, description string, runner *Runner, maxDepth int) error {
 	if name == "" || runner == nil {
 		return fmt.Errorf("agent: AgentPool.Register requires a name and runner")
 	}
 	if maxDepth <= 0 {
-		maxDepth = DefaultMaxAgentDepth
+		maxDepth = defaultMaxAgentDepth
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -330,17 +330,17 @@ func (p *AgentPool) cancel(id string) error {
 
 // statuses snapshots every handle, running or finished, for list_agents. The
 // handles are in the order their ids were created.
-func (p *AgentPool) statuses() []SpawnStatus {
+func (p *AgentPool) statuses() []spawnStatus {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	out := make([]SpawnStatus, 0, len(p.handles))
+	out := make([]spawnStatus, 0, len(p.handles))
 	for i := 1; i <= p.seq; i++ {
 		h, ok := p.handles[fmt.Sprintf("agent-%d", i)]
 		if !ok {
 			continue
 		}
 		h.mu.Lock()
-		out = append(out, SpawnStatus{ID: h.id, Name: h.name, Status: h.status})
+		out = append(out, spawnStatus{ID: h.id, Name: h.name, Status: h.status})
 		h.mu.Unlock()
 	}
 	return out

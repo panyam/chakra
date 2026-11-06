@@ -5,9 +5,9 @@ import (
 	"encoding/hex"
 )
 
-// HashLen is the number of hex characters in a Hash. A caller echoes a Hash
-// back on Edit.ExpectHash, so HashLen is also the width of that precondition.
-const HashLen = 12
+// hashLen is the number of hex characters in a Hash. A caller echoes a Hash
+// back on edit.ExpectHash, so hashLen is also the width of that precondition.
+const hashLen = 12
 
 // Hash fingerprints file content for staleness detection.
 //
@@ -23,5 +23,5 @@ const HashLen = 12
 // they want, so a wider digest would add nothing.
 func Hash(content string) string {
 	sum := sha256.Sum256([]byte(content))
-	return hex.EncodeToString(sum[:])[:HashLen]
+	return hex.EncodeToString(sum[:])[:hashLen]
 }

@@ -315,8 +315,8 @@ func TestGrepLines_BoundedByLimit(t *testing.T) {
 	// removed the payload, and the bound stops a loose pattern from
 	// re-inlining all of it.
 	unbounded := grepLines(lines, regexp.MustCompile("hit"), 0, 0, "res:x", "hit")
-	if n := strings.Count(unbounded, "\n"); n > DefaultGrepMaxLines+1 {
-		t.Fatalf("unbounded grep returned %d lines, want <= %d", n, DefaultGrepMaxLines)
+	if n := strings.Count(unbounded, "\n"); n > defaultGrepMaxLines+1 {
+		t.Fatalf("unbounded grep returned %d lines, want <= %d", n, defaultGrepMaxLines)
 	}
 }
 
