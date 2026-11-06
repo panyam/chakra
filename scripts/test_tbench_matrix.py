@@ -224,6 +224,23 @@ class ReportTest(unittest.TestCase):
                       "1 cut off by the time limit, counted up to the cut, so this is a lower bound).", out)
 
 
+class SetupErrorTest(unittest.TestCase):
+    def test_a_trial_that_never_ran_is_left_out_and_picked_again(self):
+        trials = [
+            {**rec("a", CODEX, "2026-11-05T01:00:00Z"), "reward": None, "error": "AgentSetupTimeoutError", "in": None},
+            {**rec("b", CODEX, "2026-11-05T01:00:00Z"), "reward": 0.0, "error": "AgentTimeoutError"},
+            rec("c", CODEX, "2026-11-05T01:00:00Z"),
+        ]
+        md = m.render_md(trials, ["a", "b", "c"])
+        self.assertIn(f"| {CODEX} | 1/2 | 2/3 |", md)
+        picks, _ = m.stale(trials, ["a", "b", "c"], 1, 100)
+        self.assertEqual([(t, s) for t, s, _ in picks], [("a", CODEX)])
+        out = m.report(trials, ["a", "b", "c"], "2026-11-05T00:00:00Z")
+        self.assertNotIn("| a |", out)
+        self.assertIn(f"| b | {CODEX} | never run | 0/1 |", out)
+        self.assertIn("Didn't run, so not counted: a on codex (AgentSetupTimeoutError).", out)
+
+
 class StaleTest(unittest.TestCase):
     def test_never_run_first_then_oldest_and_no_published_columns(self):
         trials = [
