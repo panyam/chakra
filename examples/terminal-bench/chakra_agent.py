@@ -17,7 +17,7 @@ import os
 import shlex
 from pathlib import Path
 
-from harbor.agents.agent_auth_resolution import ModelConnectionSpec, ProviderAccess
+from harbor.agents.agent_auth_resolution import ModelConnectionSpec
 from harbor.agents.capabilities import AgentCapabilities
 from harbor.agents.installed.base import BaseInstalledAgent, with_prompt_template
 from harbor.agents.options import InstalledAgentOptions
@@ -36,6 +36,9 @@ _HOME = "/tmp/chakra"
 _OUTPUT = "chakra.jsonl"
 _STDERR = "chakra.stderr.txt"
 
+# The env var chakra's config names for each provider's key (chakra_config).
+_KEY_ENV = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY"}
+
 
 class ChakraAgent(BaseInstalledAgent):
     """Runs `agentchat exec` inside the task container.
@@ -49,12 +52,11 @@ class ChakraAgent(BaseInstalledAgent):
 
     MODEL_CONNECTION = ModelConnectionSpec(
         default_provider="openai",
-        agent_provider_access=ProviderAccess(
-            api_key_candidate_names=["OPENAI_API_KEY"],
-            base_url_candidate_names=["OPENAI_BASE_URL"],
-        ),
-        supported_api_formats=[ModelApiFormat.OPENAI_RESPONSES],
-        default_api_format_by_provider={"default": ModelApiFormat.OPENAI_RESPONSES},
+        supported_api_formats=[ModelApiFormat.OPENAI_RESPONSES, ModelApiFormat.ANTHROPIC_MESSAGES],
+        default_api_format_by_provider={
+            "default": ModelApiFormat.OPENAI_RESPONSES,
+            "anthropic": ModelApiFormat.ANTHROPIC_MESSAGES,
+        },
     )
 
     @staticmethod
@@ -69,6 +71,9 @@ class ChakraAgent(BaseInstalledAgent):
             return stamp.read_text().strip() or None
         except OSError:
             return None
+
+    def _provider(self) -> str:
+        return "anthropic" if self.model_connection.provider == "anthropic" else "openai"
 
     def _binary(self) -> Path:
         path = Path(os.environ.get("CHAKRA_AGENTCHAT_BIN", _HERE / "bin" / "agentchat-linux-amd64"))
@@ -85,9 +90,7 @@ class ChakraAgent(BaseInstalledAgent):
     async def configure(self, environment: BaseEnvironment) -> None:
         conn = self.model_connection
         effort = self.options.reasoning_effort if self.options is not None else None
-        config, workspace = build(
-            conn.model_id or self.model_name, conn.execution_base_url or "https://api.openai.com/v1", effort
-        )
+        config, workspace = build(conn.model_id or self.model_name, conn.execution_base_url, effort, self._provider())
         await self.exec_as_agent(environment, command=f"mkdir -p {_HOME}")
         await self._upload_config_text(
             environment, content=json.dumps(config), remote_path=f"{_HOME}/config.json", filename="config.json"
@@ -101,7 +104,7 @@ class ChakraAgent(BaseInstalledAgent):
         conn = self.model_connection
         env = dict(conn.env)
         if conn.api_key:
-            env["OPENAI_API_KEY"] = conn.api_key
+            env[_KEY_ENV[self._provider()]] = conn.api_key
         logs = self.environment_logs_dir.as_posix()
         await self.exec_as_agent(
             environment,

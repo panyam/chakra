@@ -1,0 +1,78 @@
+{
+ "jobs": [
+  "tbench-codex-20261105-162006"
+ ],
+ "source": "local",
+ "trials": [
+  {
+   "agent_s": 160.057118,
+   "agent_version": "0.166.0",
+   "cached": 196736,
+   "chakra_sha": null,
+   "date": "2026-11-06T00:20:09.931149Z",
+   "error": null,
+   "in": 230682,
+   "job": "tbench-codex-20261105-162006",
+   "out": 9939,
+   "reward": 1.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "circuit-fibsqrt"
+  },
+  {
+   "agent_s": 14.765796,
+   "agent_version": "0.166.0",
+   "cached": 24704,
+   "chakra_sha": null,
+   "date": "2026-11-06T00:20:09.962378Z",
+   "error": null,
+   "in": 38105,
+   "job": "tbench-codex-20261105-162006",
+   "out": 468,
+   "reward": 1.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "code-from-image"
+  },
+  {
+   "agent_s": 1368.515253,
+   "agent_version": "0.166.0",
+   "cached": 2056576,
+   "chakra_sha": null,
+   "date": "2026-11-06T00:26:11.266877Z",
+   "error": null,
+   "in": 2149814,
+   "job": "tbench-codex-20261105-162006",
+   "out": 8021,
+   "reward": 1.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "compile-compcert"
+  },
+  {
+   "agent_s": null,
+   "agent_version": null,
+   "cached": null,
+   "chakra_sha": null,
+   "date": "2026-11-06T00:27:28.475568Z",
+   "error": "AgentSetupTimeoutError",
+   "in": null,
+   "job": "tbench-codex-20261105-162006",
+   "out": null,
+   "reward": null,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "constraints-scheduling"
+  },
+  {
+   "agent_s": 114.038086,
+   "agent_version": "0.166.0",
+   "cached": 122112,
+   "chakra_sha": null,
+   "date": "2026-11-06T00:33:37.353461Z",
+   "error": null,
+   "in": 152736,
+   "job": "tbench-codex-20261105-162006",
+   "out": 1847,
+   "reward": 1.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "count-dataset-tokens"
+  }
+ ]
+}

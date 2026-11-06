@@ -42,6 +42,7 @@ CODE_PATHS = ["*.go", "examples/terminal-bench"]
 # OpenAI's cached rate is assumed at a tenth of input, as for earlier GPT-5 models.
 PRICES = {
     "openai/gpt-5.5": (5.00, 0.50, 30.00),
+    "anthropic/claude-sonnet-5-5": (2.00, 0.20, 10.00),
 }
 
 

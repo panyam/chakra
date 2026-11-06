@@ -28,5 +28,28 @@ class BuildTest(unittest.TestCase):
         self.assertEqual(workspace["exec"]["shell"]["processes"], {"detach": True})
 
 
+class AnthropicBuildTest(unittest.TestCase):
+    def test_a_claude_model_gets_a_messages_api_connection(self):
+        config, _ = build("claude-sonnet-5-5", None, "high", "anthropic")
+        conns = config["connections"]
+        conn = conns["connections"][conns["active"]]
+        self.assertEqual(conn, {"type": "anthropic", "model": "claude-sonnet-5-5",
+                                "apiKeyEnv": "ANTHROPIC_API_KEY", "maxTokens": 64000})
+
+    def test_a_base_url_is_kept_when_harbor_routes_one(self):
+        config, _ = build("claude-sonnet-5-5", "https://proxy.example/anthropic", None, "anthropic")
+        conns = config["connections"]
+        self.assertEqual(conns["connections"][conns["active"]]["baseUrl"], "https://proxy.example/anthropic")
+
+    def test_openai_still_defaults_its_base_url(self):
+        config, _ = build("gpt-5.5", None, "medium")
+        conns = config["connections"]
+        self.assertEqual(conns["connections"][conns["active"]]["baseUrl"], "https://api.openai.com/v1")
+
+    def test_an_unknown_provider_is_refused(self):
+        with self.assertRaises(ValueError):
+            build("llama", None, None, "ollama")
+
+
 if __name__ == "__main__":
     unittest.main()

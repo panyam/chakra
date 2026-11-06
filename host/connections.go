@@ -103,6 +103,13 @@ type ConnectionConfig struct {
 	// over APIKeyEnv. It is never read from or written to a config file.
 	APIKey string `json:"-"`
 
+	// MaxTokens caps each reply's length. Read only for Type "anthropic",
+	// whose API requires a cap on every request. Zero keeps the provider's
+	// default of 4096, which cuts off a long file write or patch partway
+	// through, and the turn then goes on as if the model had stopped there.
+	// Set it to what the model allows for agentic work (#264).
+	MaxTokens int `json:"maxTokens,omitempty"`
+
 	// Dim is the embedding vector width, meaningful only when this
 	// connection is used as an embedder (the ConnectionsConfig.Embedder
 	// role). It must match the embedding model's true output width; the
@@ -209,9 +216,10 @@ func buildProvider(conn ConnectionConfig, onFullHistory func(reason string)) (ag
 	switch conn.Type {
 	case "anthropic":
 		p, err = agent.NewAnthropicProvider(agent.AnthropicConfig{
-			BaseURL: base,
-			Model:   conn.Model,
-			APIKey:  key,
+			BaseURL:   base,
+			Model:     conn.Model,
+			APIKey:    key,
+			MaxTokens: conn.MaxTokens,
 		})
 	case "openai-responses":
 		p, err = agent.NewResponsesProvider(agent.ResponsesConfig{
