@@ -237,6 +237,11 @@ TB_MODEL ?= openai/gpt-5.5
 TB_K ?= 1
 TB_CONCURRENT ?= 2
 TB_EFFORT ?= medium
+# Harbor gives an agent 360 seconds to install. Codex's nvm and npm install
+# under amd64 emulation can take longer on some images (#277). A failed install
+# still exits at once, so only a slow or hung one waits out the longer limit.
+# TB_SETUP_TIMEOUT= (empty) keeps Harbor's default.
+TB_SETUP_TIMEOUT ?= 3
 TB_SET ?= starter
 TB_TASKS_STARTER := fix-git prove-plus-comm cobol-modernization kv-store-grpc polyglot-c-py \
             nginx-request-logging openssl-selfsigned-cert custom-memory-heap-crash \
@@ -257,13 +262,13 @@ tbench-build: ## Static Linux agentchat for the Terminal-Bench containers (amd64
 	@cd surfaces/chat && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../../examples/terminal-bench/bin/agentchat-linux-amd64 .
 	@echo "$$(git rev-parse --short=12 HEAD)$$(git diff --quiet HEAD -- . || echo -dirty)" > examples/terminal-bench/bin/VERSION
 
-tbench: tbench-build ## Terminal-Bench 2 via Harbor: TB_AGENTS on TB_SET or TB_TASKS, TB_K attempts each (TB_MODEL=openai/gpt-5.5, TB_EFFORT=medium; TB_PREFLIGHT=0 skips the quota check)
+tbench: tbench-build ## Terminal-Bench 2 via Harbor: TB_AGENTS on TB_SET or TB_TASKS, TB_K attempts each (TB_MODEL=openai/gpt-5.5, TB_EFFORT=medium, TB_SETUP_TIMEOUT=3; TB_PREFLIGHT=0 skips the quota check)
 	@$(if $(filter 0,$(TB_PREFLIGHT)),true,python3 scripts/tbench_preflight.py $(TB_MODEL))
 	@for a in $(TB_AGENTS); do \
 		case $$a in chakra) agent=chakra_agent:ChakraAgent ;; *) agent=$$a ;; esac; \
 		echo "==> $$a"; \
 		PYTHONPATH=$(CURDIR)/examples/terminal-bench harbor run -p $(TB_PATH) -a $$agent -m $(TB_MODEL) \
-			$(if $(TB_EFFORT),--ak reasoning_effort=$(TB_EFFORT)) -k $(TB_K) -n $(TB_CONCURRENT) -o $(TB_JOBS) --job-name tbench-$$a-$$(date +%Y%m%d-%H%M%S) \
+			$(if $(TB_EFFORT),--ak reasoning_effort=$(TB_EFFORT)) $(if $(TB_SETUP_TIMEOUT),--agent-setup-timeout-multiplier $(TB_SETUP_TIMEOUT)) -k $(TB_K) -n $(TB_CONCURRENT) -o $(TB_JOBS) --job-name tbench-$$a-$$(date +%Y%m%d-%H%M%S) \
 			$(foreach t,$(TB_TASKS),-i $(t)) -y || echo "$$a: harbor exited non-zero, carrying on"; \
 	done
 
