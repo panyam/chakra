@@ -108,6 +108,9 @@ func (r *renderer) handle(e agent.Event) {
 		}
 		r.breakLine()
 		fmt.Fprintf(r.out, "%s\n", r.dim(fmt.Sprintf("↳ step %d on %s", e.Step, e.Model)))
+	case agent.EventStuck:
+		r.breakLine()
+		fmt.Fprintf(r.out, "%s\n", r.dim("  ⟲ stuck: "+snippet(e.Stuck.String(), 120)))
 	case agent.EventTurnContinued:
 		r.breakLine()
 		fmt.Fprintf(r.out, "%s\n", r.dim("  ↻ not done yet: "+snippet(e.Reason, 120)))

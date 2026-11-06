@@ -145,3 +145,12 @@ func TestRendererStepLine(t *testing.T) {
 		t.Fatalf("render = %q, want %q", got, want)
 	}
 }
+
+func TestRendererShowsAStuckRun(t *testing.T) {
+	var out strings.Builder
+	r := newRenderer(&out, false)
+	r.handle(agent.Event{Kind: agent.EventStuck, Step: 4, Stuck: &agent.StuckFinding{Pattern: agent.StuckRepeat, Count: 3, Tools: []string{"run_tests"}}})
+	if got := out.String(); !strings.Contains(got, "stuck: repeated run_tests 3 times with the same result") {
+		t.Fatalf("render = %q", got)
+	}
+}

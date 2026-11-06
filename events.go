@@ -59,6 +59,10 @@ const (
 	// emits no turn-continued, and the turn ends with EventError. Another
 	// step follows unless the turn is at MaxSteps.
 	EventTurnContinued EventKind = "turn-continued"
+	// EventStuck marks that NewStuckDetector found the turn repeating itself
+	// before a model call (#278). Stuck says what repeated. The policy acts
+	// on that same call, so the event comes before the call's EventStep.
+	EventStuck EventKind = "stuck"
 	// EventPlan sends the plan that a model published with update_plan
 	// (#148). Plan holds the whole plan each time, so a surface replaces the
 	// plan it showed. Step is the step whose tool call published it.
@@ -123,6 +127,9 @@ type Event struct {
 
 	// Plan is the model's whole current plan, on EventPlan.
 	Plan *Plan `json:"plan,omitempty"`
+
+	// Stuck says what repeated, on EventStuck.
+	Stuck *StuckFinding `json:"stuck,omitempty"`
 
 	// Model names the provider that answered, on EventStep. See
 	// StepView.ProviderName.
