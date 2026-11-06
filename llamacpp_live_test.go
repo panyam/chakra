@@ -211,3 +211,47 @@ func (r recordingProvider) Generate(ctx context.Context, req ProviderRequest) (*
 }
 
 func (r recordingProvider) ProviderCapabilities() Capabilities { return CapabilitiesOf(r.Provider) }
+
+// TestLlamaCppServerReadsPenalties sends each SamplingPenalties kind to a real
+// llama-server at temperature 0 (#276). A kind the server reads changes the
+// greedy reply. One that it dropped would leave the reply unchanged. Start the
+// server as for TestLlamaCppServerHonorsSeedAndGuided.
+func TestLlamaCppServerReadsPenalties(t *testing.T) {
+	url := os.Getenv("CHAKRA_LLAMACPP_URL")
+	if url == "" {
+		t.Skip("CHAKRA_LLAMACPP_URL is not set")
+	}
+	p, err := NewLlamaCppProvider(LlamaCppConfig{BaseURL: url})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ask := func(pen *SamplingPenalties) string {
+		t.Helper()
+		resp, err := p.Generate(context.Background(), ProviderRequest{
+			Instructions: "Once upon a time",
+			Messages:     []Message{{Role: RoleUser, Text: "Tell me a story."}},
+			Temperature:  floatPtr(0),
+			MaxTokens:    64,
+			Seed:         intPtr(1),
+			Penalties:    pen,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return resp.Text
+	}
+	plain := ask(nil)
+	if again := ask(nil); again != plain {
+		t.Fatalf("control: greedy decoding drew %q then %q, so a change proves nothing", plain, again)
+	}
+	for name, pen := range map[string]*SamplingPenalties{
+		PenaltyRepeat:    {Repeat: floatPtr(2), RepeatLastN: intPtr(64)},
+		PenaltyFrequency: {Frequency: floatPtr(2)},
+		PenaltyPresence:  {Presence: floatPtr(2)},
+		PenaltyDRY:       {DRYMultiplier: floatPtr(2), DRYBase: floatPtr(1.75), DRYAllowedLength: intPtr(1)},
+	} {
+		if got := ask(pen); got == plain {
+			t.Errorf("%s: the reply didn't change, so the server may not read it: %q", name, got)
+		}
+	}
+}

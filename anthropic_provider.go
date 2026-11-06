@@ -459,8 +459,8 @@ func (s *anthropicStream) eventDeltas(msg anthropicSSE) ([]Delta, bool, error) {
 	return nil, false, nil
 }
 
-// ProviderCapabilities reports nothing. The Messages API takes neither a seed
-// nor a grammar, and a request with either is refused. Temperature is
+// ProviderCapabilities reports nothing. The Messages API takes no seed, no
+// grammar and no sampling penalty, and a request with any of them is refused. Temperature is
 // reported false too, because current models answer 400 to one. A Temperature
 // that is set is still forwarded.
 func (p *AnthropicProvider) ProviderCapabilities() Capabilities { return Capabilities{} }
@@ -474,5 +474,5 @@ func anthropicCheck(req ProviderRequest) error {
 	if req.Guided != nil {
 		return fmt.Errorf("%w: Guided (the Anthropic Messages API has no decoding constraint)", ErrUnsupportedParam)
 	}
-	return nil
+	return refusePenalties(req.Penalties, nil, "the Anthropic Messages API has no sampling penalties")
 }

@@ -121,8 +121,8 @@ func NewResponsesProvider(cfg ResponsesConfig) (*ResponsesProvider, error) {
 }
 
 // ProviderCapabilities reports a temperature only when ResponsesConfig.Temperature
-// says the model takes one. The Responses API has no seed and no grammar or
-// regex constraint, so those are never reported.
+// says the model takes one. The Responses API has no seed, no grammar or
+// regex constraint and no sampling penalty, so those are never reported.
 func (p *ResponsesProvider) ProviderCapabilities() Capabilities {
 	return Capabilities{Temperature: p.cfg.Temperature}
 }
@@ -134,7 +134,7 @@ func (p *ResponsesProvider) check(req ProviderRequest) error {
 	if req.Guided != nil {
 		return fmt.Errorf("%w: Guided (the Responses API has no guided decoding)", ErrUnsupportedParam)
 	}
-	return nil
+	return refusePenalties(req.Penalties, nil, "the Responses API has no sampling penalties")
 }
 
 // Stream implements Provider. Text, reasoning summaries and function calls
