@@ -131,3 +131,12 @@ mixes harness with model. Codex stays a column we run, on chakra's model and pro
 - An exhausted OpenAI account answers `429` with `insufficient_quota` / `credit_balance_exhausted`.
   chakra's retry deliberately doesn't retry it, so every trial used to fail fast and the report
   read 0/10. The preflight now stops the run before it starts.
+- Docker Desktop sometimes can't reach Docker Hub partway through a run. Harbor then fails the trial
+  with a `RuntimeError` from `docker compose` before the agent starts. The matrix doesn't count a
+  trial that never ran, and `tbench-stale` picks the cell again, so rerun later.
+- Installing Codex (nvm and npm, under emulation) on `constraints-scheduling` takes longer than
+  Harbor's 360-second agent setup limit. That task ends in `AgentSetupTimeoutError` for Codex every
+  time so far, and the trial isn't counted. Harbor's `--agent-setup-timeout-multiplier` would fix
+  it, but `make tbench` doesn't pass it through yet.
+- Harbor imports `chakra_agent.py` and the scripts from the checkout at the start of each job. So
+  don't edit a worktree while a batch runs from it. Make a second worktree for the edits.

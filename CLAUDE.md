@@ -55,6 +55,8 @@ translator onto the Runner. Its exercise lives in jaala.
 A new issue gets one of `P0`–`P3` (P1 is capped at 5 per mission), plus either a `mission_<slug>`
 label with a blocked-by link from the mission, or `waiting` with its trigger named in the body.
 Trackers are `epic`. `~/.claude/skills/retriage/queue.sh` computes the order.
+A PR that closes two issues needs the keyword before each one ("Closes #266, closes #267").
+GitHub closes only #266 for "Closes #266 and #267", which is how #267 stayed open after PR 271.
 
 ## The invariants that cause wrong edits when missed
 
@@ -98,6 +100,10 @@ integrated with a dedicated engine.
 - **CI fails on any change to an exported name until `api.txt` records it.** `make api-report`
   diffs each module's exported API against its `api.txt` (#143). Run `make api-update` and commit
   the diff with the change. Doc comments and parameter names don't count.
+- **An `anthropic` connection without `maxTokens` stops every reply at 4096 tokens.** The Messages
+  API needs a cap, and the provider's default is 4096. A long file write or patch gets cut off,
+  and the turn carries on as if the model had finished. Set `maxTokens` on the connection (#264).
+  The Terminal-Bench adapter sets 64000.
 - **Run tests with `-race`.** The signal, pool, and interruptible tests exist to catch races.
 - **Host behavioral tests race on a shared sequential StubProvider** when a main turn and a
   background child both pull from it. Assert *wiring* in host tests and test the *behavior* at
