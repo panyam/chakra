@@ -13,7 +13,6 @@ require (
 	github.com/panyam/chakra/surfaces v0.2.9
 	github.com/panyam/mcpkit v0.8.16
 	github.com/panyam/mcpkit/ext/otel v0.8.12
-	github.com/redis/go-redis/v9 v9.21.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	go.opentelemetry.io/contrib/bridges/otelslog v0.21.0
@@ -31,7 +30,6 @@ require (
 	golang.org/x/crypto/x509roots/fallback v0.0.0-20261103070834-3d426ad4de97
 	golang.org/x/term v0.47.0
 	gorm.io/driver/postgres v1.6.2
-	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.2
 )
 
@@ -73,6 +71,7 @@ require (
 	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.8.12 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pgvector/pgvector-go v0.4.1 // indirect
+	github.com/redis/go-redis/v9 v9.21.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/yuin/goldmark v1.8.2 // indirect
@@ -80,6 +79,7 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.6 // indirect
 	golang.org/x/sync v0.24.0 // indirect
+	gorm.io/driver/sqlite v1.6.0 // indirect
 )
 
 require (
@@ -103,7 +103,7 @@ require (
 	github.com/panyam/chakra/ext/checkpoint v0.2.9 // indirect
 	github.com/panyam/chakra/ext/files v0.2.9 // indirect
 	github.com/panyam/chakra/store/gorm v0.2.9
-	github.com/panyam/chakra/store/redis v0.2.9
+	github.com/panyam/chakra/store/redis v0.2.9 // indirect
 	github.com/panyam/gocurrent v0.1.2 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
 	github.com/panyam/mcpkit/experimental/ext/events v0.8.16 // indirect
