@@ -49,6 +49,10 @@ pkg github.com/panyam/chakra, const ModeAlwaysAllow ApprovalMode
 pkg github.com/panyam/chakra, const ModeAlwaysAsk ApprovalMode
 pkg github.com/panyam/chakra, const ModeReadOnlyAuto ApprovalMode
 pkg github.com/panyam/chakra, const ModeReversibleAuto ApprovalMode
+pkg github.com/panyam/chakra, const PenaltyDRY
+pkg github.com/panyam/chakra, const PenaltyFrequency
+pkg github.com/panyam/chakra, const PenaltyPresence
+pkg github.com/panyam/chakra, const PenaltyRepeat
 pkg github.com/panyam/chakra, const PlanCompleted
 pkg github.com/panyam/chakra, const PlanInProgress
 pkg github.com/panyam/chakra, const PlanPending
@@ -255,6 +259,7 @@ pkg github.com/panyam/chakra, method (AgentPath) Contains(string) bool
 pkg github.com/panyam/chakra, method (AgentPath) Depth() int
 pkg github.com/panyam/chakra, method (AgentPath) String() string
 pkg github.com/panyam/chakra, method (Capabilities) CanGuide(*GuidedDecoding) bool
+pkg github.com/panyam/chakra, method (Capabilities) CanPenalize(*SamplingPenalties) bool
 pkg github.com/panyam/chakra, method (CharTokenEstimator) Estimate([]Message) int
 pkg github.com/panyam/chakra, method (Embedding) Cosine(Embedding) float64
 pkg github.com/panyam/chakra, method (Plan) String() string
@@ -316,6 +321,7 @@ pkg github.com/panyam/chakra, type CallClass struct, Reason string
 pkg github.com/panyam/chakra, type CallDisposition int
 pkg github.com/panyam/chakra, type Capabilities struct
 pkg github.com/panyam/chakra, type Capabilities struct, Guided []string
+pkg github.com/panyam/chakra, type Capabilities struct, Penalties []string
 pkg github.com/panyam/chakra, type Capabilities struct, Seed bool
 pkg github.com/panyam/chakra, type Capabilities struct, Temperature bool
 pkg github.com/panyam/chakra, type CapabilityReporter interface
@@ -455,6 +461,7 @@ pkg github.com/panyam/chakra, type FuncOption func(*core.ToolDef)
 pkg github.com/panyam/chakra, type FuncSource struct
 pkg github.com/panyam/chakra, type GenerationParams struct
 pkg github.com/panyam/chakra, type GenerationParams struct, MaxTokens int
+pkg github.com/panyam/chakra, type GenerationParams struct, Penalties *SamplingPenalties
 pkg github.com/panyam/chakra, type GenerationParams struct, Seed *int
 pkg github.com/panyam/chakra, type GenerationParams struct, Temperature *float64
 pkg github.com/panyam/chakra, type GenerationParams struct, ToolChoice ToolChoice
@@ -551,6 +558,7 @@ pkg github.com/panyam/chakra, type OpenAIConfig struct, HTTPClient *http.Client
 pkg github.com/panyam/chakra, type OpenAIConfig struct, Model string
 pkg github.com/panyam/chakra, type OpenAIConfig struct, NoResponseSchema bool
 pkg github.com/panyam/chakra, type OpenAIConfig struct, NoTemperature bool
+pkg github.com/panyam/chakra, type OpenAIConfig struct, Penalties []string
 pkg github.com/panyam/chakra, type OpenAIEmbedder struct
 pkg github.com/panyam/chakra, type OpenAIEmbedderConfig struct
 pkg github.com/panyam/chakra, type OpenAIEmbedderConfig struct, APIKey string
@@ -583,6 +591,7 @@ pkg github.com/panyam/chakra, type ProviderRequest struct, Guided *GuidedDecodin
 pkg github.com/panyam/chakra, type ProviderRequest struct, Instructions string
 pkg github.com/panyam/chakra, type ProviderRequest struct, MaxTokens int
 pkg github.com/panyam/chakra, type ProviderRequest struct, Messages []Message
+pkg github.com/panyam/chakra, type ProviderRequest struct, Penalties *SamplingPenalties
 pkg github.com/panyam/chakra, type ProviderRequest struct, ResponseSchema core.RawJSON
 pkg github.com/panyam/chakra, type ProviderRequest struct, Seed *int
 pkg github.com/panyam/chakra, type ProviderRequest struct, Temperature *float64
@@ -668,6 +677,14 @@ pkg github.com/panyam/chakra, type RunnerConfig struct, Tools ToolSource
 pkg github.com/panyam/chakra, type RunnerConfig struct, TracerProvider core.TracerProvider
 pkg github.com/panyam/chakra, type RunnerConfig struct, TreeBudget TreeBudget
 pkg github.com/panyam/chakra, type RunnerConfig struct, TurnEnd []TurnEndHook
+pkg github.com/panyam/chakra, type SamplingPenalties struct
+pkg github.com/panyam/chakra, type SamplingPenalties struct, DRYAllowedLength *int
+pkg github.com/panyam/chakra, type SamplingPenalties struct, DRYBase *float64
+pkg github.com/panyam/chakra, type SamplingPenalties struct, DRYMultiplier *float64
+pkg github.com/panyam/chakra, type SamplingPenalties struct, Frequency *float64
+pkg github.com/panyam/chakra, type SamplingPenalties struct, Presence *float64
+pkg github.com/panyam/chakra, type SamplingPenalties struct, Repeat *float64
+pkg github.com/panyam/chakra, type SamplingPenalties struct, RepeatLastN *int
 pkg github.com/panyam/chakra, type ScoredMemory struct
 pkg github.com/panyam/chakra, type ScoredMemory struct, Item MemoryItem
 pkg github.com/panyam/chakra, type ScoredMemory struct, Score float64

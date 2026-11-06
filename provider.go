@@ -127,6 +127,13 @@ type ProviderRequest struct {
 	// independent.
 	Seed *int `json:"seed,omitempty"`
 
+	// Penalties discourage the model from repeating itself, when non-nil.
+	// Set them on a turn through RunnerConfig.Generation or
+	// TurnRequest.Generation. A provider that can't send a field that is set
+	// refuses the request with ErrUnsupportedParam. Full contract on
+	// SamplingPenalties.
+	Penalties *SamplingPenalties `json:"penalties,omitempty"`
+
 	// Guided constrains decoding token by token when non-nil, so the
 	// completion matches a grammar, a regex or a JSON Schema. A server that
 	// supports it cannot produce a malformed guided completion.
@@ -196,6 +203,12 @@ type GenerationParams struct {
 	// 0 is a seed rather than "unset". Providers without a seed refuse it
 	// rather than drop it. Full contract on ProviderRequest.Seed.
 	Seed *int `json:"seed,omitempty"`
+
+	// Penalties discourage repetition when non-nil. They merge field by
+	// field, so a turn that sets only Presence keeps the config's Repeat.
+	// Check CapabilitiesOf(provider).CanPenalize first. Full contract on
+	// SamplingPenalties.
+	Penalties *SamplingPenalties `json:"penalties,omitempty"`
 }
 
 // merge returns p overlaid with over: each field of over that is set wins,
@@ -215,6 +228,7 @@ func (p GenerationParams) merge(over GenerationParams) GenerationParams {
 	if over.Seed != nil {
 		out.Seed = over.Seed
 	}
+	out.Penalties = p.Penalties.merge(over.Penalties)
 	return out
 }
 
@@ -225,6 +239,121 @@ func (p GenerationParams) applyTo(req *ProviderRequest) {
 	req.MaxTokens = p.MaxTokens
 	req.ToolChoice = p.ToolChoice
 	req.Seed = p.Seed
+	req.Penalties = p.Penalties
+}
+
+// SamplingPenalties discourage a model from repeating itself (#276). Picture
+// a small model writing a program under a grammar at temperature 0. It falls
+// into a loop, and the grammar keeps every repeat valid, so the reply runs to
+// the token limit. A penalty makes each repeat less likely.
+//
+// Every field is a pointer, so an explicit 0 is a value and nil means the
+// server's default. The fields fall into four kinds, and Capabilities.Penalties
+// lists the kinds a provider sends. A provider refuses a request that sets a
+// field of a kind it can't send, with ErrUnsupportedParam, before anything
+// leaves. It never drops one silently.
+//
+// The names and ranges are llama.cpp's. OpenAI and Ollama's /v1 take
+// Frequency and Presence only. Anthropic and the Responses API take none.
+type SamplingPenalties struct {
+	// Repeat scales down the logits of tokens seen in the last RepeatLastN
+	// tokens. 1 is off. llama.cpp sends it as repeat_penalty. Kind
+	// PenaltyRepeat.
+	Repeat *float64 `json:"repeat,omitempty"`
+	// RepeatLastN is how many recent tokens Repeat looks back over. 0 turns
+	// the penalty off. Current llama-server answers 400 to a negative value,
+	// though older builds read -1 as the whole context. llama.cpp sends it
+	// as repeat_last_n. Kind PenaltyRepeat.
+	RepeatLastN *int `json:"repeatLastN,omitempty"`
+	// Frequency subtracts in proportion to how often a token has appeared.
+	// 0 is off. Sent as frequency_penalty. Kind PenaltyFrequency.
+	Frequency *float64 `json:"frequency,omitempty"`
+	// Presence subtracts once from any token that has appeared. 0 is off.
+	// Sent as presence_penalty. Kind PenaltyPresence.
+	Presence *float64 `json:"presence,omitempty"`
+	// DRYMultiplier turns on the DRY ("don't repeat yourself") sampler,
+	// which penalizes a token that would extend a sequence already in the
+	// context. 0 is off. Unlike Repeat, DRY leaves single tokens alone, so
+	// common words and syntax keep their odds. llama.cpp sends it as
+	// dry_multiplier. Kind PenaltyDRY.
+	DRYMultiplier *float64 `json:"dryMultiplier,omitempty"`
+	// DRYBase is how fast DRY's penalty grows with the repeated sequence's
+	// length. llama.cpp sends it as dry_base. Kind PenaltyDRY.
+	DRYBase *float64 `json:"dryBase,omitempty"`
+	// DRYAllowedLength is the longest repeat DRY lets through unpenalized.
+	// llama.cpp sends it as dry_allowed_length. Kind PenaltyDRY.
+	DRYAllowedLength *int `json:"dryAllowedLength,omitempty"`
+}
+
+// The kinds of SamplingPenalties, as Capabilities.Penalties lists them.
+const (
+	PenaltyRepeat    = "repeat"
+	PenaltyFrequency = "frequency"
+	PenaltyPresence  = "presence"
+	PenaltyDRY       = "dry"
+)
+
+// kinds lists the penalty kinds s sets, in the order of the constants. A nil
+// s sets none.
+func (s *SamplingPenalties) kinds() []string {
+	if s == nil {
+		return nil
+	}
+	var out []string
+	if s.Repeat != nil || s.RepeatLastN != nil {
+		out = append(out, PenaltyRepeat)
+	}
+	if s.Frequency != nil {
+		out = append(out, PenaltyFrequency)
+	}
+	if s.Presence != nil {
+		out = append(out, PenaltyPresence)
+	}
+	if s.DRYMultiplier != nil || s.DRYBase != nil || s.DRYAllowedLength != nil {
+		out = append(out, PenaltyDRY)
+	}
+	return out
+}
+
+// merge returns s overlaid with over, field by field, without changing
+// either. It returns nil when both are nil.
+func (s *SamplingPenalties) merge(over *SamplingPenalties) *SamplingPenalties {
+	if over == nil {
+		return s
+	}
+	if s == nil {
+		return over
+	}
+	out := *s
+	pick := func(dst **float64, v *float64) {
+		if v != nil {
+			*dst = v
+		}
+	}
+	pickInt := func(dst **int, v *int) {
+		if v != nil {
+			*dst = v
+		}
+	}
+	pick(&out.Repeat, over.Repeat)
+	pickInt(&out.RepeatLastN, over.RepeatLastN)
+	pick(&out.Frequency, over.Frequency)
+	pick(&out.Presence, over.Presence)
+	pick(&out.DRYMultiplier, over.DRYMultiplier)
+	pick(&out.DRYBase, over.DRYBase)
+	pickInt(&out.DRYAllowedLength, over.DRYAllowedLength)
+	return &out
+}
+
+// refusePenalties returns ErrUnsupportedParam naming the first kind s sets
+// that isn't in sendable, and nil when every kind is.
+func refusePenalties(s *SamplingPenalties, sendable []string, why string) error {
+	for _, k := range s.kinds() {
+		if !slices.Contains(sendable, k) {
+			return fmt.Errorf("%w: Penalties %s (%s)", ErrUnsupportedParam, k, why)
+		}
+	}
+	return nil
 }
 
 // GuidedDecoding is a decoding constraint. Exactly one field is set; a
@@ -293,6 +422,15 @@ type Capabilities struct {
 	// per-model lookup. A provider that reports false still forwards a
 	// Temperature, and the vendor's error is the diagnostic.
 	Temperature bool
+	// Penalties lists which SamplingPenalties kinds the provider sends, out
+	// of PenaltyRepeat, PenaltyFrequency, PenaltyPresence and PenaltyDRY.
+	Penalties []string
+}
+
+// CanPenalize reports whether every kind s sets is in c.Penalties. A nil s
+// asks for nothing and is always true.
+func (c Capabilities) CanPenalize(s *SamplingPenalties) bool {
+	return refusePenalties(s, c.Penalties, "") == nil
 }
 
 // CanGuide reports whether g, a single constraint, is one of c.Guided. A nil
@@ -308,13 +446,21 @@ func (c Capabilities) CanGuide(g *GuidedDecoding) bool {
 
 // intersect returns the capabilities both c and o can send.
 func (c Capabilities) intersect(o Capabilities) Capabilities {
-	var both []string
-	for _, k := range c.Guided {
-		if slices.Contains(o.Guided, k) {
-			both = append(both, k)
+	both := func(a, b []string) []string {
+		var out []string
+		for _, k := range a {
+			if slices.Contains(b, k) {
+				out = append(out, k)
+			}
 		}
+		return out
 	}
-	return Capabilities{Guided: both, Seed: c.Seed && o.Seed, Temperature: c.Temperature && o.Temperature}
+	return Capabilities{
+		Guided:      both(c.Guided, o.Guided),
+		Seed:        c.Seed && o.Seed,
+		Temperature: c.Temperature && o.Temperature,
+		Penalties:   both(c.Penalties, o.Penalties),
+	}
 }
 
 // CapabilityReporter is implemented by a Provider that can say what it

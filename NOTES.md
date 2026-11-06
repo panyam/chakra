@@ -813,7 +813,8 @@ A few things fell out of it that are easy to trip over:
 
 ### Generation parameters: how they reach a turn (#1239)
 
-`GenerationParams` (`agent/provider.go`) carries `Temperature`, `MaxTokens`, and `ToolChoice`.
+`GenerationParams` (`agent/provider.go`) carries `Temperature`, `MaxTokens`, `ToolChoice`, `Seed`
+and `Penalties`.
 Defaults go on `RunnerConfig.Generation`, and `TurnRequest.Generation` overrides per turn, **field
 by field, where a zero field inherits**. The type documents the corollary. A turn cannot un-set a
 config default back to the provider's own. It can only set a different value.
@@ -833,6 +834,17 @@ only as a `failover.go` health probe. Both providers had always rendered all thr
 correctly. The gap was purely loop-side. Anyone checking a provider saw every parameter rendered,
 and nothing looked missing. The roadmap's §7 scorecard credited `ToolChoice` as
 shipped. #1056 was then sized against that scorecard, on primitives a turn could not actually drive.
+
+**Penalties merge one level deeper (#276).** `SamplingPenalties` is a pointer struct, and its
+fields merge one by one. A turn that sets only `Presence` keeps the config's `Repeat`. A merge
+that replaced the whole struct would drop the config's repeat penalty with no error.
+
+**Ollama's /v1 reads two of the four penalty kinds.** On Ollama 0.40.13 at temperature 0,
+`frequency_penalty` and `presence_penalty` each change the reply. `repeat_penalty` and
+`dry_multiplier` leave it unchanged, and the server returns 200. A dropped penalty looks like a
+model that ignores it, so the preset refuses those two kinds with `ErrUnsupportedParam`.
+`TestOllamaServerReadsFrequencyAndPresenceOnly` pins both halves. llama-server reads all four.
+Current builds answer 400 to `repeat_last_n: -1`, though older docs read it as the whole context.
 
 **Unsupported parameters are forwarded, not screened.** A provider sends what it is given. If a
 model rejects a parameter, the request fails rather than ignoring it. Current Anthropic models 400

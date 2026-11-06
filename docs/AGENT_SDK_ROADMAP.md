@@ -261,7 +261,10 @@ The structural phases are tracked as epics.
     dialect yet. `NewLlamaCppProvider` and `NewOllamaProvider` (chakra #180) preset those for local
     servers. Ollama's dialect sends a JSON schema as `response_format`, its only constraint. The
     host gains a `llamacpp` connection type. A caller holding any `Provider` can ask
-    `CapabilitiesOf` which of those parameters it can send.
+    `CapabilitiesOf` which of those parameters it can send. Repeat penalties and DRY followed for
+    the same translator (chakra #276). `GenerationParams.Penalties` carries them, and
+    `Capabilities.Penalties` names the kinds a provider sends. llama.cpp sends all four kinds,
+    OpenAI and Ollama send frequency and presence, and Anthropic and Responses refuse them.
   - **We dropped Anthropic prompt caching & extended thinking #953 (not-planned).** It is a
     loop-invisible optimization. It is also the cautionary case for growing the no-SDK client. Its
     `budget_tokens` premise already 400s on current models, an example of the API-drift treadmill.

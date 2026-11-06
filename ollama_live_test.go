@@ -91,3 +91,54 @@ func TestOllamaServerHonorsSchemaAndSeed(t *testing.T) {
 		}
 	})
 }
+
+// TestOllamaServerReadsFrequencyAndPresenceOnly backs the preset's penalty
+// kinds (#276). At temperature 0, frequency and presence each change the
+// reply. repeat_penalty and DRY leave it unchanged on /v1, which is why the
+// preset refuses them. If this half starts failing, Ollama has begun reading
+// them, and OllamaConfig can list more kinds.
+func TestOllamaServerReadsFrequencyAndPresenceOnly(t *testing.T) {
+	model := os.Getenv("CHAKRA_OLLAMA_MODEL")
+	if model == "" {
+		t.Skip("CHAKRA_OLLAMA_MODEL is not set")
+	}
+	base := os.Getenv("CHAKRA_OLLAMA_URL")
+	if base == "" {
+		base = DefaultOllamaBaseURL
+	}
+	raw, err := NewOpenAIProvider(OpenAIConfig{BaseURL: base, Model: model, Penalties: []string{PenaltyRepeat, PenaltyFrequency, PenaltyPresence, PenaltyDRY}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ask := func(pen *SamplingPenalties) string {
+		t.Helper()
+		resp, err := raw.Generate(context.Background(), ProviderRequest{
+			Messages:    []Message{{Role: RoleUser, Text: "Tell me a short story about a cat."}},
+			Temperature: floatPtr(0),
+			MaxTokens:   48,
+			Seed:        intPtr(1),
+			Penalties:   pen,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return resp.Text
+	}
+	plain := ask(nil)
+	if again := ask(nil); again != plain {
+		t.Fatalf("control: greedy decoding drew %q then %q", plain, again)
+	}
+	for name, c := range map[string]struct {
+		pen  *SamplingPenalties
+		read bool
+	}{
+		PenaltyFrequency: {&SamplingPenalties{Frequency: floatPtr(2)}, true},
+		PenaltyPresence:  {&SamplingPenalties{Presence: floatPtr(2)}, true},
+		PenaltyRepeat:    {&SamplingPenalties{Repeat: floatPtr(2)}, false},
+		PenaltyDRY:       {&SamplingPenalties{DRYMultiplier: floatPtr(2)}, false},
+	} {
+		if changed := ask(c.pen) != plain; changed != c.read {
+			t.Errorf("%s: reply changed = %v, want %v", name, changed, c.read)
+		}
+	}
+}

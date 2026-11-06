@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"net/http"
+	"slices"
 	"strings"
 
 	ssehttp "github.com/panyam/servicekit/http"
@@ -60,6 +61,13 @@ type OpenAIConfig struct {
 	// longer enforces the schema. Instead, the Runner validates the reply
 	// and retries in the structured finalize.
 	NoResponseSchema bool
+
+	// Penalties lists the SamplingPenalties kinds the endpoint takes. Nil
+	// means OpenAI's own pair, PenaltyFrequency and PenaltyPresence, which
+	// most OpenAI-compatible servers also read. NewLlamaCppProvider sets all
+	// four. A request that sets a kind outside the list is refused with
+	// ErrUnsupportedParam. An unknown kind fails NewOpenAIProvider.
+	Penalties []string
 }
 
 // GuidedDialect selects how OpenAIProvider encodes ProviderRequest.Guided.
@@ -107,6 +115,17 @@ func NewOpenAIProvider(cfg OpenAIConfig) (*OpenAIProvider, error) {
 	default:
 		return nil, fmt.Errorf("agent: unknown OpenAIConfig.GuidedDialect %q", cfg.GuidedDialect)
 	}
+	for _, k := range cfg.Penalties {
+		switch k {
+		case PenaltyRepeat, PenaltyFrequency, PenaltyPresence, PenaltyDRY:
+		default:
+			return nil, fmt.Errorf("agent: unknown OpenAIConfig.Penalties kind %q", k)
+		}
+	}
+	if cfg.Penalties == nil {
+		cfg.Penalties = []string{PenaltyFrequency, PenaltyPresence}
+	}
+	cfg.Penalties = slices.Clone(cfg.Penalties)
 	cfg.ExtraBody = maps.Clone(cfg.ExtraBody)
 	return &OpenAIProvider{cfg: cfg, http: hc}, nil
 }
@@ -116,9 +135,9 @@ func NewOpenAIProvider(cfg OpenAIConfig) (*OpenAIProvider, error) {
 // OpenAIConfig.NoTemperature says the model refuses one. It reports the
 // guided kinds that its GuidedDialect encodes. llama.cpp gets grammar and
 // JSON schema, vLLM gets all three, Ollama gets JSON schema, and no dialect
-// gets none.
+// gets none. It reports the penalty kinds in OpenAIConfig.Penalties.
 func (p *OpenAIProvider) ProviderCapabilities() Capabilities {
-	c := Capabilities{Seed: true, Temperature: !p.cfg.NoTemperature}
+	c := Capabilities{Seed: true, Temperature: !p.cfg.NoTemperature, Penalties: slices.Clone(p.cfg.Penalties)}
 	switch p.cfg.GuidedDialect {
 	case GuidedDialectLlamaCpp:
 		c.Guided = []string{GuidedGrammar, GuidedJSONSchema}
@@ -133,6 +152,9 @@ func (p *OpenAIProvider) ProviderCapabilities() Capabilities {
 // check refuses a request that this endpoint can't honor as asked. It runs
 // before anything is sent.
 func (p *OpenAIProvider) check(req ProviderRequest) error {
+	if err := refusePenalties(req.Penalties, p.cfg.Penalties, "this endpoint takes "+strings.Join(p.cfg.Penalties, ", ")); err != nil {
+		return err
+	}
 	if req.Guided == nil {
 		return nil
 	}
@@ -361,6 +383,28 @@ func (p *OpenAIProvider) buildBody(req ProviderRequest, stream bool) map[string]
 	}
 	if req.Seed != nil {
 		body["seed"] = *req.Seed
+	}
+	if pen := req.Penalties; pen != nil {
+		for k, v := range map[string]any{
+			"repeat_penalty":     pen.Repeat,
+			"repeat_last_n":      pen.RepeatLastN,
+			"frequency_penalty":  pen.Frequency,
+			"presence_penalty":   pen.Presence,
+			"dry_multiplier":     pen.DRYMultiplier,
+			"dry_base":           pen.DRYBase,
+			"dry_allowed_length": pen.DRYAllowedLength,
+		} {
+			switch v := v.(type) {
+			case *float64:
+				if v != nil {
+					body[k] = *v
+				}
+			case *int:
+				if v != nil {
+					body[k] = *v
+				}
+			}
+		}
 	}
 	if req.Guided != nil {
 		maps.Copy(body, p.guidedFields(req.Guided))

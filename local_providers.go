@@ -33,7 +33,7 @@ const DefaultLlamaCppBaseURL = "http://localhost:8080/v1"
 // JSON schema constrains the reply. It also sends "cache_prompt": true. Then
 // llama-server processes a prompt prefix shared across requests once, and the
 // prefix's tokens come back as Usage.CachedInputTokens. Seeds are sent as
-// given.
+// given, and so is every SamplingPenalties field, DRY included (#276).
 //
 // The caller sets Temperature. A request with none leaves llama-server
 // sampling at its own default, 0.8. A caller wanting greedy, repeatable
@@ -51,6 +51,7 @@ func NewLlamaCppProvider(cfg LlamaCppConfig) (*OpenAIProvider, error) {
 		APIKey:        cfg.APIKey,
 		HTTPClient:    cfg.HTTPClient,
 		GuidedDialect: GuidedDialectLlamaCpp,
+		Penalties:     []string{PenaltyRepeat, PenaltyFrequency, PenaltyPresence, PenaltyDRY},
 		ExtraBody:     map[string]any{"cache_prompt": true},
 	})
 }
@@ -81,7 +82,9 @@ const DefaultOllamaBaseURL = "http://localhost:11434/v1"
 // reply to that schema. The schema is sent as response_format, and Ollama
 // decodes under it. Ollama takes no grammar or regex, so a request with either
 // is refused with ErrUnsupportedParam before anything is sent. Seeds are sent
-// as given.
+// as given. Of the SamplingPenalties, Ollama's /v1 reads Frequency and
+// Presence. It ignores repeat_penalty there and has no DRY sampler, so those
+// are refused.
 func NewOllamaProvider(cfg OllamaConfig) (*OpenAIProvider, error) {
 	if cfg.Model == "" {
 		return nil, fmt.Errorf("agent: OllamaConfig requires Model")
