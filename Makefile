@@ -7,7 +7,7 @@
 # sibling changes, and the failure surfaces in the module nobody edited.
 
 MODULES := . host surfaces surfaces/chat surfaces/web \
-           store/redis store/gorm \
+           store/redis store/gorm provider/anthropic \
            ext/checkpoint ext/files ext/exec ext/lsp ext/agentsmd ext/git
 
 # EXAMPLES are built, vetted and tested like MODULES but never tagged, which is

@@ -12,6 +12,20 @@ require (
 )
 
 require (
+	github.com/anthropics/anthropic-sdk-go/v2 v2.7.0 // indirect
+	github.com/go-logr/logr v1.4.4 // indirect
+	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/standard-webhooks/standard-webhooks/libraries v0.0.1 // indirect
+	github.com/tidwall/gjson v1.18.0 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/tidwall/sjson v1.2.5 // indirect
+	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
+	go.opentelemetry.io/otel/log v1.47.0 // indirect
+	go.opentelemetry.io/otel/metric v1.47.0 // indirect
+)
+
+require (
 	github.com/alexedwards/scs/v2 v2.9.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.6.1 // indirect
@@ -35,6 +49,7 @@ require (
 	github.com/panyam/chakra/ext/files v0.3.0 // indirect
 	github.com/panyam/chakra/ext/git v0.3.0 // indirect
 	github.com/panyam/chakra/ext/lsp v0.3.0 // indirect
+	github.com/panyam/chakra/provider/anthropic v0.3.0 // indirect
 	github.com/panyam/chakra/store/gorm v0.3.0 // indirect
 	github.com/panyam/chakra/store/redis v0.3.0 // indirect
 	github.com/panyam/gocurrent v0.1.2 // indirect
@@ -110,3 +125,5 @@ replace github.com/panyam/mcpkit/ext/skills => ../../../../mcpkit/main/ext/skill
 replace github.com/panyam/mcpkit/ext/tasks => ../../../../mcpkit/main/ext/tasks
 
 replace github.com/panyam/chakra/ext/agentsmd => ../../ext/agentsmd
+
+replace github.com/panyam/chakra/provider/anthropic => ../../provider/anthropic

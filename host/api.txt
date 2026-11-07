@@ -45,6 +45,7 @@ pkg github.com/panyam/chakra/host, func NewTerminalRendererColor(io.Writer, bool
 pkg github.com/panyam/chakra/host, func StepRouteStage([]StepRoute, func(string) (agent.Provider, error), func() string) agent.StepStage
 pkg github.com/panyam/chakra/host, func WithBrowserOpener(func(string) error) AppOption
 pkg github.com/panyam/chakra/host, func WithConfigOverlay(string) AppOption
+pkg github.com/panyam/chakra/host, func WithConnectionTypes(ConnectionTypes) AppOption
 pkg github.com/panyam/chakra/host, func WithElicitationUI(agent.ElicitationUI) AppOption
 pkg github.com/panyam/chakra/host, func WithExtension(...Extension) AppOption
 pkg github.com/panyam/chakra/host, func WithLogger(*slog.Logger) AppOption
@@ -125,6 +126,7 @@ pkg github.com/panyam/chakra/host, method (BaseExtension) StepStages() []agent.S
 pkg github.com/panyam/chakra/host, method (BaseExtension) Tools() (agent.ToolSource, error)
 pkg github.com/panyam/chakra/host, method (BaseExtension) TurnEndHooks() []agent.TurnEndHook
 pkg github.com/panyam/chakra/host, method (BaseExtension) TurnStart(context.Context) error
+pkg github.com/panyam/chakra/host, method (ConnectionTypes) Build(ConnectionConfig) (agent.Provider, error)
 pkg github.com/panyam/chakra/host, method (PromptSectionFunc) Section(context.Context) string
 pkg github.com/panyam/chakra/host, type Announcer interface
 pkg github.com/panyam/chakra/host, type Announcer interface, SetAnnounce(func(string))
@@ -221,6 +223,7 @@ pkg github.com/panyam/chakra/host, type ConnectionConfig struct, ThinkingHint *T
 pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Type string
 pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Vision bool
 pkg github.com/panyam/chakra/host, type ConnectionRegistry struct
+pkg github.com/panyam/chakra/host, type ConnectionTypes map[string]ProviderBuilder
 pkg github.com/panyam/chakra/host, type ConnectionsConfig struct
 pkg github.com/panyam/chakra/host, type ConnectionsConfig struct, Active string
 pkg github.com/panyam/chakra/host, type ConnectionsConfig struct, AgentRoles map[string]string

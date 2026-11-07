@@ -166,6 +166,7 @@ func (p Profile) Build(context.Context) (*host.App, error) {
 		ui = AwaitSurface
 	}
 	opts := []host.AppOption{
+		host.WithConnectionTypes(agentsurfaces.ConnectionTypes()),
 		host.WithExtension(append(append(exts, stuckExtension{}), extra...)...),
 		host.WithSkillDirs(skillDirs...),
 		host.WithRoots(ws.Roots...),
@@ -198,7 +199,7 @@ func BuildConnection(cfg *host.Config, name, model string) (agent.Provider, stri
 	if conn.APIKeyEnv != "" && os.Getenv(conn.APIKeyEnv) == "" {
 		return nil, "", fmt.Errorf("coding: connection %q needs %s set", name, conn.APIKeyEnv)
 	}
-	prov, err := host.DefaultProviderBuilder(conn)
+	prov, err := agentsurfaces.ConnectionTypes().Build(conn)
 	if err != nil {
 		return nil, "", fmt.Errorf("coding: connection %q: %w", name, err)
 	}

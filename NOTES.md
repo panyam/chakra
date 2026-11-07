@@ -1026,6 +1026,19 @@ The other three, all recorded on #1240:
    so the duplication is cheap, and exporting it would widen the surface being frozen. But with a
    second copy, the rule now exists in two places.
 
+### Anthropic through the SDK: what the API refuses now (#274)
+
+Imagine chakra on Claude Sonnet 5.5, eight steps into a turn. The no-SDK provider resends the whole conversation at full input price on every step, because A9 keeps caching out of it. `provider/anthropic` wraps Anthropic's Go SDK and sets the top-level `cache_control` on every request. On the live coding-harness exercise, 64% of the input tokens came from the cache.
+
+The provider takes a caller's `*anthropic.Client` and builds none of its own. So `ANTHROPIC_API_KEY`, an `ant auth login` profile, retries, Vertex and Bedrock are all the SDK's business. The binaries reach it through `host.ConnectionTypes`, which overrides one connection Type and leaves the rest to the host. `WithProviderBuilder` replaces everything, and it would drop the Responses full-history warning.
+
+Running the exercise on Claude turned up three refusals the no-SDK path had hidden.
+- A forced `tool_choice` answers 400 on Sonnet 5.5 and Opus 5.5. The no-SDK provider forces a synthetic tool for a `ResponseSchema`, so its structured finalize fails there. The SDK provider sends `output_config.format` instead.
+- The finalize sends the history ending on the model's free answer. Current models take no prefill and answer 400. The provider adds one user turn asking for that answer as JSON.
+- Structured outputs take a subset of JSON Schema. ext/git's review schema has `minimum`, and the API refused it. The provider drops the unsupported keywords and closes every object. The Runner still validates against the full schema and retries, the same split the Python and TypeScript SDKs make.
+
+The SDK refuses a non-streaming call whose `max_tokens` could run past ten minutes, so `Generate` streams and folds the events. It also sends the key as `Authorization: Bearer`, where the no-SDK provider sends `x-api-key`.
+
 ### The stuck detector reads the turn's record, not the view (#278)
 
 Imagine jaala's translator on a 14B model. It writes `try⏎<draft>` as a plain reply and makes no

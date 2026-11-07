@@ -90,3 +90,28 @@ func realToolName(safeToReal map[string]string, name string) string {
 	}
 	return name
 }
+
+// ToolNames maps tool names between chakra and a provider's wire, for a
+// Provider built outside this module (#274). OpenAI and Anthropic only take
+// names that match ^[a-zA-Z0-9_-]{1,64}$, and MCP tool names often have dots
+// in them, so a provider sends a sanitized name and maps it back on the
+// model's tool calls. Two tools whose names sanitize alike get distinct wire
+// names. Build one per request from that request's tools.
+type ToolNames struct {
+	realToSafe, safeToReal map[string]string
+}
+
+// NewToolNames builds the mapping for one request's tools.
+func NewToolNames(tools []core.ToolDef) ToolNames {
+	r, s := toolNameMaps(tools)
+	return ToolNames{realToSafe: r, safeToReal: s}
+}
+
+// Wire returns the name to send for name. A name missing from the request's
+// tools, such as one in an earlier assistant message, is sanitized the same
+// way.
+func (n ToolNames) Wire(name string) string { return safeToolName(n.realToSafe, name) }
+
+// Real returns chakra's name for a wire name the model sent back. An unknown
+// wire name comes back unchanged.
+func (n ToolNames) Real(wire string) string { return realToolName(n.safeToReal, wire) }

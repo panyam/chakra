@@ -258,6 +258,9 @@ func buildApp(ctx context.Context, v *viper.Viper, surfaceOpts []host.AppOption,
 	closers = append(closers, func() { logShutdown(context.Background()) })
 
 	appOpts := []host.AppOption{
+		// "anthropic" connections go through Anthropic's SDK, which caches
+		// prompts (#274).
+		host.WithConnectionTypes(surfaces.ConnectionTypes()),
 		host.WithTracerProvider(tp),
 		host.WithMeterProvider(mp),
 		host.WithLogger(logger),

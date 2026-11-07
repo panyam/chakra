@@ -132,7 +132,9 @@ type ConnectionConfig struct {
 	// ReasoningEffort is sent as the Responses API's reasoning.effort, with
 	// summary "auto" so the reasoning streams as thinking. Read only for
 	// Type "openai-responses", and only reasoning models accept it: leave it
-	// empty for any other model, or the request is refused.
+	// empty for any other model, or the request is refused. A binary that
+	// routes "anthropic" through Anthropic's SDK (ConnectionTypes) sends it
+	// as output_config.effort there, and the host's own provider ignores it.
 	ReasoningEffort string `json:"reasoningEffort,omitempty"`
 
 	// Temperature overrides whether this connection's model takes a
@@ -197,13 +199,30 @@ type ProviderBuilder func(ConnectionConfig) (agent.Provider, error)
 // The base URL resolves from BaseURL or the Type table and the key from
 // APIKey, else APIKeyEnv.
 func DefaultProviderBuilder(conn ConnectionConfig) (agent.Provider, error) {
-	return buildProvider(conn, nil)
+	return buildProvider(conn, nil, nil)
+}
+
+// ConnectionTypes replaces how connections of some Types are built, and
+// leaves every other Type to DefaultProviderBuilder (#274). A binary that
+// links a vendor SDK uses it to route one Type to that SDK, since the host
+// module carries no SDK itself (CONSTRAINTS A10). agentchat and agentweb
+// build "anthropic" through Anthropic's SDK this way, which sends prompt
+// caching.
+//
+// A builder gets the connection with APIKey and BaseURL resolved: the key
+// from APIKey, else APIKeyEnv, and the base URL from BaseURL, else the
+// Type's default. The host still applies ThinkingHint to what it returns.
+type ConnectionTypes map[string]ProviderBuilder
+
+// Build is DefaultProviderBuilder with t's overrides.
+func (t ConnectionTypes) Build(conn ConnectionConfig) (agent.Provider, error) {
+	return buildProvider(conn, nil, t)
 }
 
 // buildProvider is DefaultProviderBuilder with a sink for the Responses
 // provider's full-history notices, which the App turns into HostSessionWarn
 // events.
-func buildProvider(conn ConnectionConfig, onFullHistory func(reason string)) (agent.Provider, error) {
+func buildProvider(conn ConnectionConfig, onFullHistory func(reason string), types ConnectionTypes) (agent.Provider, error) {
 	base, err := resolveBaseURL(conn)
 	if err != nil {
 		return nil, err
@@ -213,6 +232,28 @@ func buildProvider(conn ConnectionConfig, onFullHistory func(reason string)) (ag
 		key = os.Getenv(conn.APIKeyEnv)
 	}
 	var p agent.Provider
+	if build, ok := types[conn.Type]; ok {
+		resolved := conn
+		resolved.APIKey, resolved.BaseURL = key, base
+		p, err = build(resolved)
+	} else {
+		p, err = builtinProvider(conn, base, key, onFullHistory)
+	}
+	if err != nil {
+		return nil, err
+	}
+	// A ThinkingHint activates the inline-reasoning parser: a model that emits
+	// "<think>…</think>" in its text stream gets that content re-tagged as
+	// reasoning, so the surface renders it as thinking. Inert when CloseTag is
+	// empty (NewThinkingProvider returns p unwrapped).
+	if h := conn.ThinkingHint; h != nil {
+		p = agent.NewThinkingProvider(p, h.OpenTag, h.CloseTag)
+	}
+	return p, nil
+}
+
+// builtinProvider builds the provider for one of the host's own Types.
+func builtinProvider(conn ConnectionConfig, base, key string, onFullHistory func(reason string)) (p agent.Provider, err error) {
 	switch conn.Type {
 	case "anthropic":
 		p, err = agent.NewAnthropicProvider(agent.AnthropicConfig{
@@ -243,17 +284,7 @@ func buildProvider(conn ConnectionConfig, onFullHistory func(reason string)) (ag
 			NoResponseSchema: conn.ResponseSchema != nil && !*conn.ResponseSchema,
 		})
 	}
-	if err != nil {
-		return nil, err
-	}
-	// A ThinkingHint activates the inline-reasoning parser: a model that emits
-	// "<think>…</think>" in its text stream gets that content re-tagged as
-	// reasoning, so the surface renders it as thinking. Inert when CloseTag is
-	// empty (NewThinkingProvider returns p unwrapped).
-	if h := conn.ThinkingHint; h != nil {
-		p = agent.NewThinkingProvider(p, h.OpenTag, h.CloseTag)
-	}
-	return p, nil
+	return p, err
 }
 
 // BuildEmbedder builds an agent.Embedder from an embedder connection, the

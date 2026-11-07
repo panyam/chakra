@@ -250,7 +250,9 @@ func checkInstructions(name string) error {
 // session persists its turns, the default one included. The store-backed
 // SessionManager relies on that when it rehydrates a dropped session.
 func buildApp(o appOptions) (*host.App, error) {
-	storeOpt := o.storeOpts()
+	// "anthropic" connections go through Anthropic's SDK, which caches
+	// prompts (#274).
+	storeOpt := append(o.storeOpts(), host.WithConnectionTypes(agentsurfaces.ConnectionTypes()))
 	// withWorkspace builds the workspace options. The demo path and the config
 	// path both append them to their App, so the two paths can't offer
 	// different tools. The options always include skill dirs and roots, plus
@@ -370,7 +372,7 @@ func buildSessionApp(o appOptions, spec *webv1.ProviderSpec) (*host.App, error) 
 		return nil, fmt.Errorf("provider %q: model is required", spec.GetType())
 	}
 	conn := host.ConnectionConfig{Type: spec.GetType(), BaseURL: spec.GetBaseUrl(), Model: spec.GetModel(), APIKey: spec.GetApiKey()}
-	p, err := host.DefaultProviderBuilder(conn)
+	p, err := agentsurfaces.ConnectionTypes().Build(conn)
 	if err != nil {
 		return nil, fmt.Errorf("provider %q: %w", spec.GetType(), err)
 	}

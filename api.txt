@@ -134,6 +134,7 @@ pkg github.com/panyam/chakra, func NewSummarizingCompactor(SummarizingConfig) (*
 pkg github.com/panyam/chakra, func NewTeam(TeamConfig) (*Team, error)
 pkg github.com/panyam/chakra, func NewThinkingProvider(Provider, string, string) Provider
 pkg github.com/panyam/chakra, func NewTieredApproval(...TieredOption) *TieredApproval
+pkg github.com/panyam/chakra, func NewToolNames([]core.ToolDef) ToolNames
 pkg github.com/panyam/chakra, func NewTriggerPolicy(TriggerPolicyConfig) *TriggerPolicy
 pkg github.com/panyam/chakra, func RaiseSignal(context.Context, Signal) bool
 pkg github.com/panyam/chakra, func ReadOnly() FuncOption
@@ -280,6 +281,8 @@ pkg github.com/panyam/chakra, method (RunScope) Depth() int
 pkg github.com/panyam/chakra, method (StubEmbedder) Embed(context.Context, []string) ([]Embedding, error)
 pkg github.com/panyam/chakra, method (StuckFinding) String() string
 pkg github.com/panyam/chakra, method (ToolChoice) IsZero() bool
+pkg github.com/panyam/chakra, method (ToolNames) Real(string) string
+pkg github.com/panyam/chakra, method (ToolNames) Wire(string) string
 pkg github.com/panyam/chakra, type AgentHop struct
 pkg github.com/panyam/chakra, type AgentHop struct, Name string
 pkg github.com/panyam/chakra, type AgentPath []AgentHop
@@ -831,6 +834,7 @@ pkg github.com/panyam/chakra, type ToolDeniedError struct
 pkg github.com/panyam/chakra, type ToolDeniedError struct, ModelReason string
 pkg github.com/panyam/chakra, type ToolDeniedError struct, Reason string
 pkg github.com/panyam/chakra, type ToolMiddleware func(context.Context, ToolCallInfo, ToolCallFunc) (*core.ToolResult, error)
+pkg github.com/panyam/chakra, type ToolNames struct
 pkg github.com/panyam/chakra, type ToolOwner struct
 pkg github.com/panyam/chakra, type ToolOwner struct, Def core.ToolDef
 pkg github.com/panyam/chakra, type ToolOwner struct, SourceID string
