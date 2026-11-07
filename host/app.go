@@ -209,6 +209,7 @@ type appOptions struct {
 	toolResultStore agent.ToolResultStore
 	memoryStore     agent.MemoryStore
 	providerBuilder ProviderBuilder
+	connectionTypes ConnectionTypes
 	observers       []Observer
 	configPath      string
 	promptMutate    func(*SystemPromptBuilder)
@@ -529,7 +530,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 			build = func(conn ConnectionConfig) (agent.Provider, error) {
 				return buildProvider(conn, func(reason string) {
 					app.emit(HostEvent{Kind: HostSessionWarn, Err: "model connection sent full history: " + reason})
-				})
+				}, o.connectionTypes)
 			}
 		}
 		reg, err := NewConnectionRegistry(cfg.Connections, build)

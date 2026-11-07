@@ -1,0 +1,9 @@
+pkg github.com/panyam/chakra/provider/anthropic, func New(*sdk.Client, Config) (*Provider, error)
+pkg github.com/panyam/chakra/provider/anthropic, method (*Provider) Generate(context.Context, agent.ProviderRequest) (*agent.ProviderResponse, error)
+pkg github.com/panyam/chakra/provider/anthropic, method (*Provider) ProviderCapabilities() agent.Capabilities
+pkg github.com/panyam/chakra/provider/anthropic, method (*Provider) Stream(context.Context, agent.ProviderRequest) (agent.Stream, error)
+pkg github.com/panyam/chakra/provider/anthropic, type Config struct
+pkg github.com/panyam/chakra/provider/anthropic, type Config struct, Effort string
+pkg github.com/panyam/chakra/provider/anthropic, type Config struct, MaxTokens int
+pkg github.com/panyam/chakra/provider/anthropic, type Config struct, Model string
+pkg github.com/panyam/chakra/provider/anthropic, type Provider struct

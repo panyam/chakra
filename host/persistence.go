@@ -25,6 +25,15 @@ func WithToolResultStore(store agent.ToolResultStore) AppOption {
 	return func(o *appOptions) { o.toolResultStore = store }
 }
 
+// WithConnectionTypes builds the connections of the Types in t with t's
+// builders, and every other connection as the host would. Unlike
+// WithProviderBuilder, it keeps the host's own handling for the rest, such
+// as the Responses provider's full-history warning. Ignored when Connections
+// is nil, WithProvider is set, or WithProviderBuilder is set.
+func WithConnectionTypes(t ConnectionTypes) AppOption {
+	return func(o *appOptions) { o.connectionTypes = t }
+}
+
 // WithProviderBuilder overrides how Config.Connections entries are turned
 // into providers. Tests inject a builder returning StubProviders;
 // production uses DefaultProviderBuilder (OpenAI-compatible). Ignored when

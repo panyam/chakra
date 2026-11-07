@@ -1,4 +1,6 @@
 pkg github.com/panyam/chakra/surfaces, const DefaultSkillPreset
+pkg github.com/panyam/chakra/surfaces, func AnthropicSDKProvider(host.ConnectionConfig) (agent.Provider, error)
+pkg github.com/panyam/chakra/surfaces, func ConnectionTypes() host.ConnectionTypes
 pkg github.com/panyam/chakra/surfaces, func InstructionsProfile(json.RawMessage) (*agentsmd.Profile, bool, error)
 pkg github.com/panyam/chakra/surfaces, func LoadWorkspaceFile(string) (*WorkspaceFile, error)
 pkg github.com/panyam/chakra/surfaces, func RunStoreFromSpec(string) (agent.RunStore, error)
