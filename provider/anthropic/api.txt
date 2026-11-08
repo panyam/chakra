@@ -2,8 +2,15 @@ pkg github.com/panyam/chakra/provider/anthropic, func New(*sdk.Client, Config) (
 pkg github.com/panyam/chakra/provider/anthropic, method (*Provider) Generate(context.Context, agent.ProviderRequest) (*agent.ProviderResponse, error)
 pkg github.com/panyam/chakra/provider/anthropic, method (*Provider) ProviderCapabilities() agent.Capabilities
 pkg github.com/panyam/chakra/provider/anthropic, method (*Provider) Stream(context.Context, agent.ProviderRequest) (agent.Stream, error)
+pkg github.com/panyam/chakra/provider/anthropic, method (*Provider) ThinkingStats() ThinkingStats
 pkg github.com/panyam/chakra/provider/anthropic, type Config struct
 pkg github.com/panyam/chakra/provider/anthropic, type Config struct, Effort string
 pkg github.com/panyam/chakra/provider/anthropic, type Config struct, MaxTokens int
 pkg github.com/panyam/chakra/provider/anthropic, type Config struct, Model string
+pkg github.com/panyam/chakra/provider/anthropic, type Config struct, NoThinkingReplay bool
+pkg github.com/panyam/chakra/provider/anthropic, type Config struct, Thinking string
+pkg github.com/panyam/chakra/provider/anthropic, type Config struct, ThinkingDisplay string
 pkg github.com/panyam/chakra/provider/anthropic, type Provider struct
+pkg github.com/panyam/chakra/provider/anthropic, type ThinkingStats struct
+pkg github.com/panyam/chakra/provider/anthropic, type ThinkingStats struct, Dropped int
+pkg github.com/panyam/chakra/provider/anthropic, type ThinkingStats struct, Resent int

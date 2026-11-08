@@ -64,11 +64,10 @@ Sonnet 5.5 runs at its default, which is adaptive at `high`. `TB_EFFORT=high` pi
 the same level. Sonnet 5.5 has no plain "thinking off". Its only off mode is `between_tools`, which
 chakra can't send, so matching at the default is the closest pair.
 
-Two differences remain, and both come from A9 in `CONSTRAINTS.md`. Chakra sends no prompt caching,
-so its cost column pays full price for every resent token, and Claude Code's doesn't. That makes the
-cost columns not comparable. Chakra also drops thinking blocks from the history it resends. So the
-model doesn't see its earlier reasoning between tool calls, while Claude Code passes it back. The
-solved columns compare the harnesses with that gap included.
+Both gaps A9 in `CONSTRAINTS.md` used to leave are closed in `provider/anthropic`. It asks for
+prompt caching on every request (#274), so the cost columns compare. It also sends thinking blocks
+back while the history before them is unchanged (#287), so the model sees its earlier reasoning
+between tool calls, as it does under Claude Code.
 
 Chakra's turn is capped at 400 model calls, so the task's time budget ends a run, as it does for
 Codex. Chakra's default cap of 8 would end most tasks early. `agentchat exec --json` writes JSON
