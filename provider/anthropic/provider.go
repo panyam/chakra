@@ -20,8 +20,10 @@ import (
 	"io"
 	"slices"
 	"strings"
+	"sync/atomic"
 
 	sdk "github.com/anthropics/anthropic-sdk-go/v2"
+	"github.com/anthropics/anthropic-sdk-go/v2/option"
 	"github.com/anthropics/anthropic-sdk-go/v2/packages/ssestream"
 	agent "github.com/panyam/chakra"
 	"github.com/panyam/mcpkit/core"
@@ -51,6 +53,30 @@ type Config struct {
 	// "high", "xhigh" or "max". Empty leaves the model's default, which is
 	// "medium" on Claude Opus 5.5 and "high" on Claude Sonnet 5.5.
 	Effort string
+
+	// Thinking is sent as the thinking type when set. "adaptive" lets the
+	// model decide when and how much to think. "between_tools" is Claude
+	// Sonnet 5.5's lowest setting, with short notes between tool calls and
+	// no extended thinking. Empty leaves the model's default, which is
+	// adaptive on Claude Opus 5.5 and Claude Sonnet 5.5.
+	Thinking string
+
+	// ThinkingDisplay is sent as thinking.display: "summarized" returns the
+	// reasoning's text, and "omitted" returns empty blocks that carry only
+	// their signature. Empty leaves the model's default, which is omitted
+	// on current models. It needs adaptive thinking, so it can't go with
+	// "between_tools".
+	ThinkingDisplay string
+
+	// NoThinkingReplay turns off sending thinking blocks back (#287). By
+	// default the provider keeps each reply's signed thinking blocks and
+	// sends them back with that assistant message on later steps, so the
+	// model can read why it made its earlier calls. Each block is bound to
+	// the system prompt, the tools and every message before it. So the
+	// provider sends one back only while all of those are byte for byte as
+	// they were. After a compaction rewrites the head of a turn, the
+	// rewritten part and everything after it goes without thinking.
+	NoThinkingReplay bool
 }
 
 // Provider implements agent.Provider over an SDK client. It is safe for
@@ -58,6 +84,12 @@ type Config struct {
 type Provider struct {
 	client *sdk.Client
 	cfg    Config
+	// thinking holds the replies whose thinking may be sent back. It is
+	// shared by every conversation the provider serves. A key covers the
+	// whole conversation before the reply, so one conversation never gets
+	// another's blocks.
+	thinking        *thinkingStore
+	resent, dropped atomic.Int64
 }
 
 // New returns a Provider that sends through client. A nil client or an empty
@@ -72,7 +104,15 @@ func New(client *sdk.Client, cfg Config) (*Provider, error) {
 	if cfg.MaxTokens <= 0 {
 		cfg.MaxTokens = defaultMaxTokens
 	}
-	return &Provider{client: client, cfg: cfg}, nil
+	switch cfg.Thinking {
+	case "", "adaptive", "between_tools":
+	default:
+		return nil, fmt.Errorf("anthropic: Thinking %q is not one of adaptive, between_tools", cfg.Thinking)
+	}
+	if cfg.ThinkingDisplay != "" && cfg.Thinking == "between_tools" {
+		return nil, errors.New("anthropic: ThinkingDisplay needs adaptive thinking, not between_tools")
+	}
+	return &Provider{client: client, cfg: cfg, thinking: newThinkingStore(thinkingStoreCap)}, nil
 }
 
 // ProviderCapabilities reports nothing. The Messages API takes no seed, no
@@ -96,11 +136,23 @@ func check(req agent.ProviderRequest) error {
 	return nil
 }
 
+// built is one request ready to send.
+type built struct {
+	params sdk.MessageNewParams
+	opts   []option.RequestOption
+	// end hashes the conversation as sent, so the reply's thinking can be
+	// stored under the key its message will have next step.
+	end prefix
+	// keep says whether to store the reply's thinking. A structured
+	// finalize's reply is never sent back, so it isn't stored.
+	keep bool
+}
+
 // params maps a request onto the SDK's. Every request asks for caching with
 // the top-level cache_control, which caches up to the last cacheable block.
 // The next step's request starts with the same bytes, so it reads them from
 // the cache.
-func (p *Provider) params(req agent.ProviderRequest, names agent.ToolNames) (sdk.MessageNewParams, error) {
+func (p *Provider) params(req agent.ProviderRequest, names agent.ToolNames) (built, error) {
 	maxTokens := p.cfg.MaxTokens
 	if req.MaxTokens > 0 {
 		maxTokens = req.MaxTokens
@@ -108,7 +160,6 @@ func (p *Provider) params(req agent.ProviderRequest, names agent.ToolNames) (sdk
 	out := sdk.MessageNewParams{
 		Model:        sdk.Model(p.cfg.Model),
 		MaxTokens:    int64(maxTokens),
-		Messages:     messages(req.Messages, names),
 		CacheControl: sdk.NewCacheControlEphemeralParam(),
 	}
 	if req.Instructions != "" {
@@ -120,7 +171,7 @@ func (p *Provider) params(req agent.ProviderRequest, names agent.ToolNames) (sdk
 	for _, td := range req.Tools {
 		schema, err := inputSchema(td.InputSchema)
 		if err != nil {
-			return out, fmt.Errorf("anthropic: tool %q: %w", td.Name, err)
+			return built{}, fmt.Errorf("anthropic: tool %q: %w", td.Name, err)
 		}
 		tool := sdk.ToolParam{Name: names.Wire(td.Name), InputSchema: schema}
 		if td.Description != "" {
@@ -131,10 +182,53 @@ func (p *Provider) params(req agent.ProviderRequest, names agent.ToolNames) (sdk
 	if len(req.Tools) > 0 {
 		out.ToolChoice = toolChoice(req.ToolChoice, names)
 	}
+
+	// Each assistant message goes as the API returned it, thinking included,
+	// when the conversation before it is the one its thinking was made in.
+	// Otherwise it goes as chakra rebuilds it, without thinking.
+	at := newPrefix(p.cfg.Model, out.System, out.Tools)
+	resent := 0
+	for _, m := range req.Messages {
+		mp := message(m, names)
+		if m.Role == agent.RoleAssistant && !p.cfg.NoThinkingReplay {
+			if t, ok := p.thinking.get(at.at(m)); ok {
+				mp = t.msg
+				resent += t.blocks
+			}
+		}
+		out.Messages = append(out.Messages, mp)
+		at = at.add(mp)
+	}
+	b := built{end: at, keep: req.ResponseSchema.Len() == 0}
+
+	switch p.cfg.Thinking {
+	case "between_tools":
+		out.Thinking = sdk.ThinkingConfigParamUnion{OfBetweenTools: &sdk.ThinkingConfigBetweenToolsParam{}}
+	case "adaptive":
+		out.Thinking = sdk.ThinkingConfigParamUnion{OfAdaptive: &sdk.ThinkingConfigAdaptiveParam{}}
+	}
+	if p.cfg.ThinkingDisplay != "" {
+		out.Thinking = sdk.ThinkingConfigParamUnion{OfAdaptive: &sdk.ThinkingConfigAdaptiveParam{Display: sdk.ThinkingConfigAdaptiveDisplay(p.cfg.ThinkingDisplay)}}
+	}
+	// A resent block the API no longer accepts would fail the request with
+	// a 400 on an account it enforces. drop_block drops the block instead,
+	// and the turn goes on without that reasoning. between_tools takes no
+	// block_binding, so there the history has to match.
+	if resent > 0 && p.cfg.Thinking != "between_tools" {
+		if out.Thinking.OfAdaptive == nil {
+			out.Thinking = sdk.ThinkingConfigParamUnion{OfAdaptive: &sdk.ThinkingConfigAdaptiveParam{}}
+		}
+		out.Thinking.OfAdaptive.SetExtraFields(map[string]any{
+			"block_binding": map[string]any{"prefix_mismatch_behavior": "drop_block"},
+		})
+		b.opts = append(b.opts, option.WithHeaderAdd("anthropic-beta", thinkingBindingBeta))
+	}
+	p.resent.Add(int64(resent))
+
 	if req.ResponseSchema.Len() > 0 {
 		var schema map[string]any
 		if err := req.ResponseSchema.Bind(&schema); err != nil {
-			return out, fmt.Errorf("anthropic: ResponseSchema: %w", err)
+			return built{}, fmt.Errorf("anthropic: ResponseSchema: %w", err)
 		}
 		out.OutputConfig.Format = sdk.JSONOutputFormatParam{Schema: supportedSchema(schema).(map[string]any)}
 		// The Runner's structured finalize sends the history ending on the
@@ -145,33 +239,37 @@ func (p *Provider) params(req agent.ProviderRequest, names agent.ToolNames) (sdk
 			out.Messages = append(out.Messages, sdk.NewUserMessage(sdk.NewTextBlock(finalizePrompt)))
 		}
 	}
-	return out, nil
+	b.params = out
+	return b, nil
 }
 
 // messages maps the conversation the way agent.AnthropicProvider does, so
-// switching providers doesn't change what the model reads. A tool result is
-// a user turn, and a RoleSystem note is a user text turn, since chakra's
-// notes go anywhere in the history.
+// switching providers doesn't change what the model reads.
 func messages(in []agent.Message, names agent.ToolNames) []sdk.MessageParam {
 	out := make([]sdk.MessageParam, 0, len(in))
 	for _, m := range in {
-		switch m.Role {
-		case agent.RoleAssistant:
-			var blocks []sdk.ContentBlockParamUnion
-			if m.Text != "" {
-				blocks = append(blocks, sdk.NewTextBlock(m.Text))
-			}
-			for _, tc := range m.ToolCalls {
-				blocks = append(blocks, sdk.NewToolUseBlock(tc.ID, toolInput(tc.Args), names.Wire(tc.Name)))
-			}
-			out = append(out, sdk.NewAssistantMessage(blocks...))
-		case agent.RoleTool:
-			out = append(out, sdk.NewUserMessage(sdk.NewToolResultBlock(m.ToolCallID, m.Text, false)))
-		default:
-			out = append(out, sdk.NewUserMessage(sdk.NewTextBlock(m.Text)))
-		}
+		out = append(out, message(m, names))
 	}
 	return out
+}
+
+// message maps one message. A tool result is a user turn, and a RoleSystem
+// note is a user text turn, since chakra's notes go anywhere in the history.
+func message(m agent.Message, names agent.ToolNames) sdk.MessageParam {
+	switch m.Role {
+	case agent.RoleAssistant:
+		var blocks []sdk.ContentBlockParamUnion
+		if m.Text != "" {
+			blocks = append(blocks, sdk.NewTextBlock(m.Text))
+		}
+		for _, tc := range m.ToolCalls {
+			blocks = append(blocks, sdk.NewToolUseBlock(tc.ID, toolInput(tc.Args), names.Wire(tc.Name)))
+		}
+		return sdk.NewAssistantMessage(blocks...)
+	case agent.RoleTool:
+		return sdk.NewUserMessage(sdk.NewToolResultBlock(m.ToolCallID, m.Text, false))
+	}
+	return sdk.NewUserMessage(sdk.NewTextBlock(m.Text))
 }
 
 // unsupportedKeywords are the JSON Schema keywords structured outputs answer
@@ -300,17 +398,21 @@ func (p *Provider) Generate(ctx context.Context, req agent.ProviderRequest) (*ag
 		return nil, err
 	}
 	names := agent.NewToolNames(req.Tools)
-	params, err := p.params(req, names)
+	b, err := p.params(req, names)
 	if err != nil {
 		return nil, err
 	}
 	// The SDK refuses a non-streaming call whose max_tokens could run past
 	// ten minutes, so Generate streams and folds the events into a message.
-	events := p.client.Messages.NewStreaming(ctx, params)
+	events := p.client.Messages.NewStreaming(ctx, b.params, b.opts...)
 	defer events.Close()
 	var msg sdk.Message
 	for events.Next() {
-		if err := msg.Accumulate(events.Current()); err != nil {
+		ev := events.Current()
+		if ev.Type == "message_start" {
+			p.dropped.Add(int64(countDropped(ev.Message.RawJSON())))
+		}
+		if err := msg.Accumulate(ev); err != nil {
 			return nil, err
 		}
 	}
@@ -333,6 +435,9 @@ func (p *Provider) Generate(ctx context.Context, req agent.ProviderRequest) (*ag
 		}
 	}
 	out.Text, out.Reasoning = text.String(), reason.String()
+	if b.keep {
+		p.keep(b.end, &msg, agent.Message{Role: agent.RoleAssistant, Text: out.Text, ToolCalls: out.ToolCalls})
+	}
 	return out, nil
 }
 
@@ -345,11 +450,11 @@ func (p *Provider) Stream(ctx context.Context, req agent.ProviderRequest) (agent
 		return nil, err
 	}
 	names := agent.NewToolNames(req.Tools)
-	params, err := p.params(req, names)
+	b, err := p.params(req, names)
 	if err != nil {
 		return nil, err
 	}
-	return &stream{events: p.client.Messages.NewStreaming(ctx, params), names: names}, nil
+	return &stream{events: p.client.Messages.NewStreaming(ctx, b.params, b.opts...), names: names, p: p, b: b}, nil
 }
 
 type stream struct {
@@ -360,6 +465,11 @@ type stream struct {
 	// The prompt's counts arrive on message_start, and the output's on
 	// message_delta, so the usage delta waits for both.
 	input, cacheRead, cacheWrite int64
+	// msg folds the events so the reply's thinking can be stored when the
+	// stream ends.
+	p   *Provider
+	b   built
+	msg sdk.Message
 }
 
 func (s *stream) Recv() (agent.Delta, error) {
@@ -373,7 +483,11 @@ func (s *stream) Recv() (agent.Delta, error) {
 			}
 			return agent.Delta{}, io.EOF
 		}
-		s.pending = s.deltas(s.events.Current())
+		ev := s.events.Current()
+		if err := s.msg.Accumulate(ev); err != nil {
+			return agent.Delta{}, err
+		}
+		s.pending = s.deltas(ev)
 	}
 	d := s.pending[0]
 	s.pending = s.pending[1:]
@@ -385,6 +499,7 @@ func (s *stream) deltas(ev sdk.MessageStreamEventUnion) []agent.Delta {
 	case sdk.MessageStartEvent:
 		u := e.Message.Usage
 		s.input, s.cacheRead, s.cacheWrite = u.InputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens
+		s.p.dropped.Add(int64(countDropped(e.Message.RawJSON())))
 	case sdk.ContentBlockStartEvent:
 		if tu, ok := e.ContentBlock.AsAny().(sdk.ToolUseBlock); ok {
 			return []agent.Delta{{Kind: agent.DeltaToolCallStart, Index: int(e.Index), ToolCallID: tu.ID, ToolName: s.names.Real(tu.Name)}}
@@ -412,8 +527,28 @@ func (s *stream) deltas(ev sdk.MessageStreamEventUnion) []agent.Delta {
 		return append(out, agent.Delta{Kind: agent.DeltaUsage, Usage: usage(s.input, s.cacheRead, s.cacheWrite, e.Usage.OutputTokens)})
 	case sdk.MessageStopEvent:
 		s.done = true
+		if s.b.keep {
+			s.p.keep(s.b.end, &s.msg, s.reply())
+		}
 	}
 	return nil
+}
+
+// reply is the assistant message the Runner builds from this stream's
+// deltas, so its key matches the one the next step looks up.
+func (s *stream) reply() agent.Message {
+	m := agent.Message{Role: agent.RoleAssistant}
+	var text strings.Builder
+	for _, block := range s.msg.Content {
+		switch b := block.AsAny().(type) {
+		case sdk.TextBlock:
+			text.WriteString(b.Text)
+		case sdk.ToolUseBlock:
+			m.ToolCalls = append(m.ToolCalls, agent.ToolCall{ID: b.ID, Name: s.names.Real(b.Name), Args: core.NewRawJSON(b.Input)})
+		}
+	}
+	m.Text = text.String()
+	return m
 }
 
 func (s *stream) Close() error { return s.events.Close() }

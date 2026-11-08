@@ -81,6 +81,8 @@ To sort any provider-specific behavior, ask **does the agent loop act on it?**
 
 The first such wrapper is `provider/anthropic` (#274). It wraps Anthropic's Go SDK for prompt caching, in its own module per A10. The caller hands it an SDK client, so the SDK owns auth, retries and the platform. agentchat, agentweb and the coding profile route `"anthropic"` connections to it through `host.ConnectionTypes`. The root's `AnthropicProvider` stays SDK-free and sends no caching.
 
+`provider/anthropic` also sends signed thinking blocks back (#287). It keeps them in the Provider, keyed by the conversation before each one, so they never reach the Runner.
+
 Never thread provider-specific opaque state, such as Anthropic signed thinking blocks, through the neutral `agent.Message` or the Runner. That violates A2 wire-serializability and the provider-agnostic core, whether or not the loop acts on the feature. The SDK's job is the Provider *seam*, not provider parity. The rationale dates from 2026-08-04. Issue 953 covered caching and thinking, which are loop-invisible, and was closed not-planned. Logprob #1053 was kept as a loop-visible capability. See `docs/AGENT_SDK_ROADMAP.md` § Phase 5.
 
 **Verify:** `agent.Message` carries no provider-specific reasoning/signature field; the no-SDK providers send no `cache_control`, `thinking`, fast-mode, or task-budget request fields. (Loop-visible capabilities like logprobs are permitted as capability-optional seam additions.)

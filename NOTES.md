@@ -1033,11 +1033,25 @@ Imagine chakra on Claude Sonnet 5.5, eight steps into a turn. The no-SDK provide
 The provider takes a caller's `*anthropic.Client` and builds none of its own. So `ANTHROPIC_API_KEY`, an `ant auth login` profile, retries, Vertex and Bedrock are all the SDK's business. The binaries reach it through `host.ConnectionTypes`, which overrides one connection Type and leaves the rest to the host. `WithProviderBuilder` replaces everything, and it would drop the Responses full-history warning.
 
 Running the exercise on Claude turned up three refusals the no-SDK path had hidden.
-- A forced `tool_choice` answers 400 on Sonnet 5.5 and Opus 5.5. The no-SDK provider forces a synthetic tool for a `ResponseSchema`, so its structured finalize fails there. The SDK provider sends `output_config.format` instead.
+- A forced `tool_choice` answers 400 on Sonnet 5.5 and Opus 5.5. The no-SDK provider used to force a synthetic tool for a `ResponseSchema`, so its structured finalize failed there. Both providers now send `output_config.format` (#287).
 - The finalize sends the history ending on the model's free answer. Current models take no prefill and answer 400. The provider adds one user turn asking for that answer as JSON.
 - Structured outputs take a subset of JSON Schema. ext/git's review schema has `minimum`, and the API refused it. The provider drops the unsupported keywords and closes every object. The Runner still validates against the full schema and retries, the same split the Python and TypeScript SDKs make.
 
 The SDK refuses a non-streaming call whose `max_tokens` could run past ten minutes, so `Generate` streams and folds the events. It also sends the key as `Authorization: Bearer`, where the no-SDK provider sends `x-api-key`.
+
+### Thinking goes back to the model, and stays inside the provider (#287)
+
+Imagine Claude Sonnet 5.5 on step 5 of a coding turn. It reasoned before each earlier tool call, and until #287 none of that went back, so the model couldn't see why it made those calls. Claude Code sends it back.
+
+A thinking block is signed, and the signature covers the system prompt, the tool set and every message before the block. Change any of them and the API drops the block or answers 400, depending on the account. So the provider resends a block only while that whole prefix is unchanged.
+- `provider/anthropic` keeps each reply that has thinking in it, as the API returned it. The key is a hash of the system prompt, the tools (sorted, since the API compares them as a set), each earlier message as it was sent, and chakra's own copy of the assistant message.
+- On the next request it builds the conversation one message at a time. When an assistant message's key matches, it sends the stored reply in place of the one chakra rebuilds. A compaction changes the head, so every key after it misses, and those messages go without thinking.
+- A request that resends anything also sends `block_binding: drop_block` under the `thinking-binding-controls-2026-08-01` beta. If the provider misjudges a prefix, the API drops that block and the turn goes on. `between_tools` takes no `block_binding`, so there the hash has to be right.
+- `ThinkingStats` counts the blocks resent and the ones the API reported dropped, from `input_transformations`.
+
+Nothing crosses the seam. `agent.Message` gains no field, so A2 holds, and the store lives in the Provider, as A9 asks. The key includes chakra's message, so a Runner that edits the assistant text (a guided finalize does) just gets no resend.
+
+On the live test, a four-step turn resent 3 blocks and the API kept all of them. A turn on a rewritten head ran without a 400. A stale block forced onto an edited history came back as one `thinking_dropped`, which shows `drop_block` is wired.
 
 ### The stuck detector reads the turn's record, not the view (#278)
 

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/panyam/mcpkit/core"
@@ -23,10 +24,9 @@ const defaultAnthropicVersion = "2023-06-01"
 // request.
 const defaultAnthropicMaxTokens = 4096
 
-// structuredOutputToolName is the synthetic tool used to coerce structured
-// output on Generate. Anthropic has no response_format. So Generate forces a
-// tool, and that tool's input_schema is the caller's ResponseSchema.
-const structuredOutputToolName = "structured_output"
+// anthropicFinalizePrompt follows the model's answer when a structured
+// request ends on it.
+const anthropicFinalizePrompt = "Give your answer above as the JSON document the response format describes."
 
 // AnthropicConfig configures the Anthropic Messages API endpoint.
 type AnthropicConfig struct {
@@ -116,15 +116,15 @@ func (p *AnthropicProvider) Stream(ctx context.Context, req ProviderRequest) (St
 	return st, nil
 }
 
-// Generate implements Provider with a non-streaming request. Anthropic has no
-// response_format. So when req.ResponseSchema is set, the request forces a
-// synthetic tool, and that tool's input_schema is the schema. Generate
-// returns the tool_use input in ProviderResponse.Text.
+// Generate implements Provider with a non-streaming request. When
+// req.ResponseSchema is set, the request asks for that format with
+// output_config.format, and Text holds the reply's JSON (#287). It used to
+// force a synthetic tool, and current models answer 400 to a forced
+// tool_choice.
 func (p *AnthropicProvider) Generate(ctx context.Context, req ProviderRequest) (*ProviderResponse, error) {
 	if err := anthropicCheck(req); err != nil {
 		return nil, err
 	}
-	structured := req.ResponseSchema.Len() > 0
 	body := p.buildBody(req, false)
 	resp, err := p.post(ctx, body)
 	if err != nil {
@@ -155,18 +155,10 @@ func (p *AnthropicProvider) Generate(ctx context.Context, req ProviderRequest) (
 			if len(args) == 0 {
 				args = json.RawMessage("{}")
 			}
-			if structured && block.Name == structuredOutputToolName {
-				// Structured output surfaces in Text (mirrors the OpenAI
-				// response_format path), not as a tool call.
-				out.Text = string(args)
-				continue
-			}
 			out.ToolCalls = append(out.ToolCalls, ToolCall{ID: block.ID, Name: realToolName(safeToReal, block.Name), Args: toolCallArgsFromJSON(args)})
 		}
 	}
-	if out.Text == "" {
-		out.Text = text.String()
-	}
+	out.Text = text.String()
 	out.Reasoning = reason.String()
 	if full.Usage != nil {
 		out.Usage = &Usage{InputTokens: full.Usage.promptTokens(), OutputTokens: full.Usage.OutputTokens, CachedInputTokens: full.Usage.CacheReadTokens}
@@ -266,19 +258,7 @@ func (p *AnthropicProvider) buildBody(req ProviderRequest, stream bool) map[stri
 		})
 	}
 
-	structured := !stream && req.ResponseSchema.Len() > 0
-	if structured {
-		var schema any
-		if req.ResponseSchema.Bind(&schema) == nil {
-			tools = append(tools, map[string]any{
-				"name":         structuredOutputToolName,
-				"description":  "Return the response as structured output conforming to the schema.",
-				"input_schema": schema,
-			})
-			body["tools"] = tools
-			body["tool_choice"] = map[string]any{"type": "tool", "name": structuredOutputToolName}
-		}
-	} else if len(tools) > 0 {
+	if len(tools) > 0 {
 		body["tools"] = tools
 		choice := req.ToolChoice
 		if choice.Mode == "function" {
@@ -289,10 +269,75 @@ func (p *AnthropicProvider) buildBody(req ProviderRequest, stream bool) map[stri
 		}
 	}
 
+	if !stream && req.ResponseSchema.Len() > 0 {
+		var schema any
+		if req.ResponseSchema.Bind(&schema) == nil {
+			body["output_config"] = map[string]any{"format": map[string]any{"type": "json_schema", "schema": anthropicSchema(schema)}}
+			// The Runner's structured finalize sends the history ending on
+			// the model's free answer. Current models take no prefill and
+			// refuse a conversation that ends on the assistant, so ask for
+			// that answer in a user turn.
+			if n := len(req.Messages); n > 0 && req.Messages[n-1].Role == RoleAssistant {
+				body["messages"] = append(msgs, map[string]any{
+					"role":    "user",
+					"content": []map[string]any{{"type": "text", "text": anthropicFinalizePrompt}},
+				})
+			}
+		}
+	}
+
 	if stream {
 		body["stream"] = true
 	}
 	return body
+}
+
+// anthropicUnsupported are the JSON Schema keywords structured outputs answer
+// 400 to: numeric bounds, string lengths and array size limits.
+var anthropicUnsupported = []string{
+	"minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf",
+	"minLength", "maxLength", "minItems", "maxItems", "uniqueItems",
+}
+
+// anthropicSchema returns the part of a schema that structured outputs take.
+// It drops anthropicUnsupported and sets additionalProperties to false on
+// every object, which the API requires. The reply can still break a dropped
+// rule. The Runner's structured finalize checks the reply against the full
+// schema and asks again, so the rule still holds for what the turn returns.
+// provider/anthropic has the same transform for the SDK provider.
+func anthropicSchema(v any) any {
+	switch x := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(x))
+		for k, e := range x {
+			if slices.Contains(anthropicUnsupported, k) {
+				continue
+			}
+			switch k {
+			case "properties", "$defs", "definitions":
+				if m, ok := e.(map[string]any); ok {
+					sub := make(map[string]any, len(m))
+					for name, s := range m {
+						sub[name] = anthropicSchema(s)
+					}
+					out[k] = sub
+					continue
+				}
+			}
+			out[k] = anthropicSchema(e)
+		}
+		if out["type"] == "object" || out["properties"] != nil {
+			out["additionalProperties"] = false
+		}
+		return out
+	case []any:
+		out := make([]any, len(x))
+		for i, e := range x {
+			out[i] = anthropicSchema(e)
+		}
+		return out
+	}
+	return v
 }
 
 // rawToInput decodes a tool call's JSON arguments into the object Anthropic's

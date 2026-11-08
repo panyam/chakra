@@ -379,50 +379,69 @@ func TestAnthropicGenerateToolCalls(t *testing.T) {
 	}
 }
 
+// Imagine the Runner's structured finalize on Claude Sonnet 5.5. A forced
+// tool_choice answers 400 on current models, so the request asks for the
+// format with output_config.format instead, and Text is the reply's JSON.
 func TestAnthropicGenerateStructured(t *testing.T) {
 	var captured []byte
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		captured, _ = io.ReadAll(r.Body)
-		io.WriteString(w, `{"content":[{"type":"tool_use","id":"t","name":"structured_output","input":{"name":"trip"}}],"stop_reason":"tool_use","usage":{"input_tokens":5,"output_tokens":2}}`)
+		io.WriteString(w, `{"content":[{"type":"text","text":"{\"name\":\"trip\"}"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"output_tokens":2}}`)
 	}))
 	defer ts.Close()
 
 	res, err := newTestAnthropic(t, ts.URL).Generate(context.Background(), ProviderRequest{
 		Messages:       []Message{{Role: RoleUser, Text: "name it"}},
-		ResponseSchema: core.NewRawJSON(json.RawMessage(`{"type":"object","properties":{"name":{"type":"string"}}}`)),
+		ResponseSchema: core.NewRawJSON(json.RawMessage(`{"type":"object","properties":{"name":{"type":"string","maxLength":40},"n":{"type":"integer","minimum":1}}}`)),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Structured output comes back in Text, not as a tool call.
 	if res.Text != `{"name":"trip"}` {
 		t.Fatalf("structured text = %q", res.Text)
 	}
 	if len(res.ToolCalls) != 0 {
-		t.Fatalf("synthetic tool must not surface as a tool call: %+v", res.ToolCalls)
+		t.Fatalf("tool calls = %+v", res.ToolCalls)
 	}
 	if res.Usage == nil || res.Usage.InputTokens != 5 {
 		t.Fatalf("usage = %+v", res.Usage)
 	}
 
-	// The request forces the synthetic tool via tool_choice.
 	var req map[string]any
 	if err := json.Unmarshal(captured, &req); err != nil {
 		t.Fatal(err)
 	}
-	tc, ok := req["tool_choice"].(map[string]any)
-	if !ok || tc["type"] != "tool" || tc["name"] != structuredOutputToolName {
-		t.Fatalf("tool_choice must force the synthetic tool, got %v", req["tool_choice"])
+	if _, ok := req["tool_choice"]; ok {
+		t.Fatalf("tool_choice = %v, want none (current models answer 400 to a forced choice)", req["tool_choice"])
 	}
-	tools, ok := req["tools"].([]any)
-	if !ok || len(tools) != 1 {
-		t.Fatalf("tools = %v", req["tools"])
+	if _, ok := req["tools"]; ok {
+		t.Fatalf("tools = %v, want no synthetic tool", req["tools"])
 	}
-	synth := tools[0].(map[string]any)
-	if synth["name"] != structuredOutputToolName {
-		t.Fatalf("synthetic tool = %v", synth)
+	// The schema goes as the subset structured outputs take: no length or
+	// numeric bounds, and additionalProperties false on every object.
+	got, _ := json.Marshal(req["output_config"])
+	want := `{"format":{"schema":{"additionalProperties":false,"properties":{"n":{"type":"integer"},"name":{"type":"string"}},"type":"object"},"type":"json_schema"}}`
+	if string(got) != want {
+		t.Fatalf("output_config = %s\nwant %s", got, want)
 	}
 	if _, streaming := req["stream"]; streaming {
 		t.Fatal("Generate must not stream")
+	}
+}
+
+// The Runner's structured finalize sends the history ending on the model's
+// free answer. Current models refuse a conversation that ends on the
+// assistant, so the request asks for that answer in a user turn.
+func TestAnthropicStructuredFinalizeEndsOnAUserTurn(t *testing.T) {
+	p := newTestAnthropic(t, "http://unused")
+	body := p.buildBody(ProviderRequest{
+		Messages:       []Message{{Role: RoleUser, Text: "name it"}, {Role: RoleAssistant, Text: "trip"}},
+		ResponseSchema: core.NewRawJSON(json.RawMessage(`{"type":"object"}`)),
+	}, false)
+	msgs := body["messages"].([]map[string]any)
+	last := msgs[len(msgs)-1]
+	content := last["content"].([]map[string]any)
+	if last["role"] != "user" || content[0]["text"] != anthropicFinalizePrompt {
+		t.Fatalf("last message = %v, want the finalize prompt as a user turn", last)
 	}
 }
