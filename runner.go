@@ -20,6 +20,12 @@ import (
 // model is looping on a failing tool.
 const defaultMaxSteps = 8
 
+// defaultMaxFreeRefusals caps free refusals per turn when
+// RunnerConfig.MaxFreeRefusals is zero. It matches the stuck detector's
+// thresholds, so a model that keeps resending a refused call is caught by
+// one or the other.
+const defaultMaxFreeRefusals = 3
+
 // ErrMaxSteps is returned (wrapped) by Run when the model keeps requesting
 // tool calls past the step cap. Check with errors.Is.
 var ErrMaxSteps = errors.New("agent: max steps exceeded")
@@ -64,8 +70,19 @@ type RunnerConfig struct {
 	// for cancellation and deadlines only.
 	InstructionsFunc func(context.Context) string
 
-	// MaxSteps caps model calls per turn. Zero means 8.
+	// MaxSteps caps the steps a turn counts. Zero means 8. Every model call
+	// counts except a free refusal's (#281), so a turn makes at most
+	// MaxSteps + MaxFreeRefusals calls.
 	MaxSteps int
+
+	// MaxFreeRefusals caps the steps per turn that a free refusal makes cost
+	// nothing (#281). A free refusal is a ToolDeniedError with Free set on
+	// every call of a step, or a TurnEndVerdict with Free and Continue. Past
+	// the cap, refusals count again, so a model that keeps resending a
+	// refused call still reaches ErrMaxSteps, and NewStuckDetector can act
+	// before that. Zero means 3, and a negative value turns free refusals
+	// off.
+	MaxFreeRefusals int
 
 	// TreeBudget caps the total steps and tokens across the whole sub-agent
 	// tree. The tree includes the parent, its sub-agents, fan-out members and
@@ -236,7 +253,8 @@ type RunnerConfig struct {
 	// doesn't accept wins. On a Continue, its note joins the turn as a
 	// RoleSystem note (RoleUser with AsUser), the Runner emits
 	// EventTurnContinued, and the loop takes another step. That step counts
-	// against MaxSteps and the tree budget like any other. So a hook that
+	// against MaxSteps and the tree budget like any other, unless the verdict
+	// set Free and the turn is under MaxFreeRefusals (#281). So a hook that
 	// never accepts ends the turn with ErrMaxSteps instead of looping. On a
 	// Stop, the turn ends at once with ErrTurnStopped and a partial result
 	// that holds the refused answer.
@@ -267,6 +285,12 @@ func NewRunner(cfg RunnerConfig) (*Runner, error) {
 	}
 	if cfg.MaxSteps <= 0 {
 		cfg.MaxSteps = defaultMaxSteps
+	}
+	switch {
+	case cfg.MaxFreeRefusals == 0:
+		cfg.MaxFreeRefusals = defaultMaxFreeRefusals
+	case cfg.MaxFreeRefusals < 0:
+		cfg.MaxFreeRefusals = 0
 	}
 	if cfg.TracerProvider == nil {
 		cfg.TracerProvider = core.NoopTracerProvider{}
@@ -313,12 +337,17 @@ type TurnResult struct {
 	// name, and otherwise under "". Like Usage, it leaves out sub-agents.
 	UsageByModel map[string]Usage `json:"usageByModel,omitempty"`
 
-	// Steps is how many times the loop called the model, counting from one.
-	// A turn that answered without tools reports 1. The finalizing Generate
-	// of a structured-output turn is not counted here, though its tokens are
+	// Steps is how many steps the turn counted. A turn that answered without
+	// tools reports 1. A free refusal's model call isn't counted (#281), so
+	// the turn made Steps + FreeRefusals calls. The finalizing Generate of a
+	// structured-output turn is not counted here, though its tokens are
 	// counted in Usage. Reaching RunnerConfig.MaxSteps returns an error
 	// wrapping ErrMaxSteps instead of a result.
 	Steps int `json:"steps"`
+
+	// FreeRefusals is how many of the turn's model calls a free refusal made
+	// cost no step (#281). Their tokens are in Usage.
+	FreeRefusals int `json:"freeRefusals,omitempty"`
 
 	// FinishReason is the last model call's finish reason, in the provider's
 	// own vocabulary and unmapped. See ProviderResponse.FinishReason.
@@ -520,7 +549,28 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 	// under it.
 	defaultName := ""
 
-	for step := 1; step <= r.cfg.MaxSteps; step++ {
+	// step numbers model calls. counted is the steps the turn has paid for,
+	// and free the calls a free refusal made cost nothing (#281).
+	counted, free := 0, 0
+	// spend settles a finished step. A free one gives its tree-budget step
+	// back and emits EventRefusalFree, while the cap holds. Anything else
+	// counts.
+	spend := func(step int, isFree bool, reason string) {
+		if isFree && free < r.cfg.MaxFreeRefusals {
+			free++
+			treeBudget.refundStep()
+			emit(Event{Kind: EventRefusalFree, Step: step, Reason: reason})
+			return
+		}
+		counted++
+	}
+	partial := func(steps int, err error, finish string) (*TurnResult, error) {
+		res, err := r.partialResult(added, usage, byModel, steps, err, finish, emit, turnSpan)
+		res.FreeRefusals = free
+		return res, err
+	}
+
+	for step := 1; counted < r.cfg.MaxSteps; step++ {
 		// Charge one step to the aggregate tree budget before spending another
 		// model call. The charge fails if prior steps already blew the token cap.
 		if !treeBudget.consumeStep() {
@@ -538,16 +588,16 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 				return nil, r.failSpan(emit, turnSpan, fmt.Errorf("agent: listing tools: %w", err))
 			}
 		}
-		info := StepInfo{Step: step, MaxSteps: r.cfg.MaxSteps, Usage: usage, Turn: slices.Clone(added), Emit: emit}
+		info := StepInfo{Step: step, MaxSteps: r.cfg.MaxSteps, StepsLeft: r.cfg.MaxSteps - counted, Usage: usage, Turn: slices.Clone(added), Emit: emit}
 		working, recorded, view, err := runStepChain(stepCtx, chain, info, msgs, tools, guided, gen)
 		if err != nil {
 			stepSpan.RecordError(err)
 			stepSpan.End()
 			if errors.Is(err, ErrContextBudget) {
-				return r.partialResult(added, usage, byModel, step-1, err, "context_budget", emit, turnSpan)
+				return partial(counted, err, "context_budget")
 			}
 			if errors.Is(err, ErrTurnStopped) {
-				return r.partialResult(added, usage, byModel, step-1, err, "stopped", emit, turnSpan)
+				return partial(counted, err, "stopped")
 			}
 			return nil, r.failSpan(emit, turnSpan, err)
 		}
@@ -606,7 +656,7 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 		added = append(added, assistant)
 
 		if len(resp.ToolCalls) == 0 {
-			info := TurnEndInfo{Step: step, MaxSteps: r.cfg.MaxSteps, Text: resp.Text, Usage: usage}
+			info := TurnEndInfo{Step: step, MaxSteps: r.cfg.MaxSteps, StepsLeft: r.cfg.MaxSteps - counted, Text: resp.Text, Usage: usage}
 			if stepGuided != nil && !sendGuided {
 				// msgs ends with the free answer; the guided call answers from
 				// what came before it.
@@ -647,7 +697,7 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 			if verdict.Stop != "" {
 				stepSpan.SetAttribute("agent.turn_end", "stopped")
 				stepSpan.End()
-				return r.partialResult(added, usage, byModel, step, fmt.Errorf("%w: %s", ErrTurnStopped, verdict.Stop), "stopped", emit, turnSpan)
+				return partial(counted+1, fmt.Errorf("%w: %s", ErrTurnStopped, verdict.Stop), "stopped")
 			}
 			if verdict.Continue != "" {
 				stepSpan.SetAttribute("agent.turn_end", "continued")
@@ -660,6 +710,7 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 				msgs = append(msgs, cont)
 				added = append(added, cont)
 				emit(Event{Kind: EventTurnContinued, Step: step, Reason: verdict.Continue})
+				spend(step, verdict.Free, verdict.Continue)
 				continue
 			}
 			stepSpan.End()
@@ -668,22 +719,23 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 				Messages:        added,
 				Usage:           usage,
 				UsageByModel:    byModel.result(),
-				Steps:           step,
+				Steps:           counted + 1,
+				FreeRefusals:    free,
 				FinishReason:    resp.FinishReason,
 				Structured:      structured,
 				StructuredError: structuredErr,
 			}
-			turnSpan.SetAttribute("agent.steps", fmt.Sprint(step))
+			turnSpan.SetAttribute("agent.steps", fmt.Sprint(counted+1))
 			turnSpan.SetAttribute("agent.finish_reason", resp.FinishReason)
 			turnSpan.SetAttribute("agent.tokens.input", fmt.Sprint(usage.InputTokens))
 			turnSpan.SetAttribute("agent.tokens.cached", fmt.Sprint(usage.CachedInputTokens))
 			turnSpan.SetAttribute("agent.tokens.output", fmt.Sprint(usage.OutputTokens))
-			r.metrics.turnDone(ctx, step, usage.InputTokens, usage.OutputTokens, resp.FinishReason, time.Since(turnStart))
+			r.metrics.turnDone(ctx, counted+1, usage.InputTokens, usage.OutputTokens, resp.FinishReason, time.Since(turnStart))
 			emit(Event{Kind: EventTurnEnd, Result: result})
 			return result, nil
 		}
 
-		toolMsgs, signals := r.dispatch(stepCtx, step, resp.ToolCalls, tools, emit, reg)
+		toolMsgs, signals, freeReasons := r.dispatch(stepCtx, step, resp.ToolCalls, tools, emit, reg)
 		stepSpan.End()
 		if err := ctx.Err(); err != nil {
 			return nil, r.failSpan(emit, turnSpan, err)
@@ -693,6 +745,8 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 		// requested them. Append them first, and put a signal note after.
 		msgs = append(msgs, toolMsgs...)
 		added = append(added, toolMsgs...)
+		reason, allFree := freeStep(freeReasons)
+		spend(step, allFree, reason)
 		if len(signals) > 0 {
 			for i := range signals {
 				emit(Event{Kind: EventSignal, Step: step, Signal: &signals[i]})
@@ -716,7 +770,7 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 		}
 	}
 
-	return r.partialResult(added, usage, byModel, r.cfg.MaxSteps, fmt.Errorf("%w (%d steps)", ErrMaxSteps, r.cfg.MaxSteps), "max_steps", emit, turnSpan)
+	return partial(r.cfg.MaxSteps, fmt.Errorf("%w (%d steps)", ErrMaxSteps, r.cfg.MaxSteps), "max_steps")
 }
 
 // partialResult builds the partial result for a turn that ended early. The
@@ -1056,7 +1110,7 @@ func (r *Runner) shouldBreakOn(sig Signal) bool {
 // installed, and the calls run under a cancellable child of it. So a fan
 // cancel leaves parent live and reads as a per-call "cancelled by user",
 // never as a turn abort.
-func (r *Runner) dispatch(ctx context.Context, step int, calls []ToolCall, tools []core.ToolDef, emit func(Event), reg *callCancels) ([]Message, []Signal) {
+func (r *Runner) dispatch(ctx context.Context, step int, calls []ToolCall, tools []core.ToolDef, emit func(Event), reg *callCancels) ([]Message, []Signal, []string) {
 	sink := &signalSink{}
 	parent := withDispatchSink(ctx, sink)
 	callBase := parent
@@ -1068,6 +1122,9 @@ func (r *Runner) dispatch(ctx context.Context, step int, calls []ToolCall, tools
 		defer cancelFan()
 	}
 	results := make([]Message, len(calls))
+	// freeReasons holds each call's reason when a free denial refused it,
+	// and "" otherwise.
+	freeReasons := make([]string, len(calls))
 	var emitMu sync.Mutex
 	locked := func(ev Event) {
 		emitMu.Lock()
@@ -1097,7 +1154,7 @@ func (r *Runner) dispatch(ctx context.Context, step int, calls []ToolCall, tools
 			toolCtx, toolSpan := r.cfg.TracerProvider.StartSpan(callCtx, "agent.tool",
 				core.Attribute{Key: "agent.tool.name", Value: call.Name})
 			locked(Event{Kind: EventToolBegin, Step: step, ToolCall: &call})
-			text := r.callTool(toolCtx, parent, step, call, tools, locked, toolSpan)
+			text := r.callTool(toolCtx, parent, step, call, tools, locked, toolSpan, &freeReasons[i])
 			toolSpan.End()
 			results[i] = Message{Role: RoleTool, ToolCallID: call.ID, Text: text}
 		}(i, call)
@@ -1105,7 +1162,7 @@ func (r *Runner) dispatch(ctx context.Context, step int, calls []ToolCall, tools
 
 	if cancelFan == nil {
 		wg.Wait()
-		return results, sink.drain()
+		return results, sink.drain(), freeReasons
 	}
 	// In an interruptible turn, stop waiting the moment a child signals and
 	// cancel the rest. Then still wg.Wait for the cancelled calls to unwind.
@@ -1120,7 +1177,7 @@ func (r *Runner) dispatch(ctx context.Context, step int, calls []ToolCall, tools
 		cancelFan()
 		<-allDone
 	}
-	return results, sink.drain()
+	return results, sink.drain(), freeReasons
 }
 
 // toolHints reads the named tool's safety annotations from the step's offered
@@ -1165,7 +1222,7 @@ func toolHints(tools []core.ToolDef, name string) (readOnly, destructive, idempo
 // step's context. If ctx is cancelled while parent is live, the cancellation
 // was per call. It feeds back as "cancelled by user", so the model knows the
 // user stopped the call and the tool didn't fail.
-func (r *Runner) callTool(ctx context.Context, parent context.Context, step int, call ToolCall, tools []core.ToolDef, emit func(Event), span core.Span) string {
+func (r *Runner) callTool(ctx context.Context, parent context.Context, step int, call ToolCall, tools []core.ToolDef, emit func(Event), span core.Span, freeReason *string) string {
 	// status is the terminal outcome recorded on the tool-call metric. The
 	// closures and branches below set it as they resolve. The record is
 	// deferred, so every return path counts exactly once, including the
@@ -1230,6 +1287,9 @@ func (r *Runner) callTool(ctx context.Context, parent context.Context, step int,
 			status = "denied"
 			span.SetAttribute("agent.tool.denied", "true")
 			emit(Event{Kind: EventToolDenied, Step: step, ToolCall: &call, Reason: reason})
+			if freeDenial(err) {
+				*freeReason = reason
+			}
 			return toolDeniedPrefix + deniedModelReason(err, reason)
 		}
 		// The tool's server may be unreachable right now. That is a non-fatal
@@ -1256,6 +1316,22 @@ func (r *Runner) callTool(ctx context.Context, parent context.Context, step int,
 		return toolErrorPrefix + text
 	}
 	return text
+}
+
+// freeStep reports whether a free denial refused every call of a step, and
+// the step's distinct reasons joined. A step where any call ran, failed or was
+// refused for a reason not marked free made progress, so it counts.
+func freeStep(reasons []string) (string, bool) {
+	var distinct []string
+	for _, r := range reasons {
+		if r == "" {
+			return "", false
+		}
+		if !slices.Contains(distinct, r) {
+			distinct = append(distinct, r)
+		}
+	}
+	return strings.Join(distinct, "; "), len(distinct) > 0
 }
 
 // The text the model gets for a tool call that didn't succeed starts with

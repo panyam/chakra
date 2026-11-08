@@ -19,6 +19,7 @@ pkg github.com/panyam/chakra, const DispositionUnknown CallDisposition
 pkg github.com/panyam/chakra, const EventCompaction EventKind
 pkg github.com/panyam/chakra, const EventError EventKind
 pkg github.com/panyam/chakra, const EventPlan EventKind
+pkg github.com/panyam/chakra, const EventRefusalFree EventKind
 pkg github.com/panyam/chakra, const EventRetrieved EventKind
 pkg github.com/panyam/chakra, const EventSignal EventKind
 pkg github.com/panyam/chakra, const EventStep EventKind
@@ -95,6 +96,7 @@ pkg github.com/panyam/chakra, func BeforeToolCall(func(context.Context, *ToolCal
 pkg github.com/panyam/chakra, func CapabilitiesOf(Provider) Capabilities
 pkg github.com/panyam/chakra, func DefaultStuckKey(StepRecord) (StuckKey, bool)
 pkg github.com/panyam/chakra, func DenyTool(string) error
+pkg github.com/panyam/chakra, func DenyToolFree(string) error
 pkg github.com/panyam/chakra, func DropUnansweredToolCalls([]Message) []Message
 pkg github.com/panyam/chakra, func GrantAllPreempts(Signal) bool
 pkg github.com/panyam/chakra, func HintFromMeta(map[string]any) (ContextHint, bool)
@@ -709,6 +711,7 @@ pkg github.com/panyam/chakra, type RunnerConfig struct, Generation GenerationPar
 pkg github.com/panyam/chakra, type RunnerConfig struct, Instructions string
 pkg github.com/panyam/chakra, type RunnerConfig struct, InstructionsFunc func(context.Context) string
 pkg github.com/panyam/chakra, type RunnerConfig struct, Interruptible bool
+pkg github.com/panyam/chakra, type RunnerConfig struct, MaxFreeRefusals int
 pkg github.com/panyam/chakra, type RunnerConfig struct, MaxSteps int
 pkg github.com/panyam/chakra, type RunnerConfig struct, MeterProvider core.MeterProvider
 pkg github.com/panyam/chakra, type RunnerConfig struct, PreemptGrant func(Signal) bool
@@ -769,6 +772,7 @@ pkg github.com/panyam/chakra, type StepInfo struct
 pkg github.com/panyam/chakra, type StepInfo struct, Emit func(Event)
 pkg github.com/panyam/chakra, type StepInfo struct, MaxSteps int
 pkg github.com/panyam/chakra, type StepInfo struct, Step int
+pkg github.com/panyam/chakra, type StepInfo struct, StepsLeft int
 pkg github.com/panyam/chakra, type StepInfo struct, Turn []Message
 pkg github.com/panyam/chakra, type StepInfo struct, Usage Usage
 pkg github.com/panyam/chakra, type StepRecord struct
@@ -864,6 +868,7 @@ pkg github.com/panyam/chakra, type ToolChoice struct
 pkg github.com/panyam/chakra, type ToolChoice struct, Mode string
 pkg github.com/panyam/chakra, type ToolChoice struct, Name string
 pkg github.com/panyam/chakra, type ToolDeniedError struct
+pkg github.com/panyam/chakra, type ToolDeniedError struct, Free bool
 pkg github.com/panyam/chakra, type ToolDeniedError struct, ModelReason string
 pkg github.com/panyam/chakra, type ToolDeniedError struct, Reason string
 pkg github.com/panyam/chakra, type ToolMiddleware func(context.Context, ToolCallInfo, ToolCallFunc) (*core.ToolResult, error)
@@ -910,12 +915,14 @@ pkg github.com/panyam/chakra, type TurnEndInfo struct, Draft string
 pkg github.com/panyam/chakra, type TurnEndInfo struct, MaxSteps int
 pkg github.com/panyam/chakra, type TurnEndInfo struct, Messages []Message
 pkg github.com/panyam/chakra, type TurnEndInfo struct, Step int
+pkg github.com/panyam/chakra, type TurnEndInfo struct, StepsLeft int
 pkg github.com/panyam/chakra, type TurnEndInfo struct, StructuredError string
 pkg github.com/panyam/chakra, type TurnEndInfo struct, Text string
 pkg github.com/panyam/chakra, type TurnEndInfo struct, Usage Usage
 pkg github.com/panyam/chakra, type TurnEndVerdict struct
 pkg github.com/panyam/chakra, type TurnEndVerdict struct, AsUser bool
 pkg github.com/panyam/chakra, type TurnEndVerdict struct, Continue string
+pkg github.com/panyam/chakra, type TurnEndVerdict struct, Free bool
 pkg github.com/panyam/chakra, type TurnEndVerdict struct, Stop string
 pkg github.com/panyam/chakra, type TurnRequest struct
 pkg github.com/panyam/chakra, type TurnRequest struct, Control <-chan Control
@@ -926,6 +933,7 @@ pkg github.com/panyam/chakra, type TurnRequest struct, ResponseGuided *GuidedDec
 pkg github.com/panyam/chakra, type TurnRequest struct, ResponseSchema core.RawJSON
 pkg github.com/panyam/chakra, type TurnResult struct
 pkg github.com/panyam/chakra, type TurnResult struct, FinishReason string
+pkg github.com/panyam/chakra, type TurnResult struct, FreeRefusals int
 pkg github.com/panyam/chakra, type TurnResult struct, Messages []Message
 pkg github.com/panyam/chakra, type TurnResult struct, Steps int
 pkg github.com/panyam/chakra, type TurnResult struct, Structured core.RawJSON

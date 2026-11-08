@@ -122,6 +122,9 @@ func (r *renderer) handle(e agent.Event) {
 			line += fmt.Sprintf(", %d %s failed", n, noun)
 		}
 		fmt.Fprintf(r.out, "%s\n", r.dim(line))
+	case agent.EventRefusalFree:
+		r.breakLine()
+		fmt.Fprintf(r.out, "%s\n", r.dim("  ↺ refused, no step used: "+snippet(e.Reason, 120)))
 	case agent.EventTurnContinued:
 		r.breakLine()
 		fmt.Fprintf(r.out, "%s\n", r.dim("  ↻ not done yet: "+snippet(e.Reason, 120)))

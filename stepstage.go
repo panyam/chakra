@@ -56,6 +56,11 @@ type StepInfo struct {
 	Step int
 	// MaxSteps is the turn's step cap.
 	MaxSteps int
+	// StepsLeft is how many steps the turn may still count, this one
+	// included. Step counts model calls, and a free refusal doesn't use up a
+	// step (#281). So a note about the step budget reads StepsLeft, not
+	// MaxSteps - Step.
+	StepsLeft int
 	// Usage counts what the turn has spent so far, before this step.
 	Usage Usage
 	// Turn is this turn's record so far, oldest first (#278). It starts after

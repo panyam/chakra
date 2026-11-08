@@ -143,6 +143,13 @@ type ToolDeniedError struct {
 	// can't hold it. So the two reasons differ. NewCritiqueGate quotes a
 	// critic model, and this field exists for that case.
 	ModelReason string
+
+	// Free marks the refusal as one the turn doesn't pay a step for (#281).
+	// Use it for a cheap check that catches a malformed call before it runs,
+	// such as an edit that doesn't parse. A step counts as free only when
+	// every call in it was refused free, and only up to
+	// RunnerConfig.MaxFreeRefusals per turn. Its tokens still count.
+	Free bool
 }
 
 func (e *ToolDeniedError) Error() string {
@@ -158,6 +165,16 @@ func (e *ToolDeniedError) Error() string {
 // Sometimes the model needs to see something other than the surfaced reason.
 // Then the middleware builds a ToolDeniedError directly and sets ModelReason.
 func DenyTool(reason string) error { return &ToolDeniedError{Reason: reason} }
+
+// DenyToolFree is DenyTool for a refusal that doesn't use up a step. See
+// ToolDeniedError.Free.
+func DenyToolFree(reason string) error { return &ToolDeniedError{Reason: reason, Free: true} }
+
+// freeDenial reports whether err is a denial marked Free.
+func freeDenial(err error) bool {
+	var d *ToolDeniedError
+	return errors.As(err, &d) && d.Free
+}
 
 // deniedReason reports whether err is a denial and the reason to surface.
 func deniedReason(err error) (string, bool) {

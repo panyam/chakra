@@ -67,6 +67,12 @@ const (
 	// the turn's first model call (#280). Retrieval lists what went in, what
 	// the budget dropped and which retrievers failed.
 	EventRetrieved EventKind = "retrieved"
+	// EventRefusalFree marks a step that cost no step (#281). Every tool call
+	// in it was refused free, or a turn-end hook continued with Free. Step is
+	// the model call, and Reason says why it was refused. The refused calls
+	// still emit EventToolDenied, and a free Continue still emits
+	// EventTurnContinued.
+	EventRefusalFree EventKind = "refusal-free"
 	// EventPlan sends the plan that a model published with update_plan
 	// (#148). Plan holds the whole plan each time, so a surface replaces the
 	// plan it showed. Step is the step whose tool call published it.
