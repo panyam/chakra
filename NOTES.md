@@ -1073,6 +1073,23 @@ what a score means. The built-in Compactor runs before the stage, so on step 1 t
 push the context over the budget. Compaction then catches it on step 2, which is the same
 inject-then-compact choice `host/contextpipeline.go` makes.
 
+### A refusal that costs no step (#281)
+
+Imagine a strict validator in front of an edit tool. It refuses an edit that doesn't parse, before
+the edit runs. Each refusal used to count against `MaxSteps` and the tree budget, so a strict
+validator drained the turn, and hosts loosened validators to save steps.
+
+`DenyToolFree` and `TurnEndVerdict.Free` mark a refusal as free. A step costs nothing only when
+every call in it was refused free, since a step where one call ran made progress. The model call
+still happened, so its tokens count. `StepInfo.Step` and the event `Step` keep numbering model
+calls, and `StepInfo.StepsLeft` says how many steps the turn can still count. A note about the step
+budget reads that one.
+
+`MaxFreeRefusals` caps them at 3 a turn. Past the cap they count again. A free refusal still lands
+in the record as a denied call, with `toolDeniedPrefix`, so `DefaultStuckKey` reads it as an error.
+Three identical free refusals trip the stuck detector at about the moment the cap runs out. The
+approval gate's refusals are never free. A person said no, and asking again isn't cheap.
+
 ### One server is not the protocol (#1303)
 
 `ext/lsp` shipped after running against gopls and nothing else. We then probed the four other

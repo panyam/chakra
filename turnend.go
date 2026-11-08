@@ -14,9 +14,14 @@ type TurnEndHook func(ctx context.Context, info TurnEndInfo) (TurnEndVerdict, er
 
 // TurnEndInfo holds what a TurnEndHook judges.
 type TurnEndInfo struct {
-	// Step is the step that produced the answer, and MaxSteps is the turn's
-	// cap. A Continue at Step == MaxSteps ends the turn with ErrMaxSteps.
+	// Step is the model call that produced the answer, counting from one,
+	// and MaxSteps is the turn's cap. A free refusal doesn't use up a step,
+	// so Step can pass MaxSteps (#281).
 	Step, MaxSteps int
+	// StepsLeft is how many steps the turn may still count, this one
+	// included. A counted Continue at StepsLeft == 1 ends the turn with
+	// ErrMaxSteps.
+	StepsLeft int
 	// Text is the model's final answer. With RunnerConfig.ResponseGuided set,
 	// it is the constrained answer the turn would return.
 	Text string
@@ -54,6 +59,12 @@ type TurnEndVerdict struct {
 	// them. Feedback on a draft often reads better from the user anyway.
 	// Ignored without Continue.
 	AsUser bool
+	// Free makes a Continue cost no step (#281), up to
+	// RunnerConfig.MaxFreeRefusals per turn. Past the cap the Continue
+	// counts. Use it when the answer was refused for something cheap to
+	// check, such as a draft that repeats the last one. Ignored without
+	// Continue.
+	Free bool
 	// Stop refuses the answer when not empty, and ends the turn without
 	// another step. The turn returns an error wrapping ErrTurnStopped, with
 	// Stop as the reason. It also returns a partial TurnResult, and its

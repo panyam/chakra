@@ -82,6 +82,14 @@ func (st *treeBudgetState) consumeStep() bool {
 	return true
 }
 
+// refundStep gives back a step consumeStep charged, for a step that turned
+// out free (#281). Nil state is a no-op.
+func (st *treeBudgetState) refundStep() {
+	if st != nil && st.maxSteps > 0 {
+		st.stepsLeft.Add(1)
+	}
+}
+
 // addTokens folds a step's usage into the shared token total. Nil state is a
 // no-op.
 func (st *treeBudgetState) addTokens(n int) {
