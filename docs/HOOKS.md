@@ -15,7 +15,7 @@ as its main decision, and updates this page in the same PR.
 | Point | Runs | What hooks in today | Shape | Code |
 |---|---|---|---|---|
 | **Turn start** (host) | once per turn, before the Runner | `Extension.TurnStart`, `InputTransform`s (agentsmd's `@rule` mentions), durable `ContextStage`s (event injection), the user message, transient `ContextStage`s (memory summary, recall), `PromptSection`s | one ordered pipeline with two phases | `host/app.go` `RunTurn`, `host/contextpipeline.go` |
-| **Before each model call** (Runner) | every step | the step chain: `Compactor` (turn scope), `Selector` (request scope), then `StepStages` such as the host's step-budget note and its step routes (`connections.stepRoutes`), then extensions' `StepStages` (agentsmd's instruction files found mid-session), and `NewStuckDetector` where a caller adds it (#278); also the tree budget | one ordered chain, run by scope: session, turn, request | `stepstage.go`, `runner.go` `Run` |
+| **Before each model call** (Runner) | every step | the step chain: `Compactor` (turn scope), `Selector` (request scope), then `StepStages` such as the host's step-budget note and its step routes (`connections.stepRoutes`), then extensions' `StepStages` (agentsmd's instruction files found mid-session), `NewStuckDetector` where a caller adds it (#278), and `NewRetrievalStage` for context gathered before the first call (#280); also the tree budget | one ordered chain, run by scope: session, turn, request | `stepstage.go`, `runner.go` `Run` |
 | **Around each tool call** (Runner) | every tool call, in parallel | `ToolMiddleware`: spotlight, extension middleware, critique, the permission gate (with `ApprovalClassifier`s, `ApprovalRenderer`s, `ApprovalChooser`s, and the skill grants the host passes as a `GrantFunc`, #187); offloading wraps the tool source at the end of the chain | one ordered chain, gate last | `toolmiddleware.go`, `approval.go`, `host/app.go` |
 | **Turn end** (Runner) | each time the model answers without calling a tool, before the answer is accepted | `RunnerConfig.TurnEnd` hooks (#150): accept, refuse with a message (a system note, or a user message with `AsUser`) so the loop takes another step, or stop the turn on the refused answer with `ErrTurnStopped` (#222). In the host, an extension contributes them through `Extension.TurnEndHooks`, for the main agent only, and the host keeps a stopped turn in history (#223) | an ordered list, first refusal wins; runs before `ResponseSchema`'s finalize | `turnend.go`, `runner.go` `Run`, `host/extension.go` |
 | **Signals and events** | between steps (signals), and between turns (events) | `SignalPolicy`, `Interruptible`, `PreemptGrant`; the host's injection and trigger policies; an `Announcer` extension posts `HostMessage` lines to every surface, a `ProcessReporter` extension streams a running process's output to the surfaces as `HostProcessOutput` and never to the model, and a `TurnEnder` extension hears that a turn ended before the surfaces do, whether it finished, ended partial or failed | separate fields | `signal.go`, `injection.go`, `triggers.go`, `host/events.go` |
@@ -160,7 +160,13 @@ Ask these in order.
    partial result, before the call, as a turn-end stop does. Any other error
    fails the turn. `NewStuckDetector` uses all three. It splits the turn's
    record into one `StepRecord` per step, so a TurnEnd continuation counts as
-   what came back from a step with no tool call.
+   what came back from a step with no tool call. Context a turn gathers
+   before its first call, such as a repo map or a database probe, goes
+   through `NewRetrievalStage` (#280). It is a turn stage that acts on step 1,
+   so jaala and other callers of the Runner get it without a host, and the
+   host gets it through `Extension.StepStages`. Use a transient
+   `ContextStage` instead only for context that needs the host's state, as
+   memory recall does.
 4. **Does it act on one tool call** (its arguments, whether it runs, its
    result)? Tool middleware, placed by the ordering rules above. When a human
    makes the decision, it goes through the gate, not through new middleware.

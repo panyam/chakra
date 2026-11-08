@@ -154,3 +154,17 @@ func TestRendererShowsAStuckRun(t *testing.T) {
 		t.Fatalf("render = %q", got)
 	}
 }
+
+func TestRendererShowsARetrieval(t *testing.T) {
+	var out strings.Builder
+	r := newRenderer(&out, false)
+	r.handle(agent.Event{Kind: agent.EventRetrieved, Step: 1, Retrieval: &agent.RetrievalInfo{
+		Budget:   2000,
+		Tokens:   340,
+		Injected: []agent.RetrievedSnippet{{Source: "a.go"}, {Source: "b.go"}},
+		Failed:   []agent.RetrievalFailure{{Retriever: "index", Error: "offline"}},
+	}})
+	if got := out.String(); !strings.Contains(got, "retrieved: 2 snippets, 340 tokens, 1 retriever failed") {
+		t.Fatalf("render = %q", got)
+	}
+}

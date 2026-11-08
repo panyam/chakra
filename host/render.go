@@ -111,6 +111,17 @@ func (r *renderer) handle(e agent.Event) {
 	case agent.EventStuck:
 		r.breakLine()
 		fmt.Fprintf(r.out, "%s\n", r.dim("  ⟲ stuck: "+snippet(e.Stuck.String(), 120)))
+	case agent.EventRetrieved:
+		r.breakLine()
+		line := fmt.Sprintf("  ⌕ retrieved: %d snippets, %d tokens", len(e.Retrieval.Injected), e.Retrieval.Tokens)
+		if n := len(e.Retrieval.Failed); n > 0 {
+			noun := "retriever"
+			if n > 1 {
+				noun = "retrievers"
+			}
+			line += fmt.Sprintf(", %d %s failed", n, noun)
+		}
+		fmt.Fprintf(r.out, "%s\n", r.dim(line))
 	case agent.EventTurnContinued:
 		r.breakLine()
 		fmt.Fprintf(r.out, "%s\n", r.dim("  ↻ not done yet: "+snippet(e.Reason, 120)))

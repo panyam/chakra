@@ -63,6 +63,10 @@ const (
 	// before a model call (#278). Stuck says what repeated. The policy acts
 	// on that same call, so the event comes before the call's EventStep.
 	EventStuck EventKind = "stuck"
+	// EventRetrieved marks that NewRetrievalStage gathered context before
+	// the turn's first model call (#280). Retrieval lists what went in, what
+	// the budget dropped and which retrievers failed.
+	EventRetrieved EventKind = "retrieved"
 	// EventPlan sends the plan that a model published with update_plan
 	// (#148). Plan holds the whole plan each time, so a surface replaces the
 	// plan it showed. Step is the step whose tool call published it.
@@ -130,6 +134,9 @@ type Event struct {
 
 	// Stuck says what repeated, on EventStuck.
 	Stuck *StuckFinding `json:"stuck,omitempty"`
+
+	// Retrieval says what a retrieval stage injected, on EventRetrieved.
+	Retrieval *RetrievalInfo `json:"retrieval,omitempty"`
 
 	// Model names the provider that answered, on EventStep. See
 	// StepView.ProviderName.

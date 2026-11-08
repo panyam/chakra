@@ -19,6 +19,7 @@ pkg github.com/panyam/chakra, const DispositionUnknown CallDisposition
 pkg github.com/panyam/chakra, const EventCompaction EventKind
 pkg github.com/panyam/chakra, const EventError EventKind
 pkg github.com/panyam/chakra, const EventPlan EventKind
+pkg github.com/panyam/chakra, const EventRetrieved EventKind
 pkg github.com/panyam/chakra, const EventSignal EventKind
 pkg github.com/panyam/chakra, const EventStep EventKind
 pkg github.com/panyam/chakra, const EventStuck EventKind
@@ -124,6 +125,8 @@ pkg github.com/panyam/chakra, func NewOpenAIEmbedder(OpenAIEmbedderConfig) (*Ope
 pkg github.com/panyam/chakra, func NewOpenAIProvider(OpenAIConfig) (*OpenAIProvider, error)
 pkg github.com/panyam/chakra, func NewPlanTool() *PlanTool
 pkg github.com/panyam/chakra, func NewResponsesProvider(ResponsesConfig) (*ResponsesProvider, error)
+pkg github.com/panyam/chakra, func NewRetrievalStage(RetrievalConfig) StepStage
+pkg github.com/panyam/chakra, func NewRetriever(string, func(context.Context, RetrievalQuery) ([]Snippet, error)) Retriever
 pkg github.com/panyam/chakra, func NewRunner(RunnerConfig) (*Runner, error)
 pkg github.com/panyam/chakra, func NewServerAgentSource(ServerAgentConfig) (*AgentSource, error)
 pkg github.com/panyam/chakra, func NewSignalSource() *FuncSource
@@ -431,6 +434,7 @@ pkg github.com/panyam/chakra, type Event struct, Model string
 pkg github.com/panyam/chakra, type Event struct, Plan *Plan
 pkg github.com/panyam/chakra, type Event struct, Reason string
 pkg github.com/panyam/chakra, type Event struct, Result *TurnResult
+pkg github.com/panyam/chakra, type Event struct, Retrieval *RetrievalInfo
 pkg github.com/panyam/chakra, type Event struct, Signal *Signal
 pkg github.com/panyam/chakra, type Event struct, Step int
 pkg github.com/panyam/chakra, type Event struct, Stuck *StuckFinding
@@ -648,6 +652,31 @@ pkg github.com/panyam/chakra, type ResponsesConfig struct, ReasoningEffort strin
 pkg github.com/panyam/chakra, type ResponsesConfig struct, ReasoningSummary string
 pkg github.com/panyam/chakra, type ResponsesConfig struct, Temperature bool
 pkg github.com/panyam/chakra, type ResponsesProvider struct
+pkg github.com/panyam/chakra, type RetrievalConfig struct
+pkg github.com/panyam/chakra, type RetrievalConfig struct, AsUser bool
+pkg github.com/panyam/chakra, type RetrievalConfig struct, Budget int
+pkg github.com/panyam/chakra, type RetrievalConfig struct, Estimator TokenEstimator
+pkg github.com/panyam/chakra, type RetrievalConfig struct, Retrievers []Retriever
+pkg github.com/panyam/chakra, type RetrievalFailure struct
+pkg github.com/panyam/chakra, type RetrievalFailure struct, Error string
+pkg github.com/panyam/chakra, type RetrievalFailure struct, Retriever string
+pkg github.com/panyam/chakra, type RetrievalInfo struct
+pkg github.com/panyam/chakra, type RetrievalInfo struct, Budget int
+pkg github.com/panyam/chakra, type RetrievalInfo struct, Dropped []RetrievedSnippet
+pkg github.com/panyam/chakra, type RetrievalInfo struct, Failed []RetrievalFailure
+pkg github.com/panyam/chakra, type RetrievalInfo struct, Injected []RetrievedSnippet
+pkg github.com/panyam/chakra, type RetrievalInfo struct, Tokens int
+pkg github.com/panyam/chakra, type RetrievalQuery struct
+pkg github.com/panyam/chakra, type RetrievalQuery struct, Budget int
+pkg github.com/panyam/chakra, type RetrievalQuery struct, Task string
+pkg github.com/panyam/chakra, type RetrievedSnippet struct
+pkg github.com/panyam/chakra, type RetrievedSnippet struct, Retriever string
+pkg github.com/panyam/chakra, type RetrievedSnippet struct, Score float64
+pkg github.com/panyam/chakra, type RetrievedSnippet struct, Source string
+pkg github.com/panyam/chakra, type RetrievedSnippet struct, Tokens int
+pkg github.com/panyam/chakra, type Retriever interface
+pkg github.com/panyam/chakra, type Retriever interface, Name() string
+pkg github.com/panyam/chakra, type Retriever interface, Retrieve(context.Context, RetrievalQuery) ([]Snippet, error)
 pkg github.com/panyam/chakra, type Role string
 pkg github.com/panyam/chakra, type Run struct
 pkg github.com/panyam/chakra, type Run struct, CreatedAt time.Time
@@ -729,6 +758,10 @@ pkg github.com/panyam/chakra, type SignalAction struct, AbortTurn bool
 pkg github.com/panyam/chakra, type SignalAction struct, Reason string
 pkg github.com/panyam/chakra, type SignalKind string
 pkg github.com/panyam/chakra, type SignalPolicy func([]Signal) SignalAction
+pkg github.com/panyam/chakra, type Snippet struct
+pkg github.com/panyam/chakra, type Snippet struct, Score float64
+pkg github.com/panyam/chakra, type Snippet struct, Source string
+pkg github.com/panyam/chakra, type Snippet struct, Text string
 pkg github.com/panyam/chakra, type SpotlightConfig struct
 pkg github.com/panyam/chakra, type SpotlightConfig struct, Classify func(ToolCallInfo) Provenance
 pkg github.com/panyam/chakra, type SpotlightConfig struct, Mark func(MarkRequest) string
