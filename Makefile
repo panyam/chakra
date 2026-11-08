@@ -292,14 +292,16 @@ tbench-ref: ## Import a leaderboard submission as a reference column, e.g. SUB=T
 	@python3 scripts/tbench_ref.py $(SUB) --out $(TB_REFS)
 
 # With RUN=1 the pick, the trials and the ingest run under a lock in TB_JOBS,
-# which every checkout shares. So a second batch waits, then picks after the
-# first one's results are in (#289). benchmarks/matrix/stale-jobs lists the
+# which every checkout shares. So a second batch waits for the first (#289).
+# The pick starts by ingesting TB_JOBS, so it sees jobs another checkout ran,
+# not only this checkout's results files. benchmarks/matrix/stale-jobs lists the
 # jobs this batch started, and mission-tbench reports only those.
 tbench-stale: ## The N oldest or never-run cells of TB_SETUPS, up to BUDGET dollars at list price (N=10 BUDGET=5); RUN=1 runs them, one batch at a time
 	@mkdir -p benchmarks/matrix
 	@$(if $(RUN),bash scripts/tbench-lock.sh $(TB_JOBS)/.stale.lock) $(MAKE) --no-print-directory tbench-stale-locked
 
 tbench-stale-locked:
+	@python3 scripts/tbench_matrix.py ingest $(TB_JOBS) >/dev/null
 	@python3 scripts/tbench_matrix.py stale $(TB_PATH) $(N) $(BUDGET) --setups "$(TB_SETUPS)" > benchmarks/matrix/stale-picks
 	@cat benchmarks/matrix/stale-picks
 	@$(if $(RUN),: > benchmarks/matrix/stale-jobs && while read -r cmd; do eval "$(MAKE) $${cmd#make } TB_JOBS_LOG=$(CURDIR)/benchmarks/matrix/stale-jobs" || exit 1; done < benchmarks/matrix/stale-picks && $(MAKE) tbench-ingest)
