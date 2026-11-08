@@ -1,0 +1,64 @@
+{
+ "jobs": [
+  "tbench-codex-20261106-153717"
+ ],
+ "source": "local",
+ "trials": [
+  {
+   "agent_s": 96.864806,
+   "agent_version": "0.167.0",
+   "cached": 236032,
+   "chakra_sha": null,
+   "date": "2026-11-06T23:37:20.002892Z",
+   "error": null,
+   "in": 274521,
+   "job": "tbench-codex-20261106-153717",
+   "out": 6159,
+   "reward": 0.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "db-wal-recovery"
+  },
+  {
+   "agent_s": 57.247431,
+   "agent_version": "0.167.0",
+   "cached": 80128,
+   "chakra_sha": null,
+   "date": "2026-11-06T23:37:20.029347Z",
+   "error": null,
+   "in": 99664,
+   "job": "tbench-codex-20261106-153717",
+   "out": 3243,
+   "reward": 1.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "distribution-search"
+  },
+  {
+   "agent_s": 215.934422,
+   "agent_version": "0.167.0",
+   "cached": 204160,
+   "chakra_sha": null,
+   "date": "2026-11-06T23:42:15.863790Z",
+   "error": null,
+   "in": 244919,
+   "job": "tbench-codex-20261106-153717",
+   "out": 13315,
+   "reward": 0.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "dna-assembly"
+  },
+  {
+   "agent_s": 79.147167,
+   "agent_version": "0.167.0",
+   "cached": 163584,
+   "chakra_sha": null,
+   "date": "2026-11-06T23:43:08.128766Z",
+   "error": null,
+   "in": 182630,
+   "job": "tbench-codex-20261106-153717",
+   "out": 5129,
+   "reward": 0.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "dna-insert"
+  }
+ ]
+}
