@@ -1,0 +1,50 @@
+{
+ "jobs": [
+  "tbench-chakra-20261108-105725"
+ ],
+ "source": "local",
+ "trials": [
+  {
+   "agent_s": 145.610657,
+   "agent_version": "b8ecb204266f",
+   "cached": 124416,
+   "chakra_sha": "b8ecb204266f",
+   "date": "2026-11-08T18:57:29.790392Z",
+   "error": null,
+   "in": 159671,
+   "job": "tbench-chakra-20261108-105725",
+   "out": 8643,
+   "reward": 0.0,
+   "setup": "chakra/openai-gpt-5.5/medium",
+   "task": "filter-js-from-html"
+  },
+  {
+   "agent_s": 173.467439,
+   "agent_version": "b8ecb204266f",
+   "cached": 171008,
+   "chakra_sha": "b8ecb204266f",
+   "date": "2026-11-08T18:57:29.843409Z",
+   "error": null,
+   "in": 216107,
+   "job": "tbench-chakra-20261108-105725",
+   "out": 3063,
+   "reward": 1.0,
+   "setup": "chakra/openai-gpt-5.5/medium",
+   "task": "financial-document-processor"
+  },
+  {
+   "agent_s": 1393.687862,
+   "agent_version": "b8ecb204266f",
+   "cached": 409088,
+   "chakra_sha": "b8ecb204266f",
+   "date": "2026-11-08T19:01:02.573760Z",
+   "error": null,
+   "in": 527541,
+   "job": "tbench-chakra-20261108-105725",
+   "out": 3141,
+   "reward": 1.0,
+   "setup": "chakra/openai-gpt-5.5/medium",
+   "task": "fix-ocaml-gc"
+  }
+ ]
+}

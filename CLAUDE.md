@@ -41,7 +41,8 @@ and whether the tests passed. After each merge on the mission, run `make coding-
 and `make mission-tbench`, and log both outputs on #162 (#265). `mission-tbench` runs the oldest or
 never-run Terminal-Bench cells for chakra and Codex on the same model, 8 cells within $6 at list
 price. It prints each side's solved count, the cells that changed, and what the batch cost. Two
-batches started together take turns on a lock in `TB_JOBS`, so they pick different cells (#289). The new
+batches started together take turns on a lock in `TB_JOBS`, and each pick first ingests `TB_JOBS`,
+so they pick different cells even from different checkouts (#289). The new
 `benchmarks/results/` files go in with the next PR on the mission. `make coding-harness-parity`
 still runs `codex exec` beside the exercise on one fixture. Both agents always pass that fixture,
 so its table no longer goes in the log.
