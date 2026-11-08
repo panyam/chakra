@@ -1,0 +1,50 @@
+{
+ "jobs": [
+  "tbench-chakra-20261106-155117"
+ ],
+ "source": "local",
+ "trials": [
+  {
+   "agent_s": 199.014054,
+   "agent_version": "2b45700a245a",
+   "cached": 268288,
+   "chakra_sha": "2b45700a245a",
+   "date": "2026-11-06T23:51:19.696270Z",
+   "error": null,
+   "in": 340669,
+   "job": "tbench-chakra-20261106-155117",
+   "out": 11931,
+   "reward": 0.0,
+   "setup": "chakra/openai-gpt-5.5/medium",
+   "task": "dna-assembly"
+  },
+  {
+   "agent_s": 94.943787,
+   "agent_version": "2b45700a245a",
+   "cached": 82944,
+   "chakra_sha": "2b45700a245a",
+   "date": "2026-11-06T23:51:19.725669Z",
+   "error": null,
+   "in": 107592,
+   "job": "tbench-chakra-20261106-155117",
+   "out": 4842,
+   "reward": 0.0,
+   "setup": "chakra/openai-gpt-5.5/medium",
+   "task": "dna-insert"
+  },
+  {
+   "agent_s": 118.967301,
+   "agent_version": "2b45700a245a",
+   "cached": 77824,
+   "chakra_sha": "2b45700a245a",
+   "date": "2026-11-06T23:53:58.976765Z",
+   "error": null,
+   "in": 98537,
+   "job": "tbench-chakra-20261106-155117",
+   "out": 7450,
+   "reward": 0.0,
+   "setup": "chakra/openai-gpt-5.5/medium",
+   "task": "extract-elf"
+  }
+ ]
+}

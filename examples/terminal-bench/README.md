@@ -91,6 +91,15 @@ make tbench-stale N=10 BUDGET=5   # print the oldest or never-run cells of the c
 make tbench-stale RUN=1           # run them, one `make tbench` per setup, then ingest
 ```
 
+Two sessions often merge on the mission a few minutes apart, and each runs `make mission-tbench`
+from its own checkout. On 2026-11-06 two batches started 30 seconds apart, picked the same oldest
+cells, and ran four Codex tasks twice for about $3 (#289). So `tbench-stale RUN=1` now runs its
+pick, trials and ingest under a lock in `TB_JOBS`, which every checkout shares
+(`scripts/tbench-lock.sh`). A second batch prints the holder's pid and waits, then picks after the
+first batch's results are in. A lock left by a process that died is taken over. Each `make tbench`
+the batch starts writes its job name to `benchmarks/matrix/stale-jobs`, and `mission-tbench`
+reports only those jobs, so another batch's trials stay out of its table.
+
 `benchmarks/results/` is checked in, so `git log benchmarks/results/` gives the run history. Once a
 job is ingested, its folder under `TB_JOBS` can go. The matrix reads only the results folder.
 

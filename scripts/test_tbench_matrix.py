@@ -224,6 +224,29 @@ class ReportTest(unittest.TestCase):
                       "1 cut off by the time limit, counted up to the cut, so this is a lower bound).", out)
 
 
+    def test_with_jobs_the_batch_is_only_its_own_jobs(self):
+        # Two batches 30 seconds apart. The other one's codex trial on b
+        # started after this batch, but it isn't ours.
+        trials = [
+            {**rec("a", CHAKRA, "2026-11-03T00:00:00Z"), "reward": 0.0, "job": "old"},
+            {**rec("a", CHAKRA, "2026-11-05T01:00:00Z"), "job": "tbench-chakra-1"},
+            {**rec("b", CODEX, "2026-11-05T01:00:30Z"), "job": "tbench-codex-other"},
+        ]
+        out = m.report(trials, ["a", "b"], jobs={"tbench-chakra-1"})
+        self.assertIn(f"| a | {CHAKRA} | 0/1 | 1/2 |", out)
+        self.assertNotIn("| b |", out)
+        self.assertIn("1 trials, $0.50 at list price.", out)
+
+    def test_the_cli_reads_jobs_from_a_file_and_needs_since_or_jobs(self):
+        with tempfile.TemporaryDirectory() as root:
+            path = os.path.join(root, "stale-jobs")
+            with open(path, "w") as f:
+                f.write("tbench-chakra-1\ntbench-codex-2\n\n")
+            self.assertEqual(m.read_jobs(path), {"tbench-chakra-1", "tbench-codex-2"})
+            with self.assertRaises(SystemExit):
+                m.main(["report", tasks_dir(root, ["a"])])
+
+
 class SetupErrorTest(unittest.TestCase):
     def test_a_trial_that_never_ran_is_left_out_and_picked_again(self):
         trials = [
@@ -330,6 +353,80 @@ class StaleTest(unittest.TestCase):
             "make tbench TB_AGENTS=codex TB_MODEL=openai/gpt-5.5 TB_EFFORT=medium TB_TASKS=b",
             "make tbench TB_AGENTS=codex TB_MODEL=openai/gpt-5.5 TB_EFFORT= TB_TASKS=d",
         ])
+
+
+
+
+LOCK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tbench-lock.sh")
+
+
+class LockTest(unittest.TestCase):
+    """scripts/tbench-lock.sh, which `make tbench-stale RUN=1` runs its pick,
+    trials and ingest under (#289)."""
+
+    def test_two_batches_started_together_pick_disjoint_cells(self):
+        # Each batch is the real pick plus a stand-in for the trials, which
+        # writes a result for every cell it picked. Under the lock, the
+        # second batch picks after the first one's results exist.
+        with tempfile.TemporaryDirectory() as root:
+            results = os.path.join(root, "results")
+            os.makedirs(results)
+            # One past trial on a task outside the set, so estimates have a
+            # median to fall back on.
+            m.write(os.path.join(results, "seed.json"), {"source": "local", "jobs": ["seed"],
+                                                        "trials": [rec("z", CHAKRA, "2026-11-01T00:00:00Z")]})
+            tasks = tasks_dir(root, ["a", "b", "c", "d"])
+            batch = (
+                "import json, os, sys, time; sys.path.insert(0, %r); import tbench_matrix as m\n"
+                "results, tasks, out = sys.argv[1:4]\n"
+                "picks, _ = m.stale(m.load(results), m.task_names(tasks), 2, 100, [%r])\n"
+                "time.sleep(0.5)\n"
+                "trials = [dict(task=r, setup=s, date='2026-11-06T00:00:00Z', reward=1.0, error=None, "
+                "**{'in': 1000, 'cached': 0, 'out': 0}) for r, s, _ in picks]\n"
+                "m.write(os.path.join(results, os.path.basename(out) + '.json'), {'source': 'local', 'jobs': [out], 'trials': trials})\n"
+                "open(out, 'w').write(' '.join(r for r, _, _ in picks))\n"
+            ) % (os.path.dirname(LOCK), CHAKRA)
+            lock = os.path.join(root, ".stale.lock")
+            procs = [subprocess.Popen(["bash", LOCK, lock, "python3", "-c", batch, results, tasks, os.path.join(root, f"batch{i}")],
+                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) for i in range(2)]
+            for p in procs:
+                _, err = p.communicate(timeout=60)
+                self.assertEqual(p.returncode, 0, err)
+            picked = [open(os.path.join(root, f"batch{i}")).read().split() for i in range(2)]
+            self.assertEqual(sorted(picked[0] + picked[1]), ["a", "b", "c", "d"])
+            self.assertFalse(os.path.exists(lock), "the lock is released")
+
+    def test_the_waiting_batch_names_the_holder(self):
+        with tempfile.TemporaryDirectory() as root:
+            lock = os.path.join(root, ".stale.lock")
+            holder = subprocess.Popen(["bash", LOCK, lock, "sleep", "2"])
+            for _ in range(50):
+                if os.path.exists(os.path.join(lock, "pid")):
+                    break
+                subprocess.run(["sleep", "0.1"])
+            waiter = subprocess.run(["bash", LOCK, lock, "true"], capture_output=True, text=True, timeout=30)
+            holder.wait(timeout=30)
+            self.assertEqual(waiter.returncode, 0, waiter.stderr)
+            self.assertIn(f"pid {holder.pid}", waiter.stderr)
+
+    def test_a_lock_left_by_a_dead_process_is_taken_over(self):
+        with tempfile.TemporaryDirectory() as root:
+            lock = os.path.join(root, ".stale.lock")
+            dead = subprocess.Popen(["true"])
+            dead.wait()
+            os.makedirs(lock)
+            with open(os.path.join(lock, "pid"), "w") as f:
+                f.write(f"{dead.pid}\n")
+            got = subprocess.run(["bash", LOCK, lock, "echo", "ran"], capture_output=True, text=True, timeout=30)
+            self.assertEqual(got.returncode, 0, got.stderr)
+            self.assertEqual(got.stdout.strip(), "ran")
+            self.assertIn(f"pid {dead.pid} is gone", got.stderr)
+
+    def test_the_command_exit_status_comes_through(self):
+        with tempfile.TemporaryDirectory() as root:
+            got = subprocess.run(["bash", LOCK, os.path.join(root, ".stale.lock"), "sh", "-c", "exit 3"],
+                                 capture_output=True, text=True, timeout=30)
+            self.assertEqual(got.returncode, 3)
 
 
 if __name__ == "__main__":

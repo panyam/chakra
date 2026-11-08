@@ -455,14 +455,30 @@ def commands(picks):
     return out
 
 
-def report(trials, tasks, since, setups=None):
-    """Markdown for the mission log after a batch that started at since (an
-    ISO time in UTC). It prints three things: the summary row of each setup
-    the batch touched (or each of setups), every cell the batch changed as
-    before -> after, and what the batch cost at list price. Trials whose
-    usage is missing or partial are counted, so the cost reads as a lower
-    bound when there are any."""
-    new = [t for t in trials if t["source"] == "local" and (t.get("date") or "") >= since]
+def read_jobs(path):
+    """The job names in a file, one per line, as `make tbench` writes them to
+    TB_JOBS_LOG."""
+    with open(path) as f:
+        return {line.strip() for line in f if line.strip()}
+
+
+def report(trials, tasks, since=None, setups=None, jobs=None):
+    """Markdown for the mission log after a batch. The batch is the local
+    trials in jobs, a set of job names, or else every local trial started at
+    or after since (an ISO time in UTC). Pass jobs when another batch might
+    have run alongside, since a time window counts that batch's trials too
+    (#289). It prints three things: the summary row of each setup the batch
+    touched (or each of setups), every cell the batch changed as before ->
+    after, and what the batch cost at list price. Trials whose usage is
+    missing or partial are counted, so the cost reads as a lower bound when
+    there are any."""
+    if jobs is not None:
+        in_batch = lambda t: t["source"] == "local" and t.get("job") in jobs
+    elif since is not None:
+        in_batch = lambda t: t["source"] == "local" and (t.get("date") or "") >= since
+    else:
+        raise ValueError("report needs since or jobs")
+    new = [t for t in trials if in_batch(t)]
     want = setups or sorted({t["setup"] for t in new})
     _, rows, cells = matrix(trials, tasks)
     lines = ["| setup | solved | tasks run |", "|---|---|---|"]
@@ -474,7 +490,7 @@ def report(trials, tasks, since, setups=None):
     lines += ["", "| task | setup | before | after |", "|---|---|---|---|"]
     for task, setup in sorted({(t["task"], t["setup"]) for t in new if counted(t)}):
         cell = [t for t in trials if t["task"] == task and t["setup"] == setup and counted(t)]
-        old = Cell([t for t in cell if (t.get("date") or "") < since])
+        old = Cell([t for t in cell if not in_batch(t)])
         after = Cell(cell)
         lines.append(f"| {task} | {setup} | {old.tally if old.last else 'never run'} | {after.tally} |")
     cost, missing, partial = 0.0, 0, 0
@@ -516,7 +532,8 @@ def main(argv=None):
     s.add_argument("--setups", help="space-separated setup keys to pick from; default every local setup with a run")
     rp = sub.add_parser("report")
     rp.add_argument("tasks_dir")
-    rp.add_argument("since", help="ISO time in UTC; trials started at or after it are the batch")
+    rp.add_argument("since", nargs="?", help="ISO time in UTC; trials started at or after it are the batch")
+    rp.add_argument("--jobs", help="file of job names, one per line; those jobs are the batch, in place of since")
     rp.add_argument("--setups", help="space-separated setup keys for the summary rows")
     a = p.parse_args(argv)
 
@@ -536,7 +553,10 @@ def main(argv=None):
         print(md)
         print(f"wrote {os.path.relpath(os.path.join(a.out, 'index.html'), REPO)}")
     elif a.cmd == "report":
-        print(report(load(), task_names(a.tasks_dir), a.since, a.setups.split() if a.setups else None), end="")
+        if not a.since and not a.jobs:
+            p.error("report needs since or --jobs")
+        jobs = read_jobs(a.jobs) if a.jobs else None
+        print(report(load(), task_names(a.tasks_dir), a.since, a.setups.split() if a.setups else None, jobs), end="")
     else:
         trials, tasks = load(), task_names(a.tasks_dir)
         picks, total = stale(trials, tasks, a.n, a.budget, a.setups.split() if a.setups else None)

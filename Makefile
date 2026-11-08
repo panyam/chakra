@@ -34,7 +34,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/h
 # explicitly and the platform's own backend refuses. See the module README.
 GOTESTFLAGS ?= -race -timeout 300s
 
-.PHONY: help build test test-examples test-web test-web-e2e testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report tbench-ingest tbench-matrix tbench-stale tbench-ref mission-tbench deploy-web weblogs \
+.PHONY: help build test test-examples test-web test-web-e2e testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report tbench-ingest tbench-matrix tbench-stale tbench-stale-locked tbench-ref mission-tbench deploy-web weblogs \
         check-no-binaries check-ext-isolation check-dep-consistency setup-hooks api-report api-update
 
 help: ## Show this help
@@ -267,8 +267,10 @@ tbench: tbench-build ## Terminal-Bench 2 via Harbor: TB_AGENTS on TB_SET or TB_T
 	@for a in $(TB_AGENTS); do \
 		case $$a in chakra) agent=chakra_agent:ChakraAgent ;; *) agent=$$a ;; esac; \
 		echo "==> $$a"; \
+		job=tbench-$$a-$$(date +%Y%m%d-%H%M%S); \
+		$(if $(TB_JOBS_LOG),echo $$job >> $(TB_JOBS_LOG);) \
 		PYTHONPATH=$(CURDIR)/examples/terminal-bench harbor run -p $(TB_PATH) -a $$agent -m $(TB_MODEL) \
-			$(if $(TB_EFFORT),--ak reasoning_effort=$(TB_EFFORT)) $(if $(TB_SETUP_TIMEOUT),--agent-setup-timeout-multiplier $(TB_SETUP_TIMEOUT)) -k $(TB_K) -n $(TB_CONCURRENT) -o $(TB_JOBS) --job-name tbench-$$a-$$(date +%Y%m%d-%H%M%S) \
+			$(if $(TB_EFFORT),--ak reasoning_effort=$(TB_EFFORT)) $(if $(TB_SETUP_TIMEOUT),--agent-setup-timeout-multiplier $(TB_SETUP_TIMEOUT)) -k $(TB_K) -n $(TB_CONCURRENT) -o $(TB_JOBS) --job-name $$job \
 			$(foreach t,$(TB_TASKS),-i $(t)) -y || echo "$$a: harbor exited non-zero, carrying on"; \
 	done
 
@@ -282,18 +284,25 @@ tbench-matrix: ## Task x setup matrix of last runs from benchmarks/results/, as 
 	@python3 scripts/tbench_matrix.py render $(TB_PATH)
 
 mission-tbench: ## After a mission merge: run the MISSION_N stale cells of TB_SETUPS within MISSION_BUDGET dollars, ingest, and print the table for the #162 log
-	@since=$$(date -u +%Y-%m-%dT%H:%M:%SZ); \
-	$(MAKE) --no-print-directory tbench-stale N=$(MISSION_N) BUDGET=$(MISSION_BUDGET) RUN=1 && \
-	python3 scripts/tbench_matrix.py report $(TB_PATH) $$since --setups "$(TB_SETUPS)"
+	@$(MAKE) --no-print-directory tbench-stale N=$(MISSION_N) BUDGET=$(MISSION_BUDGET) RUN=1 && \
+	python3 scripts/tbench_matrix.py report $(TB_PATH) --jobs benchmarks/matrix/stale-jobs --setups "$(TB_SETUPS)"
 
 tbench-ref: ## Import a leaderboard submission as a reference column, e.g. SUB=Terminus2__Claude-Opus-4.6 (downloads into TB_REFS)
 	@test -n "$(SUB)" || { echo "SUB=<submission folder name> is required"; exit 1; }
 	@python3 scripts/tbench_ref.py $(SUB) --out $(TB_REFS)
 
-tbench-stale: ## The N oldest or never-run cells of TB_SETUPS, up to BUDGET dollars at list price (N=10 BUDGET=5); RUN=1 runs them
-	@mkdir -p benchmarks/matrix && python3 scripts/tbench_matrix.py stale $(TB_PATH) $(N) $(BUDGET) --setups "$(TB_SETUPS)" > benchmarks/matrix/stale-picks
+# With RUN=1 the pick, the trials and the ingest run under a lock in TB_JOBS,
+# which every checkout shares. So a second batch waits, then picks after the
+# first one's results are in (#289). benchmarks/matrix/stale-jobs lists the
+# jobs this batch started, and mission-tbench reports only those.
+tbench-stale: ## The N oldest or never-run cells of TB_SETUPS, up to BUDGET dollars at list price (N=10 BUDGET=5); RUN=1 runs them, one batch at a time
+	@mkdir -p benchmarks/matrix
+	@$(if $(RUN),bash scripts/tbench-lock.sh $(TB_JOBS)/.stale.lock) $(MAKE) --no-print-directory tbench-stale-locked
+
+tbench-stale-locked:
+	@python3 scripts/tbench_matrix.py stale $(TB_PATH) $(N) $(BUDGET) --setups "$(TB_SETUPS)" > benchmarks/matrix/stale-picks
 	@cat benchmarks/matrix/stale-picks
-	@$(if $(RUN),while read -r cmd; do eval "$(MAKE) $${cmd#make }" || exit 1; done < benchmarks/matrix/stale-picks && $(MAKE) tbench-ingest)
+	@$(if $(RUN),: > benchmarks/matrix/stale-jobs && while read -r cmd; do eval "$(MAKE) $${cmd#make } TB_JOBS_LOG=$(CURDIR)/benchmarks/matrix/stale-jobs" || exit 1; done < benchmarks/matrix/stale-picks && $(MAKE) tbench-ingest)
 
 coding-harness-parity: ## codex exec vs the coding harness, same fixture and model, side by side (needs codex and OPENAI_API_KEY; PARITY_MODEL=gpt-5.5, PARITY_ACTIVE=openai, PARITY_INSTRUCTIONS=codex)
 	@bash scripts/coding-harness-parity.sh
