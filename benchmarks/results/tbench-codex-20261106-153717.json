@@ -59,6 +59,20 @@
    "reward": 0.0,
    "setup": "codex/openai-gpt-5.5/medium",
    "task": "dna-insert"
+  },
+  {
+   "agent_s": 77.44475,
+   "agent_version": "0.167.0",
+   "cached": 141312,
+   "chakra_sha": null,
+   "date": "2026-11-06T23:48:28.104628Z",
+   "error": null,
+   "in": 160088,
+   "job": "tbench-codex-20261106-153717",
+   "out": 4944,
+   "reward": 1.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "extract-elf"
   }
  ]
 }

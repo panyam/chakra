@@ -22,13 +22,19 @@ def trial(job_dir, task, agent, reward=1.0, version=None, started="2026-11-03T10
         }, f)
 
 
-def job(root, name, agent="chakra", effort="medium", model="openai/gpt-5.5"):
+def job(root, name, agent="chakra", effort="medium", model="openai/gpt-5.5", finished=True):
     d = os.path.join(root, name)
     os.makedirs(d)
     kwargs = {"reasoning_effort": effort} if effort else {}
     with open(os.path.join(d, "config.json"), "w") as f:
         json.dump({"job_name": name, "agents": [{"name": agent, "model_name": model, "kwargs": kwargs}]}, f)
+    finish(d, finished)
     return d
+
+
+def finish(job_dir, finished=True):
+    with open(os.path.join(job_dir, "result.json"), "w") as f:
+        json.dump({"started_at": "2026-11-03T10:00:00", "finished_at": "2026-11-03T11:00:00" if finished else None}, f)
 
 
 def tasks_dir(root, names):
@@ -96,13 +102,27 @@ class IngestTest(unittest.TestCase):
             with open(written[0]) as f:
                 self.assertEqual(f.read(), first)
 
+    def test_a_job_still_running_waits_until_harbor_marks_it_finished(self):
+        with tempfile.TemporaryDirectory() as root:
+            jobs, results = os.path.join(root, "jobs"), os.path.join(root, "results")
+            j = job(jobs, "tbench-codex-1", agent="codex", finished=False)
+            trial(j, "db-wal-recovery", "codex")
+            self.assertEqual(m.ingest(jobs, results=results), [])
+            trial(j, "extract-elf", "codex")
+            finish(j)
+            written = m.ingest(jobs, results=results)
+            self.assertEqual(len(written), 1)
+            with open(written[0]) as f:
+                tasks = [t["task"] for t in json.load(f)["trials"]]
+            self.assertEqual(tasks, ["db-wal-recovery", "extract-elf"])
+
     def test_a_timed_out_trial_keeps_its_partial_usage_flag(self):
         with tempfile.TemporaryDirectory() as root:
             jobs, results = os.path.join(root, "jobs"), os.path.join(root, "results")
             j = job(jobs, "tbench-chakra-1")
             trial(j, "fix-git", "chakra", version="abc123")
             trial(j, "kv-store-grpc", "chakra", version="abc123")
-            path = os.path.join(j, sorted(os.listdir(j))[-1], "result.json")
+            path = os.path.join(j, sorted(e for e in os.listdir(j) if os.path.isdir(os.path.join(j, e)))[-1], "result.json")
             with open(path) as f:
                 r = json.load(f)
             r["agent_result"]["metadata"] = {"usage_partial": True}

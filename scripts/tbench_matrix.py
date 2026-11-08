@@ -64,6 +64,17 @@ def job_config(job_dir):
         return {}
 
 
+def job_finished(job_dir):
+    """Harbor sets finished_at in the job's result.json once every trial is
+    done. A job still running has only some trials, and ingest never rereads
+    a job it has written, so it waits for this."""
+    try:
+        with open(os.path.join(job_dir, "result.json")) as f:
+            return bool(json.load(f).get("finished_at"))
+    except (OSError, ValueError):
+        return False
+
+
 def git(*args, cwd=REPO):
     out = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
     return out.stdout.strip() if out.returncode == 0 else ""
@@ -121,8 +132,9 @@ def read_job(job_dir, source=None, cwd=REPO):
 
 
 def ingest(jobs_dir, results=RESULTS, source=None, notes=None, name=None, cwd=REPO):
-    """Writes results/<job>.json for each job dir under jobs_dir, skipping jobs
-    already ingested. With source set, jobs_dir holds published runs, and they
+    """Writes results/<job>.json for each finished job dir under jobs_dir,
+    skipping jobs already ingested. Unfinished jobs are named on stderr and
+    left for a later run. With source set, jobs_dir holds published runs, and they
     all go into one file named name. Returns the paths written."""
     os.makedirs(results, exist_ok=True)
     have = {}
@@ -149,6 +161,9 @@ def ingest(jobs_dir, results=RESULTS, source=None, notes=None, name=None, cwd=RE
     for d in dirs:
         job = job_config(d).get("job_name") or os.path.basename(d)
         if job in have:
+            continue
+        if not job_finished(d):
+            print(f"{job}: not finished, left for a later ingest", file=sys.stderr)
             continue
         job, trials = read_job(d, cwd=cwd)
         if not trials:
