@@ -1057,6 +1057,22 @@ firing once the model does something new. While the pattern holds, it fires befo
 `Message` has no error flag, so `DefaultStuckKey` reads the prefixes the Runner puts on a failed
 call's text (`toolErrorPrefix` and the two beside it in `runner.go`).
 
+### Retrieval is a Runner stage, not a host ContextStage (#280)
+
+Imagine jaala's translator about to draft a query. It wants a look at the data first, the probe
+step in panyam/jaala#514. jaala drives the Runner directly and has no host. So the host's transient
+`ContextStage`s, which already hold memory recall, can't reach it. `NewRetrievalStage` is a
+`ScopeTurn` step stage instead. It runs on step 1 only, and the turn scope keeps the block in front
+of every later step without writing it into the record. So the next turn retrieves for its own task
+instead of finding this one's context in history.
+
+The contract is ranked snippets with a source and a score, within one token budget for the whole
+stage. Scores from different retrievers are compared as they are, which only works if a host puts
+them on one scale. We left a cross-retriever arbiter out until two real retrievers disagree about
+what a score means. The built-in Compactor runs before the stage, so on step 1 the injection can
+push the context over the budget. Compaction then catches it on step 2, which is the same
+inject-then-compact choice `host/contextpipeline.go` makes.
+
 ### One server is not the protocol (#1303)
 
 `ext/lsp` shipped after running against gopls and nothing else. We then probed the four other
