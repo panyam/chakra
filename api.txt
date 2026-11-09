@@ -1177,3 +1177,38 @@ pkg github.com/panyam/chakra/eval/longmemeval, type Turn struct
 pkg github.com/panyam/chakra/eval/longmemeval, type Turn struct, Content string
 pkg github.com/panyam/chakra/eval/longmemeval, type Turn struct, HasAnswer bool
 pkg github.com/panyam/chakra/eval/longmemeval, type Turn struct, Role string
+pkg github.com/panyam/chakra/presets, const StageActions
+pkg github.com/panyam/chakra/presets, const StageLedger
+pkg github.com/panyam/chakra/presets, const StageRetrieval
+pkg github.com/panyam/chakra/presets, const StageStuck
+pkg github.com/panyam/chakra/presets, func Remove([]agent.StepStage, string) []agent.StepStage
+pkg github.com/panyam/chakra/presets, func Replace([]agent.StepStage, string, agent.StepStage) ([]agent.StepStage, bool)
+pkg github.com/panyam/chakra/presets, method (GraphQuery) Config() (agent.RunnerConfig, error)
+pkg github.com/panyam/chakra/presets, type GraphQuery struct
+pkg github.com/panyam/chakra/presets, type GraphQuery struct, Check agent.TurnEndHook
+pkg github.com/panyam/chakra/presets, type GraphQuery struct, Grammar string
+pkg github.com/panyam/chakra/presets, type GraphQuery struct, Instructions string
+pkg github.com/panyam/chakra/presets, type GraphQuery struct, Ledger *agent.Slots
+pkg github.com/panyam/chakra/presets, type GraphQuery struct, LedgerSync func(context.Context, *agent.Slots) error
+pkg github.com/panyam/chakra/presets, type GraphQuery struct, Provider agent.Provider
+pkg github.com/panyam/chakra/presets, type GraphQuery struct, Retrievers []agent.Retriever
+pkg github.com/panyam/chakra/presets, type GraphQuery struct, StillStuck agent.StuckPolicy
+pkg github.com/panyam/chakra/presets, type GraphQuery struct, StuckKey agent.StuckKeyFunc
+pkg github.com/panyam/chakra/presets, type GraphQuery struct, StuckNote func(agent.StuckFinding) string
+pkg github.com/panyam/chakra/presets, type GraphQuery struct, Tools agent.ToolSource
+pkg github.com/panyam/chakra/presets, type GraphQuery struct, Tuning GraphQueryTuning
+pkg github.com/panyam/chakra/presets, type GraphQueryTuning struct
+pkg github.com/panyam/chakra/presets, type GraphQueryTuning struct, ActionSteps int
+pkg github.com/panyam/chakra/presets, type GraphQueryTuning struct, MaxFreeRefusals int
+pkg github.com/panyam/chakra/presets, type GraphQueryTuning struct, MaxSteps int
+pkg github.com/panyam/chakra/presets, type GraphQueryTuning struct, MaxTokens int
+pkg github.com/panyam/chakra/presets, type GraphQueryTuning struct, NudgeTemperature float64
+pkg github.com/panyam/chakra/presets, type GraphQueryTuning struct, Penalties *agent.SamplingPenalties
+pkg github.com/panyam/chakra/presets, type GraphQueryTuning struct, RepeatMax int
+pkg github.com/panyam/chakra/presets, type GraphQueryTuning struct, RetrievalBudget int
+pkg github.com/panyam/chakra/presets, type GraphQueryTuning struct, StuckAlternations int
+pkg github.com/panyam/chakra/presets, type GraphQueryTuning struct, StuckErrors int
+pkg github.com/panyam/chakra/presets, type GraphQueryTuning struct, StuckRepeats int
+pkg github.com/panyam/chakra/presets, type GraphQueryTuning struct, StuckWindow int
+pkg github.com/panyam/chakra/presets, type GraphQueryTuning struct, StuckWindowRepeats int
+pkg github.com/panyam/chakra/presets, type GraphQueryTuning struct, Temperature float64

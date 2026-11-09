@@ -1117,6 +1117,26 @@ them into an error result. A tool can then decide for itself, without a middlewa
 two turns at once for different sessions. A cache keyed on the Runner would mix them, and one keyed
 on the step count would miss a turn that ends early.
 
+### Presets (#282, #300)
+
+jaala's translator wired eight hooks by hand to get a 14B model to answer a graph question, and the
+next host to try it would have had to find the same eight. `presets.GraphQuery` wires them from the
+host's parts. A preset lives in code, because a retriever and a check are functions. Its numbers
+sit in `GraphQueryTuning` with JSON tags, so a host loads overrides from its own config, and a zero
+field keeps the default. `Config` returns a plain `RunnerConfig`. A host changes it like any struct,
+and `Replace` and `Remove` find a stage by its exported name. So a host changes one stage without
+forking the preset or rebuilding the list.
+
+The package sits in the root module, next to `eval`, since it needs no new dependency (A10). It
+keeps the root package's API from growing while #315 is cutting it.
+
+The stuck policy tells its first finding from a later one by `Count` alone. The detector fires
+again before every call while the pattern holds, with a higher count each time. So a count above the
+pattern's threshold means the note and the warmer temperature didn't help. A flag kept on the policy
+would leak across turns, since a Runner runs turns at once for different sessions. Every note the
+preset adds goes as `RoleUser`, for the reason `AsUser` exists on retrieval, slots and turn-end
+verdicts.
+
 ### One server is not the protocol (#1303)
 
 `ext/lsp` shipped after running against gopls and nothing else. We then probed the four other
