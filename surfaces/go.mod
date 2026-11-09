@@ -30,7 +30,7 @@ require (
 	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.15 // indirect
 	github.com/panyam/mcpkit/ext/auth v0.8.12 // indirect
 	github.com/panyam/mcpkit/ext/skills v0.8.12 // indirect
-	github.com/panyam/oneauth v0.3.0 // indirect
+	github.com/panyam/oneauth v0.3.2 // indirect
 	github.com/standard-webhooks/standard-webhooks/libraries v0.0.1 // indirect
 	github.com/stretchr/testify v1.12.1 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect

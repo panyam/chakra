@@ -13,7 +13,7 @@ require (
 	github.com/panyam/mcpkit/ext/auth v0.8.12
 	github.com/panyam/mcpkit/ext/skills v0.8.12
 	github.com/panyam/mcpkit/ext/tasks v0.8.12
-	github.com/panyam/oneauth v0.3.0
+	github.com/panyam/oneauth v0.3.2
 )
 
 require (
