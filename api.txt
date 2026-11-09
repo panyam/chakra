@@ -85,6 +85,7 @@ pkg github.com/panyam/chakra, const SpawnAgentToolName
 pkg github.com/panyam/chakra, const StuckAlternate
 pkg github.com/panyam/chakra, const StuckRepeat
 pkg github.com/panyam/chakra, const StuckSameError
+pkg github.com/panyam/chakra, const StuckWindow
 pkg github.com/panyam/chakra, const WindowDebounce WindowStrategy
 pkg github.com/panyam/chakra, const WindowLastWins WindowStrategy
 pkg github.com/panyam/chakra, const WindowMerge WindowStrategy
@@ -809,12 +810,15 @@ pkg github.com/panyam/chakra, type StuckConfig struct, Errors int
 pkg github.com/panyam/chakra, type StuckConfig struct, Key StuckKeyFunc
 pkg github.com/panyam/chakra, type StuckConfig struct, Policy StuckPolicy
 pkg github.com/panyam/chakra, type StuckConfig struct, Repeats int
+pkg github.com/panyam/chakra, type StuckConfig struct, Window int
+pkg github.com/panyam/chakra, type StuckConfig struct, WindowRepeats int
 pkg github.com/panyam/chakra, type StuckFinding struct
 pkg github.com/panyam/chakra, type StuckFinding struct, Call string
 pkg github.com/panyam/chakra, type StuckFinding struct, Count int
 pkg github.com/panyam/chakra, type StuckFinding struct, Pattern string
 pkg github.com/panyam/chakra, type StuckFinding struct, Steps []int
 pkg github.com/panyam/chakra, type StuckFinding struct, Tools []string
+pkg github.com/panyam/chakra, type StuckFinding struct, Window int
 pkg github.com/panyam/chakra, type StuckKey struct
 pkg github.com/panyam/chakra, type StuckKey struct, Call string
 pkg github.com/panyam/chakra, type StuckKey struct, Error bool

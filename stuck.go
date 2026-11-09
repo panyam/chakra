@@ -107,17 +107,26 @@ const (
 	// StuckSameError is a run of failed steps with the same error, whatever
 	// was called.
 	StuckSameError = "same-error"
+	// StuckWindow is the latest step's call and result coming back again
+	// within the last few steps, whatever came between (#296). It catches a
+	// cycle of three or more calls, which the other patterns miss.
+	StuckWindow = "window"
 )
 
 // StuckFinding says what NewStuckDetector found. It travels on EventStuck,
 // so every field is wire-safe.
 type StuckFinding struct {
-	// Pattern is StuckRepeat, StuckAlternate or StuckSameError.
+	// Pattern is StuckRepeat, StuckAlternate, StuckSameError or
+	// StuckWindow.
 	Pattern string `json:"pattern"`
-	// Count is how many times it repeated: steps for a repeat or an error,
-	// and A B pairs for an alternation.
+	// Count is how many times it repeated: steps for a repeat, an error or
+	// a window, and A B pairs for an alternation.
 	Count int `json:"count"`
+	// Window is how many recent steps a StuckWindow finding looked at. It is
+	// zero for the other patterns.
+	Window int `json:"window,omitempty"`
 	// Steps are the turn's step numbers that make up the run, oldest first.
+	// For a window they are the matching steps only, not the ones between.
 	Steps []int `json:"steps"`
 	// Tools names the tools in the run, from StuckKey.Tools.
 	Tools []string `json:"tools,omitempty"`
@@ -136,6 +145,8 @@ func (f StuckFinding) String() string {
 		return fmt.Sprintf("alternated between the same two calls (%s) %d times, with the same results each time", what, f.Count)
 	case StuckSameError:
 		return fmt.Sprintf("got the same error %d times in a row (%s)", f.Count, what)
+	case StuckWindow:
+		return fmt.Sprintf("tried %s %d times in the last %d steps, with the same result each time", what, f.Count, f.Window)
 	default:
 		return fmt.Sprintf("repeated %s %d times with the same result", what, f.Count)
 	}
@@ -160,6 +171,13 @@ type StuckConfig struct {
 	// Errors is how many failed steps in a row with the same Result trip
 	// StuckSameError. Zero means 3, and a negative value turns it off.
 	Errors int
+	// Window is how many recent steps StuckWindow looks at. Zero leaves it
+	// off, so a config that predates it behaves the same.
+	Window int
+	// WindowRepeats is how many times the latest step's key has to come up
+	// within Window to trip StuckWindow, counting the latest step. Zero
+	// means 3.
+	WindowRepeats int
 	// Policy acts on a finding. Nil means StuckNote().
 	Policy StuckPolicy
 }
@@ -168,8 +186,9 @@ type StuckConfig struct {
 // itself (#278). Imagine a model that sends the same edit, gets the same
 // failing test, and runs out of steps. Before each model call, the stage
 // splits StepInfo.Turn into StepRecords and keys each one. Then it checks
-// whether the most recent steps form a repeat, an alternation or a run of
-// the same error, in that order. On a match it emits EventStuck through
+// whether the most recent steps form a repeat, a run of the same error, an
+// alternation, or with Window set the latest step coming back within the
+// window, in that order. On a match it emits EventStuck through
 // StepInfo.Emit and runs the policy.
 //
 // It reads only this turn, and only the steps at the end of it. Once the
@@ -192,11 +211,12 @@ func NewStuckDetector(cfg StuckConfig) StepStage {
 		return n
 	}
 	repeats, alternations, errs := threshold(cfg.Repeats), threshold(cfg.Alternations), threshold(cfg.Errors)
+	win := stuckWindow{size: cfg.Window, repeats: threshold(cfg.WindowRepeats)}
 	return StepStage{
 		Name:  "agent.stuck",
 		Scope: ScopeRequest,
 		Run: func(ctx context.Context, info StepInfo, view StepView) (StepView, error) {
-			f, ok := detectStuck(stepRecords(info.Turn), key, repeats, alternations, errs)
+			f, ok := detectStuck(stepRecords(info.Turn), key, repeats, alternations, errs, win)
 			if !ok {
 				return view, nil
 			}
@@ -232,7 +252,11 @@ func (k keyedStep) same(o keyedStep) bool {
 	return k.key.Call == o.key.Call && k.key.Result == o.key.Result
 }
 
-func detectStuck(recs []StepRecord, keyOf StuckKeyFunc, repeats, alternations, errs int) (StuckFinding, bool) {
+// stuckWindow is StuckConfig's Window and WindowRepeats. A size of zero or
+// less leaves the pattern off.
+type stuckWindow struct{ size, repeats int }
+
+func detectStuck(recs []StepRecord, keyOf StuckKeyFunc, repeats, alternations, errs int, win stuckWindow) (StuckFinding, bool) {
 	// Only the steps after the last one left out can form a pattern.
 	var seg []keyedStep
 	for _, r := range recs {
@@ -275,6 +299,20 @@ func detectStuck(recs []StepRecord, keyOf StuckKeyFunc, repeats, alternations, e
 		}
 		if pairs := length / 2; pairs >= alternations {
 			return finding(StuckAlternate, pairs, tail(2*pairs)), true
+		}
+	}
+
+	if win.size > 0 {
+		var hits []keyedStep
+		for _, s := range tail(min(win.size, n)) {
+			if s.same(last) {
+				hits = append(hits, s)
+			}
+		}
+		if len(hits) >= win.repeats {
+			f := finding(StuckWindow, len(hits), hits)
+			f.Window = win.size
+			return f, true
 		}
 	}
 	return StuckFinding{}, false
