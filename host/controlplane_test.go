@@ -109,14 +109,14 @@ func TestMetaToolsListAndCancelSubscription(t *testing.T) {
 	}
 	defer app.Close()
 
-	id, err := app.openSubscription(context.Background(), "test", "user.created")
+	id, err := app.openSubscription(context.Background(), "test", "user.created", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(app.listSubscriptions()) != 1 {
 		t.Fatal("subscription must register")
 	}
-	if _, err := app.openSubscription(context.Background(), "test", "user.created"); err != nil {
+	if _, err := app.openSubscription(context.Background(), "test", "user.created", nil); err != nil {
 		t.Fatal(err)
 	}
 	if len(app.listSubscriptions()) != 1 {

@@ -19,6 +19,13 @@ type IncomingEvent struct {
 	// Name is the event name as declared in events/list.
 	Name string `json:"name"`
 
+	// Subscription identifies the stream the event arrived on, when there
+	// is one. Two subscriptions to the same name with different arguments
+	// have different ids, and injection keeps their windows, session
+	// entries and hints apart. Empty for an event with no subscription,
+	// such as one a host delivers in process.
+	Subscription string `json:"subscription,omitempty"`
+
 	// ID is the delivery's event id, when the source provides one.
 	ID string `json:"id,omitempty"`
 

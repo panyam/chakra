@@ -73,8 +73,10 @@ type AggregateHint struct {
 
 // EventInjectionConfig assembles an EventInjectionPolicy.
 type EventInjectionConfig struct {
-	// Hints maps event name to its ContextHint. Entries here override
-	// server-advertised hints, so host config wins over vendor _meta.
+	// Hints maps a subscription id or an event name to its ContextHint.
+	// Lookup tries the event's Subscription first, then its Name. Entries
+	// here override server-advertised hints, so host config wins over vendor
+	// _meta.
 	Hints map[string]ContextHint
 
 	// Filters and Transforms run in order before buffering. A developer
@@ -207,13 +209,33 @@ func (p *EventInjectionPolicy) SetHint(name string, h ContextHint) {
 	p.discovered[name] = h
 }
 
-// hint resolves the hint for an event name: config first, then what a server
-// advertised. Callers hold p.mu.
-func (p *EventInjectionPolicy) hint(name string) ContextHint {
-	if h, ok := p.cfg.Hints[name]; ok {
+// hint resolves the hint for one event. The order is config for its
+// subscription, config for its name, a hint on the occurrence's own _meta,
+// then what a server advertised for the name in events/list. Callers hold
+// p.mu.
+func (p *EventInjectionPolicy) hint(ev IncomingEvent) ContextHint {
+	if ev.Subscription != "" {
+		if h, ok := p.cfg.Hints[ev.Subscription]; ok {
+			return h
+		}
+	}
+	if h, ok := p.cfg.Hints[ev.Name]; ok {
 		return h
 	}
-	return p.discovered[name]
+	if h, ok := HintFromMeta(ev.Meta); ok {
+		return h
+	}
+	return p.discovered[ev.Name]
+}
+
+// streamKey groups events for aggregation windows and session retention.
+// Two subscriptions to one event name with different arguments are kept
+// apart. An event without a subscription groups by server and name.
+func streamKey(ev IncomingEvent) string {
+	if ev.Subscription != "" {
+		return ev.Subscription
+	}
+	return ev.Server + "/" + ev.Name
 }
 
 // Ingest feeds one event through the developer stages and into its
@@ -235,17 +257,17 @@ func (p *EventInjectionPolicy) Ingest(ev IncomingEvent) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	now := p.cfg.now()
-	h := p.hint(ev.Name)
+	h := p.hint(ev)
 	if h.Aggregate == nil || h.Aggregate.WindowMs <= 0 {
 		p.buffer(ev, h)
 		return
 	}
-	w, ok := p.windows[ev.Name]
+	key := streamKey(ev)
+	w, ok := p.windows[key]
 	if !ok {
 		w = newWindowStage(time.Duration(h.Aggregate.WindowMs)*time.Millisecond, h.Aggregate.Strategy,
-			func(e IncomingEvent) string { return e.Server + "/" + e.Name },
-			p.cfg.Merge)
-		p.windows[ev.Name] = w
+			streamKey, p.cfg.Merge)
+		p.windows[key] = w
 	}
 	for _, released := range w.Push(now, ev) {
 		p.buffer(released, h)
@@ -254,7 +276,7 @@ func (p *EventInjectionPolicy) Ingest(ev IncomingEvent) {
 
 func (p *EventInjectionPolicy) buffer(ev IncomingEvent, h ContextHint) {
 	if h.Retention == "session" {
-		key := ev.Server + "/" + ev.Name
+		key := streamKey(ev)
 		if _, seen := p.session[key]; !seen {
 			p.sessOrd = append(p.sessOrd, key)
 		}
@@ -274,9 +296,9 @@ func (p *EventInjectionPolicy) Drain() []InjectedContext {
 	defer p.mu.Unlock()
 	now := p.cfg.now()
 
-	for name, w := range p.windows {
+	for _, w := range p.windows {
 		for _, released := range w.Flush(now) {
-			p.buffer(released, p.hint(name))
+			p.buffer(released, p.hint(released))
 		}
 	}
 
@@ -301,7 +323,7 @@ func (p *EventInjectionPolicy) Drain() []InjectedContext {
 	}
 	rankedCands := make([]ranked, 0, len(cands))
 	for _, c := range cands {
-		h := p.hint(c.ev.Name)
+		h := p.hint(c.ev)
 		if !p.consentLocked(h, c.ev) {
 			p.dropped++
 			continue
@@ -321,7 +343,7 @@ func (p *EventInjectionPolicy) Drain() []InjectedContext {
 			}
 			continue
 		}
-		out = append(out, InjectedContext{Event: rc.ev, Text: renderEvent(rc.ev, p.hint(rc.ev.Name)), Priority: rc.priority})
+		out = append(out, InjectedContext{Event: rc.ev, Text: renderEvent(rc.ev, p.hint(rc.ev)), Priority: rc.priority})
 	}
 	return out
 }

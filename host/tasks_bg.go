@@ -19,9 +19,9 @@ func (a *App) onTaskDetach(bt *client.BackgroundTask) {
 }
 
 // onTaskComplete runs on the background poll goroutine. It shows the outcome
-// as a transcript line. It feeds a task.completed event into the injection
-// policy, so the next turn includes the result as context. Then it gives the
-// trigger policy a chance to start a proactive turn. A host that wants "tell
+// as a transcript line. It delivers a task.completed event to the event
+// consumer, so the next turn includes the result as context and the trigger
+// policy gets a chance to start a proactive turn. A host that wants "tell
 // the user immediately" binds a trigger on task.completed. Nothing is
 // hardcoded, so N finishing tasks cannot nag by default.
 func (a *App) onTaskComplete(serverID string, bt *client.BackgroundTask) {
@@ -47,9 +47,8 @@ func (a *App) onTaskComplete(serverID string, bt *client.BackgroundTask) {
 		Time:   time.Now(),
 		Data:   core.NewRawJSON(raw),
 	}
-	a.injection.Ingest(ev)
-	if firing := a.triggers.OnEvent(ev); firing != nil {
-		a.runProactiveTurn(context.Background(), firing)
+	if err := a.Deliver(context.Background(), ev); err != nil {
+		a.emit(HostEvent{Kind: HostSessionWarn, Err: fmt.Sprintf("task.completed for %s: %v", bt.TaskID, err)})
 	}
 }
 

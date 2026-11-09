@@ -438,6 +438,35 @@ the conversation as system messages, priority-ordered under a budget. Sensitive
 events gate on consent. Host config hints override server-advertised ones (the
 vendor context-hint on events/list).
 
+An event type can declare subscription arguments in its `inputSchema`. Put
+them in `arguments`, and the server checks them. A refusal shows up as a
+startup warning. Two entries with the same name and different arguments open
+two subscriptions. Each one keeps its own aggregation window and its own
+session entry, and a `hint` on it applies to it alone.
+
+Some servers deliver a stream only after the session calls a setup tool, such
+as one that attaches the session to a room. `onConnect` lists those calls.
+The host makes them in order after the server connects and before it opens
+any stream. If a call fails, the host warns and opens none of that server's
+streams. If a stream drops, the host makes the calls again and then reopens the
+stream at its last cursor. So each call has to be safe to repeat. The calls
+come from config, so they skip the approval gate.
+
+```json
+"servers": [{ "id": "rooms", "url": "...",
+  "onConnect": [{ "name": "attach", "arguments": { "room": "lobby" } }],
+  "events": [{ "name": "room.event", "arguments": { "room": "lobby" } }] }]
+```
+
+A Go program that embeds `host.App` can feed its own events in with
+`App.Deliver`. A webhook handler, a queue consumer or a timer would use it.
+A delivered event goes through the same filters, injection and triggers as a
+streamed one, and one goroutine consumes both. So the two sources cannot start
+proactive turns at the same time. A delivered event sets its own hint under
+`agent.MetaKeyContextHint` in its `Meta`, and a config `hint` for its name
+still wins. Background task completion uses `Deliver` to raise
+`task.completed`.
+
 Under the trigger policy, a matching event starts a proactive turn, marked with
 its label. The anti-nag policy mediates these turns. A binding fires once, and
 it can't fire again until the user engages AND the cooldown passes. A session

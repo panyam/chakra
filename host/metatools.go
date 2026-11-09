@@ -25,7 +25,7 @@ func (a *App) registerMetaTools(multi *agent.MultiSource) error {
 	if err := agent.AddFunc(fs, "subscribe_events",
 		"Subscribe to an event stream on a server so its occurrences enter your context. Returns a subscription id.",
 		func(ctx context.Context, in subReq) (string, error) {
-			id, err := a.openSubscription(context.Background(), in.Server, in.Name)
+			id, err := a.openSubscription(a.streams.ctx, in.Server, in.Name, nil)
 			if err != nil {
 				return "", err
 			}

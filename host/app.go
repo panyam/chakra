@@ -506,10 +506,12 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	// Before the group starts: a server that is ready at once installs its
 	// event hints from the ready-observer, which needs the policy to exist.
 	app.injection = agent.NewEventInjectionPolicy(agent.EventInjectionConfig{Hints: hintOverrides(cfg)})
-	if app.metaTools {
-		app.streams.ctx, app.streams.stop = context.WithCancel(context.Background())
-		app.streams.fanIn = gocurrent.NewFanIn[agent.IncomingEvent]()
-	}
+	// The fan-in always exists, because App.Deliver feeds it even when no
+	// server has events configured.
+	app.streams.ctx, app.streams.stop = context.WithCancel(context.Background())
+	app.streams.fanIn = gocurrent.NewFanIn[agent.IncomingEvent]()
+	app.streams.local = make(chan agent.IncomingEvent, 64)
+	app.streams.fanIn.Add(app.streams.local)
 
 	app.servers.group.Start(context.Background())
 	// Block only for the servers marked required; the rest keep connecting in
@@ -786,9 +788,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	// the ready-observer has been subscribing each server's event streams; now
 	// that the Runner exists, start the consumer that drains them into the
 	// injection/trigger policies.
-	if app.metaTools && app.streams.fanIn != nil {
-		go app.consumeEvents(app.streams.ctx)
-	}
+	go app.consumeEvents(app.streams.ctx)
 	return app, nil
 }
 
@@ -806,7 +806,7 @@ func (a *App) Close() {
 		s.Stop()
 	}
 	for _, s := range a.listSubscriptions() {
-		s.call.Stop()
+		s.stop()
 	}
 	if a.streams.fanIn != nil {
 		a.streams.fanIn.Stop()

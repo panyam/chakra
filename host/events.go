@@ -3,6 +3,7 @@ package host
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -14,22 +15,28 @@ import (
 	eventsclient "github.com/panyam/mcpkit/experimental/ext/events/clients/go"
 )
 
-// onServerEvents reads a server's event types for their advertised hints and
-// opens one events/stream per configured event, when the server has just
-// become ready. Each stream delivers on its own buffered channel
-// (eventsclient.StreamChan). A per-stream adapter goroutine tags occurrences
-// with the server id, and gocurrent's FanIn merges the streams into one
-// consumer feed. Per-stream buffers isolate backpressure, so one noisy stream
-// drops its own events (with a warning) and never a sibling's.
+// onServerEvents reads a server's event types for their advertised hints,
+// runs the server's OnConnect calls, and opens one events/stream per
+// configured event, when the server has just become ready. Each stream
+// delivers on its own buffered channel. A per-stream adapter goroutine tags
+// occurrences with the server id and subscription id, and gocurrent's FanIn
+// merges the streams into one consumer feed. Per-stream buffers isolate
+// backpressure, so one noisy stream drops its own events (with a warning)
+// and never a sibling's. A failed OnConnect call leaves every stream on the
+// server closed.
 func (a *App) onServerEvents(sc ServerConfig) {
-	if a.streams.fanIn == nil {
+	c := a.clientByID(sc.ID)
+	if c == nil {
 		return
 	}
-	if c := a.clientByID(sc.ID); c != nil {
+	if a.metaTools {
 		if _, ok := c.ServerExtensionCapability(events.ExtensionID); ok {
 			a.discoverEventHints(sc.ID, c)
 			a.watchEventTypes(sc, c)
 		}
+	}
+	if _, err := a.rerunSetup(a.streams.ctx, sc, c, 0); err != nil || !a.metaTools {
+		return
 	}
 	a.subscribeConfigured(sc)
 }
@@ -38,13 +45,47 @@ func (a *App) onServerEvents(sc ServerConfig) {
 // ready-observer calls it, so a server that connects after boot gets its
 // streams with no restart. It runs again after events/list_changed, so a
 // configured event type that the server adds later gets subscribed too.
-// openSubscription is idempotent (dedup by server:name), and a failure
-// degrades to a warning.
+// openSubscription is idempotent (dedup by subscription id), and a failure
+// degrades to a warning. A server whose OnConnect calls failed already
+// warned, so it opens nothing and says nothing more.
 func (a *App) subscribeConfigured(sc ServerConfig) {
+	if _, err := a.setupDone(sc); err != nil {
+		return
+	}
 	for _, ec := range sc.Events {
-		if _, err := a.openSubscription(a.streams.ctx, sc.ID, ec.Name); err != nil {
+		if _, err := a.openSubscription(a.streams.ctx, sc.ID, ec.Name, ec.Arguments); err != nil {
 			a.emit(HostEvent{Kind: HostSessionWarn, Err: fmt.Sprintf("events/stream %s on %s: %v", ec.Name, sc.ID, err)})
 		}
+	}
+}
+
+// Deliver hands an event from in-process code to the same pipeline that
+// server event streams feed. A webhook handler, a queue consumer or a timer
+// in a program that embeds App uses it, rather than serving events to
+// itself over events/stream. The event passes through the injection
+// policy's filters and transforms, and then the trigger policy, exactly
+// as a streamed event does. One goroutine consumes both sources, so a
+// delivered event and a streamed one cannot start two proactive turns at
+// once.
+//
+// A hint in the event's Meta under agent.MetaKeyContextHint sets how it
+// reaches the model, and a host EventConfig hint for its Name still wins.
+// Delivered events have no subscription, so leave Subscription empty. A
+// zero Time is set to now.
+//
+// Deliver blocks while the pipeline's buffer is full. It returns ctx's
+// error if ctx ends first, and an error once the App is closed.
+func (a *App) Deliver(ctx context.Context, ev agent.IncomingEvent) error {
+	if ev.Time.IsZero() {
+		ev.Time = time.Now()
+	}
+	select {
+	case a.streams.local <- ev:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-a.streams.ctx.Done():
+		return errors.New("host: Deliver on a closed App")
 	}
 }
 
@@ -65,6 +106,7 @@ func (a *App) consumeEvents(ctx context.Context) {
 			if firing := a.triggers.OnEvent(ev); firing != nil {
 				a.runProactiveTurn(ctx, firing)
 			}
+			a.streams.consumed.Add(1)
 		}
 	}
 }
@@ -136,14 +178,21 @@ func buildTriggerBindings(cfgs []TriggerConfig) []agent.TriggerBinding {
 	return out
 }
 
-// hintOverrides collects the per-event hint overrides from config.
+// hintOverrides collects the hint overrides from config. An event without
+// arguments keys by its name, as it always has. One with arguments keys by
+// its subscription id, so its hint applies to that subscription alone.
 func hintOverrides(cfg *Config) map[string]agent.ContextHint {
 	out := map[string]agent.ContextHint{}
 	for _, sc := range cfg.Servers {
 		for _, ec := range sc.Events {
-			if ec.Hint != nil {
-				out[ec.Name] = *ec.Hint
+			if ec.Hint == nil {
+				continue
 			}
+			key := ec.Name
+			if len(ec.Arguments) > 0 {
+				key = subscriptionID(sc.ID, ec.Name, ec.Arguments)
+			}
+			out[key] = *ec.Hint
 		}
 	}
 	return out
