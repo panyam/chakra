@@ -5,6 +5,26 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
+## [v0.3.1] - 2026-11-08
+
+Full notes in [docs/releases/v0.3.1.md](docs/releases/v0.3.1.md).
+
+### Added
+- `agent.Slots`: named state slots shown after the history on every call and kept out of compaction, with `write_slot`, `EventSlot` and `RestoreSlots`. `update_plan` can write the plan slot (PR 307).
+- `StuckConfig.Window` and `WindowRepeats`: the stuck detector's `window` pattern, for cycles of three or more actions (PR 303).
+- `NewRetrievalStage` and `Retriever`: context gathered before a turn's first call, within one token budget (PR 290).
+- Free refusals: `DenyToolFree` and a free turn-end `Continue` don't use up a step, capped by `RunnerConfig.MaxFreeRefusals` (PR 292).
+- `provider/anthropic`, a new module on the official Anthropic SDK with prompt caching (PR 288), which also sends thinking back while the history before it is unchanged (PR 293). `host.ConnectionTypes` and `agent.ToolNames` (PR 288).
+- `host.SlotsExtension`, `NewPlanSlotExtension` and `RunRestorer`, plus `"slots"` in the workspace file. The coding profile and Terminal-Bench turn on the plan and a facts slot (PR 307).
+- The Terminal-Bench matrix on GitHub Pages (PR 304). `tbench-stale` runs one batch at a time and counts other checkouts' jobs, and ingest waits for a job to finish (PRs 291, 294, 297).
+
+### Changed
+- The no-SDK `AnthropicProvider` sends a `ResponseSchema` as `output_config.format`, in place of a forced synthetic tool (PR 293).
+
+### Fixed
+- The host declares the agents extension on server clients, which mcpkit v0.8.17 servers require for `agents/list` (PR 305).
+- Every module requires mcpkit v0.8.17 (PRs 302, 306).
+
 ## [v0.3.0] - 2026-11-06
 
 Full notes in [docs/releases/v0.3.0.md](docs/releases/v0.3.0.md).
