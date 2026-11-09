@@ -3,8 +3,8 @@ module github.com/panyam/chakra/examples/agent-async
 go 1.26.9
 
 require (
-	github.com/panyam/chakra v0.3.3
-	github.com/panyam/chakra/host v0.3.3
+	github.com/panyam/chakra v0.3.4
+	github.com/panyam/chakra/host v0.3.4
 	github.com/panyam/mcpkit v0.8.20
 	github.com/panyam/mcpkit/experimental/ext/events v0.8.20
 	github.com/panyam/mcpkit/ext/tasks v0.8.20

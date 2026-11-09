@@ -5,6 +5,16 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
+## [v0.3.4] - 2026-11-09
+
+Full notes in [docs/releases/v0.3.4.md](docs/releases/v0.3.4.md).
+
+### Added
+- `presets.GraphQuery`: a `RunnerConfig` for a graph-query agent from the host's parts, with `GraphQueryTuning` for its numbers and `Replace` and `Remove` for its stages (PR 326).
+
+### Changed
+- mcpkit v0.8.20 across every module (PR 326).
+
 ## [v0.3.3] - 2026-11-09
 
 Full notes in [docs/releases/v0.3.3.md](docs/releases/v0.3.3.md).

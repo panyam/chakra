@@ -8,7 +8,7 @@ replace github.com/panyam/mcpkit => ../../../../mcpkit/main
 
 require (
 	github.com/anthropics/anthropic-sdk-go/v2 v2.7.0
-	github.com/panyam/chakra v0.3.3
+	github.com/panyam/chakra v0.3.4
 	github.com/panyam/mcpkit v0.8.20
 )
 

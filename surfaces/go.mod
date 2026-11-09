@@ -4,11 +4,11 @@ go 1.26.9
 
 require (
 	github.com/anthropics/anthropic-sdk-go/v2 v2.7.0
-	github.com/panyam/chakra v0.3.3
-	github.com/panyam/chakra/ext/git v0.3.3
-	github.com/panyam/chakra/ext/lsp v0.3.3
-	github.com/panyam/chakra/store/gorm v0.3.3
-	github.com/panyam/chakra/store/redis v0.3.3
+	github.com/panyam/chakra v0.3.4
+	github.com/panyam/chakra/ext/git v0.3.4
+	github.com/panyam/chakra/ext/lsp v0.3.4
+	github.com/panyam/chakra/store/gorm v0.3.4
+	github.com/panyam/chakra/store/redis v0.3.4
 	github.com/redis/go-redis/v9 v9.21.0
 	gorm.io/driver/postgres v1.6.2
 	gorm.io/driver/sqlite v1.6.0
@@ -61,12 +61,12 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
-	github.com/panyam/chakra/ext/agentsmd v0.3.3
-	github.com/panyam/chakra/ext/checkpoint v0.3.3
-	github.com/panyam/chakra/ext/exec v0.3.3
-	github.com/panyam/chakra/ext/files v0.3.3
-	github.com/panyam/chakra/host v0.3.3
-	github.com/panyam/chakra/provider/anthropic v0.3.3
+	github.com/panyam/chakra/ext/agentsmd v0.3.4
+	github.com/panyam/chakra/ext/checkpoint v0.3.4
+	github.com/panyam/chakra/ext/exec v0.3.4
+	github.com/panyam/chakra/ext/files v0.3.4
+	github.com/panyam/chakra/host v0.3.4
+	github.com/panyam/chakra/provider/anthropic v0.3.4
 	github.com/panyam/gocurrent v0.1.2 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
 	github.com/panyam/mcpkit v0.8.20
