@@ -115,7 +115,7 @@ export class ChakraChat extends HTMLElement {
       this.store = store;
       this.watch = new WatchStream(session, (ev) => {
         store.ingest(ev);
-        setActivity((a) => foldActivity(a, ev));
+        setActivity((a) => foldActivity(a, ev, store.turns().length));
       });
       this.watch.start();
       createEffect(() => this.render(store, activity()));
@@ -125,10 +125,12 @@ export class ChakraChat extends HTMLElement {
   private render(store: ConversationStore, activity: Activity): void {
     const log = this.root.querySelector(".log")!;
     const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 24;
+    const turns = store.turns().map((t) => line(t.role, t.text, t.steer ? "steer" : ""));
     log.replaceChildren(
-      ...store.turns().map((t) => line(t.role, t.text, t.steer ? "steer" : "")),
+      ...turns.slice(0, activity.anchor),
       ...(activity.thinking ? [thinking(activity.thinking)] : []),
       ...activity.tools.map((t) => line("tool", `${t.name} · ${t.status}`, t.status)),
+      ...turns.slice(activity.anchor),
       ...(store.streaming() ? [line("assistant", store.streaming(), "streaming")] : []),
       ...(store.awaiting() && !store.streaming() ? [line("system", store.activity() || "thinking…", "pending")] : []),
     );

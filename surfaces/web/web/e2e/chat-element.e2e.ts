@@ -20,6 +20,9 @@ async function completeTurn(page: Page): Promise<string> {
   await expect(chat.locator(".line.assistant")).toHaveText("The answer is 42.");
   await expect(chat.locator(".line.tool")).toHaveText("lookup · done");
   await expect(chat.locator(".line.thinking")).toContainText("the tool said 42");
+  // The turn's thinking and tool call come before its answer, in the order
+  // they happened.
+  await expect(chat.locator(".log > .line")).toHaveClass([/user/, /thinking/, /tool/, /assistant/]);
   return (await chat.getAttribute("session-id")) ?? "";
 }
 

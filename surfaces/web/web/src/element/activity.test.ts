@@ -9,7 +9,7 @@ describe("foldActivity", () => {
   it("accumulates thinking and clears it on the next turn", () => {
     const a = fold(re({ kind: EventKind.ThinkingDelta, text: "hmm " }), re({ kind: EventKind.ThinkingDelta, text: "ok" }));
     expect(a.thinking).toBe("hmm ok");
-    expect(foldActivity(a, re({ kind: EventKind.TurnBegin }))).toEqual(emptyActivity);
+    expect(foldActivity(a, re({ kind: EventKind.TurnBegin }), 3)).toEqual({ ...emptyActivity, anchor: 3 });
   });
 
   it("tracks each tool call from begin to its end status", () => {

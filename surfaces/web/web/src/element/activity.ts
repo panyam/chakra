@@ -7,16 +7,19 @@ export interface ToolLine {
   status: "running" | "done" | "error" | "denied" | "cancelled";
 }
 
-// Activity is what the element shows beside the transcript for the latest
-// turn: its thinking text and its tool calls. ConversationStore keeps the
-// transcript, and this keeps the rest. A new turn clears it, so the tools of
-// the last turn stay visible until the next one starts.
+// Activity is what the element shows for the latest turn besides the
+// transcript: its thinking text and its tool calls. ConversationStore keeps
+// the transcript, and this keeps the rest. A new turn clears it, so the tools
+// of the last turn stay visible until the next one starts. anchor is how many
+// transcript lines existed when the turn began. The element draws the
+// activity there, so it sits after the question and before the answer.
 export interface Activity {
   thinking: string;
   tools: ToolLine[];
+  anchor: number;
 }
 
-export const emptyActivity: Activity = { thinking: "", tools: [] };
+export const emptyActivity: Activity = { thinking: "", tools: [], anchor: 0 };
 
 const endStatus: Record<string, ToolLine["status"]> = {
   [EventKind.ToolEnd]: "done",
@@ -26,14 +29,16 @@ const endStatus: Record<string, ToolLine["status"]> = {
   [EventKind.ToolUnavailable]: "error",
 };
 
-// foldActivity applies one host event. Events it doesn't use return the
-// same object, so a caller can skip a render.
-export function foldActivity(a: Activity, ev: HostEvent): Activity {
+// foldActivity applies one host event. transcriptLength is the number of
+// transcript lines after the event, and a turn-begin records it as the
+// anchor. Events it doesn't use return the same object, so a caller can skip
+// a render.
+export function foldActivity(a: Activity, ev: HostEvent, transcriptLength = 0): Activity {
   if (ev.Kind !== HostEventKind.RunnerEvent || !ev.RunnerEvent) return a;
   const re = ev.RunnerEvent;
   switch (re.kind) {
     case EventKind.TurnBegin:
-      return emptyActivity;
+      return { ...emptyActivity, anchor: transcriptLength };
     case EventKind.ThinkingDelta:
       return { ...a, thinking: a.thinking + (re.text ?? "") };
     case EventKind.ToolBegin: {
