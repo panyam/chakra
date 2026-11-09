@@ -15,6 +15,7 @@ import (
 	gocurrent "github.com/panyam/gocurrent"
 	"github.com/panyam/mcpkit/client"
 	"github.com/panyam/mcpkit/core"
+	agentsclient "github.com/panyam/mcpkit/experimental/ext/agents/clients/go"
 )
 
 // App is agentchat's testable core: everything the binary does minus flag
@@ -481,6 +482,11 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 		}
 		if loginSrc != nil {
 			app.servers.oauth[sc.ID] = loginSrc
+		}
+		// A server refuses agents/list from a client that didn't declare the
+		// extension (mcpkit#1673), so declare it wherever discovery may run.
+		if sc.Agents == nil || *sc.Agents {
+			copts = append(copts, agentsclient.WithExtension())
 		}
 		c := client.NewClient(sc.URL, core.ClientInfo{Name: "agentchat", Version: "0.1"}, copts...)
 		app.servers.clients = append(app.servers.clients, c)
