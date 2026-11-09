@@ -205,6 +205,8 @@ agentchat exec --config agentchat.json --workspace . --approve reversible-auto \
   about a call, the call is denied, and the run writes an `ask-denied` line saying so.
 - With `--session-store`, the run id goes to stderr (`agentchat exec: session <id>`), and
   `--session <id>` continues that run.
+- Every MCP server in the config must be connected when the turn starts. If one is down, exec
+  exits 5 rather than answering without that server's tools.
 
 | Exit | Meaning |
 |---|---|
@@ -213,9 +215,46 @@ agentchat exec --config agentchat.json --workspace . --approve reversible-auto \
 | 2 | it hit `--max-steps` |
 | 3 | `--output-schema` was set and no answer matched it |
 | 4 | a turn-end hook stopped the turn and refused its answer |
+| 5 | the model connection or an MCP server could not start |
 | 64 | bad usage: no `--approve`, no prompt, an unreadable schema |
 
 `--max-steps` overrides a config file's `maxSteps`, as the tree-budget flags do.
+
+### Driving a benchmark with `exec`
+
+A benchmark runs the same questions on several models and compares them. Each arm is a
+connection in one config, and `--active` picks it, so two arms differ only in the model.
+[`examples/benchmark/agentchat.json`](../../examples/benchmark/agentchat.json) has gpt-5.5 at a
+reasoning effort, Sonnet, and a llama.cpp model:
+
+```
+agentchat exec --config examples/benchmark/agentchat.json --active gpt-5.5 \
+  --approve read-only-auto --max-steps 30 --json -p "..." > run.jsonl
+```
+
+With `--json`, exec adds three frames to the event stream:
+
+- `run-start` comes first. It names the connection, the model, the servers, `maxSteps`, the
+  approval mode, and any `AGENTCHAT_` variable set in the environment. Those variables override
+  flags, so a reproducible run sets none, and `env` should be empty.
+- `cost` follows each model call: `{"step", "scope", "connection", "usd"}`. `scope` names the
+  sub-agent, and is empty for the main agent. `usd` is null when the connection has no `price`
+  or the provider reported no usage. The tokens are on the `step` runner event just before it.
+- `summary` comes last, on every exit after the usage check: `modelCalls`, `steps`,
+  `toolCalls`, `toolCallsByName`, `toolCallsDenied`, `usage`, `usageByConnection`, `usd`, `unpricedCalls` and
+  `exitCode`. It counts sub-agents, and the structured finalize call that `--output-schema`
+  makes. `usd` sums the priced calls, and is null when none was priced. `toolCalls` counts
+  every call the model made, and the approval mode refused `toolCallsDenied` of them.
+
+A connection's `price` sets its cost, in US dollars per million tokens:
+`{"input": 5, "cachedInput": 0.5, "output": 30}`. Leave out `cachedInput` to bill cached
+tokens at `input`. chakra keeps no price table, so the prices a run used sit in its config.
+Anthropic bills cache writes above the input rate, and `usage` has no field for them, so a
+Sonnet run that writes the cache reports a little less than it cost.
+
+Without `--workspace`, exec reads nothing from your home directory. With no `--config` it takes
+the model from flags, and it keeps no session unless `--session-store` is set. `--workspace`
+with a skills preset adds the `~/` skill folders the preset names.
 
 ## Status line
 
@@ -388,6 +427,7 @@ One connection's fields:
 | `thinkingHint` | `{ "openTag": "<think>", "closeTag": "</think>" }` for a model that writes its reasoning inline, so surfaces show it as thinking. |
 | `vision` | Marks a model that takes images. Read only when `agentRoles` picks a connection. |
 | `dim` | The embedding width, when the connection is the `embedder`. |
+| `price` | `{"input", "cachedInput", "output"}` in US dollars per million tokens, for the cost frames `agentchat exec --json` writes. See [Driving a benchmark with `exec`](#driving-a-benchmark-with-exec). |
 
 The doc comments on `ConnectionsConfig` and `ConnectionConfig` in
 `host/connections.go` are the full contract.
