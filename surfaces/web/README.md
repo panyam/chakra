@@ -109,6 +109,30 @@ phone opens:
 go run ./cmd/agentweb --addr :8090 --allow-origin 192.168.1.5 --config ...
 ```
 
+### An assistant on another page: `<chakra-chat>`
+
+Say you have a web app of your own and want an assistant in a side panel. Load
+the element from agentweb and drop it in, with no build step and no framework:
+
+```html
+<script type="module" src="http://localhost:8090/static/chakra-chat.js"></script>
+<chakra-chat server-url="http://localhost:8090" profile="chat"></chakra-chat>
+```
+
+The element creates a session and streams it over `Watch`. It shows the
+transcript, thinking, tool calls and pending asks, and it answers asks with
+`RespondToAsk`. When it creates a session, it sets its own `session-id`
+attribute and fires a `chakra-session` event with `{ sessionId }`. Put that id
+back on the element after a reload, and the element resumes the session with
+its history. Add `token` when agentweb runs with `--access-token`. It works the
+same inside a React or Solid app, as a plain JSX element (#314).
+
+The page runs on another origin, so the browser asks agentweb for CORS
+permission first. agentweb grants it to the origins `--allow-origin` lists,
+and to localhost on any port. The element bundles its own copy of Solid's
+reactive core, to share the transcript logic with agentweb's page. It never
+touches the page's own Solid or React. The bundle is about 140 KB minified.
+
 ### The coding agent at /code/
 
 `--coding <dir>` also serves chakra's coding agent (`surfaces/coding`, #178), built from `dir`'s

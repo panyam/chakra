@@ -161,7 +161,8 @@ func serveWith(addr, allowOrigin, token string, mgr *web.SessionManager, svcOpts
 	if err != nil {
 		log.Fatalf("agentweb: %v", err)
 	}
-	handler := originGuard(newOriginChecker(allowOrigin), tokenGuard(token, web.HandlerWithSessions(mgr, svcOpts...)))
+	checker := newOriginChecker(allowOrigin)
+	handler := corsFor(checker, originGuard(checker, tokenGuard(token, web.HandlerWithSessions(mgr, svcOpts...))))
 	fmt.Fprintf(os.Stderr, "agentweb serving at http://%s/ (Connect: /%s, Ctrl-C to stop)\n", addr, "chakra.web.v1.HostService")
 	if allowOrigin == "" && !isLoopback(addr) {
 		fmt.Fprintf(os.Stderr, "note: only localhost pages may call the API; pass --allow-origin <this machine's address> to use it from another device\n")

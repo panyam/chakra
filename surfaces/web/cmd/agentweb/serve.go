@@ -93,6 +93,21 @@ func originGuard(checker *middleware.OriginChecker, next http.Handler) http.Hand
 	})
 }
 
+// corsFor lets a page on an allowed origin call the API and load the static
+// bundle across origins, as the <chakra-chat> element does from a page that
+// agentweb didn't serve (#314). It uses the origin guard's own allowlist, so
+// it widens nothing the guard refuses. It answers a preflight itself, before
+// the token guard, because a browser sends no custom headers on a preflight.
+// A call from an origin off the list gets no CORS headers, so the browser
+// blocks the response, and the origin guard still refuses the call.
+func corsFor(checker *middleware.OriginChecker, next http.Handler) http.Handler {
+	return middleware.CORS(checker,
+		middleware.CORSAllowMethods("GET", "POST", "OPTIONS"),
+		middleware.CORSAllowHeaders("Content-Type", "Connect-Protocol-Version", "Connect-Timeout-Ms", tokenHeader),
+		middleware.CORSExposeHeaders("Grpc-Status", "Grpc-Message"),
+	)(next)
+}
+
 // newOriginChecker builds the allowlist from --allow-origin. localhost is
 // always on it, because the main client is agentweb's own page loaded from
 // localhost.
