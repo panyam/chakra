@@ -89,4 +89,3 @@ func TestWorkspaceSlotsRejectABadSpec(t *testing.T) {
 		t.Fatal("an unknown slot mode built")
 	}
 }
-
