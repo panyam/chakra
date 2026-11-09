@@ -437,3 +437,150 @@ func TestStepViewGenerationIsRequestScoped(t *testing.T) {
 		t.Errorf("err %v, the stage saw %+v, want the turn's params", err, seen)
 	}
 }
+
+func countCalls(msgs []Message, name, x string) int {
+	n := 0
+	for _, m := range msgs {
+		for _, tc := range m.ToolCalls {
+			if tc.Name == name && strings.Contains(string(tc.Args.Raw()), `"`+x+`"`) {
+				n++
+			}
+		}
+	}
+	return n
+}
+
+func TestRunnerSendsTheCollapsedViewAndKeepsTheRecord(t *testing.T) {
+	stub, res, _, err := stuckRun(t, StuckConfig{Policy: CollapseStuckSteps(nil)}, map[string]string{"a": "FAIL"},
+		runCall(1, "a"), runCall(2, "a"), runCall(3, "a"), StubTurn{Text: "giving up"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reqs := stub.Requests()
+	if n := countCalls(reqs[3].Messages, "run", "a"); n != 1 {
+		t.Errorf("call 4 sees %d copies of the repeated call, want 1", n)
+	}
+	for _, m := range reqs[3].Messages {
+		if m.Role == RoleTool && m.ToolCallID != "c1" {
+			t.Errorf("call 4 kept the result of a dropped call: %+v", m)
+		}
+	}
+	if n := countCalls(res.Messages, "run", "a"); n != 3 {
+		t.Errorf("the record holds %d copies, want all 3", n)
+	}
+}
+
+// collapse runs the policy over a turn the test lays out, with history
+// before it in the view.
+func collapse(t *testing.T, f StuckFinding, history, turn []Message) []Message {
+	t.Helper()
+	view := StepView{Messages: append(slices.Clone(history), turn...)}
+	out, err := CollapseStuckSteps(nil)(context.Background(), StepInfo{Turn: turn}, view, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out.Messages
+}
+
+// step is one tool call and its result.
+func step(id, x, result string) []Message {
+	return []Message{
+		{Role: RoleAssistant, ToolCalls: []ToolCall{call(id, "run", `{"x":"`+x+`"}`)}},
+		{Role: RoleTool, ToolCallID: id, Text: result},
+	}
+}
+
+func ids(msgs []Message) []string {
+	var out []string
+	for _, m := range msgs {
+		switch {
+		case len(m.ToolCalls) > 0:
+			out = append(out, "call:"+m.ToolCalls[0].ID)
+		case m.ToolCallID != "":
+			out = append(out, "result:"+m.ToolCallID)
+		default:
+			out = append(out, string(m.Role)+":"+m.Text)
+		}
+	}
+	return out
+}
+
+func TestCollapseStuckStepsKeepsOnlyTheFirstOfARepeat(t *testing.T) {
+	user := []Message{{Role: RoleUser, Text: "q"}}
+	turn := slices.Concat(step("c1", "a", "FAIL"), step("c2", "a", "FAIL"), step("c3", "a", "FAIL"))
+	got := ids(collapse(t, StuckFinding{Pattern: StuckRepeat, Count: 3, Steps: []int{1, 2, 3}}, user, turn))
+	want := []string{"user:q", "call:c1", "result:c1"}
+	if !slices.Equal(got, want) {
+		t.Errorf("view = %v, want %v", got, want)
+	}
+}
+
+func TestCollapseStuckStepsKeepsBothSidesOfAnAlternation(t *testing.T) {
+	turn := slices.Concat(step("c1", "a", "A"), step("c2", "b", "B"), step("c3", "a", "A"), step("c4", "b", "B"))
+	got := ids(collapse(t, StuckFinding{Pattern: StuckAlternate, Count: 2, Steps: []int{1, 2, 3, 4}}, nil, turn))
+	want := []string{"call:c1", "result:c1", "call:c2", "result:c2"}
+	if !slices.Equal(got, want) {
+		t.Errorf("view = %v, want %v", got, want)
+	}
+}
+
+func TestCollapseStuckStepsKeepsDistinctDraftsWithTheSameError(t *testing.T) {
+	turn := slices.Concat(step("c1", "a", "error: bad"), step("c2", "b", "error: bad"), step("c3", "c", "error: bad"))
+	got := collapse(t, StuckFinding{Pattern: StuckSameError, Count: 3, Steps: []int{1, 2, 3}}, nil, turn)
+	if len(got) != len(turn) {
+		t.Errorf("view = %v, want all three drafts", ids(got))
+	}
+}
+
+func TestCollapseStuckStepsDropsAToolCallWithItsResults(t *testing.T) {
+	two := func(id string) []Message {
+		return []Message{
+			{Role: RoleAssistant, ToolCalls: []ToolCall{call(id+"a", "run", `{"x":"a"}`), call(id+"b", "run", `{"x":"b"}`)}},
+			{Role: RoleTool, ToolCallID: id + "a", Text: "A"},
+			{Role: RoleTool, ToolCallID: id + "b", Text: "B"},
+		}
+	}
+	// The key over two calls in one step reads both, so the IDs differ but
+	// the steps match.
+	turn := slices.Concat(two("s1"), two("s2"))
+	got := collapse(t, StuckFinding{Pattern: StuckRepeat, Count: 2, Steps: []int{1, 2}}, nil, turn)
+	for _, m := range got {
+		if strings.HasPrefix(m.ToolCallID, "s2") || (len(m.ToolCalls) > 0 && m.ToolCalls[0].ID == "s2a") {
+			t.Errorf("step 2 is still in the view: %v", ids(got))
+		}
+	}
+	if len(got) != 3 {
+		t.Errorf("view = %v, want step 1's call and both its results", ids(got))
+	}
+}
+
+func TestCollapseStuckStepsSkipsAStepTheViewNoLongerHas(t *testing.T) {
+	turn := slices.Concat(step("c1", "a", "FAIL"), step("c2", "a", "FAIL"))
+	view := StepView{Messages: []Message{{Role: RoleSystem, Text: "summary of steps 1 and 2"}}}
+	out, err := CollapseStuckSteps(nil)(context.Background(), StepInfo{Turn: turn}, view, StuckFinding{Pattern: StuckRepeat, Count: 2, Steps: []int{1, 2}})
+	if err != nil || len(out.Messages) != 1 {
+		t.Errorf("view = %v, %v; want the summary untouched", ids(out.Messages), err)
+	}
+}
+
+// A text step in an earlier turn can match this turn's step word for word.
+// The history keeps its copy, and only this turn's repeat goes.
+func TestCollapseStuckStepsLeavesTheHistoryAlone(t *testing.T) {
+	key := func(rec StepRecord) (StuckKey, bool) {
+		return StuckKey{Call: rec.Assistant.Text, Result: rec.Results[0].Text}, true
+	}
+	textStep := func(text, result string) []Message {
+		return []Message{{Role: RoleAssistant, Text: text}, {Role: RoleUser, Text: result}}
+	}
+	history := slices.Concat([]Message{{Role: RoleUser, Text: "earlier"}}, textStep("look x", "card"), []Message{{Role: RoleUser, Text: "now"}})
+	turn := slices.Concat(textStep("look x", "card"), textStep("look x", "card"))
+	view := StepView{Messages: slices.Concat(history, turn)}
+	out, err := CollapseStuckSteps(key)(context.Background(), StepInfo{Turn: turn}, view, StuckFinding{Pattern: StuckRepeat, Count: 2, Steps: []int{1, 2}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := slices.Concat(history, textStep("look x", "card"))
+	if !slices.Equal(ids(out.Messages), ids(want)) {
+		t.Errorf("view = %v, want %v", ids(out.Messages), ids(want))
+	}
+}

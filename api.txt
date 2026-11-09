@@ -99,6 +99,7 @@ pkg github.com/panyam/chakra, func AddFunc[In any](*FuncSource, string, string, 
 pkg github.com/panyam/chakra, func AfterToolCall(func(context.Context, ToolCallInfo, *core.ToolResult) (*core.ToolResult, error)) ToolMiddleware
 pkg github.com/panyam/chakra, func BeforeToolCall(func(context.Context, *ToolCallInfo) error) ToolMiddleware
 pkg github.com/panyam/chakra, func CapabilitiesOf(Provider) Capabilities
+pkg github.com/panyam/chakra, func CollapseStuckSteps(StuckKeyFunc) StuckPolicy
 pkg github.com/panyam/chakra, func DefaultStuckKey(StepRecord) (StuckKey, bool)
 pkg github.com/panyam/chakra, func DenyTool(string) error
 pkg github.com/panyam/chakra, func DenyToolFree(string) error
@@ -1186,6 +1187,7 @@ pkg github.com/panyam/chakra/presets, func Replace([]agent.StepStage, string, ag
 pkg github.com/panyam/chakra/presets, method (GraphQuery) Config() (agent.RunnerConfig, error)
 pkg github.com/panyam/chakra/presets, type GraphQuery struct
 pkg github.com/panyam/chakra/presets, type GraphQuery struct, Check agent.TurnEndHook
+pkg github.com/panyam/chakra/presets, type GraphQuery struct, FirstStuck agent.StuckPolicy
 pkg github.com/panyam/chakra/presets, type GraphQuery struct, Grammar string
 pkg github.com/panyam/chakra/presets, type GraphQuery struct, Instructions string
 pkg github.com/panyam/chakra/presets, type GraphQuery struct, Ledger *agent.Slots
