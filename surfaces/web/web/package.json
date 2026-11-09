@@ -14,6 +14,7 @@
     "@bufbuild/protobuf": "^2.14.0",
     "@connectrpc/connect": "^2.1.0",
     "@connectrpc/connect-web": "^2.1.0",
+    "@panyam/mcpkit-rooms": "^0.8.19",
     "@panyam/tsappkit": "^0.7.6",
     "@panyam/tsappkit-solid": "^0.7.6",
     "@xterm/addon-fit": "0.11.0",

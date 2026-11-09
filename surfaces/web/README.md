@@ -133,6 +133,45 @@ and to localhost on any port. The element bundles its own copy of Solid's
 reactive core, to share the transcript logic with agentweb's page. It never
 touches the page's own Solid or React. The bundle is about 140 KB minified.
 
+#### Page tools through a relay room
+
+Say the page wants the agent to act on what it shows, such as marking a line
+or opening a record. The page's app runs a relay room, as mcpkit's
+`experimental/ext/rooms` describes: a relay, a rooms bridge at `/mcp`, and a
+join endpoint. mcpkit's `examples/rooms/lanternfall` is a whole app built that
+way. Point the element at the join endpoint:
+
+```html
+<chakra-chat server-url="http://localhost:8090" room-join="/rooms/join"></chakra-chat>
+<script type="module">
+  const room = await document.querySelector("chakra-chat").whenRoom();
+  room.registerTool({ name: "highlight", inputSchema: { type: "object" },
+    async execute({ text }) { mark(text); return "highlighted"; } });
+</script>
+```
+
+The element joins the room with `@panyam/mcpkit-rooms`, which it loads only
+when `room-join` is set. `el.room` is that client's `ToolRoom`, and
+`registerTool` takes WebMCP's shape. The element also shows a switch, "Let
+the agent use this page". The page offers no tools to any agent until its user
+turns it on. The element registers two tools of its own, `ask_yes_no` and
+`ask_choice`. Each shows a question as a card in the transcript and returns the
+user's pick to the agent. Set `chat-tools="off"` to leave them out.
+
+The agent's session reaches the same room through config. It lists the app's
+bridge as a server and attaches with `onConnect`:
+
+```json
+"servers": [{ "id": "app", "url": "https://app.example.com/mcp",
+  "onConnect": [{ "name": "attach", "arguments": { "resource": "doc:42" } }] }]
+```
+
+The join endpoint's `RoomOf` and the `attach` resource have to name the same
+room. The bridge agrees a page with the agents that act for the page's own
+user, so the join endpoint's `Subject` and the agent's token have to name the
+same user. `tests/chat_element_rooms_e2e` runs the whole arrangement on two
+local origins.
+
 ### The coding agent at /code/
 
 `--coding <dir>` also serves chakra's coding agent (`surfaces/coding`, #178), built from `dir`'s
