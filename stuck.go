@@ -397,3 +397,113 @@ func StuckAll(policies ...StuckPolicy) StuckPolicy {
 		return v, nil
 	}
 }
+
+// CollapseStuckSteps is a StuckPolicy that removes repeats from the view
+// (#330). Imagine a small model that sends the same draft three times. Each
+// copy and its result is still in the history, so on the next call the model
+// copies its last turn again, whatever note follows. This policy keeps the
+// first of those steps and drops the later ones whose key matches an earlier
+// step in the finding, so the model sees what it tried once.
+//
+// key must be the detector's key, so "the same" means the same thing to
+// both. Nil means DefaultStuckKey. A same-error finding over different calls
+// drops nothing, since each call there is a different attempt.
+//
+// It changes the view only. The record keeps every step, and so do
+// TurnResult and the RunStore. A dropped step goes with its results, so no
+// tool result is left without its call. A step the view no longer holds,
+// such as one compaction summarized, is skipped. The policy adds no note.
+// Pair it with one, as the graph-query preset's FirstStuck does.
+//
+// Removing messages from the middle of the history ends a prompt cache at
+// that point. llama.cpp then re-reads the rest of the prompt, and a
+// Responses connection sends the full history for that call.
+func CollapseStuckSteps(key StuckKeyFunc) StuckPolicy {
+	if key == nil {
+		key = DefaultStuckKey
+	}
+	return func(_ context.Context, info StepInfo, v StepView, f StuckFinding) (StepView, error) {
+		recs := stepRecords(info.Turn)
+		drop := map[int]bool{}
+		var kept []StuckKey
+		for _, s := range f.Steps {
+			if s < 1 || s > len(recs) {
+				continue
+			}
+			k, ok := key(recs[s-1])
+			if !ok {
+				continue
+			}
+			if slices.ContainsFunc(kept, func(o StuckKey) bool { return o.Call == k.Call && o.Result == k.Result }) {
+				drop[s] = true
+				continue
+			}
+			kept = append(kept, k)
+		}
+		if len(drop) == 0 {
+			return v, nil
+		}
+		remove := make([]bool, len(v.Messages))
+		removed := false
+		// Match the turn's steps from the end of the view, since an earlier
+		// turn can hold the same text as one of this turn's steps.
+		i := len(v.Messages) - 1
+		for s := len(recs); s >= 1 && i >= 0; s-- {
+			rec := recs[s-1]
+			at := -1
+			for j := i; j >= 0; j-- {
+				if sameSentMessage(v.Messages[j], rec.Assistant) {
+					at = j
+					break
+				}
+			}
+			if at < 0 {
+				continue
+			}
+			i = at - 1
+			if !drop[s] || at+len(rec.Results) >= len(v.Messages) {
+				continue
+			}
+			match := true
+			for r, m := range rec.Results {
+				if !sameSentMessage(v.Messages[at+1+r], m) {
+					match = false
+					break
+				}
+			}
+			if !match {
+				continue
+			}
+			for j := at; j <= at+len(rec.Results); j++ {
+				remove[j] = true
+			}
+			removed = true
+		}
+		if !removed {
+			return v, nil
+		}
+		msgs := make([]Message, 0, len(v.Messages))
+		for j, m := range v.Messages {
+			if !remove[j] {
+				msgs = append(msgs, m)
+			}
+		}
+		v.Messages = msgs
+		return v, nil
+	}
+}
+
+// sameSentMessage compares what a provider would send for two messages,
+// tool call IDs and arguments included, leaving out the timestamp.
+func sameSentMessage(a, b Message) bool {
+	if a.Role != b.Role || a.Text != b.Text || a.ToolCallID != b.ToolCallID || len(a.ToolCalls) != len(b.ToolCalls) {
+		return false
+	}
+	for i := range a.ToolCalls {
+		x, y := a.ToolCalls[i], b.ToolCalls[i]
+		if x.ID != y.ID || x.Name != y.Name || string(x.Args.Raw()) != string(y.Args.Raw()) {
+			return false
+		}
+	}
+	return true
+}

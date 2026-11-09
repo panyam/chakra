@@ -215,6 +215,48 @@ func TestGraphQueryNudgesThenAsksForTheAnswer(t *testing.T) {
 	}
 }
 
+func countLooks(msgs []agent.Message) int {
+	n := 0
+	for _, m := range msgs {
+		for _, tc := range m.ToolCalls {
+			if tc.Name == "look" {
+				n++
+			}
+		}
+	}
+	return n
+}
+
+// FirstStuck runs before the note, so the nudged call goes out with the
+// repeat removed and the note still last.
+func TestGraphQueryFirstStuckRunsBeforeTheNote(t *testing.T) {
+	r := newRig(t, look("a"), look("a"), agent.StubTurn{Text: "answer"})
+	r.q.Tuning.RepeatMax = -1
+	r.q.FirstStuck = agent.CollapseStuckSteps(nil)
+	if _, err := r.run(t); err != nil {
+		t.Fatal(err)
+	}
+	nudged := r.stub.Requests()[2]
+	if n := countLooks(nudged.Messages); n != 1 {
+		t.Errorf("the nudged call sees %d looks, want 1", n)
+	}
+	if m := lastMessage(nudged); m.Role != agent.RoleUser || !strings.Contains(m.Text, "repeated look 2 times") {
+		t.Errorf("last message %+v, want the note", m)
+	}
+}
+
+func TestGraphQueryEmptyStuckNoteAddsNoMessage(t *testing.T) {
+	r := newRig(t, look("a"), look("a"), agent.StubTurn{Text: "answer"})
+	r.q.Tuning.RepeatMax = -1
+	r.q.StuckNote = func(agent.StuckFinding) string { return "" }
+	if _, err := r.run(t); err != nil {
+		t.Fatal(err)
+	}
+	if m := lastMessage(r.stub.Requests()[2]); m.Role == agent.RoleUser {
+		t.Errorf("an empty note still sent %+v", m)
+	}
+}
+
 // A host's StillStuck replaces the default.
 func TestGraphQueryStillStuckIsTheHosts(t *testing.T) {
 	r := newRig(t, look("a"), look("a"), look("a"), agent.StubTurn{Text: "answer"})

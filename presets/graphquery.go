@@ -88,9 +88,9 @@ type GraphQueryTuning struct {
 //     than a failed call.
 //   - The repeat cache, so a repeated idempotent lookup is answered from its
 //     first result and costs no step.
-//   - The stuck detector over the last steps. Its first finding adds a note
-//     and the nudge temperature for one call, and a finding after that runs
-//     StillStuck.
+//   - The stuck detector over the last steps. Its first finding runs
+//     FirstStuck, then adds a note and the nudge temperature for one call. A
+//     finding after that runs StillStuck.
 //   - StageActions, which offers no tools after Tuning.ActionSteps steps
 //     spent calling them.
 //   - The retrieval block, the ledger and the stuck note go as RoleUser
@@ -125,8 +125,15 @@ type GraphQuery struct {
 	// agent.DefaultStuckKey, which reads tool calls. A model that acts
 	// through text needs a key that reads StepRecord.Assistant.Text.
 	StuckKey agent.StuckKeyFunc
+	// FirstStuck runs on the stuck detector's first finding, before the note
+	// and the nudge, and they apply to the view it returns (#330). Nil
+	// leaves the view as it is. agent.CollapseStuckSteps(StuckKey) is the
+	// usual value: a small model copies the repeats still in its history,
+	// whatever the note says, and the policy removes them for that call.
+	FirstStuck agent.StuckPolicy
 	// StuckNote writes the note for the stuck detector's first finding. Nil
-	// names what repeated and asks the model to try something else.
+	// names what repeated and asks the model to try something else. An empty
+	// note adds no message, so a FirstStuck can take the note's place.
 	StuckNote func(agent.StuckFinding) string
 	// StillStuck runs on a finding after the first. Nil takes every tool away
 	// for that call and asks for the answer, so the turn ends on the
@@ -254,7 +261,15 @@ func (g GraphQuery) stuckStage(t GraphQueryTuning, caps agent.Capabilities) agen
 			if f.Count > first[f.Pattern] {
 				return still(ctx, info, v, f)
 			}
-			v.Messages = append(slices.Clip(v.Messages), agent.Message{Role: agent.RoleUser, Text: note(f)})
+			if g.FirstStuck != nil {
+				var err error
+				if v, err = g.FirstStuck(ctx, info, v, f); err != nil {
+					return v, err
+				}
+			}
+			if text := note(f); text != "" {
+				v.Messages = append(slices.Clip(v.Messages), agent.Message{Role: agent.RoleUser, Text: text})
+			}
 			if caps.Temperature {
 				v.Generation.Temperature = &nudge
 			}
