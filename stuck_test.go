@@ -131,6 +131,81 @@ func TestStuckAlternation(t *testing.T) {
 	}
 }
 
+// Imagine a model cycling through three actions: try a, look at b, try a,
+// look at c, try a. No two steps in a row match, and no two calls take
+// turns, so only the window sees that a came back three times in five steps.
+func TestStuckWindow(t *testing.T) {
+	stub, _, events, err := stuckRun(t, StuckConfig{Window: 6}, nil,
+		runCall(1, "a"), runCall(2, "b"), runCall(3, "a"), runCall(4, "c"), runCall(5, "a"), StubTurn{Text: "done"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := stuckEvents(events)
+	if len(got) != 1 || got[0].Pattern != StuckWindow || got[0].Count != 3 || got[0].Window != 6 || !slices.Equal(got[0].Steps, []int{1, 3, 5}) {
+		t.Fatalf("stuck events = %+v, want one window finding over steps 1, 3 and 5", got)
+	}
+	if note := lastSystem(stub.Requests()[5]); !strings.Contains(note, "run 3 times in the last 6 steps") {
+		t.Errorf("step 6 note = %q, want it to say how often and in how many steps", note)
+	}
+}
+
+func TestStuckWindowNeedsTheLatestStepRepeated(t *testing.T) {
+	for name, xs := range map[string][]string{
+		"no repeats":         {"a", "b", "c", "d", "e"},
+		"latest step is new": {"a", "b", "a", "c", "a", "d"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var turns []StubTurn
+			for i, x := range xs {
+				turns = append(turns, runCall(i+1, x))
+			}
+			stub, _, events, err := stuckRun(t, StuckConfig{Window: 6}, nil, append(turns, StubTurn{Text: "done"})...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if note := lastSystem(stub.Requests()[len(xs)]); note != "" {
+				t.Errorf("last call has a note: %q", note)
+			}
+			if name == "no repeats" && len(stuckEvents(events)) != 0 {
+				t.Errorf("stuck events = %+v, want none", stuckEvents(events))
+			}
+		})
+	}
+}
+
+func TestStuckWindowIsOffByDefault(t *testing.T) {
+	_, _, events, err := stuckRun(t, StuckConfig{}, nil,
+		runCall(1, "a"), runCall(2, "b"), runCall(3, "a"), runCall(4, "c"), runCall(5, "a"), StubTurn{Text: "done"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := stuckEvents(events); len(got) != 0 {
+		t.Fatalf("stuck events = %+v, want none without Window", got)
+	}
+}
+
+func TestStuckWindowLeavesARunToRepeat(t *testing.T) {
+	_, _, events, err := stuckRun(t, StuckConfig{Window: 6}, nil,
+		runCall(1, "a"), runCall(2, "a"), runCall(3, "a"), StubTurn{Text: "done"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := stuckEvents(events); len(got) != 1 || got[0].Pattern != StuckRepeat {
+		t.Fatalf("stuck events = %+v, want one repeat", got)
+	}
+}
+
+func TestStuckWindowRepeats(t *testing.T) {
+	_, _, events, err := stuckRun(t, StuckConfig{Window: 4, WindowRepeats: 2}, nil,
+		runCall(1, "a"), runCall(2, "b"), runCall(3, "a"), StubTurn{Text: "done"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := stuckEvents(events); len(got) != 1 || got[0].Pattern != StuckWindow || got[0].Count != 2 || !slices.Equal(got[0].Steps, []int{1, 3}) {
+		t.Fatalf("stuck events = %+v, want one window finding over steps 1 and 3", got)
+	}
+}
+
 // Three different calls that fail the same way trip the error pattern, even
 // though no call repeats.
 func TestStuckSameError(t *testing.T) {
