@@ -155,6 +155,45 @@ type ConnectionConfig struct {
 	// and the request asks for json_object (agent.OpenAIConfig.NoResponseSchema).
 	// Read only by the OpenAI-wire types other than "llamacpp" and "ollama".
 	ResponseSchema *bool `json:"responseSchema,omitempty"`
+
+	// Price is what this connection's model costs, so a surface can report a
+	// run's cost (#327). Nil means the cost is unknown, as for a local model.
+	// The host keeps no price table, because vendor prices change and a
+	// benchmark needs the prices it ran with written down beside the run.
+	Price *Price `json:"price,omitempty"`
+}
+
+// Price is a model's list price in US dollars per million tokens.
+type Price struct {
+	// Input is the rate for prompt tokens that no cache served.
+	Input float64 `json:"input"`
+
+	// CachedInput is the rate for prompt tokens the provider's cache served
+	// (agent.Usage.CachedInputTokens). Nil bills them at Input.
+	CachedInput *float64 `json:"cachedInput,omitempty"`
+
+	// Output is the rate for completion tokens, reasoning included.
+	Output float64 `json:"output"`
+}
+
+// Cost prices one usage report at the connection's Price. It returns false
+// when the connection has no Price or the provider reported no usage, since
+// either way the cost is unknown rather than zero.
+//
+// Anthropic bills cache writes above the input rate. Usage has no field for
+// them and counts them in InputTokens, so Cost bills them at Input and comes
+// out low for a call that wrote the cache.
+func (c ConnectionConfig) Cost(u *agent.Usage) (float64, bool) {
+	if c.Price == nil || u == nil {
+		return 0, false
+	}
+	cachedRate := c.Price.Input
+	if c.Price.CachedInput != nil {
+		cachedRate = *c.Price.CachedInput
+	}
+	cached := min(u.CachedInputTokens, u.InputTokens)
+	fresh := u.InputTokens - cached
+	return (float64(fresh)*c.Price.Input + float64(cached)*cachedRate + float64(u.OutputTokens)*c.Price.Output) / 1e6, true
 }
 
 // ThinkingHint delimits a model's inline reasoning. An empty OpenTag

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -425,5 +426,39 @@ func TestConnectionResponseSchemaFalseSendsJSONObject(t *testing.T) {
 		if format != tc.want {
 			t.Errorf("%s sent response_format %q, want %q", tc.conn, format, tc.want)
 		}
+	}
+}
+
+func TestConnectionCost(t *testing.T) {
+	cachedRate := 0.25
+	usage := &agent.Usage{InputTokens: 1_000_000, CachedInputTokens: 400_000, OutputTokens: 100_000}
+	cases := []struct {
+		name   string
+		price  *Price
+		usage  *agent.Usage
+		want   float64
+		wantOK bool
+	}{
+		{"cached tokens at the cached rate", &Price{Input: 2, CachedInput: &cachedRate, Output: 10}, usage, 0.6*2 + 0.4*0.25 + 0.1*10, true},
+		{"cached tokens at the input rate when no cached rate", &Price{Input: 2, Output: 10}, usage, 1*2 + 0.1*10, true},
+		{"no price is unknown", nil, usage, 0, false},
+		{"no usage is unknown", &Price{Input: 2, Output: 10}, nil, 0, false},
+		{"cached above input is capped", &Price{Input: 1, CachedInput: &cachedRate, Output: 0}, &agent.Usage{InputTokens: 100, CachedInputTokens: 500}, 100 * 0.25 / 1e6, true},
+	}
+	for _, c := range cases {
+		got, ok := ConnectionConfig{Price: c.price}.Cost(c.usage)
+		if ok != c.wantOK || math.Abs(got-c.want) > 1e-12 {
+			t.Errorf("%s: Cost = %v, %v; want %v, %v", c.name, got, ok, c.want, c.wantOK)
+		}
+	}
+}
+
+func TestConnectionPriceLoadsFromJSON(t *testing.T) {
+	var conn ConnectionConfig
+	if err := json.Unmarshal([]byte(`{"type":"openai-responses","model":"gpt-5.5","price":{"input":1.25,"cachedInput":0.125,"output":10}}`), &conn); err != nil {
+		t.Fatal(err)
+	}
+	if conn.Price == nil || conn.Price.Input != 1.25 || conn.Price.CachedInput == nil || *conn.Price.CachedInput != 0.125 || conn.Price.Output != 10 {
+		t.Errorf("price = %+v", conn.Price)
 	}
 }

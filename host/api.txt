@@ -122,6 +122,7 @@ pkg github.com/panyam/chakra/host, method (BaseExtension) StepStages() []agent.S
 pkg github.com/panyam/chakra/host, method (BaseExtension) Tools() (agent.ToolSource, error)
 pkg github.com/panyam/chakra/host, method (BaseExtension) TurnEndHooks() []agent.TurnEndHook
 pkg github.com/panyam/chakra/host, method (BaseExtension) TurnStart(context.Context) error
+pkg github.com/panyam/chakra/host, method (ConnectionConfig) Cost(*agent.Usage) (float64, bool)
 pkg github.com/panyam/chakra/host, method (ConnectionTypes) Build(ConnectionConfig) (agent.Provider, error)
 pkg github.com/panyam/chakra/host, method (PromptSectionFunc) Section(context.Context) string
 pkg github.com/panyam/chakra/host, type Announcer interface
@@ -212,6 +213,7 @@ pkg github.com/panyam/chakra/host, type ConnectionConfig struct, BaseURL string
 pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Dim int
 pkg github.com/panyam/chakra/host, type ConnectionConfig struct, MaxTokens int
 pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Model string
+pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Price *Price
 pkg github.com/panyam/chakra/host, type ConnectionConfig struct, ReasoningEffort string
 pkg github.com/panyam/chakra/host, type ConnectionConfig struct, ResponseSchema *bool
 pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Temperature *bool
@@ -306,6 +308,10 @@ pkg github.com/panyam/chakra/host, type OffloadConfig struct, PreviewLen int
 pkg github.com/panyam/chakra/host, type OffloadConfig struct, ThresholdBytes int
 pkg github.com/panyam/chakra/host, type PlanExtension struct
 pkg github.com/panyam/chakra/host, type PlanExtension struct, embedded BaseExtension
+pkg github.com/panyam/chakra/host, type Price struct
+pkg github.com/panyam/chakra/host, type Price struct, CachedInput *float64
+pkg github.com/panyam/chakra/host, type Price struct, Input float64
+pkg github.com/panyam/chakra/host, type Price struct, Output float64
 pkg github.com/panyam/chakra/host, type ProcessController interface
 pkg github.com/panyam/chakra/host, type ProcessController interface, ResizeProcess(string, int, int) error
 pkg github.com/panyam/chakra/host, type ProcessController interface, WriteProcess(string, string) error

@@ -1,0 +1,23 @@
+{
+  "instructions": "Answer the question with the tools you have. Say what you found and stop.",
+  "maxSteps": 30,
+  "servers": [
+    { "id": "mcp", "url": "http://localhost:8000/mcp" }
+  ],
+  "connections": {
+    "active": "gpt-5.5",
+    "connections": {
+      "gpt-5.5": {
+        "type": "openai-responses", "model": "gpt-5.5", "reasoningEffort": "medium",
+        "apiKeyEnv": "OPENAI_API_KEY",
+        "price": { "input": 5.00, "cachedInput": 0.50, "output": 30.00 }
+      },
+      "sonnet": {
+        "type": "anthropic", "model": "claude-sonnet-5-5", "maxTokens": 64000,
+        "apiKeyEnv": "ANTHROPIC_API_KEY",
+        "price": { "input": 2.00, "cachedInput": 0.20, "output": 10.00 }
+      },
+      "qwen-14b": { "type": "llamacpp" }
+    }
+  }
+}
