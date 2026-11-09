@@ -4,7 +4,7 @@ go 1.26.9
 
 require (
 	github.com/panyam/chakra v0.3.2
-	github.com/panyam/mcpkit v0.8.18
+	github.com/panyam/mcpkit v0.8.19
 )
 
 require (
