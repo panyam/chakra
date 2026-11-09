@@ -592,7 +592,7 @@ never map it into request bodies. The stamp is inside the stored JSON body, so t
 column and forks copy it for free.
 
 Host wiring is `agent/host/persistence.go`: `WithRunStore` plus `AttachRun` (create-or-resume),
-`Resume` (must-exist), and `Fork`. It persists at the `RunTurn` append site, and `PersistingEmit`
+`Resume` (must-exist), and `Fork`. It persists at the `RunTurn` append site, and `persistingEmit`
 buffers the event stream into one `AppendEvents` per turn. A failed turn persists its events
 (tool calls, the error) but no messages. `RunTurn` rolls the history back, and the message log has
 to match it. Before #71 a failed turn persisted nothing. If it had made edits, a restart lost the
@@ -723,7 +723,7 @@ tagged `{Scope: activeAgentName, Depth: 1}`. It **replaces** the raw emit, so no
 The raw emit is the fallback when OnEvent is nil.
 
 **The persistence gotcha.** If attributed events tee back through the render path, they render
-twice. So team mode builds a buffer-only `PersistingEmit` with `NewPersistingEmit(store, id, nil)`.
+twice. So team mode builds a buffer-only `persistingEmit` with `newPersistingEmit(store, id, nil)`.
 The nil next means persist without rendering. A per-turn `a.teamEventSink` exposes it, and the
 `OnEvent` closure feeds that sink.
 
@@ -744,7 +744,7 @@ non-referential. `transfer_to` still belongs to Team and is not duplicated here.
 
 Each `Runner` / `AgentSource` / `TeamMember` has its own Provider. A heavy supervisor can
 delegate to cheap sub-agents with no special machinery. Within one conversation:
-`ConnectionRegistry` plus `providerSwitch` (`/provider`), `FailoverProvider` (primary/backup),
+`connectionRegistry` plus `providerSwitch` (`/provider`), `FailoverProvider` (primary/backup),
 and the deferred routing policy (#991).
 
 ### Composition axes (design discussion → #1157)
@@ -1147,7 +1147,7 @@ The quirk table is gone, and `ServerSpec.SettleDelay` remains as the escape hatc
 
 Three things worth carrying:
 
-- **`DefaultDiagnosticsTimeout` had to go from 3s to 8s**, and every wrong version above passed its
+- **`defaultDiagnosticsTimeout` had to go from 3s to 8s**, and every wrong version above passed its
   unit tests. The stub does exactly what the test tells it to. Only the live probe showed the
   8s-per-write regression and the empty-set-as-answer one. A test that re-checks a file it just
   opened also hides the didSave problem entirely. So a live test now warms the server first and
@@ -1423,7 +1423,7 @@ has already happened.
 
 ### Connections
 
-`ConnectionsConfig` is data, `ConnectionRegistry` is runtime (`agent/host/connections.go`).
+`ConnectionsConfig` is data, `connectionRegistry` is runtime (`agent/host/connections.go`).
 The config holds named provider connections in the `llm.json` shape. The registry builds and
 caches providers lazily, and holds `SetActive`.
 

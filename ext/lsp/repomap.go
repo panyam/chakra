@@ -16,15 +16,14 @@ import (
 // RepoMapConfig turns on the repository map. A nil pointer on Config leaves it
 // off, and off contributes nothing.
 type RepoMapConfig struct {
-	// TokenBudget caps the rendered map. Zero means DefaultRepoMapBudget.
+	// TokenBudget caps the rendered map. Zero means 2000.
 	//
 	// It is counted as bytes/4. That is a rough proxy, and deliberately not a
 	// tokenizer. The map is prose for orientation, so being 20% out wastes a
 	// little context and never affects correctness.
 	TokenBudget int
 
-	// MaxFiles caps how many files are asked about. Zero means
-	// DefaultRepoMapMaxFiles.
+	// MaxFiles caps how many files are asked about. Zero means 400.
 	//
 	// Every file needs a documentSymbol round trip. A server that only
 	// answers for open documents also needs an open and a close per file.
@@ -39,8 +38,8 @@ type RepoMapConfig struct {
 
 // Defaults for the repository map.
 const (
-	DefaultRepoMapBudget   = 2000
-	DefaultRepoMapMaxFiles = 400
+	defaultRepoMapBudget   = 2000
+	defaultRepoMapMaxFiles = 400
 )
 
 // DefaultRepoMapExclude lists the usual noise of dependency trees, build
@@ -100,11 +99,11 @@ type fileEntry struct {
 func buildRepoMap(ctx context.Context, p *pool, cfg RepoMapConfig) string {
 	budget := cfg.TokenBudget
 	if budget <= 0 {
-		budget = DefaultRepoMapBudget
+		budget = defaultRepoMapBudget
 	}
 	maxFiles := cfg.MaxFiles
 	if maxFiles <= 0 {
-		maxFiles = DefaultRepoMapMaxFiles
+		maxFiles = defaultRepoMapMaxFiles
 	}
 	exclude := cfg.Exclude
 	if exclude == nil {

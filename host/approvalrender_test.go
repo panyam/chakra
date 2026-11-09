@@ -34,7 +34,7 @@ func appWith(t *testing.T, exts ...Extension) *App {
 	t.Helper()
 	a := &App{
 		promptBuilder: &SystemPromptBuilder{},
-		commands:      NewCommandRegistry(),
+		commands:      newCommandRegistry(),
 	}
 	if _, err := a.applyExtensions(exts, nil); err != nil {
 		t.Fatal(err)

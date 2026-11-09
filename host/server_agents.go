@@ -204,13 +204,13 @@ func (w *listWatchers) notify(serverID string) func(method string, params any) {
 // unless its hint places it elsewhere.
 type agentModels struct {
 	main  agent.Provider
-	reg   *ConnectionRegistry
+	reg   *connectionRegistry
 	table agentsclient.RoleTable[string]
 }
 
 // newAgentModels builds the role table from Connections.AgentRoles. A nil
 // registry, or one with no agent roles, sends every agent to main.
-func newAgentModels(main agent.Provider, reg *ConnectionRegistry) agentModels {
+func newAgentModels(main agent.Provider, reg *connectionRegistry) agentModels {
 	m := agentModels{main: main, reg: reg}
 	if reg == nil {
 		return m

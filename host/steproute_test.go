@@ -19,13 +19,13 @@ func TestStepRoutesValidated(t *testing.T) {
 	for name, routes := range cases {
 		cfg := twoConn()
 		cfg.StepRoutes = routes
-		if _, err := NewConnectionRegistry(cfg, stubBuilder(t)); err == nil || !strings.Contains(err.Error(), "stepRoutes[0]") {
+		if _, err := newConnectionRegistry(cfg, stubBuilder(t)); err == nil || !strings.Contains(err.Error(), "stepRoutes[0]") {
 			t.Errorf("%s: err = %v, want a stepRoutes error", name, err)
 		}
 	}
 	cfg := twoConn()
 	cfg.StepRoutes = []StepRoute{{FromStep: 2, Connection: "cloud"}, {ToStep: 1, Connection: "local"}}
-	if _, err := NewConnectionRegistry(cfg, stubBuilder(t)); err != nil {
+	if _, err := newConnectionRegistry(cfg, stubBuilder(t)); err != nil {
 		t.Errorf("valid routes refused: %v", err)
 	}
 }

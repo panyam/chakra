@@ -15,12 +15,12 @@ func startTTY(p *proc, sb Sandbox, policy Policy) error {
 	if err := sb.Confine(p.cmd, policy); err != nil {
 		return err
 	}
-	f, err := pty.StartWithSize(p.cmd, &pty.Winsize{Cols: TTYCols, Rows: TTYRows})
+	f, err := pty.StartWithSize(p.cmd, &pty.Winsize{Cols: ttyCols, Rows: ttyRows})
 	if err != nil {
 		return err
 	}
 	p.stdin, p.closeIn = f, func() { f.Close() }
-	p.cols, p.rows = TTYCols, TTYRows
+	p.cols, p.rows = ttyCols, ttyRows
 	p.resize = func(cols, rows int) error {
 		return pty.Setsize(f, &pty.Winsize{Cols: uint16(cols), Rows: uint16(rows)})
 	}

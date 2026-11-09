@@ -5,7 +5,6 @@ pkg github.com/panyam/chakra/surfaces/web, func NewHostService(*host.App) *HostS
 pkg github.com/panyam/chakra/surfaces/web, func NewHostServiceWithSessions(*SessionManager, ...Option) *HostService
 pkg github.com/panyam/chakra/surfaces/web, func NewSessionManager(func(context.Context) (*host.App, error)) *SessionManager
 pkg github.com/panyam/chakra/surfaces/web, func NewSessionManagerWithStore(func(context.Context) (*host.App, error), agent.RunStore) *SessionManager
-pkg github.com/panyam/chakra/surfaces/web, func ProfileOf(string) string
 pkg github.com/panyam/chakra/surfaces/web, func WithPrivateSessions() Option
 pkg github.com/panyam/chakra/surfaces/web, func WithProfile(Profile) Option
 pkg github.com/panyam/chakra/surfaces/web, func WithSessionBuilder(SessionBuilder) Option

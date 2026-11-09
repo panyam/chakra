@@ -33,7 +33,7 @@ type ServerSpec struct {
 
 	// SettleDelay is how long to keep waiting for further diagnostics after a
 	// publication arrives, before treating the last set as the answer. Zero
-	// means DefaultSettleDelay.
+	// means 250ms.
 	//
 	// The wait already extends while the server reports itself busy. That
 	// covers servers that publish a provisional empty set and then their real
@@ -82,7 +82,7 @@ type Config struct {
 	Writes []WriteSpec
 
 	// DiagnosticsTimeout bounds the wait for the server to re-check a file
-	// after a write. Zero means DefaultDiagnosticsTimeout.
+	// after a write. Zero means 8s.
 	//
 	// An expired wait reports a timeout, not what we last knew. Imagine we
 	// presented stale problems as the result of the edit that just ran. The
@@ -90,7 +90,7 @@ type Config struct {
 	DiagnosticsTimeout time.Duration
 
 	// MaxDiagnostics caps how many problems go in one injected block. Zero
-	// means DefaultMaxDiagnostics. The block always reports what the cap drops.
+	// means 50. The block always reports what the cap drops.
 	MaxDiagnostics int
 
 	// RepoMap adds a ranked repository map to the system prompt. Nil leaves it
@@ -105,18 +105,18 @@ type Config struct {
 
 // Defaults for the bounds in Config and ServerSpec.
 const (
-	// DefaultDiagnosticsTimeout bounds the whole wait after a write, including
+	// defaultDiagnosticsTimeout bounds the whole wait after a write, including
 	// the time a server spends reporting itself busy. It is generous for two
 	// reasons. A cold server on a large project needs that long. And when the
 	// wait runs out, the report says so instead of giving an all-clear.
-	DefaultDiagnosticsTimeout = 8 * time.Second
+	defaultDiagnosticsTimeout = 8 * time.Second
 
-	// DefaultSettleDelay is the quiet period for a server that publishes once
+	// defaultSettleDelay is the quiet period for a server that publishes once
 	// and means it. Most servers do. It is short enough that a clean edit is
 	// not noticeably slower.
-	DefaultSettleDelay = 250 * time.Millisecond
+	defaultSettleDelay = 250 * time.Millisecond
 
-	DefaultMaxDiagnostics = 50
+	defaultMaxDiagnostics = 50
 )
 
 // startTimeout bounds the initialize handshake for one server.
@@ -256,7 +256,7 @@ func (s *source) render(c *client, locs []location) string {
 	var b strings.Builder
 	shown := 0
 	for _, loc := range locs {
-		if shown >= DefaultMaxDiagnostics {
+		if shown >= defaultMaxDiagnostics {
 			fmt.Fprintf(&b, "\nshowing %d of %d; narrow the query", shown, len(locs))
 			break
 		}

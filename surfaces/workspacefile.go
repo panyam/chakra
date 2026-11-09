@@ -89,11 +89,11 @@ type instructionsFile struct {
 	agentsmd.Profile
 }
 
-// InstructionsProfile decodes an "instructions" object. It starts from the
+// instructionsProfile decodes an "instructions" object. It starts from the
 // named preset, or agentsmd.DefaultPreset when none is named, and lays the
 // object's other fields over it. off reports "off": true. Unknown fields are
 // an error, like everywhere else in the file.
-func InstructionsProfile(raw json.RawMessage) (p *agentsmd.Profile, off bool, err error) {
+func instructionsProfile(raw json.RawMessage) (p *agentsmd.Profile, off bool, err error) {
 	var head struct {
 		Preset string `json:"preset"`
 	}
@@ -297,14 +297,14 @@ func (f *WorkspaceFile) Apply(cfg *WorkspaceConfig) error {
 		cfg.EditTools = f.EditTools
 	}
 	if len(f.Instructions) > 0 {
-		p, off, err := InstructionsProfile(f.Instructions)
+		p, off, err := instructionsProfile(f.Instructions)
 		if err != nil {
 			return err
 		}
 		cfg.Instructions, cfg.NoInstructions = p, off
 	}
 	if f.Skills != nil {
-		if _, err := SkillFolders(f.Skills.Preset, f.Skills.Dirs); err != nil {
+		if _, err := skillFolders(f.Skills.Preset, f.Skills.Dirs); err != nil {
 			return err
 		}
 		cfg.SkillsPreset = f.Skills.Preset

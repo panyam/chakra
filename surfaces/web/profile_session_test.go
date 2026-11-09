@@ -56,7 +56,7 @@ func TestProfileSessionSurvivesRestartAsItsOwnKind(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateProfile with a store: %v", err)
 	}
-	if ProfileOf(id) != "coding" {
+	if profileOf(id) != "coding" {
 		t.Errorf("id %q doesn't name its profile", id)
 	}
 	app, _ := mgr1.Get(ctx, id)

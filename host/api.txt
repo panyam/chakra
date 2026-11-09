@@ -36,9 +36,6 @@ pkg github.com/panyam/chakra/host, func DefaultProviderBuilder(ConnectionConfig)
 pkg github.com/panyam/chakra/host, func LoadConfig(string) (*Config, error)
 pkg github.com/panyam/chakra/host, func LoadConfigWithOverlay(string) (*Config, error)
 pkg github.com/panyam/chakra/host, func NewApp(*Config, io.Writer, io.Reader, ...AppOption) (*App, error)
-pkg github.com/panyam/chakra/host, func NewCommandRegistry() *CommandRegistry
-pkg github.com/panyam/chakra/host, func NewConnectionRegistry(*ConnectionsConfig, ProviderBuilder) (*ConnectionRegistry, error)
-pkg github.com/panyam/chakra/host, func NewPersistingEmit(agent.RunStore, string, func(agent.Event)) *PersistingEmit
 pkg github.com/panyam/chakra/host, func NewPlanExtension() *PlanExtension
 pkg github.com/panyam/chakra/host, func NewPlanSlotExtension(*agent.Slots, string) *PlanExtension
 pkg github.com/panyam/chakra/host, func NewSlotsExtension(*agent.Slots, ...string) *SlotsExtension
@@ -98,16 +95,7 @@ pkg github.com/panyam/chakra/host, method (*CommandRegistry) Names() []string
 pkg github.com/panyam/chakra/host, method (*CommandRegistry) Register(*Command)
 pkg github.com/panyam/chakra/host, method (*Config) APIKey() string
 pkg github.com/panyam/chakra/host, method (*Config) Validate() error
-pkg github.com/panyam/chakra/host, method (*ConnectionRegistry) Active() string
-pkg github.com/panyam/chakra/host, method (*ConnectionRegistry) ActiveModel() string
-pkg github.com/panyam/chakra/host, method (*ConnectionRegistry) ActiveProvider() (agent.Provider, error)
-pkg github.com/panyam/chakra/host, method (*ConnectionRegistry) ModelOf(string) string
-pkg github.com/panyam/chakra/host, method (*ConnectionRegistry) Names() []string
-pkg github.com/panyam/chakra/host, method (*ConnectionRegistry) Provider(string) (agent.Provider, error)
-pkg github.com/panyam/chakra/host, method (*ConnectionRegistry) SetActive(string) (agent.Provider, error)
 pkg github.com/panyam/chakra/host, method (*ConnectionsConfig) EmbedderConnection() (ConnectionConfig, bool)
-pkg github.com/panyam/chakra/host, method (*PersistingEmit) Emit(agent.Event)
-pkg github.com/panyam/chakra/host, method (*PersistingEmit) Flush(context.Context) error
 pkg github.com/panyam/chakra/host, method (*PlanExtension) Latest() *agent.Plan
 pkg github.com/panyam/chakra/host, method (*PlanExtension) Name() string
 pkg github.com/panyam/chakra/host, method (*PlanExtension) StepStages() []agent.StepStage
@@ -229,7 +217,6 @@ pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Temperature *bo
 pkg github.com/panyam/chakra/host, type ConnectionConfig struct, ThinkingHint *ThinkingHint
 pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Type string
 pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Vision bool
-pkg github.com/panyam/chakra/host, type ConnectionRegistry struct
 pkg github.com/panyam/chakra/host, type ConnectionTypes map[string]ProviderBuilder
 pkg github.com/panyam/chakra/host, type ConnectionsConfig struct
 pkg github.com/panyam/chakra/host, type ConnectionsConfig struct, Active string
@@ -315,7 +302,6 @@ pkg github.com/panyam/chakra/host, type OffloadConfig struct
 pkg github.com/panyam/chakra/host, type OffloadConfig struct, PerTool map[string]int
 pkg github.com/panyam/chakra/host, type OffloadConfig struct, PreviewLen int
 pkg github.com/panyam/chakra/host, type OffloadConfig struct, ThresholdBytes int
-pkg github.com/panyam/chakra/host, type PersistingEmit struct
 pkg github.com/panyam/chakra/host, type PlanExtension struct
 pkg github.com/panyam/chakra/host, type PlanExtension struct, embedded BaseExtension
 pkg github.com/panyam/chakra/host, type ProcessController interface

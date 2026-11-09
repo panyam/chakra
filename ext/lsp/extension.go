@@ -80,11 +80,11 @@ func New(cfg Config) (*Extension, error) {
 	}
 	timeout := cfg.DiagnosticsTimeout
 	if timeout <= 0 {
-		timeout = DefaultDiagnosticsTimeout
+		timeout = defaultDiagnosticsTimeout
 	}
 	maxDiag := cfg.MaxDiagnostics
 	if maxDiag <= 0 {
-		maxDiag = DefaultMaxDiagnostics
+		maxDiag = defaultMaxDiagnostics
 	}
 	// The start is bounded. initialize is a request to a process we just
 	// spawned. Without a bound, a server that never answers would hang App

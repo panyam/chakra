@@ -160,7 +160,7 @@ That choice is an axis-agnostic config property, not a composition
 primitive.
 
 Switching models *within* a single conversation uses a different seam. That
-seam includes `ConnectionRegistry` + `providerSwitch` (the `/provider`
+seam includes `connectionRegistry` + `providerSwitch` (the `/provider`
 command) and `FailoverProvider` (primary/backup with cooldown). It also
 includes the deferred per-turn/per-role routing policy (issue 991). Across
 agents, each `Runner` has its own provider, as described here. Within one

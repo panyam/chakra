@@ -221,7 +221,7 @@ func buildApp(ctx context.Context, v *viper.Viper, surfaceOpts []host.AppOption,
 	}
 	// --active overrides the config's chat connection at startup, so a real
 	// provider can be selected by env/flag without editing the config
-	// (validated by NewConnectionRegistry inside NewApp).
+	// (NewApp validates it).
 	if active := v.GetString("active"); active != "" && cfg.Connections != nil {
 		cfg.Connections.Active = active
 	}

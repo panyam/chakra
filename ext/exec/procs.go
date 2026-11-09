@@ -807,12 +807,12 @@ func (s *Source) Close() error {
 	return nil
 }
 
-// TTYCols and TTYRows are the size of the terminal an exec_command with tty
+// ttyCols and ttyRows are the size of the terminal an exec_command with tty
 // gets. Without one the size is 0x0, and some programs then wrap at every
 // character or refuse to draw. Surfaces get the size on ProcessOutput.
 const (
-	TTYCols = 120
-	TTYRows = 30
+	ttyCols = 120
+	ttyRows = 30
 )
 
 // errNoTTY is returned where pseudo-terminals aren't supported.

@@ -323,7 +323,7 @@ func TestPersistingEmitFlush(t *testing.T) {
 	}
 
 	var forwarded []agent.Event
-	pe := NewPersistingEmit(store, created.RunID, func(e agent.Event) { forwarded = append(forwarded, e) })
+	pe := newPersistingEmit(store, created.RunID, func(e agent.Event) { forwarded = append(forwarded, e) })
 	pe.Emit(agent.Event{Kind: agent.EventTurnBegin})
 	pe.Emit(agent.Event{Kind: agent.EventTextDelta, Step: 1, Text: "hi"})
 	if len(forwarded) != 2 {
@@ -345,7 +345,7 @@ func TestPersistingEmitFlush(t *testing.T) {
 		t.Fatalf("re-Flush duplicated events: %d", len(resp.Run.Events))
 	}
 
-	missing := NewPersistingEmit(store, "gone", nil)
+	missing := newPersistingEmit(store, "gone", nil)
 	missing.Emit(agent.Event{Kind: agent.EventTurnBegin})
 	if err := missing.Flush(ctx); err == nil {
 		t.Fatal("Flush against a missing run succeeded, want error")
@@ -408,7 +408,7 @@ func TestPersistingEmitRedactsTurnEndMessages(t *testing.T) {
 	}
 
 	var seen []agent.Event
-	pe := NewPersistingEmit(store, created.RunID, func(e agent.Event) { seen = append(seen, e) })
+	pe := newPersistingEmit(store, created.RunID, func(e agent.Event) { seen = append(seen, e) })
 
 	result := &agent.TurnResult{
 		Text:         "done",
