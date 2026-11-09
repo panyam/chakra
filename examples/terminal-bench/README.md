@@ -90,6 +90,11 @@ make tbench-stale N=10 BUDGET=5   # print the oldest or never-run cells of the c
 make tbench-stale RUN=1           # run them, one `make tbench` per setup, then ingest
 ```
 
+The same matrix is published at <https://panyam.github.io/chakra/benchmarks/>. The `pages` workflow
+renders it again on each push to main that changes `benchmarks/results/`, so a merged mission PR
+updates it. The workflow takes the task list from a sparse clone of `terminal-bench-2` that fetches
+only each `task.toml`.
+
 Two sessions often merge on the mission a few minutes apart, and each runs `make mission-tbench`
 from its own checkout. On 2026-11-06 two batches started 30 seconds apart, picked the same oldest
 cells, and ran four Codex tasks twice for about $3 (#289). So `tbench-stale RUN=1` now runs its
