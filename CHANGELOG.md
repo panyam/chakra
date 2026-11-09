@@ -5,6 +5,23 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
+## [v0.3.2] - 2026-11-09
+
+Full notes in [docs/releases/v0.3.2.md](docs/releases/v0.3.2.md).
+
+### Added
+- `FreeResult`: a tool answer the model reads as a result, which costs no step under the free-refusal rule. `AddFunc` and `AddAsyncFunc` handlers can return it, `DenyTool` or `DenyToolFree` themselves (PR 321).
+- `NewRepeatCache`: a tool middleware that answers a repeated idempotent call with the turn's first answer, for free (PR 321).
+- `NewSlotsWith` and `SlotsConfig`: the slots' opening line, and sending them as a user message (PR 321).
+- `RetrievalInfo.Block`: the retrieval stage's injected text, on `EventRetrieved` (PR 321).
+- `Capabilities.Sendable`: the penalty kinds a provider takes, with the rest dropped (PR 321).
+
+### Changed
+- 16 names in `host`, `surfaces`, `surfaces/web`, `ext/lsp` and `ext/exec` that nothing outside their package used are unexported (PR 309). The release notes list them.
+
+### Fixed
+- `tbench-lock.sh` claims its lock with an exclusive create of the pid file, since uutils `mkdir` let two racing callers both win (PR 311).
+
 ## [v0.3.1] - 2026-11-08
 
 Full notes in [docs/releases/v0.3.1.md](docs/releases/v0.3.1.md).
