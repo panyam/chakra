@@ -62,6 +62,7 @@ pkg github.com/panyam/chakra/host, func WithTracerProvider(core.TracerProvider) 
 pkg github.com/panyam/chakra/host, method (*App) AttachRun(context.Context, string) error
 pkg github.com/panyam/chakra/host, method (*App) Close()
 pkg github.com/panyam/chakra/host, method (*App) Commands() *CommandRegistry
+pkg github.com/panyam/chakra/host, method (*App) Deliver(context.Context, agent.IncomingEvent) error
 pkg github.com/panyam/chakra/host, method (*App) Dispatch(context.Context, string) (CmdResult, error)
 pkg github.com/panyam/chakra/host, method (*App) Fork(context.Context, string, int) (string, error)
 pkg github.com/panyam/chakra/host, method (*App) InterruptToolCalls() bool
@@ -232,6 +233,7 @@ pkg github.com/panyam/chakra/host, type CritiqueConfig struct, AllowOnError bool
 pkg github.com/panyam/chakra/host, type CritiqueConfig struct, Principles string
 pkg github.com/panyam/chakra/host, type CritiqueConfig struct, Tools []string
 pkg github.com/panyam/chakra/host, type EventConfig struct
+pkg github.com/panyam/chakra/host, type EventConfig struct, Arguments map[string]any
 pkg github.com/panyam/chakra/host, type EventConfig struct, Hint *agent.ContextHint
 pkg github.com/panyam/chakra/host, type EventConfig struct, Name string
 pkg github.com/panyam/chakra/host, type Extension interface
@@ -344,6 +346,7 @@ pkg github.com/panyam/chakra/host, type ServerConfig struct, Env map[string]stri
 pkg github.com/panyam/chakra/host, type ServerConfig struct, EnvPass []string
 pkg github.com/panyam/chakra/host, type ServerConfig struct, Events []EventConfig
 pkg github.com/panyam/chakra/host, type ServerConfig struct, ID string
+pkg github.com/panyam/chakra/host, type ServerConfig struct, OnConnect []ToolCallConfig
 pkg github.com/panyam/chakra/host, type ServerConfig struct, Required bool
 pkg github.com/panyam/chakra/host, type ServerConfig struct, Skills *bool
 pkg github.com/panyam/chakra/host, type ServerConfig struct, SkillsAllow []string
@@ -392,6 +395,9 @@ pkg github.com/panyam/chakra/host, type TeamMemberConfig struct, embedded SubAge
 pkg github.com/panyam/chakra/host, type ThinkingHint struct
 pkg github.com/panyam/chakra/host, type ThinkingHint struct, CloseTag string
 pkg github.com/panyam/chakra/host, type ThinkingHint struct, OpenTag string
+pkg github.com/panyam/chakra/host, type ToolCallConfig struct
+pkg github.com/panyam/chakra/host, type ToolCallConfig struct, Arguments map[string]any
+pkg github.com/panyam/chakra/host, type ToolCallConfig struct, Name string
 pkg github.com/panyam/chakra/host, type TriggerConfig struct
 pkg github.com/panyam/chakra/host, type TriggerConfig struct, CooldownSec int
 pkg github.com/panyam/chakra/host, type TriggerConfig struct, Event string

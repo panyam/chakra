@@ -3,6 +3,7 @@ package host
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	"github.com/panyam/chakra"
 	gocurrent "github.com/panyam/gocurrent"
@@ -55,6 +56,18 @@ type streamSet struct {
 
 	calls []*eventsclient.StreamCall
 
+	// setups holds each server's OnConnect state, by server id.
+	setups map[string]*serverSetup
+
+	// local carries events that in-process code hands to App.Deliver. It is
+	// one more input to fanIn, so delivered and streamed events share one
+	// consumer.
+	local chan agent.IncomingEvent
+
+	// consumed counts events the consumer has finished with, so tests can
+	// wait for one to pass through.
+	consumed atomic.Int64
+
 	// fanIn merges every subscription into one channel, and the consumer
 	// drains it. Nil when the async control plane is off.
 	fanIn *gocurrent.FanIn[agent.IncomingEvent]
@@ -88,6 +101,32 @@ func (s *streamSet) take(id string) *subscription {
 	}
 	delete(s.subs, id)
 	return sub
+}
+
+// drop removes sub when it is still the subscription registered under its
+// id. A stream that ended on its own leaves the set this way, and a newer
+// subscription under the same id stays.
+func (s *streamSet) drop(sub *subscription) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.subs[sub.id] == sub {
+		delete(s.subs, sub.id)
+	}
+}
+
+// setupFor returns the server's OnConnect state, creating it on first use.
+func (s *streamSet) setupFor(serverID string) *serverSetup {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.setups == nil {
+		s.setups = map[string]*serverSetup{}
+	}
+	st, ok := s.setups[serverID]
+	if !ok {
+		st = &serverSetup{}
+		s.setups[serverID] = st
+	}
+	return st
 }
 
 // has reports whether the id is already subscribed.

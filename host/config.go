@@ -718,6 +718,17 @@ type ServerConfig struct {
 	// feeds the injection policy (and any trigger bindings that match).
 	Events []EventConfig `json:"events,omitempty"`
 
+	// OnConnect lists tool calls the host makes, in order, after the server
+	// connects and before it opens the server's event streams. Some servers
+	// deliver a stream only to a session that has called a setup tool first,
+	// such as one that attaches the session to a room. The first call that
+	// fails or returns a tool error stops the list. The host then reports a
+	// warning and opens none of the server's streams. When a stream on the
+	// server drops, the host runs the list again before it reopens the
+	// stream at its last cursor. So each call should be safe to repeat. These
+	// calls come from config, so they skip the model's approval gate.
+	OnConnect []ToolCallConfig `json:"onConnect,omitempty"`
+
 	// Agents controls experimental server-advertised agent discovery
 	// (experimental/ext/agents). Nil or true auto-detects. Suppose a server
 	// advertises the io.modelcontextprotocol/agents extension. The host pulls
@@ -738,12 +749,27 @@ type ServerConfig struct {
 type EventConfig struct {
 	Name string `json:"name"`
 
+	// Arguments is the subscription's arguments object, for an event type
+	// that declares an inputSchema. The server validates it, and a refusal
+	// is a startup warning. Two entries with the same Name and different
+	// Arguments are two subscriptions. With Arguments set, the subscription
+	// id is "server:name#<hash>" rather than "server:name", and Hint applies
+	// to this subscription only.
+	Arguments map[string]any `json:"arguments,omitempty"`
+
 	// Hint overrides how occurrences reach the model (priority,
 	// aggregation window, template, retention, sensitivity). Without it, the
 	// server's hint applies. The server declares that hint on the event type
 	// in events/list, and the host re-reads it when the server announces
 	// events/list_changed.
 	Hint *agent.ContextHint `json:"hint,omitempty"`
+}
+
+// ToolCallConfig names one tool call and its arguments, for
+// ServerConfig.OnConnect.
+type ToolCallConfig struct {
+	Name      string         `json:"name"`
+	Arguments map[string]any `json:"arguments,omitempty"`
 }
 
 // TriggerConfig declares one proactive-turn binding. The anti-nag policy

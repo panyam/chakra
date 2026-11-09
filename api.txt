@@ -535,6 +535,7 @@ pkg github.com/panyam/chakra, type IncomingEvent struct, ID string
 pkg github.com/panyam/chakra, type IncomingEvent struct, Meta map[string]any
 pkg github.com/panyam/chakra, type IncomingEvent struct, Name string
 pkg github.com/panyam/chakra, type IncomingEvent struct, Server string
+pkg github.com/panyam/chakra, type IncomingEvent struct, Subscription string
 pkg github.com/panyam/chakra, type IncomingEvent struct, Time time.Time
 pkg github.com/panyam/chakra, type InjectedContext struct
 pkg github.com/panyam/chakra, type InjectedContext struct, Event IncomingEvent

@@ -145,6 +145,9 @@ func TestAppBackgroundTaskLifecycle(t *testing.T) {
 		t.Fatalf("registry must drop completed tasks, got %d", got)
 	}
 
+	// task.completed reaches injection through the event consumer, so wait
+	// for it to pass through before the next turn drains.
+	waitConsumed(t, app, 1)
 	if err := app.RunTurn(context.Background(), "any news?"); err != nil {
 		t.Fatal(err)
 	}
