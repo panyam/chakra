@@ -8,21 +8,22 @@
 # A second caller waits, naming the holder's pid, then picks after the first
 # batch's results exist, so the two pick disjoint cells. A lock whose pid is
 # no longer running is taken over. The command's exit status comes through.
-# macOS has no flock(1), and mkdir is atomic everywhere, so the lock is a
-# directory with a pid file inside.
+# macOS has no flock(1), so the lock is a directory with a pid file inside,
+# and whoever creates the pid file holds it. Bash's noclobber creates it with
+# O_EXCL, so exactly one caller wins. mkdir can't decide that: uutils mkdir
+# (Ubuntu 26.04) reports success to both of two racing callers.
 set -u
 
 [ $# -ge 2 ] || { sed -n '5p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 lock=$1
 shift
-mkdir -p "$(dirname "$lock")"
-
 said= empty=0
-while ! mkdir "$lock" 2>/dev/null; do
+while ! { mkdir -p "$lock" && (set -C; echo $$ >"$lock/pid"); } 2>/dev/null; do
 	pid=$(cat "$lock/pid" 2>/dev/null || true)
 	if [ -z "$pid" ]; then
-		# The holder made the directory and hasn't written its pid yet. Ten
-		# seconds without one means it died in between.
+		# The holder created the pid file and hasn't written to it yet, or
+		# the last holder is removing the directory. Ten seconds of an empty
+		# file means the holder died in between.
 		empty=$((empty + 1))
 		if [ $empty -lt 50 ]; then
 			sleep 0.2
@@ -33,7 +34,7 @@ while ! mkdir "$lock" 2>/dev/null; do
 	empty=0
 	if [ "$pid" = unknown ] || ! kill -0 "$pid" 2>/dev/null; then
 		echo "tbench-lock: pid $pid is gone, taking over $lock" >&2
-		rm -rf "$lock"
+		rm -f "$lock/pid"
 		continue
 	fi
 	if [ "$said" != "$pid" ]; then
@@ -42,7 +43,6 @@ while ! mkdir "$lock" 2>/dev/null; do
 	fi
 	sleep 2
 done
-echo $$ >"$lock/pid"
 trap 'rm -rf "$lock"' EXIT
 trap 'exit 130' INT TERM
 

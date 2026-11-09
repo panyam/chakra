@@ -412,9 +412,33 @@ class LockTest(unittest.TestCase):
             for p in procs:
                 _, err = p.communicate(timeout=60)
                 self.assertEqual(p.returncode, 0, err)
-            picked = [open(os.path.join(root, f"batch{i}")).read().split() for i in range(2)]
+            picked = []
+            for i in range(2):
+                with open(os.path.join(root, f"batch{i}")) as f:
+                    picked.append(f.read().split())
             self.assertEqual(sorted(picked[0] + picked[1]), ["a", "b", "c", "d"])
             self.assertFalse(os.path.exists(lock), "the lock is released")
+
+    def test_holders_never_overlap_when_mkdir_succeeds_twice(self):
+        # uutils mkdir (Ubuntu 26.04) reports success to both of two racing
+        # callers. A mkdir that always succeeds stands in for it, so the lock
+        # has to hold without mkdir deciding who wins.
+        with tempfile.TemporaryDirectory() as root:
+            fake = os.path.join(root, "bin")
+            os.makedirs(fake)
+            with open(os.path.join(fake, "mkdir"), "w") as f:
+                f.write('#!/bin/sh\nfor a; do case $a in -*) ;; *) /bin/mkdir -p "$a" ;; esac; done\n')
+            os.chmod(os.path.join(fake, "mkdir"), 0o755)
+            env = {**os.environ, "PATH": fake + os.pathsep + os.environ["PATH"]}
+            lock, log = os.path.join(root, ".stale.lock"), os.path.join(root, "log")
+            hold = f"echo in >>{log}; sleep 0.3; echo out >>{log}"
+            procs = [subprocess.Popen(["bash", LOCK, lock, "sh", "-c", hold], env=env,
+                                      stderr=subprocess.PIPE, text=True) for _ in range(3)]
+            for p in procs:
+                _, err = p.communicate(timeout=60)
+                self.assertEqual(p.returncode, 0, err)
+            with open(log) as f:
+                self.assertEqual(f.read().split(), ["in", "out"] * 3)
 
     def test_the_waiting_batch_names_the_holder(self):
         with tempfile.TemporaryDirectory() as root:
