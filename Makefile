@@ -12,7 +12,7 @@ MODULES := . host surfaces surfaces/chat surfaces/web \
 
 # EXAMPLES are built, vetted and tested like MODULES but never tagged, which is
 # also what a cross-extension test module (tests/<a>_<b>_e2e) needs.
-EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/host-exercise examples/coding-harness tests/files_git_e2e
+EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/host-exercise examples/coding-harness tests/files_git_e2e tests/chat_element_rooms_e2e
 
 # CI runs these same targets rather than restating the module list, so adding a
 # module is one edit here. It overrides GOTESTFLAGS only to add -v.

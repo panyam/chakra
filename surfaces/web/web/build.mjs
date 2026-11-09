@@ -49,13 +49,16 @@ await build({
   logLevel: "info",
 });
 
-// <chakra-chat> is a separate, single-file entry (#314). A page loads it with
-// one script tag from another origin, so it has no lazy chunks to fetch, and
-// it shares no module instances with app.js.
+// <chakra-chat> is a separate entry (#314). A page loads it with one script
+// tag from another origin, and it shares no module instances with app.js.
+// The rooms client is its one lazy chunk (#324), fetched beside it only when
+// a page sets room-join, so a chat without a room loads one file.
 await build({
   entryPoints: { "chakra-chat": "src/element/chakra-chat.ts" },
   outdir: OUT,
   bundle: true,
+  splitting: true,
+  chunkNames: "chakra-chat-[name]-[hash]",
   format: "esm",
   target: "es2022",
   minify: true,

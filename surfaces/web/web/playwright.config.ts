@@ -14,11 +14,23 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
   use: { baseURL: `http://127.0.0.1:${port}`, trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: {
-    command: `node web/e2e/pages/build.mjs && go run ./internal/e2eserver -addr 127.0.0.1:${port} -pages-addr 127.0.0.1:${pagesPort}`,
-    cwd: "..",
-    url: `http://127.0.0.1:${port}/`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      command: `node web/e2e/pages/build.mjs && go run ./internal/e2eserver -addr 127.0.0.1:${port} -pages-addr 127.0.0.1:${pagesPort}`,
+      cwd: "..",
+      url: `http://127.0.0.1:${port}/`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      // The <chakra-chat> room checks (#324): an app origin with a relay, a
+      // rooms bridge and a page on 8097, and agentweb on 8096. It is its own
+      // Go module, so massrelay stays out of this one.
+      command: "go run . -app-addr 127.0.0.1:8097 -agent-addr 127.0.0.1:8096",
+      cwd: "../../../tests/chat_element_rooms_e2e",
+      url: "http://127.0.0.1:8097/",
+      reuseExistingServer: !process.env.CI,
+      timeout: 180_000,
+    },
+  ],
 });

@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>an app with page tools</title>
+<script type="module" src="http://127.0.0.1:8096/static/chakra-chat.js"></script>
+<style>
+  body { font: 14px system-ui, sans-serif; display: grid; grid-template-columns: 1fr 380px; gap: 16px; margin: 16px; }
+  #board { border: 1px dashed #999; border-radius: 8px; padding: 16px; min-height: 200px; }
+  #highlight { background: #fff3a8; padding: 2px 4px; }
+  #highlight:empty { display: none; }
+</style>
+</head>
+<body>
+<section id="board">
+  <h1>A page of the app</h1>
+  <p>The agent can mark text here: <span id="highlight"></span></p>
+</section>
+<chakra-chat id="chat" server-url="http://127.0.0.1:8096" profile="rooms" room-join="/rooms/join" style="height: 520px"></chakra-chat>
+<script type="module">
+  const chat = document.getElementById("chat");
+  await customElements.whenDefined("chakra-chat");
+  const room = await chat.whenRoom();
+  room.registerTool({
+    name: "highlight",
+    description: "Mark a piece of text on the page",
+    inputSchema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
+    async execute({ text }) {
+      document.getElementById("highlight").textContent = text;
+      return "highlighted";
+    },
+  });
+</script>
+</body>
+</html>
