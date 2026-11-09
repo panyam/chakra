@@ -21,6 +21,15 @@ MAX_STEPS = 400
 ANTHROPIC_MAX_TOKENS = 64000
 
 
+FACTS_SLOT = {
+    "name": "facts",
+    "mode": "append",
+    "maxBytes": 3000,
+    "description": "what you'd otherwise rediscover: the commands that build and test this task, paths, "
+    "constraints, and approaches that already failed; one line each",
+}
+
+
 def build(model, base_url, effort, provider="openai"):
     """Returns (config, workspace) for `agentchat exec`.
 
@@ -52,5 +61,9 @@ def build(model, base_url, effort, provider="openai"):
     workspace = {
         "exec": {"sandbox": "unconfined", "shell": {"timeout": "10m", "rules": [], "processes": {"detach": True}}},
         "skills": {"dirs": []},
+        # update_plan, as Codex has, with the plan and a facts slot shown on
+        # every call so neither is lost to compaction (#279).
+        "plan": True,
+        "slots": [FACTS_SLOT],
     }
     return config, workspace

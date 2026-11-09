@@ -18,5 +18,9 @@
   },
   "skills": {"dirs": [".agents/skills"]},
   "git": {"review": true},
-  "plan": true
+  "plan": true,
+  "slots": [
+    { "name": "facts", "mode": "append", "maxBytes": 3000,
+      "description": "what you'd otherwise rediscover: the commands that build and test this repo, paths, constraints, and approaches that already failed; one line each" }
+  ]
 }

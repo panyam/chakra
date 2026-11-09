@@ -40,6 +40,8 @@ pkg github.com/panyam/chakra/host, func NewCommandRegistry() *CommandRegistry
 pkg github.com/panyam/chakra/host, func NewConnectionRegistry(*ConnectionsConfig, ProviderBuilder) (*ConnectionRegistry, error)
 pkg github.com/panyam/chakra/host, func NewPersistingEmit(agent.RunStore, string, func(agent.Event)) *PersistingEmit
 pkg github.com/panyam/chakra/host, func NewPlanExtension() *PlanExtension
+pkg github.com/panyam/chakra/host, func NewPlanSlotExtension(*agent.Slots, string) *PlanExtension
+pkg github.com/panyam/chakra/host, func NewSlotsExtension(*agent.Slots, ...string) *SlotsExtension
 pkg github.com/panyam/chakra/host, func NewTerminalRenderer(io.Writer) Observer
 pkg github.com/panyam/chakra/host, func NewTerminalRendererColor(io.Writer, bool) Observer
 pkg github.com/panyam/chakra/host, func StepRouteStage([]StepRoute, func(string) (agent.Provider, error), func() string) agent.StepStage
@@ -110,6 +112,11 @@ pkg github.com/panyam/chakra/host, method (*PlanExtension) Latest() *agent.Plan
 pkg github.com/panyam/chakra/host, method (*PlanExtension) Name() string
 pkg github.com/panyam/chakra/host, method (*PlanExtension) StepStages() []agent.StepStage
 pkg github.com/panyam/chakra/host, method (*PlanExtension) Tools() (agent.ToolSource, error)
+pkg github.com/panyam/chakra/host, method (*SlotsExtension) Name() string
+pkg github.com/panyam/chakra/host, method (*SlotsExtension) RestoreRun(agent.Run)
+pkg github.com/panyam/chakra/host, method (*SlotsExtension) Slots() *agent.Slots
+pkg github.com/panyam/chakra/host, method (*SlotsExtension) StepStages() []agent.StepStage
+pkg github.com/panyam/chakra/host, method (*SlotsExtension) Tools() (agent.ToolSource, error)
 pkg github.com/panyam/chakra/host, method (*SystemPromptBuilder) Append(PromptSection)
 pkg github.com/panyam/chakra/host, method (*SystemPromptBuilder) Build(context.Context) string
 pkg github.com/panyam/chakra/host, method (*SystemPromptBuilder) Prepend(PromptSection)
@@ -332,6 +339,8 @@ pkg github.com/panyam/chakra/host, type PromptSection interface
 pkg github.com/panyam/chakra/host, type PromptSection interface, Section(context.Context) string
 pkg github.com/panyam/chakra/host, type PromptSectionFunc func(context.Context) string
 pkg github.com/panyam/chakra/host, type ProviderBuilder func(ConnectionConfig) (agent.Provider, error)
+pkg github.com/panyam/chakra/host, type RunRestorer interface
+pkg github.com/panyam/chakra/host, type RunRestorer interface, RestoreRun(agent.Run)
 pkg github.com/panyam/chakra/host, type SamplingConfig struct
 pkg github.com/panyam/chakra/host, type SamplingConfig struct, Connection string
 pkg github.com/panyam/chakra/host, type SamplingConfig struct, Enabled bool
@@ -365,6 +374,8 @@ pkg github.com/panyam/chakra/host, type SkillDir struct
 pkg github.com/panyam/chakra/host, type SkillDir struct, Label string
 pkg github.com/panyam/chakra/host, type SkillDir struct, Own bool
 pkg github.com/panyam/chakra/host, type SkillDir struct, Path string
+pkg github.com/panyam/chakra/host, type SlotsExtension struct
+pkg github.com/panyam/chakra/host, type SlotsExtension struct, embedded BaseExtension
 pkg github.com/panyam/chakra/host, type SpotlightConfig struct
 pkg github.com/panyam/chakra/host, type SpotlightConfig struct, Tools map[string]string
 pkg github.com/panyam/chakra/host, type StepRoute struct

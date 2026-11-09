@@ -197,6 +197,20 @@ type Announcer interface {
 	SetAnnounce(announce func(message string))
 }
 
+// RunRestorer is an optional interface an Extension implements to rebuild
+// state it keeps for a session when the session switches runs. Imagine slots
+// written during yesterday's turns (#279). The messages come back with
+// Resume, but the slots live in the extension, so it reads them back from the
+// run's event log. The host calls RestoreRun with the loaded run on Resume,
+// on AttachRun, and on a Fork that rewinds, and with an empty run when
+// AttachRun creates one. Turn locks are held, so no turn runs meanwhile.
+//
+// A Fork from an earlier message copies no events (see
+// agent.ForkRunRequest), so the rewound run restores with none.
+type RunRestorer interface {
+	RestoreRun(run agent.Run)
+}
+
 // ProcessReporter is an optional interface an Extension implements to show
 // the output of processes its tools started while they run, such as a dev
 // server between the model's polls. The host calls SetProcessOutput once,

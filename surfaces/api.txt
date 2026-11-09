@@ -83,6 +83,7 @@ pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct, RepoMap bool
 pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct, Roots []string
 pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct, SkillDirs []string
 pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct, SkillsPreset string
+pkg github.com/panyam/chakra/surfaces, type WorkspaceConfig struct, Slots []agent.SlotSpec
 pkg github.com/panyam/chakra/surfaces, type WorkspaceFile struct
 pkg github.com/panyam/chakra/surfaces, type WorkspaceFile struct, EditTools []string
 pkg github.com/panyam/chakra/surfaces, type WorkspaceFile struct, Exec *ExecFile
@@ -92,6 +93,7 @@ pkg github.com/panyam/chakra/surfaces, type WorkspaceFile struct, LanguageServer
 pkg github.com/panyam/chakra/surfaces, type WorkspaceFile struct, Plan bool
 pkg github.com/panyam/chakra/surfaces, type WorkspaceFile struct, RepoMap bool
 pkg github.com/panyam/chakra/surfaces, type WorkspaceFile struct, Skills *SkillsFile
+pkg github.com/panyam/chakra/surfaces, type WorkspaceFile struct, Slots []agent.SlotSpec
 pkg github.com/panyam/chakra/surfaces, var SkillPresets
 pkg github.com/panyam/chakra/surfaces/coding, const ConfigFile
 pkg github.com/panyam/chakra/surfaces/coding, const WorkspaceFile

@@ -27,6 +27,12 @@ class BuildTest(unittest.TestCase):
         _, workspace = build("gpt-5.5", "https://api.openai.com/v1", None)
         self.assertEqual(workspace["exec"]["shell"]["processes"], {"detach": True})
 
+    def test_the_plan_and_a_facts_slot_are_on(self):
+        _, workspace = build("gpt-5.5", "https://api.openai.com/v1", None)
+        self.assertTrue(workspace["plan"])
+        self.assertEqual([s["name"] for s in workspace["slots"]], ["facts"])
+        self.assertEqual(workspace["slots"][0]["mode"], "append")
+
 
 class AnthropicBuildTest(unittest.TestCase):
     def test_a_claude_model_gets_a_messages_api_connection(self):

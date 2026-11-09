@@ -3,6 +3,7 @@ package surfaces
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/panyam/chakra"
 	"github.com/panyam/chakra/ext/agentsmd"
@@ -99,6 +100,12 @@ type WorkspaceConfig struct {
 
 	// Plan adds update_plan, the model's published checklist (#148).
 	Plan bool
+
+	// Slots adds named state slots that the model sees on every call, so
+	// they survive compaction (#279). The model writes them with write_slot.
+	// With Plan on, a "plan" slot is added unless one is declared, and only
+	// update_plan writes it. Empty adds none, and the plan works as before.
+	Slots []agent.SlotSpec
 
 	// Git adds ext/git. That always means read-only git tools and a per-turn
 	// diff, and its fields can add commit and branch tools, worktrees and
@@ -254,7 +261,14 @@ func WorkspaceExtensions(cfg WorkspaceConfig) ([]host.Extension, error) {
 		exts = append(exts, lx)
 	}
 
-	if cfg.Plan {
+	switch {
+	case len(cfg.Slots) > 0:
+		sx, err := slotExtensions(cfg.Slots, cfg.Plan)
+		if err != nil {
+			return nil, fmt.Errorf("workspace slots: %w", err)
+		}
+		exts = append(exts, sx...)
+	case cfg.Plan:
 		exts = append(exts, host.NewPlanExtension())
 	}
 
@@ -335,4 +349,31 @@ func (s restorableSource) Tools(ctx context.Context) ([]core.ToolDef, error) {
 		out[i] = d
 	}
 	return out, nil
+}
+
+// planSlot is the slot update_plan writes when a workspace declares slots and
+// none of them is named plan.
+var planSlot = agent.SlotSpec{Name: "plan", MaxBytes: 4000, Description: "your plan; update_plan writes it"}
+
+// slotExtensions serves specs, and with plan on, writes update_plan's plan
+// to the plan slot. write_slot covers every other slot.
+func slotExtensions(specs []agent.SlotSpec, plan bool) ([]host.Extension, error) {
+	if plan && !slices.ContainsFunc(specs, func(s agent.SlotSpec) bool { return s.Name == planSlot.Name }) {
+		specs = append([]agent.SlotSpec{planSlot}, specs...)
+	}
+	slots, err := agent.NewSlots(specs...)
+	if err != nil {
+		return nil, err
+	}
+	var writable []string
+	for _, s := range slots.Specs() {
+		if !plan || s.Name != planSlot.Name {
+			writable = append(writable, s.Name)
+		}
+	}
+	exts := []host.Extension{host.NewSlotsExtension(slots, writable...)}
+	if plan {
+		exts = append(exts, host.NewPlanSlotExtension(slots, planSlot.Name))
+	}
+	return exts, nil
 }

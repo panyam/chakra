@@ -69,6 +69,7 @@ func (a *App) AttachRun(ctx context.Context, runID string) error {
 	if resp.Created {
 		a.session.setRunID(resp.RunID)
 		a.history = nil
+		a.restoreRunLocked(agent.Run{ID: resp.RunID})
 		return nil
 	}
 	return a.resumeLocked(ctx, runID)
@@ -183,7 +184,17 @@ func (a *App) resumeLocked(ctx context.Context, runID string) error {
 	}
 	a.history = resp.Run.Messages
 	a.session.setRunID(runID)
+	a.restoreRunLocked(resp.Run)
 	return nil
+}
+
+// restoreRunLocked hands run to every RunRestorer. Caller holds turnMu.
+func (a *App) restoreRunLocked(run agent.Run) {
+	for _, ext := range a.extensions {
+		if r, ok := ext.(RunRestorer); ok {
+			r.RestoreRun(run)
+		}
+	}
 }
 
 // Fork copies the current run's log into a new run and switches the session
