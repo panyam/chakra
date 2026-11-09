@@ -179,6 +179,13 @@ Ask these in order.
 6. **Does it react to something outside the turn** (a server event, a child
    agent)? Signals and events.
 
+A host that wants several of these at once for a common kind of agent can
+start from a preset. `presets.GraphQuery` (#300) wires a grammar, a retrieval
+stage, a ledger in slots, a stuck detector, the repeat cache, a cap on tool
+steps and a turn-end check from the host's parts, and returns a plain
+`RunnerConfig`. Its stages have exported names, so `presets.Replace` and
+`presets.Remove` change one of them, and the host appends its own.
+
 ## How this point got its chain
 
 Before #7, each feature at the before-each-model-call point had its own
