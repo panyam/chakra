@@ -5,12 +5,11 @@ Where each line of work left off. Work items live in GitHub issues; this file po
 
 ## At a glance
 
-- Mission #162 (`mission_coding_harness`) is active, with 36 of 40 tickets closed. The exercises last ran at a4dbde9, after PR 275. The live run had 11 of 12, with the pinned `escalation_asked` failing. `make mission-tbench` shows chakra at 47/55 on 34 tasks and Codex at 42/52 on 31. The log is on #162. The next ready issues are #274, #32 and #277, all P3.
-- #195 (P1) has nothing left but a decision. It closes once the user says the original ablations are dropped.
+- Mission #299 (`mission_graph_query_preset`) is active, with 0 of 3 chakra tickets closed. It serves panyam/jaala#322, and it's also blocked by panyam/jaala#514 and #517. The next ready tickets are #279 (state slots) and #296 (windowed stuck detector), both P2. #300 (the preset, P1) waits on both. Its exercise is `make exercise-translator ARMS="14b:loop 14b"` in Declaire, and it hasn't run on this mission yet.
+- Mission #162 (`mission_coding_harness`) closed on 2026-11-08 with all 42 tickets done. The last log is on #162: the live exercise had 12 of 13, with `escalation_asked` accepted as a known limit, and `make mission-tbench` showed chakra at 54/66 and Codex at 51/67 on gpt-5.5.
+- Mission #142 (`mission_api_v1`) is paused, not closed. Its exercise `make api-report` runs green in CI, and #40 is its next ticket.
 - Mission #172 (jaala's translator) closed on 2026-11-03. One check is still unlogged: a live run against a single-slot (`-np 1`) llama-server, from jaala's side.
-- Mission #142 (`mission_api_v1`) is paused, not closed. Its exercise `make api-report` exists now and runs in CI.
-- main: see the thread. `postmerge-275` holds the last batch's results and goes in with #277.
-- This run: PRs 261, 263, 269, 271, 273 and 275 merged (#257, #262, #265, #266, #267, #264). Filed #274 and #277.
+- This run: PRs 283, 284, 288, 290, 291, 292, 293 and 295 merged (#276, #278, #285, #274, #280, #289, #281, #287), and v0.3.0 was tagged. #195 and #26 closed, and #32 moved off the mission.
 
 ## Across threads
 

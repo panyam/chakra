@@ -29,23 +29,24 @@ the PR says so as its main decision and updates the page in the same PR.
 ## Issues and missions
 
 Work is ranked by which mission it serves, not by how recently it was filed. The active mission is
-#162 (`mission_coding_harness`). It builds a second coding agent only by rewiring chakra, with
-different tools, hooks, policies and provider and no new harness. It is agentweb over the profile in
-`surfaces/coding`, so there is no TUI to fight. `examples/coding-harness/profile.go` adds the
-exercise's scripted model, recorder and step routing, and `agentweb --coding` serves the same
-profile at `/code/` (`make coding-harness-web`). Its exercise is
-`make coding-harness-exercise` (#163). The exercise drives the agent over agentweb's Connect API on
-a fixture repo with a failing test, and prints PASS or FAIL per behaviour. Known failures are pinned
-in `examples/coding-harness/expected.go`. The `-live` variant also prints steps, tokens, wall time
-and whether the tests passed. After each merge on the mission, run `make coding-harness-exercise-live`
-and `make mission-tbench`, and log both outputs on #162 (#265). `mission-tbench` runs the oldest or
-never-run Terminal-Bench cells for chakra and Codex on the same model, 8 cells within $6 at list
-price. It prints each side's solved count, the cells that changed, and what the batch cost. Two
-batches started together take turns on a lock in `TB_JOBS`, and each pick first ingests `TB_JOBS`,
-so they pick different cells even from different checkouts (#289). The new
-`benchmarks/results/` files go in with the next PR on the mission. `make coding-harness-parity`
-still runs `codex exec` beside the exercise on one fixture. Both agents always pass that fixture,
-so its table no longer goes in the log.
+#299 (`mission_graph_query_preset`). jaala's translator loop on a 14B local model should build from a
+chakra graph-query preset instead of wiring each hook by hand, and answer more of Declaire's
+questions. It serves panyam/jaala#322. The preset itself is #300, and it waits on state slots (#279)
+and the windowed stuck detector (#296). chakra can't import jaala, so the preset holds no jaala code.
+The exercise lives in the consumer: `make exercise-translator ARMS="14b:loop 14b"` in
+panyam/declaire. It prints questions passed, steps per question and steps spent on repeats per arm.
+After each merge on the mission, run it and log the output on #299.
+#162 (`mission_coding_harness`) closed on 2026-11-08 with all 42 tickets done. It built a second
+coding agent only by rewiring chakra: agentweb over the profile in `surfaces/coding`, served at
+`/code/` by `agentweb --coding` (`make coding-harness-web`). Its exercises still run.
+`make coding-harness-exercise` (#163) drives the agent over agentweb's Connect API on a fixture repo
+with a failing test, and prints PASS or FAIL per behaviour. Known failures are pinned in
+`examples/coding-harness/expected.go`, and `escalation_asked` fails live as an accepted limit, since
+the fixture gives the model no reason to leave the sandbox. `make mission-tbench` runs the oldest or
+never-run Terminal-Bench cells for chakra and Codex on the same model, within $6 at list price.
+Two batches started together take turns on a lock in `TB_JOBS`, and each pick first ingests
+`TB_JOBS`, so they pick different cells even from different checkouts (#289). New
+`benchmarks/results/` files go in with the next PR.
 #142 (`mission_api_v1`) is paused, not closed. Its goal is a chakra 1.0 with a reviewed, settled
 exported API. Its exercise is `make api-report` (#143), which diffs each module's exported symbols
 against a checked-in `api.txt`. The earlier missions were #57 (`mission_dogfood_coding`,
