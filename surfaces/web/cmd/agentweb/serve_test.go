@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -119,6 +120,40 @@ func TestOriginGuard(t *testing.T) {
 			guard.ServeHTTP(rec, req)
 			if rec.Code != tc.want {
 				t.Errorf("status %d, want %d", rec.Code, tc.want)
+			}
+		})
+	}
+}
+
+// A page on an allowed origin gets CORS headers and its preflight is
+// answered before the token guard. Another site gets none (#314).
+func TestCORSFollowsTheOriginGuard(t *testing.T) {
+	checker := newOriginChecker("")
+	h := corsFor(checker, originGuard(checker, tokenGuard("secret", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))))
+	for _, tc := range []struct {
+		name, method, origin string
+		wantCode             int
+		wantAllow            string
+	}{
+		{"preflight from a localhost page", "OPTIONS", "http://localhost:5173", http.StatusNoContent, "http://localhost:5173"},
+		{"preflight from another site", "OPTIONS", "https://evil.example", http.StatusNoContent, ""},
+		{"call from another site", "POST", "https://evil.example", http.StatusForbidden, ""},
+		{"call from a localhost page without the token", "POST", "http://127.0.0.1:5173", http.StatusUnauthorized, "http://127.0.0.1:5173"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, connectPrefix+"Submit", nil)
+			req.Host = "localhost:8090"
+			req.Header.Set("Origin", tc.origin)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+			if rec.Code != tc.wantCode {
+				t.Errorf("status %d, want %d", rec.Code, tc.wantCode)
+			}
+			if got := rec.Header().Get("Access-Control-Allow-Origin"); got != tc.wantAllow {
+				t.Errorf("Access-Control-Allow-Origin %q, want %q", got, tc.wantAllow)
+			}
+			if tc.wantAllow != "" && !strings.Contains(rec.Header().Get("Access-Control-Allow-Headers"), tokenHeader) {
+				t.Errorf("allowed headers %q must include %s", rec.Header().Get("Access-Control-Allow-Headers"), tokenHeader)
 			}
 		})
 	}
