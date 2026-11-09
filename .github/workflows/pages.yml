@@ -1,0 +1,60 @@
+# Publishes the Terminal-Bench matrix to GitHub Pages, at /benchmarks/, on
+# each push to main that changes the results or the script that renders them.
+# The site root is docs/site, which the docs site (#36) can grow into.
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - benchmarks/results/**
+      - scripts/tbench_matrix.py
+      - scripts/tbench_report.py
+      - docs/site/**
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # Full history: each chakra cell shows how many code commits came after
+      # the build it ran.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      # The matrix's rows are the dataset's tasks. Only each task.toml is
+      # needed, so the clone skips the task files.
+      - name: Terminal-Bench 2 task list
+        run: |
+          git clone -q --depth 1 --filter=blob:none --no-checkout https://github.com/harbor-framework/terminal-bench-2 tb2
+          git -C tb2 sparse-checkout set --no-cone '/*/task.toml'
+          git -C tb2 checkout -q
+      - name: Render
+        run: |
+          mkdir -p _site
+          cp -R docs/site/. _site/
+          python3 scripts/tbench_matrix.py render tb2 --out _site/benchmarks > /dev/null
+          rm _site/benchmarks/matrix.md
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}benchmarks/
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v5
