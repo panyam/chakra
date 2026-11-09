@@ -68,9 +68,10 @@ const (
 	// the budget dropped and which retrievers failed.
 	EventRetrieved EventKind = "retrieved"
 	// EventRefusalFree marks a step that cost no step (#281). Every tool call
-	// in it was refused free, or a turn-end hook continued with Free. Step is
-	// the model call, and Reason says why it was refused. The refused calls
-	// still emit EventToolDenied, and a free Continue still emits
+	// in it was refused free or answered with a FreeResult (#316), or a
+	// turn-end hook continued with Free. Step is the model call, and Reason
+	// says why it was free. The refused calls still emit EventToolDenied, a
+	// free result still emits EventToolEnd, and a free Continue still emits
 	// EventTurnContinued.
 	EventRefusalFree EventKind = "refusal-free"
 	// EventPlan sends the plan that a model published with update_plan

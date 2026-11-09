@@ -196,3 +196,46 @@ func TestNewSlotsRejectsBadSpecs(t *testing.T) {
 		}
 	}
 }
+
+// slotMessage is the message StepStage adds after one plain history message.
+func slotMessage(t *testing.T, s *Slots) Message {
+	t.Helper()
+	if _, err := s.Write(context.Background(), "plan", "check the data"); err != nil {
+		t.Fatal(err)
+	}
+	stub := NewStubProvider(StubTurn{Text: "done"})
+	r, err := NewRunner(RunnerConfig{Provider: stub, StepStages: []StepStage{s.StepStage()}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.Run(context.Background(), []Message{{Role: RoleUser, Text: "q"}}, nil); err != nil {
+		t.Fatal(err)
+	}
+	msgs := stub.Requests()[0].Messages
+	return msgs[len(msgs)-1]
+}
+
+// The defaults render exactly as before #319.
+func TestSlotsDefaultHeaderAndRole(t *testing.T) {
+	s, err := NewSlots(SlotSpec{Name: "plan"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := slotMessage(t, s)
+	want := Message{Role: RoleSystem, Text: "Your notes for this task, kept across compaction:\n\n[plan]\ncheck the data"}
+	if got.Role != want.Role || got.Text != want.Text {
+		t.Errorf("got %s %q, want %s %q", got.Role, got.Text, want.Role, want.Text)
+	}
+}
+
+// A host sets the header and sends the slots as the user's.
+func TestSlotsHostHeaderAsUser(t *testing.T) {
+	s, err := NewSlotsWith(SlotsConfig{Specs: []SlotSpec{{Name: "plan"}}, Header: "What you've found so far:", AsUser: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := slotMessage(t, s)
+	if got.Role != RoleUser || got.Text != "What you've found so far:\n\n[plan]\ncheck the data" {
+		t.Errorf("got %s %q", got.Role, got.Text)
+	}
+}

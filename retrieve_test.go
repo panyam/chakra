@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -194,7 +195,7 @@ func TestRetrievalInfoIsWireSafe(t *testing.T) {
 		if err := json.Unmarshal(raw, &back); err != nil {
 			t.Fatal(err)
 		}
-		if back.Retrieval == nil || back.Retrieval.Injected[0].Source != "a.go" || back.Retrieval.Injected[0].Score != 0.5 {
+		if back.Retrieval == nil || back.Retrieval.Injected[0].Source != "a.go" || back.Retrieval.Injected[0].Score != 0.5 || !strings.Contains(back.Retrieval.Block, "A") {
 			t.Fatalf("round trip lost the record: %s", raw)
 		}
 		return
@@ -212,5 +213,45 @@ func TestRetrievalKeepsOneCopyOfADuplicate(t *testing.T) {
 	got := retrievals(events)[0].Injected
 	if len(got) != 1 || got[0].Score != 0.8 || got[0].Retriever != "index" {
 		t.Fatalf("injected = %+v, want one a.go at the higher score, from index", got)
+	}
+}
+
+// A host stage after retrieval rebuilds the messages on every step, which
+// drops the block. The host keeps the block from EventRetrieved and puts it
+// back, so every step still sends it (#320).
+func TestAStageThatRebuildsTheMessagesCanPutTheBlockBack(t *testing.T) {
+	src := NewFuncSource()
+	AddFunc(src, "look", "looks", func(context.Context, struct{}) (string, error) { return "seen", nil })
+	stub := NewStubProvider(StubTurn{ToolCalls: []ToolCall{call("c1", "look", `{}`)}}, StubTurn{Text: "done"})
+	question := Message{Role: RoleUser, Text: "fix the parser"}
+	var kept string
+	rebuild := StepStage{Name: "host.rebuild", Scope: ScopeTurn, Run: func(_ context.Context, _ StepInfo, v StepView) (StepView, error) {
+		msgs := []Message{question}
+		if kept != "" {
+			msgs = []Message{{Role: RoleSystem, Text: kept}, question}
+		}
+		v.Messages = append(msgs, v.Messages[slices.IndexFunc(v.Messages, func(m Message) bool { return m.Role == RoleUser && m.Text == question.Text })+1:]...)
+		return v, nil
+	}}
+	retrieval := NewRetrievalStage(RetrievalConfig{Retrievers: []Retriever{fixedRetriever("repo", Snippet{Source: "a.go", Text: "func A()", Score: 0.5})}})
+	r, err := NewRunner(RunnerConfig{Provider: stub, Tools: src, StepStages: []StepStage{retrieval, rebuild}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = r.Run(context.Background(), []Message{question}, func(e Event) {
+		if e.Kind == EventRetrieved {
+			kept = e.Retrieval.Block
+		}
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(kept, "func A()") {
+		t.Fatalf("EventRetrieved carried block %q", kept)
+	}
+	for i, req := range stub.Requests() {
+		if !slices.ContainsFunc(req.Messages, func(m Message) bool { return m.Text == kept }) {
+			t.Errorf("step %d sent no block: %+v", i+1, req.Messages)
+		}
 	}
 }

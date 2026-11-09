@@ -90,7 +90,9 @@ type RetrievalConfig struct {
 //
 // It is a ScopeTurn stage, so the block reaches every step of this turn but
 // never joins TurnResult.Messages. The next turn retrieves afresh for its own
-// task instead of carrying this one's context in history. Each run emits one
+// task instead of carrying this one's context in history. A later stage that
+// rebuilds the messages drops the block, and RetrievalInfo.Block holds its
+// text for that stage to put back. Each run emits one
 // EventRetrieved, listing what went in, what the budget dropped and which
 // retrievers failed, so a trace shows what the model was given.
 //
@@ -126,6 +128,7 @@ func NewRetrievalStage(cfg RetrievalConfig) StepStage {
 				return v, nil
 			}
 			block, rec := retrieve(ctx, cfg, RetrievalQuery{Task: v.Messages[at].Text, Budget: cfg.Budget})
+			rec.Block = block
 			info.Emit(Event{Kind: EventRetrieved, Step: info.Step, Retrieval: rec})
 			if block == "" {
 				return v, nil
@@ -140,9 +143,15 @@ func NewRetrievalStage(cfg RetrievalConfig) StepStage {
 	}
 }
 
-// RetrievalInfo is what a retrieval stage did, on EventRetrieved. It holds
-// sources and scores but no snippet text, so an event stays small.
+// RetrievalInfo is what a retrieval stage did, on EventRetrieved.
 type RetrievalInfo struct {
+	// Block is the text the stage injected, as the model reads it. Empty
+	// means nothing went in. Imagine a host whose own turn stage rebuilds the
+	// messages on every step, or that sends the turn's history to a vote. The
+	// block lives only in the stage's insert, so the rebuild drops it. The
+	// host reads it here and puts it back (#320). It is up to Budget tokens,
+	// so a RunStore's event log grows by that much a turn.
+	Block string `json:"block,omitempty"`
 	// Budget is the stage's token budget, and Tokens is what the injected
 	// snippets used of it.
 	Budget int `json:"budget"`

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"slices"
 	"sync/atomic"
 	"testing"
@@ -232,4 +233,62 @@ func TestGenerationPenaltiesMergeAndReachEveryCall(t *testing.T) {
 			t.Errorf("request %d Penalties = %+v", i, req.Penalties)
 		}
 	}
+}
+
+// Sendable keeps the kinds a provider takes, as whole kinds, and the result
+// is always something the provider takes.
+func TestSendableKeepsTheKindsAProviderTakes(t *testing.T) {
+	llama, _ := NewLlamaCppProvider(LlamaCppConfig{})
+	ollama, _ := NewOllamaProvider(OllamaConfig{Model: "m"})
+	anth, _ := NewAnthropicProvider(AnthropicConfig{APIKey: "k", Model: "m"})
+	every := &SamplingPenalties{
+		Repeat: floatPtr(1.1), RepeatLastN: intPtr(64),
+		Frequency: floatPtr(0.2), Presence: floatPtr(0.3),
+		DRYMultiplier: floatPtr(0.8), DRYBase: floatPtr(1.75), DRYAllowedLength: intPtr(2),
+	}
+	before := *every
+	for _, c := range []struct {
+		name string
+		p    Provider
+		in   *SamplingPenalties
+		want *SamplingPenalties
+	}{
+		{"llama.cpp keeps all", llama, every, every},
+		{"ollama keeps frequency and presence", ollama, every, &SamplingPenalties{Frequency: floatPtr(0.2), Presence: floatPtr(0.3)}},
+		{"ollama drops RepeatLastN with Repeat", ollama, &SamplingPenalties{RepeatLastN: intPtr(64), Frequency: floatPtr(0.2)}, &SamplingPenalties{Frequency: floatPtr(0.2)}},
+		{"ollama with only DRY left is nil", ollama, &SamplingPenalties{DRYBase: floatPtr(1.75)}, nil},
+		{"anthropic takes none", anth, every, nil},
+		{"nil stays nil", llama, nil, nil},
+	} {
+		caps := CapabilitiesOf(c.p)
+		got := caps.Sendable(c.in)
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%s: got %s, want %s", c.name, penaltiesJSON(got), penaltiesJSON(c.want))
+		}
+		if !caps.CanPenalize(got) {
+			t.Errorf("%s: the provider refuses what Sendable kept", c.name)
+		}
+	}
+	if !reflect.DeepEqual(*every, before) {
+		t.Errorf("Sendable changed its input")
+	}
+}
+
+// Every field of SamplingPenalties belongs to a kind Sendable can drop. A new
+// field it doesn't know would survive a provider that takes no penalties.
+func TestSendableClearsEveryField(t *testing.T) {
+	var s SamplingPenalties
+	v := reflect.ValueOf(&s).Elem()
+	for i := range v.NumField() {
+		f := v.Field(i)
+		f.Set(reflect.New(f.Type().Elem()))
+	}
+	if got := (Capabilities{}).Sendable(&s); got != nil {
+		t.Errorf("Sendable with no kinds kept %s", penaltiesJSON(got))
+	}
+}
+
+func penaltiesJSON(s *SamplingPenalties) string {
+	b, _ := json.Marshal(s)
+	return string(b)
 }

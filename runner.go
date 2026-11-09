@@ -76,8 +76,9 @@ type RunnerConfig struct {
 	MaxSteps int
 
 	// MaxFreeRefusals caps the steps per turn that a free refusal makes cost
-	// nothing (#281). A free refusal is a ToolDeniedError with Free set on
-	// every call of a step, or a TurnEndVerdict with Free and Continue. Past
+	// nothing (#281). A free refusal is a step whose every call was refused
+	// with a ToolDeniedError with Free set or answered with a FreeResult
+	// (#316), or a TurnEndVerdict with Free and Continue. Past
 	// the cap, refusals count again, so a model that keeps resending a
 	// refused call still reaches ErrMaxSteps, and NewStuckDetector can act
 	// before that. Zero means 3, and a negative value turns free refusals
@@ -527,6 +528,7 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 	}
 	treeBudget := treeBudgetFrom(ctx)
 
+	ctx = withTurnStore(ctx)
 	ctx, turnSpan := r.cfg.TracerProvider.StartSpan(ctx, "agent.turn")
 	defer turnSpan.End()
 	turnStart := time.Now()
@@ -1122,8 +1124,8 @@ func (r *Runner) dispatch(ctx context.Context, step int, calls []ToolCall, tools
 		defer cancelFan()
 	}
 	results := make([]Message, len(calls))
-	// freeReasons holds each call's reason when a free denial refused it,
-	// and "" otherwise.
+	// freeReasons holds each call's reason when a free denial refused it or
+	// a free result answered it, and "" otherwise.
 	freeReasons := make([]string, len(calls))
 	var emitMu sync.Mutex
 	locked := func(ev Event) {
@@ -1279,6 +1281,16 @@ func (r *Runner) callTool(ctx context.Context, parent context.Context, step int,
 		Destructive: destructive,
 		Idempotent:  idempotent,
 	})
+	var fr *FreeResultError
+	if err != nil && errors.As(err, &fr) && !cancelled() {
+		// A free result ran as far as the caller cares (#316). The model
+		// reads its text as the result, and the step may cost nothing.
+		res := &core.ToolResult{Content: []core.Content{{Type: "text", Text: fr.Text}}}
+		span.SetAttribute("agent.tool.free", "true")
+		emit(Event{Kind: EventToolEnd, Step: step, ToolCall: &call, ToolResult: res})
+		*freeReason = fr.reason()
+		return fr.Text
+	}
 	if err != nil {
 		// A denial is a decision, not a failure. The model is told the call
 		// was not permitted, and the turn continues, exactly as it always did
@@ -1318,9 +1330,10 @@ func (r *Runner) callTool(ctx context.Context, parent context.Context, step int,
 	return text
 }
 
-// freeStep reports whether a free denial refused every call of a step, and
-// the step's distinct reasons joined. A step where any call ran, failed or was
-// refused for a reason not marked free made progress, so it counts.
+// freeStep reports whether every call of a step was refused free or answered
+// with a free result, and the step's distinct reasons joined. A step where any
+// call ran, failed or was refused for a reason not marked free made progress,
+// so it counts.
 func freeStep(reasons []string) (string, bool) {
 	var distinct []string
 	for _, r := range reasons {

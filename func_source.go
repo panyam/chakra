@@ -60,7 +60,9 @@ func funcToolDef[In any](name, description string, opts []FuncOption) (core.Tool
 // In via JSON round-trip, and that decoding is the only validation. The
 // returned string becomes a single text content item. A handler error becomes
 // an IsError tool result, so the model sees the failure. It is not a dispatch
-// error.
+// error. Two errors pass through to the Runner unchanged, since they are
+// decisions rather than failures: a ToolDeniedError (DenyTool, DenyToolFree)
+// and a FreeResultError (FreeResult).
 // Registering a duplicate name returns an error. Options adjust the
 // definition, for instance ReadOnly for a tool that changes nothing.
 func AddFunc[In any](s *FuncSource, name, description string, fn func(ctx context.Context, in In) (string, error), opts ...FuncOption) error {
@@ -80,6 +82,9 @@ func AddFunc[In any](s *FuncSource, name, description string, fn func(ctx contex
 			}
 			out, err := fn(ctx, in)
 			if err != nil {
+				if passThrough(err) {
+					return nil, err
+				}
 				return errorToolResult(err.Error()), nil
 			}
 			return &core.ToolResult{Content: []core.Content{{Type: "text", Text: out}}}, nil
@@ -168,6 +173,9 @@ func AddAsyncFunc[In any](s *FuncSource, name, description string,
 			}
 			res, err := fn(ctx, in)
 			if err != nil {
+				if passThrough(err) {
+					return nil, err
+				}
 				return errorToolResult(err.Error()), nil
 			}
 			if res.Await != nil {

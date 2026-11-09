@@ -176,6 +176,52 @@ func freeDenial(err error) bool {
 	return errors.As(err, &d) && d.Free
 }
 
+// FreeResultError is an answer to a tool call that costs the turn no step
+// (#316). Imagine a model that calls a tool with arguments it already tried.
+// A middleware or the tool answers it with the earlier result, and the
+// repeat shouldn't use up a step. A free denial would cost nothing too, but
+// the model would read "not permitted" and may stop calling the tool.
+//
+// The model reads Text as the call's result, with no prefix. Surfaces get
+// EventToolEnd with Text as the result, as for any call that ran. The step
+// counts as free under the same rule as ToolDeniedError.Free. Every call in
+// the step has to be answered or refused free, and the turn has to be under
+// RunnerConfig.MaxFreeRefusals. Past the cap the model still reads Text, and
+// the step counts.
+//
+// It travels as an error, so a middleware can return it without calling
+// next, and an AddFunc or AddAsyncFunc handler can return it from its
+// (string, error) result. It may be wrapped with %w.
+type FreeResultError struct {
+	// Text is what the model reads as the result.
+	Text string
+	// Reason says why the call was free. It goes on EventRefusalFree. Empty
+	// means "free result".
+	Reason string
+}
+
+func (e *FreeResultError) Error() string { return "free result: " + e.reason() }
+
+func (e *FreeResultError) reason() string {
+	if e.Reason == "" {
+		return "free result"
+	}
+	return e.Reason
+}
+
+// FreeResult builds the error a middleware or a tool returns to answer a
+// call with text that costs no step. See FreeResultError.
+func FreeResult(text string) error { return &FreeResultError{Text: text} }
+
+// passThrough reports whether a FuncSource handler's error is a decision for
+// the Runner, a denial or a free result, rather than a failure to show the
+// model.
+func passThrough(err error) bool {
+	var d *ToolDeniedError
+	var f *FreeResultError
+	return errors.As(err, &d) || errors.As(err, &f)
+}
+
 // deniedReason reports whether err is a denial and the reason to surface.
 func deniedReason(err error) (string, bool) {
 	var d *ToolDeniedError

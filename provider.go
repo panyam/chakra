@@ -433,6 +433,38 @@ func (c Capabilities) CanPenalize(s *SamplingPenalties) bool {
 	return refusePenalties(s, c.Penalties, "") == nil
 }
 
+// Sendable returns s with only the kinds c.Penalties lists, so a provider
+// takes it rather than refusing the call (#318). Imagine a host whose role
+// sets DRY and a frequency penalty, and runs on llama.cpp in one place and
+// Ollama in another. CanPenalize says false on Ollama, since Ollama takes no
+// DRY. Sendable keeps the frequency penalty and drops DRY. Repeat and
+// RepeatLastN go together as PenaltyRepeat, and the three DRY fields go
+// together as PenaltyDRY. It returns nil when no kind is left, and never
+// changes s.
+func (c Capabilities) Sendable(s *SamplingPenalties) *SamplingPenalties {
+	if s == nil {
+		return nil
+	}
+	out := *s
+	takes := func(kind string) bool { return slices.Contains(c.Penalties, kind) }
+	if !takes(PenaltyRepeat) {
+		out.Repeat, out.RepeatLastN = nil, nil
+	}
+	if !takes(PenaltyFrequency) {
+		out.Frequency = nil
+	}
+	if !takes(PenaltyPresence) {
+		out.Presence = nil
+	}
+	if !takes(PenaltyDRY) {
+		out.DRYMultiplier, out.DRYBase, out.DRYAllowedLength = nil, nil, nil
+	}
+	if len(out.kinds()) == 0 {
+		return nil
+	}
+	return &out
+}
+
 // CanGuide reports whether g, a single constraint, is one of c.Guided. A nil
 // g needs nothing and is always true; a g setting none or several kinds is
 // false, since every provider refuses it.
