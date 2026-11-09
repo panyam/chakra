@@ -81,6 +81,24 @@ The stores are the easy 20%, since they look like `RunStore`. The other 80% is p
 - **RAG today.** RAG has shifted from "pre-baked top-k every turn" to *retrieval as a tool*, which the agent calls through the Tools path. Large context windows plus offloading erode classic RAG. It still wins when the corpus is larger than the context window, or for freshness, citations, and cost.
 - **Offloading (issue 966).** Offloading extends the *episodic* layer with on-demand reads (`read_tool_result`). It is lossless, and the cost comes per lookup. It leaves the lossy layers less to guess, so it is the right thing to build before full memory. Refs are named by content (chakra#109). The same output stored twice gets one ref, and the second stub tells the model it has seen this before. Re-reading an unchanged file was the main repeat cost in the dogfood runs.
 
+## Slots beside memory (#279)
+
+Imagine a long turn on Terminal-Bench. At step 3 the model learns that the build needs `make -j1`, and by step 20 a compaction has summarized step 3 away. Working memory doesn't save it. The model could `remember` it, but the summary only goes in once, at the start of the turn, so it can't show a fact written in the middle. The summary also sits in the turn's messages, and a compaction partway through the turn can fold it in too.
+
+Slots (`agent.Slots`, #279) cover that gap. A slot is a named piece of state for one run, such as `plan` or `facts`. Each is a replace slot or an append slot, with a byte cap. `Slots.StepStage` shows every non-empty slot before each model call, after the history, for that call only. So a write at step 3 is in view at step 4, and a compaction never sees a slot, since slots never enter the messages.
+
+| | Working and semantic memory | Slots |
+|---|---|---|
+| What the model writes | Any number of keyed items, through `remember`, `recall` and `forget` | A few slots the host declares, through `write_slot`, and `update_plan` for the plan |
+| When the model sees it | Once per turn, before the user message, or when it calls `recall` | Before every model call |
+| How much of it | A selection: recall is top-k and the summary is budgeted | All of it, since each slot is capped |
+| Compaction | Can fold the turn's summary into a summary | Never touches it |
+| Lifetime | The store's namespace, which can be global and outlive every run | The run. Its event log keeps each write, and `RunRestorer` brings the slots back on resume. A new run starts empty |
+
+So memory carries what's worth keeping from one session to the next, and the model chooses what to look up. Slots keep the current task's working state in front of the model on every step. The same fact can belong in both, and nothing stops a host from writing it to each.
+
+In the diagram, slots would sit on the "pre-turn injection" path as working state, injected before every call rather than once per turn. They stay out of the four kinds of memory. The working-memory summary still has the once-per-turn problem slots fixed for the plan. Rendering it on every call too would fix that, and it could happen without merging the two.
+
 ## Prior art & interface extensibility
 
 Memory design has two camps. Working memory's `remember` / `recall` / `forget` verbs are not idiosyncratic. They are a minimal version of the **agent-self-edited** camp.
