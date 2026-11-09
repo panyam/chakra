@@ -91,10 +91,24 @@ const PlanToolName = "update_plan"
 type PlanTool struct {
 	mu     sync.Mutex
 	latest *Plan
+	slots  *Slots
+	slot   string
 }
 
 // NewPlanTool returns the tool with no plan yet.
 func NewPlanTool() *PlanTool { return &PlanTool{} }
+
+// WriteTo makes each accepted plan the value of the named slot too (#279), so
+// the model sees the plan on every call through Slots.StepStage. StepStage
+// then adds nothing, since the slot already shows the plan. The slot should
+// be a replace slot. A plan too long for it is refused, and the model can
+// send a shorter one. It returns t.
+func (t *PlanTool) WriteTo(slots *Slots, name string) *PlanTool {
+	t.mu.Lock()
+	t.slots, t.slot = slots, name
+	t.mu.Unlock()
+	return t
+}
 
 // Latest is the last plan update_plan accepted, nil before the first.
 func (t *PlanTool) Latest() *Plan {
@@ -155,6 +169,14 @@ func (t *PlanTool) Call(ctx context.Context, name string, args map[string]any) (
 		return &core.ToolResult{Content: []core.Content{{Type: "text", Text: "plan not updated: " + err.Error()}}, IsError: true}, nil
 	}
 	t.mu.Lock()
+	slots, slot := t.slots, t.slot
+	t.mu.Unlock()
+	if slots != nil {
+		if _, err := slots.Write(ctx, slot, p.String()); err != nil {
+			return &core.ToolResult{Content: []core.Content{{Type: "text", Text: "plan not updated: " + err.Error()}}, IsError: true}, nil
+		}
+	}
+	t.mu.Lock()
 	t.latest = &p
 	t.mu.Unlock()
 	if emit := toolEmitFrom(ctx); emit != nil {
@@ -199,8 +221,11 @@ func (t *PlanTool) StepStage() StepStage {
 		Name:  "agent.plan",
 		Scope: ScopeRequest,
 		Run: func(_ context.Context, _ StepInfo, view StepView) (StepView, error) {
+			t.mu.Lock()
+			toSlot := t.slots != nil
+			t.mu.Unlock()
 			p := t.Latest()
-			if p == nil {
+			if p == nil || toSlot {
 				return view, nil
 			}
 			for _, m := range view.Messages {
@@ -219,8 +244,8 @@ func (t *PlanTool) StepStage() StepStage {
 
 // toolEmitKey is the context key for a function in a tool call's context.
 // The function emits an Event for the step that made the call. It is
-// unexported, because the plan tool is the only tool that publishes an event
-// of its own. A general way for any tool to put events on the turn's stream
+// unexported, because only the plan tool and slot writes publish events of
+// their own. A general way for any tool to put events on the turn's stream
 // is a bigger decision than #148.
 type toolEmitKey struct{}
 

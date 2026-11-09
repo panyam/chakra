@@ -157,6 +157,41 @@ var checks = []check{
 		},
 	},
 	{
+		id:        "plan_in_view",
+		behaviour: "once the model planned, every later call showed it the plan",
+		wiring:    "plan slot + slot step stage (#279)",
+		// Codex keeps its plan in front of the model. Here update_plan writes
+		// the plan slot, and the slot stage shows it on every call, so a
+		// compaction can't take it away.
+		run: func(r *runResult, _ string) (bool, string) {
+			first := -1
+			for i, req := range r.requests {
+				if slices.ContainsFunc(req.SystemTexts, func(s string) bool { return strings.Contains(s, "[plan]") }) {
+					first = i
+					break
+				}
+			}
+			if first < 0 {
+				for _, ev := range r.events {
+					if ev.Kind == host.HostRunnerEvent && ev.RunnerEvent.Kind == agent.EventPlan {
+						return false, "the model planned, and no call showed the plan"
+					}
+				}
+				return true, "the model didn't plan"
+			}
+			for i := first; i < len(r.requests); i++ {
+				req := r.requests[i]
+				if len(req.Tools) == 0 {
+					continue
+				}
+				if !slices.ContainsFunc(req.SystemTexts, func(s string) bool { return strings.Contains(s, "[plan]") }) {
+					return false, fmt.Sprintf("request %d lost the plan", i+1)
+				}
+			}
+			return true, ""
+		},
+	},
+	{
 		id:        "stuck_noticed",
 		behaviour: "a call repeated with the same result was noticed, and the next call carried a note saying so",
 		wiring:    "stuck detector step stage (#278, #285)",

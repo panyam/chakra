@@ -22,6 +22,7 @@ pkg github.com/panyam/chakra, const EventPlan EventKind
 pkg github.com/panyam/chakra, const EventRefusalFree EventKind
 pkg github.com/panyam/chakra, const EventRetrieved EventKind
 pkg github.com/panyam/chakra, const EventSignal EventKind
+pkg github.com/panyam/chakra, const EventSlot EventKind
 pkg github.com/panyam/chakra, const EventStep EventKind
 pkg github.com/panyam/chakra, const EventStuck EventKind
 pkg github.com/panyam/chakra, const EventTextDelta EventKind
@@ -81,6 +82,9 @@ pkg github.com/panyam/chakra, const SignalCustom SignalKind
 pkg github.com/panyam/chakra, const SignalEscalate SignalKind
 pkg github.com/panyam/chakra, const SignalParentToolName
 pkg github.com/panyam/chakra, const SignalPreempt SignalKind
+pkg github.com/panyam/chakra, const SlotAppend SlotMode
+pkg github.com/panyam/chakra, const SlotReplace SlotMode
+pkg github.com/panyam/chakra, const SlotToolName
 pkg github.com/panyam/chakra, const SpawnAgentToolName
 pkg github.com/panyam/chakra, const StuckAlternate
 pkg github.com/panyam/chakra, const StuckRepeat
@@ -133,6 +137,7 @@ pkg github.com/panyam/chakra, func NewRetriever(string, func(context.Context, Re
 pkg github.com/panyam/chakra, func NewRunner(RunnerConfig) (*Runner, error)
 pkg github.com/panyam/chakra, func NewServerAgentSource(ServerAgentConfig) (*AgentSource, error)
 pkg github.com/panyam/chakra, func NewSignalSource() *FuncSource
+pkg github.com/panyam/chakra, func NewSlots(...SlotSpec) (*Slots, error)
 pkg github.com/panyam/chakra, func NewSpawnSource(*AgentPool) *FuncSource
 pkg github.com/panyam/chakra, func NewStubProvider(...StubTurn) *StubProvider
 pkg github.com/panyam/chakra, func NewStuckDetector(StuckConfig) StepStage
@@ -248,12 +253,21 @@ pkg github.com/panyam/chakra, method (*PlanTool) Call(context.Context, string, m
 pkg github.com/panyam/chakra, method (*PlanTool) Latest() *Plan
 pkg github.com/panyam/chakra, method (*PlanTool) StepStage() StepStage
 pkg github.com/panyam/chakra, method (*PlanTool) Tools(context.Context) ([]core.ToolDef, error)
+pkg github.com/panyam/chakra, method (*PlanTool) WriteTo(*Slots, string) *PlanTool
 pkg github.com/panyam/chakra, method (*ProviderError) Error() string
 pkg github.com/panyam/chakra, method (*ResponsesProvider) Generate(context.Context, ProviderRequest) (*ProviderResponse, error)
 pkg github.com/panyam/chakra, method (*ResponsesProvider) ProviderCapabilities() Capabilities
 pkg github.com/panyam/chakra, method (*ResponsesProvider) Stream(context.Context, ProviderRequest) (Stream, error)
 pkg github.com/panyam/chakra, method (*Runner) Run(context.Context, []Message, func(Event)) (*TurnResult, error)
 pkg github.com/panyam/chakra, method (*Runner) RunTurn(context.Context, TurnRequest) (*TurnResult, error)
+pkg github.com/panyam/chakra, method (*Slots) Get(string) string
+pkg github.com/panyam/chakra, method (*Slots) Has(string) bool
+pkg github.com/panyam/chakra, method (*Slots) Render() string
+pkg github.com/panyam/chakra, method (*Slots) RestoreSlots([]Event)
+pkg github.com/panyam/chakra, method (*Slots) Specs() []SlotSpec
+pkg github.com/panyam/chakra, method (*Slots) StepStage() StepStage
+pkg github.com/panyam/chakra, method (*Slots) Tool(...string) ToolSource
+pkg github.com/panyam/chakra, method (*Slots) Write(context.Context, string, string) (string, error)
 pkg github.com/panyam/chakra, method (*StubProvider) Generate(context.Context, ProviderRequest) (*ProviderResponse, error)
 pkg github.com/panyam/chakra, method (*StubProvider) Requests() []ProviderRequest
 pkg github.com/panyam/chakra, method (*StubProvider) Stream(context.Context, ProviderRequest) (Stream, error)
@@ -439,6 +453,7 @@ pkg github.com/panyam/chakra, type Event struct, Reason string
 pkg github.com/panyam/chakra, type Event struct, Result *TurnResult
 pkg github.com/panyam/chakra, type Event struct, Retrieval *RetrievalInfo
 pkg github.com/panyam/chakra, type Event struct, Signal *Signal
+pkg github.com/panyam/chakra, type Event struct, Slot *SlotUpdate
 pkg github.com/panyam/chakra, type Event struct, Step int
 pkg github.com/panyam/chakra, type Event struct, Stuck *StuckFinding
 pkg github.com/panyam/chakra, type Event struct, Text string
@@ -762,6 +777,16 @@ pkg github.com/panyam/chakra, type SignalAction struct, AbortTurn bool
 pkg github.com/panyam/chakra, type SignalAction struct, Reason string
 pkg github.com/panyam/chakra, type SignalKind string
 pkg github.com/panyam/chakra, type SignalPolicy func([]Signal) SignalAction
+pkg github.com/panyam/chakra, type SlotMode string
+pkg github.com/panyam/chakra, type SlotSpec struct
+pkg github.com/panyam/chakra, type SlotSpec struct, Description string
+pkg github.com/panyam/chakra, type SlotSpec struct, MaxBytes int
+pkg github.com/panyam/chakra, type SlotSpec struct, Mode SlotMode
+pkg github.com/panyam/chakra, type SlotSpec struct, Name string
+pkg github.com/panyam/chakra, type SlotUpdate struct
+pkg github.com/panyam/chakra, type SlotUpdate struct, Name string
+pkg github.com/panyam/chakra, type SlotUpdate struct, Value string
+pkg github.com/panyam/chakra, type Slots struct
 pkg github.com/panyam/chakra, type Snippet struct
 pkg github.com/panyam/chakra, type Snippet struct, Score float64
 pkg github.com/panyam/chakra, type Snippet struct, Source string
@@ -958,6 +983,7 @@ pkg github.com/panyam/chakra, var ErrNotAvailableNow
 pkg github.com/panyam/chakra, var ErrSignalAbort
 pkg github.com/panyam/chakra, var ErrTreeBudget
 pkg github.com/panyam/chakra, var ErrTurnStopped
+pkg github.com/panyam/chakra, var ErrUnknownSlot
 pkg github.com/panyam/chakra, var ErrUnknownTool
 pkg github.com/panyam/chakra, var ErrUnsupportedParam
 pkg github.com/panyam/chakra, var ToolChoiceAuto

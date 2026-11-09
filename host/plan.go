@@ -14,6 +14,13 @@ type PlanExtension struct {
 // NewPlanExtension returns the extension with no plan yet.
 func NewPlanExtension() *PlanExtension { return &PlanExtension{tool: agent.NewPlanTool()} }
 
+// NewPlanSlotExtension is NewPlanExtension with each plan also written to
+// the named slot (#279). A SlotsExtension over the same slots then shows the
+// plan on every call, and its own step stage adds nothing.
+func NewPlanSlotExtension(slots *agent.Slots, name string) *PlanExtension {
+	return &PlanExtension{tool: agent.NewPlanTool().WriteTo(slots, name)}
+}
+
 // Name is "plan".
 func (e *PlanExtension) Name() string { return "plan" }
 

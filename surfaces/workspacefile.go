@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/panyam/chakra"
 	"github.com/panyam/chakra/ext/agentsmd"
 	"github.com/panyam/chakra/ext/exec"
 	"github.com/panyam/chakra/ext/git"
@@ -51,6 +52,12 @@ type WorkspaceFile struct {
 
 	// Plan adds update_plan; see WorkspaceConfig.Plan.
 	Plan bool `json:"plan,omitempty"`
+
+	// Slots declares state slots; see WorkspaceConfig.Slots.
+	//
+	//	"slots": [{"name": "facts", "mode": "append", "maxBytes": 3000,
+	//	           "description": "commands, paths and constraints you'll need again"}]
+	Slots []agent.SlotSpec `json:"slots,omitempty"`
 
 	// Git enables ext/git over the first root. Absent means none.
 	//
@@ -313,6 +320,7 @@ func (f *WorkspaceFile) Apply(cfg *WorkspaceConfig) error {
 		})
 	}
 	cfg.Plan = f.Plan
+	cfg.Slots = f.Slots
 	if f.Git != nil {
 		cfg.Git = &git.Config{Mutations: f.Git.Mutations, WorktreeDir: f.Git.WorktreeDir}
 		if f.Git.Review {

@@ -77,6 +77,10 @@ const (
 	// (#148). Plan holds the whole plan each time, so a surface replaces the
 	// plan it showed. Step is the step whose tool call published it.
 	EventPlan EventKind = "plan"
+	// EventSlot sends a slot's whole value after a write (#279). A run's
+	// event log keeps every write, so Slots.RestoreSlots rebuilds the slots
+	// for a resumed run. Step is the step whose tool call wrote it.
+	EventSlot EventKind = "slot"
 	// EventStep closes one model call. Step is the call. Model is the name a
 	// StepStage gave it through StepView.ProviderName (#185), and it is empty
 	// when no stage named the step. Usage holds what the provider reported for
@@ -137,6 +141,9 @@ type Event struct {
 
 	// Plan is the model's whole current plan, on EventPlan.
 	Plan *Plan `json:"plan,omitempty"`
+
+	// Slot is a slot's name and new value, on EventSlot.
+	Slot *SlotUpdate `json:"slot,omitempty"`
 
 	// Stuck says what repeated, on EventStuck.
 	Stuck *StuckFinding `json:"stuck,omitempty"`

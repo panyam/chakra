@@ -147,6 +147,18 @@ go run . --config chat.json --workspace ~/code/project \
 - **`plan`**: `true` adds `update_plan`, a checklist. The model publishes it
   and keeps it current. It shows in the conversation as it changes, and it is
   still in the model's view after a compaction.
+- **`slots`**: named notes the model sees on every call, so they survive
+  compaction (#279). Each has a `name`, a `mode` (`replace`, the default, or
+  `append`, which adds a line per write and drops the oldest past the cap), a
+  `maxBytes` cap (default 2000) and a `description` the model reads. The model
+  writes them with `write_slot`. With `plan` on, a `plan` slot is added and
+  only `update_plan` writes it, so the plan shows on every call. A resumed
+  session gets its slots back from the run's event log.
+
+  ```json
+  "slots": [{"name": "facts", "mode": "append", "maxBytes": 3000,
+             "description": "commands, paths and constraints you'll need again"}]
+  ```
 - **`git`**: adds `ext/git` over the first root. That gives `git_status`,
   `git_diff` and `git_log`, plus a line after each turn saying what the turn
   changed (`/diff` shows it). With `"review": true` it also adds a `review`
