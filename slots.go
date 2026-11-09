@@ -62,17 +62,45 @@ var ErrUnknownSlot = errors.New("agent: unknown slot")
 // RestoreSlots brings them back for a resumed run. One Slots serves one
 // session. It is safe for concurrent use.
 type Slots struct {
-	mu    sync.Mutex
-	specs []SlotSpec
-	vals  map[string]string
+	mu     sync.Mutex
+	specs  []SlotSpec
+	vals   map[string]string
+	header string
+	asUser bool
+}
+
+// defaultSlotsHeader is SlotsConfig.Header when it is empty.
+const defaultSlotsHeader = "Your notes for this task, kept across compaction:"
+
+// SlotsConfig configures NewSlotsWith.
+type SlotsConfig struct {
+	// Specs declares the slots, as NewSlots takes them.
+	Specs []SlotSpec
+	// Header is the line Render opens with. Empty means "Your notes for this
+	// task, kept across compaction:". A host that writes the slots itself,
+	// rather than the model, says so here (#319).
+	Header string
+	// AsUser makes StepStage send the slots as a RoleUser message instead of
+	// a RoleSystem one. Some chat templates reject a system message that
+	// isn't the first, as with RetrievalConfig.AsUser.
+	AsUser bool
 }
 
 // NewSlots declares the slots, in the order StepStage shows them. A name
 // must be unique and non-empty, and a mode must be SlotReplace, SlotAppend
-// or empty.
+// or empty. It is NewSlotsWith with only Specs set.
 func NewSlots(specs ...SlotSpec) (*Slots, error) {
-	s := &Slots{vals: map[string]string{}}
-	for _, sp := range specs {
+	return NewSlotsWith(SlotsConfig{Specs: specs})
+}
+
+// NewSlotsWith declares the slots as NewSlots does, and sets how Render and
+// StepStage show them.
+func NewSlotsWith(cfg SlotsConfig) (*Slots, error) {
+	s := &Slots{vals: map[string]string{}, header: cfg.Header, asUser: cfg.AsUser}
+	if s.header == "" {
+		s.header = defaultSlotsHeader
+	}
+	for _, sp := range cfg.Specs {
 		if sp.Name == "" {
 			return nil, errors.New("agent: a slot needs a name")
 		}
@@ -172,8 +200,8 @@ func (s *Slots) RestoreSlots(events []Event) {
 	s.mu.Unlock()
 }
 
-// Render is the slots as the model sees them, or empty when every slot is
-// empty.
+// Render is the slots as the model sees them, under SlotsConfig.Header, or
+// empty when every slot is empty.
 func (s *Slots) Render() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -188,11 +216,11 @@ func (s *Slots) Render() string {
 	if b.Len() == 0 {
 		return ""
 	}
-	return "Your notes for this task, kept across compaction:" + b.String()
+	return s.header + b.String()
 }
 
 // StepStage shows the slots before every model call, as one system message
-// after the history. The message is for that call only, so it never enters
+// after the history, or a user message with SlotsConfig.AsUser. The message is for that call only, so it never enters
 // the turn's record, and a compactor never sees it. It adds nothing while
 // every slot is empty.
 //
@@ -208,7 +236,11 @@ func (s *Slots) StepStage() StepStage {
 			if text == "" {
 				return view, nil
 			}
-			view.Messages = append(slices.Clip(view.Messages), Message{Role: RoleSystem, Text: text})
+			role := RoleSystem
+			if s.asUser {
+				role = RoleUser
+			}
+			view.Messages = append(slices.Clip(view.Messages), Message{Role: role, Text: text})
 			return view, nil
 		},
 	}

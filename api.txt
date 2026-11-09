@@ -103,6 +103,7 @@ pkg github.com/panyam/chakra, func DefaultStuckKey(StepRecord) (StuckKey, bool)
 pkg github.com/panyam/chakra, func DenyTool(string) error
 pkg github.com/panyam/chakra, func DenyToolFree(string) error
 pkg github.com/panyam/chakra, func DropUnansweredToolCalls([]Message) []Message
+pkg github.com/panyam/chakra, func FreeResult(string) error
 pkg github.com/panyam/chakra, func GrantAllPreempts(Signal) bool
 pkg github.com/panyam/chakra, func HintFromMeta(map[string]any) (ContextHint, bool)
 pkg github.com/panyam/chakra, func MergeWith[T any](func(T, T) T) func(IncomingEvent, IncomingEvent) IncomingEvent
@@ -131,6 +132,7 @@ pkg github.com/panyam/chakra, func NewOllamaProvider(OllamaConfig) (*OpenAIProvi
 pkg github.com/panyam/chakra, func NewOpenAIEmbedder(OpenAIEmbedderConfig) (*OpenAIEmbedder, error)
 pkg github.com/panyam/chakra, func NewOpenAIProvider(OpenAIConfig) (*OpenAIProvider, error)
 pkg github.com/panyam/chakra, func NewPlanTool() *PlanTool
+pkg github.com/panyam/chakra, func NewRepeatCache(RepeatCacheConfig) ToolMiddleware
 pkg github.com/panyam/chakra, func NewResponsesProvider(ResponsesConfig) (*ResponsesProvider, error)
 pkg github.com/panyam/chakra, func NewRetrievalStage(RetrievalConfig) StepStage
 pkg github.com/panyam/chakra, func NewRetriever(string, func(context.Context, RetrievalQuery) ([]Snippet, error)) Retriever
@@ -138,6 +140,7 @@ pkg github.com/panyam/chakra, func NewRunner(RunnerConfig) (*Runner, error)
 pkg github.com/panyam/chakra, func NewServerAgentSource(ServerAgentConfig) (*AgentSource, error)
 pkg github.com/panyam/chakra, func NewSignalSource() *FuncSource
 pkg github.com/panyam/chakra, func NewSlots(...SlotSpec) (*Slots, error)
+pkg github.com/panyam/chakra, func NewSlotsWith(SlotsConfig) (*Slots, error)
 pkg github.com/panyam/chakra, func NewSpawnSource(*AgentPool) *FuncSource
 pkg github.com/panyam/chakra, func NewStubProvider(...StubTurn) *StubProvider
 pkg github.com/panyam/chakra, func NewStuckDetector(StuckConfig) StepStage
@@ -215,6 +218,7 @@ pkg github.com/panyam/chakra, method (*FileToolResultStore) GetToolResult(contex
 pkg github.com/panyam/chakra, method (*FileToolResultStore) PutToolResult(context.Context, PutToolResultRequest) (PutToolResultResponse, error)
 pkg github.com/panyam/chakra, method (*FilterSource) Call(context.Context, string, map[string]any) (*core.ToolResult, error)
 pkg github.com/panyam/chakra, method (*FilterSource) Tools(context.Context) ([]core.ToolDef, error)
+pkg github.com/panyam/chakra, method (*FreeResultError) Error() string
 pkg github.com/panyam/chakra, method (*FuncSource) AddToolFunc(core.ToolDef, func(context.Context, map[string]any) (*core.ToolResult, error)) error
 pkg github.com/panyam/chakra, method (*FuncSource) Call(context.Context, string, map[string]any) (*core.ToolResult, error)
 pkg github.com/panyam/chakra, method (*FuncSource) Tools(context.Context) ([]core.ToolDef, error)
@@ -293,6 +297,7 @@ pkg github.com/panyam/chakra, method (AgentPath) Depth() int
 pkg github.com/panyam/chakra, method (AgentPath) String() string
 pkg github.com/panyam/chakra, method (Capabilities) CanGuide(*GuidedDecoding) bool
 pkg github.com/panyam/chakra, method (Capabilities) CanPenalize(*SamplingPenalties) bool
+pkg github.com/panyam/chakra, method (Capabilities) Sendable(*SamplingPenalties) *SamplingPenalties
 pkg github.com/panyam/chakra, method (CharTokenEstimator) Estimate([]Message) int
 pkg github.com/panyam/chakra, method (Embedding) Cosine(Embedding) float64
 pkg github.com/panyam/chakra, method (Plan) String() string
@@ -496,6 +501,9 @@ pkg github.com/panyam/chakra, type ForkRunResponse struct, Created bool
 pkg github.com/panyam/chakra, type ForkRunResponse struct, ForkPoint int
 pkg github.com/panyam/chakra, type ForkRunResponse struct, Found bool
 pkg github.com/panyam/chakra, type ForkRunResponse struct, RunID string
+pkg github.com/panyam/chakra, type FreeResultError struct
+pkg github.com/panyam/chakra, type FreeResultError struct, Reason string
+pkg github.com/panyam/chakra, type FreeResultError struct, Text string
 pkg github.com/panyam/chakra, type FuncOption func(*core.ToolDef)
 pkg github.com/panyam/chakra, type FuncSource struct
 pkg github.com/panyam/chakra, type GenerationParams struct
@@ -657,6 +665,10 @@ pkg github.com/panyam/chakra, type RegisteredAgent struct
 pkg github.com/panyam/chakra, type RegisteredAgent struct, Description string
 pkg github.com/panyam/chakra, type RegisteredAgent struct, Name string
 pkg github.com/panyam/chakra, type RememberKeyFunc func(ToolCallInfo) (string, bool)
+pkg github.com/panyam/chakra, type RepeatCacheConfig struct
+pkg github.com/panyam/chakra, type RepeatCacheConfig struct, Key func(ToolCallInfo) (string, bool)
+pkg github.com/panyam/chakra, type RepeatCacheConfig struct, Max int
+pkg github.com/panyam/chakra, type RepeatCacheConfig struct, Note string
 pkg github.com/panyam/chakra, type Resolver func(string, []ToolOwner, map[string]any) (string, error)
 pkg github.com/panyam/chakra, type ResponsesConfig struct
 pkg github.com/panyam/chakra, type ResponsesConfig struct, APIKey string
@@ -679,6 +691,7 @@ pkg github.com/panyam/chakra, type RetrievalFailure struct
 pkg github.com/panyam/chakra, type RetrievalFailure struct, Error string
 pkg github.com/panyam/chakra, type RetrievalFailure struct, Retriever string
 pkg github.com/panyam/chakra, type RetrievalInfo struct
+pkg github.com/panyam/chakra, type RetrievalInfo struct, Block string
 pkg github.com/panyam/chakra, type RetrievalInfo struct, Budget int
 pkg github.com/panyam/chakra, type RetrievalInfo struct, Dropped []RetrievedSnippet
 pkg github.com/panyam/chakra, type RetrievalInfo struct, Failed []RetrievalFailure
@@ -787,6 +800,10 @@ pkg github.com/panyam/chakra, type SlotUpdate struct
 pkg github.com/panyam/chakra, type SlotUpdate struct, Name string
 pkg github.com/panyam/chakra, type SlotUpdate struct, Value string
 pkg github.com/panyam/chakra, type Slots struct
+pkg github.com/panyam/chakra, type SlotsConfig struct
+pkg github.com/panyam/chakra, type SlotsConfig struct, AsUser bool
+pkg github.com/panyam/chakra, type SlotsConfig struct, Header string
+pkg github.com/panyam/chakra, type SlotsConfig struct, Specs []SlotSpec
 pkg github.com/panyam/chakra, type Snippet struct
 pkg github.com/panyam/chakra, type Snippet struct, Score float64
 pkg github.com/panyam/chakra, type Snippet struct, Source string

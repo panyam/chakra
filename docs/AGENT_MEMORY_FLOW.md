@@ -87,6 +87,8 @@ Imagine a long turn on Terminal-Bench. At step 3 the model learns that the build
 
 Slots (`agent.Slots`, #279) cover that gap. A slot is a named piece of state for one run, such as `plan` or `facts`. Each is a replace slot or an append slot, with a byte cap. `Slots.StepStage` shows every non-empty slot before each model call, after the history, for that call only. So a write at step 3 is in view at step 4, and a compaction never sees a slot, since slots never enter the messages.
 
+A host that writes the slots itself, rather than the model, sets its own opening line with `SlotsConfig.Header`, since the default calls them the model's notes. `SlotsConfig.AsUser` sends them as a user message, for chat templates that refuse a system message after the first (#319).
+
 | | Working and semantic memory | Slots |
 |---|---|---|
 | What the model writes | Any number of keyed items, through `remember`, `recall` and `forget` | A few slots the host declares, through `write_slot`, and `update_plan` for the plan |

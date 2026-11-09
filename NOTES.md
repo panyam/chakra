@@ -1104,6 +1104,19 @@ in the record as a denied call, with `toolDeniedPrefix`, so `DefaultStuckKey` re
 Three identical free refusals trip the stuck detector at about the moment the cap runs out. The
 approval gate's refusals are never free. A person said no, and asking again isn't cheap.
 
+A free refusal reads as "not permitted", and that misleads a model when the call was fine. jaala
+answers a repeated draft with its earlier result, and a 14B model took the denial to mean the tool
+was off limits. So `FreeResult` answers a call for free with text the model reads as a result
+(#316). It has no prefix, so `DefaultStuckKey` doesn't count it as an error. A repeat that keeps
+getting the same free answer still has the same call and result each step, and trips the repeat
+pattern instead. Both kinds travel as errors, and `AddFunc` passes them through rather than turning
+them into an error result. A tool can then decide for itself, without a middleware in front of it.
+
+`NewRepeatCache` keeps its answers in a per-turn store on the ctx, which `RunTurn` installs fresh
+(#317). A middleware sees `Step` restart at 1 but nothing that names the turn, and a Runner can run
+two turns at once for different sessions. A cache keyed on the Runner would mix them, and one keyed
+on the step count would miss a turn that ends early.
+
 ### One server is not the protocol (#1303)
 
 `ext/lsp` shipped after running against gopls and nothing else. We then probed the four other
