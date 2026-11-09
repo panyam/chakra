@@ -115,8 +115,8 @@ type CommandRegistry struct {
 	names []string            // canonical names, registration order
 }
 
-// NewCommandRegistry returns an empty registry.
-func NewCommandRegistry() *CommandRegistry {
+// newCommandRegistry returns an empty registry.
+func newCommandRegistry() *CommandRegistry {
 	return &CommandRegistry{cmds: map[string]*Command{}}
 }
 
@@ -189,7 +189,7 @@ func (errUnknownCommand) Error() string { return "host: unknown command" }
 // commands, each binding an App method and returning a structured result.
 // Surface-agnostic: no rendering happens here.
 func (a *App) registerBuiltinCommands() {
-	r := NewCommandRegistry()
+	r := newCommandRegistry()
 	msg := func(s string) (CmdResult, error) { return CmdResult{Kind: CmdMessage, Message: s}, nil }
 
 	r.Register(&Command{Name: "quit", Aliases: []string{"exit"}, Help: "exit agentchat",

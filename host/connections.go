@@ -344,12 +344,12 @@ func knownTypes() string {
 	return out
 }
 
-// ConnectionRegistry holds the named connections, the active one, and a
+// connectionRegistry holds the named connections, the active one, and a
 // cache of built providers. It is safe for concurrent use. SetActive
 // switches connections at runtime, and Provider and ActiveProvider return
 // built providers. Providers are built lazily and cached, so switching
 // back to a used connection is instant.
-type ConnectionRegistry struct {
+type connectionRegistry struct {
 	mu     sync.Mutex
 	conns  map[string]ConnectionConfig
 	names  []string // sorted, stable listing order
@@ -362,13 +362,13 @@ type ConnectionRegistry struct {
 	agentRoles map[string]string
 }
 
-// NewConnectionRegistry validates cfg (Active must name a connection,
+// newConnectionRegistry validates cfg (Active must name a connection,
 // every connection must resolve a base URL) and returns the registry. A
 // nil build uses DefaultProviderBuilder. Providers are not built here.
 // Each one is built on the first Provider, ActiveProvider or SetActive call
 // that asks for it, so a misconfigured non-active connection does not fail
 // startup.
-func NewConnectionRegistry(cfg *ConnectionsConfig, build ProviderBuilder) (*ConnectionRegistry, error) {
+func newConnectionRegistry(cfg *ConnectionsConfig, build ProviderBuilder) (*connectionRegistry, error) {
 	if cfg == nil || len(cfg.Connections) == 0 {
 		return nil, fmt.Errorf("host: connections config is empty")
 	}
@@ -418,7 +418,7 @@ func NewConnectionRegistry(cfg *ConnectionsConfig, build ProviderBuilder) (*Conn
 	if err := validateStepRoutes(cfg.StepRoutes, cfg.Connections); err != nil {
 		return nil, err
 	}
-	return &ConnectionRegistry{
+	return &connectionRegistry{
 		conns:      cfg.Connections,
 		names:      names,
 		active:     active,
@@ -429,14 +429,14 @@ func NewConnectionRegistry(cfg *ConnectionsConfig, build ProviderBuilder) (*Conn
 }
 
 // Names lists the connection names in stable sorted order.
-func (r *ConnectionRegistry) Names() []string {
+func (r *connectionRegistry) Names() []string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return append([]string(nil), r.names...)
 }
 
 // Active returns the name of the active connection.
-func (r *ConnectionRegistry) Active() string {
+func (r *connectionRegistry) Active() string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.active
@@ -444,7 +444,7 @@ func (r *ConnectionRegistry) Active() string {
 
 // ModelOf returns the model id the named connection is configured with, or
 // "" when it names none or no such connection exists.
-func (r *ConnectionRegistry) ModelOf(name string) string {
+func (r *connectionRegistry) ModelOf(name string) string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.conns[name].Model
@@ -452,7 +452,7 @@ func (r *ConnectionRegistry) ModelOf(name string) string {
 
 // ActiveModel returns the model id the active connection is configured
 // with, or "" when it names none.
-func (r *ConnectionRegistry) ActiveModel() string {
+func (r *connectionRegistry) ActiveModel() string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.conns[r.active].Model
@@ -460,7 +460,7 @@ func (r *ConnectionRegistry) ActiveModel() string {
 
 // providerLocked returns the built provider for name, building and caching
 // it on first use. Caller holds r.mu.
-func (r *ConnectionRegistry) providerLocked(name string) (agent.Provider, error) {
+func (r *connectionRegistry) providerLocked(name string) (agent.Provider, error) {
 	if p, ok := r.cache[name]; ok {
 		return p, nil
 	}
@@ -475,7 +475,7 @@ func (r *ConnectionRegistry) providerLocked(name string) (agent.Provider, error)
 // Provider builds (or returns the cached) provider for the named connection,
 // without making it active. Server-advertised agents use it to run on the
 // connection their routing hint resolves to. An unknown name is an error.
-func (r *ConnectionRegistry) Provider(name string) (agent.Provider, error) {
+func (r *connectionRegistry) Provider(name string) (agent.Provider, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, ok := r.conns[name]; !ok {
@@ -486,7 +486,7 @@ func (r *ConnectionRegistry) Provider(name string) (agent.Provider, error) {
 
 // ActiveProvider builds (or returns the cached) provider for the active
 // connection.
-func (r *ConnectionRegistry) ActiveProvider() (agent.Provider, error) {
+func (r *connectionRegistry) ActiveProvider() (agent.Provider, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.providerLocked(r.active)
@@ -496,7 +496,7 @@ func (r *ConnectionRegistry) ActiveProvider() (agent.Provider, error) {
 // unknown name is an error and leaves the active connection unchanged; a
 // build failure likewise leaves the previous active in place, so a failed
 // switch never strands the session without a provider.
-func (r *ConnectionRegistry) SetActive(name string) (agent.Provider, error) {
+func (r *connectionRegistry) SetActive(name string) (agent.Provider, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, ok := r.conns[name]; !ok {

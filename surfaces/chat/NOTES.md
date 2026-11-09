@@ -12,7 +12,7 @@ Formerly `cmd/agentchat`; moved here 2026-08-05 alongside `surfaces/web`.
 **Host concerns live in `host`; only CLI concerns live here.** Anything a web surface would
 also want belongs in the host. Only stdin/stdout plus bubbletea wiring belongs here.
 
-The host layer owns the slash-command registry, `ConnectionRegistry`, `HostEvent`/`Observer`, and
+The host layer owns the slash-command registry, `connectionRegistry`, `HostEvent`/`Observer`, and
 every `CmdResult` shape. Zero charm/lipgloss may appear in `host`. `App.Dispatch` is
 **data-only**. An overlay yields a command *line*, the surface dispatches it, and the overlay never
 calls the host directly.

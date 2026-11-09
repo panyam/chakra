@@ -213,7 +213,7 @@ func (c *client) initialize(ctx context.Context) error {
 	c.encoding = result.Capabilities.PositionEncoding
 	c.settle = c.spec.SettleDelay
 	if c.settle <= 0 {
-		c.settle = DefaultSettleDelay
+		c.settle = defaultSettleDelay
 	}
 	return c.conn.notify("initialized", map[string]any{})
 }

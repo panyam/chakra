@@ -8,8 +8,6 @@ pkg github.com/panyam/chakra/ext/exec, const KillProcessTool
 pkg github.com/panyam/chakra/ext/exec, const ListProcessesTool
 pkg github.com/panyam/chakra/ext/exec, const Prompt Decision
 pkg github.com/panyam/chakra/ext/exec, const ShellTool
-pkg github.com/panyam/chakra/ext/exec, const TTYCols
-pkg github.com/panyam/chakra/ext/exec, const TTYRows
 pkg github.com/panyam/chakra/ext/exec, const WriteStdinTool
 pkg github.com/panyam/chakra/ext/exec, func New(Config) (*Extension, error)
 pkg github.com/panyam/chakra/ext/exec, func NewRules([]PrefixRule) (*Rules, error)

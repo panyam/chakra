@@ -35,7 +35,7 @@ type App struct {
 	// teamEventSink is the per-turn persistence tap for team member events. The
 	// Team forwards each event tagged, and HostSubAgentEvent renders the
 	// attribution. This sink buffers the flat Event into the turn's
-	// PersistingEmit, so the event log is unchanged. It is set under turnMu for
+	// persistingEmit, so the event log is unchanged. It is set under turnMu for
 	// the duration of a team turn, and nil otherwise.
 	teamEventSink func(agent.Event)
 
@@ -119,7 +119,7 @@ type App struct {
 	// connections and providerSwitch form the runtime provider-switch seam
 	// (Config.Connections). The Runner holds the switch, and /provider swaps
 	// the provider under it. Both are nil when Connections is not configured.
-	connections    *ConnectionRegistry
+	connections    *connectionRegistry
 	providerSwitch *providerSwitch
 
 	// listWatch routes each server's list_changed notifications (agents,
@@ -539,7 +539,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 				}, o.connectionTypes)
 			}
 		}
-		reg, err := NewConnectionRegistry(cfg.Connections, build)
+		reg, err := newConnectionRegistry(cfg.Connections, build)
 		if err != nil {
 			app.Close()
 			return nil, err
@@ -954,7 +954,7 @@ func (a *App) runOneTurn(ctx context.Context, input string, opts TurnOptions, an
 	a.history = a.context.runDurable(ctx, a.history, userMsg)
 
 	emit := func(e agent.Event) { a.emit(HostEvent{Kind: HostRunnerEvent, RunnerEvent: e}) }
-	var pe *PersistingEmit
+	var pe *persistingEmit
 	if a.session.store != nil {
 		if err := a.ensureRunLocked(ctx); err != nil {
 			a.history = a.history[:len(a.history)-1]
@@ -965,9 +965,9 @@ func (a *App) runOneTurn(ctx context.Context, input string, opts TurnOptions, an
 			// Team member events render attributed via OnEvent. If the persisting
 			// tap also rendered them, they would render twice. A nil next makes pe
 			// buffer-only, and teamEventSink feeds it below.
-			pe = NewPersistingEmit(a.session.store, a.session.runID, nil)
+			pe = newPersistingEmit(a.session.store, a.session.runID, nil)
 		} else {
-			pe = NewPersistingEmit(a.session.store, a.session.runID, emit)
+			pe = newPersistingEmit(a.session.store, a.session.runID, emit)
 			emit = pe.Emit
 		}
 	}
@@ -1104,7 +1104,7 @@ func (a *App) Providers() (names []string, active string) {
 }
 
 // ModelLabel is the human-facing name of the active model for a status line.
-// With a ConnectionRegistry it returns the active connection's name and its
+// With a connection registry it returns the active connection's name and its
 // model id ("openai (gpt-5.5)"). It returns the name alone when the two match
 // or the connection names no model. Without a registry it returns the
 // single-model identifier.

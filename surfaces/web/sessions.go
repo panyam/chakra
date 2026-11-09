@@ -171,7 +171,7 @@ func (m *SessionManager) Get(ctx context.Context, id string) (*host.App, bool) {
 	// The id says which kind of session to rebuild. A profile builds on the
 	// folders it used before the restart, which it finds by the id.
 	build := m.factory
-	if name := ProfileOf(rid); name != "" {
+	if name := profileOf(rid); name != "" {
 		m.mu.Lock()
 		p, ok := m.profiles[name]
 		m.mu.Unlock()
@@ -286,15 +286,15 @@ func (m *SessionManager) cleanup(id string) {
 		return
 	}
 	m.mu.Lock()
-	p, ok := m.profiles[ProfileOf(id)]
+	p, ok := m.profiles[profileOf(id)]
 	m.mu.Unlock()
 	if ok && p.Close != nil {
 		p.Close(id)
 	}
 }
 
-// ProfileOf returns the profile a session id belongs to, or "" for chat.
-func ProfileOf(id string) string {
+// profileOf returns the profile a session id belongs to, or "" for chat.
+func profileOf(id string) string {
 	name, _, ok := strings.Cut(id, "-")
 	if !ok {
 		return ""

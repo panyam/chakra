@@ -11,7 +11,7 @@ import (
 )
 
 func TestCommandRegistry_RegisterLookupMatch(t *testing.T) {
-	r := NewCommandRegistry()
+	r := newCommandRegistry()
 	r.Register(&Command{Name: "provider", Run: nil})
 	r.Register(&Command{Name: "quit", Aliases: []string{"exit"}})
 

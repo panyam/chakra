@@ -409,7 +409,7 @@ func (s *HostService) ListWebSessions(ctx context.Context, _ *connect.Request[we
 	}
 	resp := &webv1.ListWebSessionsResponse{SessionIds: ids}
 	for _, id := range ids {
-		profile, path := ProfileOf(id), "/"
+		profile, path := profileOf(id), "/"
 		if profile != "" {
 			path = paths[profile]
 		}

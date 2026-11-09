@@ -1,8 +1,3 @@
-pkg github.com/panyam/chakra/ext/lsp, const DefaultDiagnosticsTimeout
-pkg github.com/panyam/chakra/ext/lsp, const DefaultMaxDiagnostics
-pkg github.com/panyam/chakra/ext/lsp, const DefaultRepoMapBudget
-pkg github.com/panyam/chakra/ext/lsp, const DefaultRepoMapMaxFiles
-pkg github.com/panyam/chakra/ext/lsp, const DefaultSettleDelay
 pkg github.com/panyam/chakra/ext/lsp, func New(Config) (*Extension, error)
 pkg github.com/panyam/chakra/ext/lsp, method (*Extension) Close() error
 pkg github.com/panyam/chakra/ext/lsp, method (*Extension) ContextStages() []host.ContextStage

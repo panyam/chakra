@@ -361,9 +361,9 @@ func TestServerAgentSource_RoutesByHint(t *testing.T) {
 			for name := range conns {
 				stubs[name] = agent.NewStubProvider(agent.StubTurn{Text: "done"})
 			}
-			reg, err := NewConnectionRegistry(&ConnectionsConfig{Active: "main", Connections: conns, AgentRoles: c.roles}, stubsByModel(stubs))
+			reg, err := newConnectionRegistry(&ConnectionsConfig{Active: "main", Connections: conns, AgentRoles: c.roles}, stubsByModel(stubs))
 			if err != nil {
-				t.Fatalf("NewConnectionRegistry: %v", err)
+				t.Fatalf("newConnectionRegistry: %v", err)
 			}
 			tp := &hostRecTP{}
 			src := newServerAgentSource(serverAgentDeps{
@@ -403,7 +403,7 @@ func TestConnectionRegistry_AgentRolesValidated(t *testing.T) {
 		"undefined connection": {"large": "nope"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := NewConnectionRegistry(&ConnectionsConfig{Active: "main", Connections: conns, AgentRoles: roles}, nil); err == nil {
+			if _, err := newConnectionRegistry(&ConnectionsConfig{Active: "main", Connections: conns, AgentRoles: roles}, nil); err == nil {
 				t.Fatal("expected an error")
 			}
 		})

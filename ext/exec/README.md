@@ -113,7 +113,7 @@ on Codex calls them without being taught:
 | `kill_process {session_id}` | stops it and everything it started | reversible |
 
 Processes run under the same sandbox as `shell`, and `tty: true` gives one a pseudo-terminal
-(`github.com/creack/pty`) of `TTYCols` by `TTYRows` (120 by 30). A process isn't reported done
+(`github.com/creack/pty`) 120 columns by 30 rows. A process isn't reported done
 until its terminal's output has been read, for at most 2s after it exits (#218). Linux keeps what a
 process wrote after it exits, so closing the terminal at exit would lose the end. They belong to the session, not the turn, so a server started in one
 turn is still there in the next, and `Extension.Close` kills them all. Each call returns only the

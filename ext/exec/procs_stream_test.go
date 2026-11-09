@@ -225,14 +225,14 @@ func TestTTYOutputAtExitIsKept(t *testing.T) {
 func TestTTYProcessOutputCarriesItsSize(t *testing.T) {
 	src, sink := streamingSource(t, ProcessConfig{})
 	out, _ := callProc(t, src, ExecCommandTool, map[string]any{"cmd": helperCmd(t, "winsize"), "tty": true, "yield_ms": 3000})
-	want := fmt.Sprintf("winsize=%dx%d", TTYCols, TTYRows)
+	want := fmt.Sprintf("winsize=%dx%d", ttyCols, ttyRows)
 	if !strings.Contains(out, want) {
 		t.Errorf("process saw %q, want %s", out, want)
 	}
 	evs := sink.waitFor(t, 3*time.Second, exited)
 	for _, o := range evs {
-		if !o.TTY || o.Cols != TTYCols || o.Rows != TTYRows {
-			t.Errorf("event %+v, want TTY with %dx%d", o, TTYCols, TTYRows)
+		if !o.TTY || o.Cols != ttyCols || o.Rows != ttyRows {
+			t.Errorf("event %+v, want TTY with %dx%d", o, ttyCols, ttyRows)
 		}
 	}
 

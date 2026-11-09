@@ -252,7 +252,7 @@ func (a *App) ensureRunLocked(ctx context.Context) error {
 // as a warning, not a turn failure. The turn already succeeded and the
 // in-memory session is still usable. Only durability degraded.
 // Caller holds turnMu.
-func (a *App) persistTurnLocked(ctx context.Context, msgs []agent.Message, pe *PersistingEmit) {
+func (a *App) persistTurnLocked(ctx context.Context, msgs []agent.Message, pe *persistingEmit) {
 	resp, err := a.session.store.AppendMessages(ctx, agent.AppendMessagesRequest{RunID: a.session.runID, Messages: msgs})
 	if err != nil {
 		a.emit(HostEvent{Kind: HostSessionWarn, Err: err.Error()})
@@ -271,14 +271,14 @@ func (a *App) persistTurnLocked(ctx context.Context, msgs []agent.Message, pe *P
 // already done, and that turn is exactly the one worth keeping. A
 // step-limited turn doesn't take this path. It keeps its messages and goes
 // through persistTurnLocked instead (issue 109). Caller holds turnMu.
-func (a *App) persistFailedTurnLocked(ctx context.Context, pe *PersistingEmit) {
+func (a *App) persistFailedTurnLocked(ctx context.Context, pe *persistingEmit) {
 	a.flushEventsLocked(context.WithoutCancel(ctx), pe)
 }
 
 // flushEventsLocked writes the turn's buffered events to the RunStore and
 // advances the persisted offset. A failure renders a warning. Caller holds
 // turnMu.
-func (a *App) flushEventsLocked(ctx context.Context, pe *PersistingEmit) {
+func (a *App) flushEventsLocked(ctx context.Context, pe *persistingEmit) {
 	if err := pe.Flush(ctx); err != nil {
 		a.emit(HostEvent{Kind: HostSessionWarn, Err: err.Error()})
 		return
@@ -293,25 +293,25 @@ func (a *App) flushEventsLocked(ctx context.Context, pe *PersistingEmit) {
 	a.events.persisted.Store(int64(a.events.log.Len()))
 }
 
-// PersistingEmit tees a Runner event stream into a RunStore event log. Use its
+// persistingEmit tees a Runner event stream into a RunStore event log. Use its
 // Emit as the emit argument to Runner.Run (wrapping the surface's own handler),
 // then Flush once the turn completes. Events buffer in memory and reach the
 // store in one AppendEvents call per turn, rather than one store round-trip per
 // text delta, so durability is per turn. Not safe for concurrent use, which
 // matches the Runner's guarantee that emit is never called concurrently.
-type PersistingEmit struct {
+type persistingEmit struct {
 	store agent.RunStore
 	runID string
 	next  func(agent.Event)
 	buf   []agent.Event
 }
 
-// NewPersistingEmit wraps next (nil is allowed) for the given run.
-func NewPersistingEmit(store agent.RunStore, runID string, next func(agent.Event)) *PersistingEmit {
+// newPersistingEmit wraps next (nil is allowed) for the given run.
+func newPersistingEmit(store agent.RunStore, runID string, next func(agent.Event)) *persistingEmit {
 	if next == nil {
 		next = func(agent.Event) {}
 	}
-	return &PersistingEmit{store: store, runID: runID, next: next}
+	return &persistingEmit{store: store, runID: runID, next: next}
 }
 
 // Emit forwards the event to the wrapped handler verbatim and buffers a
@@ -319,7 +319,7 @@ func NewPersistingEmit(store agent.RunStore, runID string, next func(agent.Event
 // drops TurnResult.Messages (see redactForPersist). Live consumers such as
 // renderers still see the whole event, and the event log doesn't duplicate
 // what the message log already holds.
-func (p *PersistingEmit) Emit(e agent.Event) {
+func (p *persistingEmit) Emit(e agent.Event) {
 	p.buf = append(p.buf, redactForPersist(e))
 	p.next(e)
 }
@@ -347,7 +347,7 @@ func redactForPersist(e agent.Event) agent.Event {
 // If the store doesn't know the run, Flush returns an error, where the raw
 // AppendEvents only reports Found=false. By construction, the caller created
 // the run before the turn began, so a missing run is an error here.
-func (p *PersistingEmit) Flush(ctx context.Context) error {
+func (p *persistingEmit) Flush(ctx context.Context) error {
 	if len(p.buf) == 0 {
 		return nil
 	}

@@ -62,7 +62,7 @@ func TestLiveRustWriteCycle(t *testing.T) {
 		res, _ := ext.Middleware()[0](context.Background(), callInfo("edit_file", "src/main.rs"), okResult("edited"))
 		elapsed := time.Since(start)
 		t.Logf("write %d took %s:\n%s", i, elapsed.Round(10*time.Millisecond), resultText(res))
-		if elapsed > DefaultDiagnosticsTimeout-time.Second {
+		if elapsed > defaultDiagnosticsTimeout-time.Second {
 			t.Fatalf("write %d took %s, which is the timeout rather than an answer", i, elapsed)
 		}
 		if want := wants[i]; !strings.Contains(resultText(res), want) {

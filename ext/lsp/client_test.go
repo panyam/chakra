@@ -242,8 +242,8 @@ func TestServerSpecSettleDelayOverridesTheDefault(t *testing.T) {
 // timeout shorter than the settle would cut off the publication that the
 // settle exists to wait for.
 func TestDiagnosticsTimeoutOutlastsTheSettle(t *testing.T) {
-	if DefaultDiagnosticsTimeout <= DefaultSettleDelay {
-		t.Fatalf("timeout %v does not outlast settle %v", DefaultDiagnosticsTimeout, DefaultSettleDelay)
+	if defaultDiagnosticsTimeout <= defaultSettleDelay {
+		t.Fatalf("timeout %v does not outlast settle %v", defaultDiagnosticsTimeout, defaultSettleDelay)
 	}
 }
 
@@ -317,8 +317,8 @@ func TestRefreshWaitsOutTheSettleOnAnEmptyResult(t *testing.T) {
 // rust-analyzer reports progress almost continuously, so every rust-analyzer
 // write took the full eight-second timeout.
 func TestBusyGraceIsBounded(t *testing.T) {
-	if busyGrace >= DefaultDiagnosticsTimeout {
-		t.Fatalf("busyGrace %v must stay well inside the %v timeout", busyGrace, DefaultDiagnosticsTimeout)
+	if busyGrace >= defaultDiagnosticsTimeout {
+		t.Fatalf("busyGrace %v must stay well inside the %v timeout", busyGrace, defaultDiagnosticsTimeout)
 	}
 }
 

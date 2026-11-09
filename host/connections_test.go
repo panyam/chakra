@@ -44,7 +44,7 @@ func stubBuilder(t *testing.T) ProviderBuilder {
 }
 
 func TestConnectionRegistry_LoadAndActive(t *testing.T) {
-	reg, err := NewConnectionRegistry(twoConn(), stubBuilder(t))
+	reg, err := newConnectionRegistry(twoConn(), stubBuilder(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestConnectionRegistry_LoadAndActive(t *testing.T) {
 }
 
 func TestConnectionRegistry_SetActiveAndCache(t *testing.T) {
-	reg, err := NewConnectionRegistry(twoConn(), stubBuilder(t))
+	reg, err := newConnectionRegistry(twoConn(), stubBuilder(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,8 +100,8 @@ func TestConnectionRegistry_ValidationErrors(t *testing.T) {
 		"empty":            {Active: "a"},
 	}
 	for name, cfg := range cases {
-		if _, err := NewConnectionRegistry(cfg, stubBuilder(t)); err == nil {
-			t.Fatalf("%s: NewConnectionRegistry succeeded, want error", name)
+		if _, err := newConnectionRegistry(cfg, stubBuilder(t)); err == nil {
+			t.Fatalf("%s: newConnectionRegistry succeeded, want error", name)
 		}
 	}
 }
@@ -223,13 +223,13 @@ func TestEmbedderRole(t *testing.T) {
 	if !ok || conn.Model != "text-embedding-3-small" || conn.Dim != 1536 {
 		t.Fatalf("EmbedderConnection = %+v, ok=%v", conn, ok)
 	}
-	if _, err := NewConnectionRegistry(cfg, stubBuilder(t)); err != nil {
+	if _, err := newConnectionRegistry(cfg, stubBuilder(t)); err != nil {
 		t.Fatalf("valid embedder role should build: %v", err)
 	}
 
 	bad := *cfg
 	bad.Embedder = "nope"
-	if _, err := NewConnectionRegistry(&bad, stubBuilder(t)); err == nil {
+	if _, err := newConnectionRegistry(&bad, stubBuilder(t)); err == nil {
 		t.Fatal("unknown embedder name should error")
 	}
 
@@ -240,7 +240,7 @@ func TestEmbedderRole(t *testing.T) {
 			"chat": {Type: "anthropic", Model: "claude-sonnet-5"},
 		},
 	}
-	if _, err := NewConnectionRegistry(anth, stubBuilder(t)); err == nil {
+	if _, err := newConnectionRegistry(anth, stubBuilder(t)); err == nil {
 		t.Fatal("anthropic embedder connection should be rejected")
 	}
 }
@@ -340,7 +340,7 @@ func TestLocalConnectionsReportWhatTheyCanSend(t *testing.T) {
     }`), &c); err != nil {
 		t.Fatal(err)
 	}
-	r, err := NewConnectionRegistry(&c, nil)
+	r, err := newConnectionRegistry(&c, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -380,7 +380,7 @@ func TestLocalConnectionsReportWhatTheyCanSend(t *testing.T) {
 		t.Errorf("switch back on llamacpp reports no temperature")
 	}
 	c.Connections["bare"] = ConnectionConfig{Type: "openai"}
-	if _, err := NewConnectionRegistry(&c, nil); err == nil || !strings.Contains(err.Error(), "has no model") {
+	if _, err := newConnectionRegistry(&c, nil); err == nil || !strings.Contains(err.Error(), "has no model") {
 		t.Errorf("control: an openai connection without a model: %v", err)
 	}
 }

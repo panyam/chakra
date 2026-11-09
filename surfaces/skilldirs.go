@@ -25,20 +25,20 @@ var SkillPresets = map[string][]string{
 	"chakra": {".agents/skills", ".claude/skills", "~/.agents/skills"},
 }
 
-// DefaultSkillPreset is the preset WorkspaceSkillDirs uses when the config
+// defaultSkillPreset is the preset WorkspaceSkillDirs uses when the config
 // names neither a preset nor a list.
-const DefaultSkillPreset = "chakra"
+const defaultSkillPreset = "chakra"
 
-// SkillFolders resolves a skills setting to a folder list. It returns dirs
+// skillFolders resolves a skills setting to a folder list. It returns dirs
 // when dirs is non-nil, and an empty non-nil list means no folders.
 // Otherwise it returns the named preset's list, or the default preset's when
 // preset is empty.
-func SkillFolders(preset string, dirs []string) ([]string, error) {
+func skillFolders(preset string, dirs []string) ([]string, error) {
 	if dirs != nil {
 		return dirs, nil
 	}
 	if preset == "" {
-		preset = DefaultSkillPreset
+		preset = defaultSkillPreset
 	}
 	list, ok := SkillPresets[preset]
 	if !ok {
@@ -61,7 +61,7 @@ func WorkspaceSkillDirs(cfg WorkspaceConfig) ([]host.SkillDir, error) {
 	if len(cfg.Roots) == 0 {
 		return nil, nil
 	}
-	folders, err := SkillFolders(cfg.SkillsPreset, cfg.SkillDirs)
+	folders, err := skillFolders(cfg.SkillsPreset, cfg.SkillDirs)
 	if err != nil {
 		return nil, err
 	}
