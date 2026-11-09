@@ -4,10 +4,10 @@ go 1.26.9
 
 require (
 	connectrpc.com/connect v1.19.2
-	github.com/panyam/chakra v0.3.2
-	github.com/panyam/chakra/host v0.3.2
-	github.com/panyam/chakra/surfaces v0.3.2
-	github.com/panyam/chakra/surfaces/web v0.3.2
+	github.com/panyam/chakra v0.3.3
+	github.com/panyam/chakra/host v0.3.3
+	github.com/panyam/chakra/surfaces v0.3.3
+	github.com/panyam/chakra/surfaces/web v0.3.3
 	github.com/panyam/mcpkit v0.8.19
 )
 
@@ -43,15 +43,15 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
-	github.com/panyam/chakra/ext/agentsmd v0.3.2 // indirect
-	github.com/panyam/chakra/ext/checkpoint v0.3.2 // indirect
-	github.com/panyam/chakra/ext/exec v0.3.2 // indirect
-	github.com/panyam/chakra/ext/files v0.3.2 // indirect
-	github.com/panyam/chakra/ext/git v0.3.2 // indirect
-	github.com/panyam/chakra/ext/lsp v0.3.2 // indirect
-	github.com/panyam/chakra/provider/anthropic v0.3.2 // indirect
-	github.com/panyam/chakra/store/gorm v0.3.2 // indirect
-	github.com/panyam/chakra/store/redis v0.3.2 // indirect
+	github.com/panyam/chakra/ext/agentsmd v0.3.3 // indirect
+	github.com/panyam/chakra/ext/checkpoint v0.3.3 // indirect
+	github.com/panyam/chakra/ext/exec v0.3.3 // indirect
+	github.com/panyam/chakra/ext/files v0.3.3 // indirect
+	github.com/panyam/chakra/ext/git v0.3.3 // indirect
+	github.com/panyam/chakra/ext/lsp v0.3.3 // indirect
+	github.com/panyam/chakra/provider/anthropic v0.3.3 // indirect
+	github.com/panyam/chakra/store/gorm v0.3.3 // indirect
+	github.com/panyam/chakra/store/redis v0.3.3 // indirect
 	github.com/panyam/gocurrent v0.1.2 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents v0.8.19 // indirect

@@ -5,6 +5,21 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
+## [v0.3.3] - 2026-11-09
+
+Full notes in [docs/releases/v0.3.3.md](docs/releases/v0.3.3.md).
+
+### Added
+- `EventConfig.Arguments`: subscription arguments for `events/stream`, with one subscription per name and arguments (PR 322).
+- `ServerConfig.OnConnect`: setup tool calls before a server's streams open, rerun before a dropped stream reopens (PR 322).
+- `App.Deliver`: in-process events into the same injection and triggers as streamed ones. `IncomingEvent.Subscription` names an event's stream (PR 322).
+- `<chakra-chat>`: an embeddable chat element served at `/static/chakra-chat.js`, plus CORS in agentweb for the origins it allows (PR 323).
+- `<chakra-chat room-join>`: page tools through a relay room, a consent switch, and the `ask_yes_no` and `ask_choice` prompt tools (PR 325).
+
+### Changed
+- Background task completion goes through `App.Deliver`, so its result can reach the model one turn later than before (PR 322).
+- mcpkit v0.8.19 across every module (PRs 322 and 325).
+
 ## [v0.3.2] - 2026-11-09
 
 Full notes in [docs/releases/v0.3.2.md](docs/releases/v0.3.2.md).
