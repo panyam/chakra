@@ -79,7 +79,7 @@ func newAgentsFixture(t *testing.T, defs []agents.AgentDef, ttlMs *int) *agentsF
 	fx.reg = reg
 	fx.ts = httptest.NewServer(fx.srv.Handler(server.WithStreamableHTTP(true)))
 	t.Cleanup(fx.ts.Close)
-	c := client.NewClient(fx.ts.URL+"/mcp", core.ClientInfo{Name: "fx", Version: "0"})
+	c := client.NewClient(fx.ts.URL+"/mcp", core.ClientInfo{Name: "fx", Version: "0"}, agentsclient.WithExtension())
 	if err := c.Connect(context.Background()); err != nil {
 		t.Fatalf("Connect: %v", err)
 	}
