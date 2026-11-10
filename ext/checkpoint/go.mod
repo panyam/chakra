@@ -5,8 +5,8 @@ go 1.26.9
 replace github.com/panyam/chakra => ../..
 
 require (
-	github.com/panyam/chakra v0.3.4
-	github.com/panyam/chakra/host v0.3.4
+	github.com/panyam/chakra v0.3.5
+	github.com/panyam/chakra/host v0.3.5
 	github.com/panyam/mcpkit v0.8.20
 )
 

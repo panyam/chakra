@@ -31,9 +31,9 @@ replace github.com/panyam/mcpkit/ext/skills => ../../../../mcpkit/main/ext/skill
 replace github.com/panyam/mcpkit/ext/tasks => ../../../../mcpkit/main/ext/tasks
 
 require (
-	github.com/panyam/chakra v0.3.4
-	github.com/panyam/chakra/host v0.3.4
-	github.com/panyam/chakra/surfaces/web v0.3.4
+	github.com/panyam/chakra v0.3.5
+	github.com/panyam/chakra/host v0.3.5
+	github.com/panyam/chakra/surfaces/web v0.3.5
 	github.com/panyam/mcpkit v0.8.20
 	github.com/panyam/mcpkit/experimental/ext/rooms v0.8.20
 	github.com/panyam/mcpkit/experimental/ext/rooms/massrelay v0.8.20

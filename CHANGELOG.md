@@ -5,6 +5,20 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
+## [v0.3.5] - 2026-11-09
+
+Full notes in [docs/releases/v0.3.5.md](docs/releases/v0.3.5.md).
+
+### Added
+- `CollapseStuckSteps`: a stuck policy that sends the next call a view with repeated steps removed, keeping the record whole (PR 331).
+- `presets.GraphQuery.FirstStuck`: a policy for the stuck detector's first finding, run before the note (PR 331).
+- `ConnectionConfig.Price` and `ConnectionConfig.Cost`: a connection's price per million tokens and the cost of one call (PR 328).
+- `agentchat exec --json` writes `run-start`, a `cost` frame per model call, and a `summary` frame on every exit. `examples/benchmark` holds three model arms (PR 328).
+
+### Changed
+- An empty `GraphQuery.StuckNote` adds no message (PR 331).
+- `agentchat exec` exits 5 when the model connection or an MCP server can't start, where it used to answer without that server's tools (PR 328).
+
 ## [v0.3.4] - 2026-11-09
 
 Full notes in [docs/releases/v0.3.4.md](docs/releases/v0.3.4.md).
