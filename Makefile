@@ -35,7 +35,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/h
 GOTESTFLAGS ?= -race -timeout 300s
 
 .PHONY: help build test test-examples test-web test-web-e2e testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report tbench-ingest tbench-matrix tbench-stale tbench-stale-locked tbench-ref mission-tbench deploy-web weblogs \
-        check-no-binaries check-ext-isolation check-dep-consistency setup-hooks api-report api-update
+        check-no-binaries check-ext-isolation check-dep-consistency setup-hooks api-report api-update vulncheck
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -121,6 +121,14 @@ api-update: ## Rewrite every module's api.txt from its exported API
 	@bin=$$(mktemp -d)/apireport; go build -o $$bin ./scripts/apireport || exit 1; \
 	for m in $(MODULES); do $$bin $$m > $$m/api.txt || exit 1; done; \
 	rm -rf $$(dirname $$bin); echo "==> api.txt rewritten in every module"
+
+# .github/workflows/vulncheck.yml runs this weekly and on each tag (panyam/ci-actions#11).
+vulncheck: ## govulncheck every tagged module, failing if any has a known vulnerability
+	@fail=0; for m in $(MODULES); do \
+		echo "==> vulncheck $$m"; \
+		(cd $$m && go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...) || fail=1; \
+	done; \
+	exit $$fail
 
 check-no-binaries: ## Fail if a compiled executable is tracked
 	@sh scripts/check-no-binaries.sh

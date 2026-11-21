@@ -2,6 +2,8 @@ module github.com/panyam/chakra/surfaces
 
 go 1.26.9
 
+toolchain go1.27.4
+
 require (
 	github.com/anthropics/anthropic-sdk-go/v2 v2.7.0
 	github.com/panyam/chakra v0.3.5
@@ -23,14 +25,13 @@ require (
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
-	github.com/kr/text v0.2.0 // indirect
-	github.com/panyam/mcpkit/experimental/ext/agents v0.8.20 // indirect
+	github.com/panyam/mcpkit/experimental/ext/agents v0.8.21 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.8.20 // indirect
-	github.com/panyam/mcpkit/experimental/ext/events v0.8.20 // indirect
+	github.com/panyam/mcpkit/experimental/ext/events v0.8.21 // indirect
 	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.20 // indirect
 	github.com/panyam/mcpkit/ext/auth v0.8.20 // indirect
 	github.com/panyam/mcpkit/ext/skills v0.8.20 // indirect
-	github.com/panyam/oneauth v0.3.2 // indirect
+	github.com/panyam/oneauth v0.3.13 // indirect
 	github.com/standard-webhooks/standard-webhooks/libraries v0.0.1 // indirect
 	github.com/stretchr/testify v1.12.1 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
@@ -69,8 +70,8 @@ require (
 	github.com/panyam/chakra/provider/anthropic v0.3.5
 	github.com/panyam/gocurrent v0.1.2 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
-	github.com/panyam/mcpkit v0.8.20
-	github.com/panyam/servicekit v0.2.2 // indirect
+	github.com/panyam/mcpkit v0.8.21
+	github.com/panyam/servicekit v0.2.4 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pgvector/pgvector-go v0.4.1 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
