@@ -315,12 +315,12 @@ gets it by default.
 
 ```
 cd web
-npm install
-npm run gen      # regenerate TS clients from ../protos (buf)
-npm run build    # esbuild bundle → ../static (committed; Go embeds it)
-npm run typecheck
-npm run test     # vitest: Frame-decode, event fold, dock reconcile, status line
-npm run e2e      # Playwright: drives the served page (needs Go; make test-web-e2e)
+pnpm install
+pnpm run gen     # regenerate TS clients from ../protos (buf)
+pnpm run build   # esbuild bundle → ../static (committed; Go embeds it)
+pnpm run typecheck
+pnpm run test    # vitest: Frame-decode, event fold, dock reconcile, status line
+pnpm run e2e     # Playwright: drives the served page (needs Go; make test-web-e2e)
 ```
 
 The Playwright checks in `web/e2e` run against the committed bundle in
@@ -331,13 +331,14 @@ Playwright starts it with `go run`.
 The built bundle is committed under `static/`, so `go build` and
 `just test-agent` need no Node step. Rebuild it after a frontend change.
 Suppose a rebase or merge conflicts in `static/`. Don't pick a side. Take either
-copy, run `npm ci` and `npm run build` on the merged sources, and stage the
-result. A fresh worktree has no `node_modules`, so `npm ci` comes first. The
-chunk names are content hashes, so a rebuild also renames chunks.
+copy, run `pnpm install --frozen-lockfile` and `pnpm run build` on the merged
+sources, and stage the result. A fresh worktree has no `node_modules`, so the
+install comes first. The chunk names are content hashes, so a rebuild also
+renames chunks.
 
 ## Regenerating proto code
 
 ```
 cd protos && buf generate          # Go + Connect (gen/go)
-cd web && npm run gen              # TypeScript clients (web/src/gen)
+cd web && pnpm run gen             # TypeScript clients (web/src/gen)
 ```
