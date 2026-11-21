@@ -50,7 +50,6 @@ github.com/buger/jsonparser v1.6.1 h1:I0phFv0PlbLHnM7TZAVjZ2MJ2/eWRTDyuO7GLR98IE
 github.com/buger/jsonparser v1.6.1/go.mod h1:6RYKKt7H4d4+iWqouImQ9R2FZql3VbhNgx27UK13J/0=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
-github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/creack/pty v1.1.24 h1:bJrF4RRfyJnbTJqzRLHzcGaZK1NeM5kTC9jGgovnR1s=
 github.com/creack/pty v1.1.24/go.mod h1:08sCNb52WyoAwi2QDyzUCTgcvVFhUzewun7wtTfvcwE=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -119,10 +118,10 @@ github.com/panyam/goutils v0.1.13 h1:V819IdZTEJ3rpu33ZqohC6O9ou7KOu6cxfigoYT12OQ
 github.com/panyam/goutils v0.1.13/go.mod h1:vd3iFcv1DjaeV6h8tslIJh9d09RLndg8UYNSGROBrM4=
 github.com/panyam/mcpkit/ext/tasks v0.8.20 h1:MHXMupGe8AmCP1a98DsfK+5zSTXlYmCG5MP5i72sp2U=
 github.com/panyam/mcpkit/ext/tasks v0.8.20/go.mod h1:qbNYxCtLxU2+jCC2X8uCggfL7lFlYztY/uCOAAUUhHA=
-github.com/panyam/oneauth v0.3.2 h1:cnlo1mk3IzbR6Q9aCNfB/yGQ8dF4ZArqtzlTbc0I9U0=
-github.com/panyam/oneauth v0.3.2/go.mod h1:kuj4u+oxzZIvHbyoNNIzpUlSq+22261X1CePLBG+fwQ=
-github.com/panyam/servicekit v0.2.2 h1:ra5MCDoDvAmCaeB7Qe8SToAo8pB0W4i+ciUjAmd6GJ0=
-github.com/panyam/servicekit v0.2.2/go.mod h1:GslqqjqDYzMw9a3h8LRTAmydHUIPV6VjAeOmWHjCzck=
+github.com/panyam/oneauth v0.3.13 h1:O+92jUddxT0E3i9fd9yomt3XJGVg3tjFpyrqVMmiB+I=
+github.com/panyam/oneauth v0.3.13/go.mod h1:o96puZu6zVL4O5aB2Y4uZdzHoXK8pFLnHkamY5DmPwM=
+github.com/panyam/servicekit v0.2.4 h1:W+ISlSkvc3BB+Qrtq84kMmSnwEm4XRPb93SpffWZqmk=
+github.com/panyam/servicekit v0.2.4/go.mod h1:GslqqjqDYzMw9a3h8LRTAmydHUIPV6VjAeOmWHjCzck=
 github.com/pb33f/ordered-map/v2 v2.3.1 h1:5319HDO0aw4DA4gzi+zv4FXU9UlSs3xGZ40wcP1nBjY=
 github.com/pb33f/ordered-map/v2 v2.3.1/go.mod h1:qxFQgd0PkVUtOMCkTapqotNgzRhMPL7VvaHKbd1HnmQ=
 github.com/pgvector/pgvector-go v0.4.1 h1:Oaj0mC0Ky8KaTweNHHpLwyFlN6a0nUFoo1vgSFTEhPI=
