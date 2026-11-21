@@ -2,6 +2,8 @@ module github.com/panyam/chakra/provider/anthropic
 
 go 1.26.9
 
+toolchain go1.27.4
+
 replace github.com/panyam/chakra => ../..
 
 replace github.com/panyam/mcpkit => ../../../../mcpkit/main
@@ -9,7 +11,7 @@ replace github.com/panyam/mcpkit => ../../../../mcpkit/main
 require (
 	github.com/anthropics/anthropic-sdk-go/v2 v2.7.0
 	github.com/panyam/chakra v0.3.5
-	github.com/panyam/mcpkit v0.8.20
+	github.com/panyam/mcpkit v0.8.21
 )
 
 require (
@@ -22,7 +24,7 @@ require (
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/panyam/gocurrent v0.1.2 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
-	github.com/panyam/servicekit v0.2.2 // indirect
+	github.com/panyam/servicekit v0.2.4 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	github.com/standard-webhooks/standard-webhooks/libraries v0.0.1 // indirect

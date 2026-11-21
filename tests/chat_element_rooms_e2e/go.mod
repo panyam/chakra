@@ -2,6 +2,8 @@ module github.com/panyam/chakra/tests/chat_element_rooms_e2e
 
 go 1.26.9
 
+toolchain go1.27.4
+
 replace github.com/panyam/chakra => ../..
 
 replace github.com/panyam/chakra/host => ../../host
@@ -34,10 +36,10 @@ require (
 	github.com/panyam/chakra v0.3.5
 	github.com/panyam/chakra/host v0.3.5
 	github.com/panyam/chakra/surfaces/web v0.3.5
-	github.com/panyam/mcpkit v0.8.20
-	github.com/panyam/mcpkit/experimental/ext/rooms v0.8.20
+	github.com/panyam/mcpkit v0.8.21
+	github.com/panyam/mcpkit/experimental/ext/rooms v0.8.21
 	github.com/panyam/mcpkit/experimental/ext/rooms/massrelay v0.8.20
-	github.com/panyam/servicekit v0.2.2
+	github.com/panyam/servicekit v0.2.4
 )
 
 require (
@@ -57,18 +59,17 @@ require (
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/panyam/gocurrent v0.1.2 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
 	github.com/panyam/massrelay v0.3.7 // indirect
-	github.com/panyam/mcpkit/experimental/ext/agents v0.8.20 // indirect
+	github.com/panyam/mcpkit/experimental/ext/agents v0.8.21 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.8.20 // indirect
-	github.com/panyam/mcpkit/experimental/ext/events v0.8.20 // indirect
+	github.com/panyam/mcpkit/experimental/ext/events v0.8.21 // indirect
 	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.20 // indirect
 	github.com/panyam/mcpkit/ext/auth v0.8.20 // indirect
 	github.com/panyam/mcpkit/ext/skills v0.8.20 // indirect
-	github.com/panyam/oneauth v0.3.2 // indirect
+	github.com/panyam/oneauth v0.3.13 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/prometheus/client_golang v1.24.1 // indirect
 	github.com/prometheus/client_model v0.6.3 // indirect
