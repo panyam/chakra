@@ -15,7 +15,7 @@ cd "$(dirname "$0")"
 ADDR="${ADDR:-:8090}"
 
 echo "==> building frontend bundle (esbuild)"
-( cd web && npm install --silent && npm run build )
+( cd web && pnpm install --silent && pnpm run build )
 
 echo "==> serving agentweb --demo at http://localhost${ADDR}/"
 exec go run ./cmd/agentweb --demo --addr "$ADDR"

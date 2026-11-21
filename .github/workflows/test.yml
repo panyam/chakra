@@ -114,11 +114,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          package_json_file: surfaces/web/web/package.json
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: surfaces/web/web/package-lock.json
+          cache: pnpm
+          cache-dependency-path: surfaces/web/web/pnpm-lock.yaml
       - run: make test-web
 
   # The web frontend's browser checks (Playwright). These drive the page the Go
@@ -141,11 +144,14 @@ jobs:
         with:
           go-version-file: chakra/main/go.mod
           cache-dependency-path: chakra/main/surfaces/web/go.sum
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          package_json_file: chakra/main/surfaces/web/web/package.json
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: chakra/main/surfaces/web/web/package-lock.json
+          cache: pnpm
+          cache-dependency-path: chakra/main/surfaces/web/web/pnpm-lock.yaml
       - run: make test-web-e2e
       - if: failure()
         uses: actions/upload-artifact@v4

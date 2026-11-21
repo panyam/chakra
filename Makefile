@@ -79,13 +79,13 @@ check-fmt: ## Fail if any Go file (tracked, or new and not ignored) is not gofmt
 	fi
 
 test-web: ## Run the web frontend's unit tests (vitest; needs Node)
-	cd surfaces/web/web && npm ci --silent && npm test
+	cd surfaces/web/web && pnpm install --frozen-lockfile --silent && pnpm test
 
 # Playwright drives the page the Go binary serves (the committed bundle) over
 # internal/e2eserver's stub connections, so it needs Go and the mcpkit checkout
 # beside this one, as well as Node.
 test-web-e2e: ## Run the web frontend's browser checks (Playwright; needs Node and Go)
-	cd surfaces/web/web && npm ci --silent && npx playwright install --with-deps chromium && npm run e2e
+	cd surfaces/web/web && pnpm install --frozen-lockfile --silent && pnpm exec playwright install --with-deps chromium && pnpm run e2e
 
 tidy-all: ## go mod tidy every module. Required after touching a shared import.
 	@for m in $(MODULES) $(EXAMPLES); do \
@@ -367,7 +367,7 @@ GCP_PROJECT ?= vibestitch
 # surfaces/web/deploy.sh does the deploy itself (vendoring, the access token);
 # surfaces/web/app.yaml has the instance settings.
 deploy-web: test-web ## Deploy agentweb to App Engine (GCP_PROJECT=vibestitch)
-	cd surfaces/web/web && npm run build
+	cd surfaces/web/web && pnpm run build
 	cd surfaces/web && go test ./... $(GOTESTFLAGS)
 	surfaces/web/deploy.sh $(GCP_PROJECT)
 

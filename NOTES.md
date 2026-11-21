@@ -1806,7 +1806,7 @@ it.
 - **The Playwright checks share one server** (`make test-web-e2e`, `surfaces/web/internal/e2eserver`).
   The picker check switches chat's connection, and a later check saw it. A check must not assert
   state another check changes. They also run against the committed bundle, so rebuild it with
-  `npm run build` after a frontend change.
+  `pnpm run build` after a frontend change.
 - `make test` covers every module and `make test-examples` the examples. CI runs those same two
   targets, and overrides `GOTESTFLAGS` only to add `-v`. So the module list is in the `Makefile`
   and nowhere else. **Adding a module is one edit.** Before the split it was three edits, in three
