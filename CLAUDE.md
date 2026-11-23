@@ -29,31 +29,15 @@ the PR says so as its main decision and updates the page in the same PR.
 ## Issues and missions
 
 Work is ranked by which mission it serves, not by how recently it was filed. The active mission is
-#299 (`mission_graph_query_preset`). jaala's translator loop on a 14B local model should build from a
-chakra graph-query preset instead of wiring each hook by hand, and answer more of Declaire's
-questions. It serves panyam/jaala#322. The preset itself is #300, and it waits on state slots (#279)
-and the windowed stuck detector (#296). chakra can't import jaala, so the preset holds no jaala code.
-The exercise lives in the consumer: `make exercise-translator ARMS="14b:loop 14b"` in
-panyam/declaire. It prints questions passed, steps per question and steps spent on repeats per arm.
-After each merge on the mission, run it and log the output on #299.
-#162 (`mission_coding_harness`) closed on 2026-11-08 with all 42 tickets done. It built a second
-coding agent only by rewiring chakra: agentweb over the profile in `surfaces/coding`, served at
-`/code/` by `agentweb --coding` (`make coding-harness-web`). Its exercises still run.
-`make coding-harness-exercise` (#163) drives the agent over agentweb's Connect API on a fixture repo
-with a failing test, and prints PASS or FAIL per behaviour. Known failures are pinned in
-`examples/coding-harness/expected.go`, and `escalation_asked` fails live as an accepted limit, since
-the fixture gives the model no reason to leave the sandbox. `make mission-tbench` runs the oldest or
-never-run Terminal-Bench cells for chakra and Codex on the same model, within $6 at list price.
-Two batches started together take turns on a lock in `TB_JOBS`, and each pick first ingests
-`TB_JOBS`, so they pick different cells even from different checkouts (#289). New
-`benchmarks/results/` files go in with the next PR.
-#142 (`mission_api_v1`) is paused, not closed. Its goal is a chakra 1.0 with a reviewed, settled
-exported API. Its exercise is `make api-report` (#143), which diffs each module's exported symbols
-against a checked-in `api.txt`. The earlier missions were #57 (`mission_dogfood_coding`,
-`make dogfood`) and #89 (`mission_host_completion`, `make host-exercise`). Both closed when their
-exercises passed, and both exercises still run.
-#172 (`mission_jaala_translator`) closed on 2026-11-03 when panyam/jaala#496 moved jaala's
-translator onto the Runner. Its exercise lives in jaala.
+#299 (`mission_graph_query_preset`). jaala's translator loop on a 14B local model builds from
+chakra's graph-query preset (`presets/`), and should answer more of Declaire's questions. chakra
+can't import jaala, so the preset holds no jaala code. The exercise lives in the consumer:
+`make exercise-translator ARMS="14b:loop 14b"` in panyam/declaire. After each merge on the mission
+that reaches jaala, run it and log the output on #299.
+Closed missions keep their exercises running: #162 (`make coding-harness-exercise`, `make
+mission-tbench`, see `examples/coding-harness/README.md` and `examples/terminal-bench/README.md`),
+#57 (`make dogfood`), #89 (`make host-exercise`). #172's exercise lives in jaala. #142
+(`mission_api_v1`) is paused. Its exercise `make api-report` runs in CI.
 
 A new issue gets one of `P0`–`P3` (P1 is capped at 5 per mission), plus either a `mission_<slug>`
 label with a blocked-by link from the mission, or `waiting` with its trigger named in the body.

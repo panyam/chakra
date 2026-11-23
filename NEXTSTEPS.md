@@ -5,27 +5,21 @@ Where each line of work left off. Work items live in GitHub issues; this file po
 
 ## At a glance
 
-- Mission #299 (`mission_graph_query_preset`) is active, with 0 of 3 chakra tickets closed. It serves panyam/jaala#322, and it's also blocked by panyam/jaala#514 and #517. The next ready tickets are #279 (state slots) and #296 (windowed stuck detector), both P2. #300 (the preset, P1) waits on both. Its exercise is `make exercise-translator ARMS="14b:loop 14b"` in Declaire, and it hasn't run on this mission yet.
-- Mission #162 (`mission_coding_harness`) closed on 2026-11-08 with all 42 tickets done. The last log is on #162: the live exercise had 12 of 13, with `escalation_asked` accepted as a known limit, and `make mission-tbench` showed chakra at 54/66 and Codex at 51/67 on gpt-5.5.
-- Mission #142 (`mission_api_v1`) is paused, not closed. Its exercise `make api-report` runs green in CI, and #40 is its next ticket.
-- Mission #172 (jaala's translator) closed on 2026-11-03. One check is still unlogged: a live run against a single-slot (`-np 1`) llama-server, from jaala's side.
-- This run: PRs 283, 284, 288, 290, 291, 292, 293 and 295 merged (#276, #278, #285, #274, #280, #289, #281, #287), and v0.3.0 was tagged. #195 and #26 closed, and #32 moved off the mission.
+- main — mission #299 — next: rerun the Declaire exercise once jaala requires chakra v0.3.5 and sets `FirstStuck`.
+- Mission #299 has 12 of 12 linked tickets closed and is still open. Its exercise last ran on 2026-11-09, after PR 328: `14b:loop` passed 0 of 15 and `14b` passed 2 of 15. PR 331 (#330) merged since then, and it can't show up until jaala picks it up.
+- Mission #142 (`mission_api_v1`) is paused. #315 is its next ready ticket.
+- This run: rewrote the main thread (the #162 thread was stale, and #162 is closed). Threads on feat/step-routing-185, tty-control and host-turnend-hooks belong to merged PRs 216, 252 and 253, so they stay out of this file.
 
 ## Across threads
 
-- The checkout lives at `~/newstack/chakra/<branch>`. Every go.mod replaces mcpkit with `../../mcpkit/main`, with one more `../` per module depth. Worktrees go at `~/newstack/chakra/<name>`. See CLAUDE.md Traps and NOTES.md "Tracking mcpkit main".
-- After each mission merge, run `make coding-harness-exercise-live` and `make mission-tbench` (CLAUDE.md, missions). The batch writes new `benchmarks/results/` files into the checkout it ran from, and the next mission PR carries them.
-- #234 (skill grants) and #258 (retention sweep) are `waiting` on the trigger each issue names, so they don't belong in a queue.
+- The checkout lives at `~/newstack/chakra/<branch>`. Every go.mod replaces mcpkit with a relative path, so worktrees go at `~/newstack/chakra/<name>` (CLAUDE.md Traps).
+- #234, #258, #298 and #329 are `waiting` on the trigger each issue names.
 
 ## main
 
-- **Last touched**: 2026-11-06 (local:~/newstack/chakra/codex)
-- **Ticket**: mission #162. The open branch is `postmerge-275`, which holds batch results only.
-- **Why**: build a Codex-equivalent from chakra primitives, and measure it against Codex (and Claude Code on Claude) on Terminal-Bench 2 with `make tbench-matrix` and `make mission-tbench`.
-- **Where it stopped**: chakra matches Codex on gpt-5.5 at about half the tokens, and matches Claude Code on Sonnet 5.5 at 9/10 each. On Claude it costs more than twice as much, because it has no prompt caching (#274).
-- **Next action**: get the user's answers to the three open questions below, then take #277 with the `postmerge-275` results.
-- **Open questions**:
-  - Should #274 move off the mission as `waiting`? Leaning yes, since solved rates already match on Claude.
-  - Are #195's original ablations dropped (`editTools`, the agentsmd presets, steering on or off)? If so, #195 closes.
-  - Should #162 close with `escalation_asked` accepted as a known limit, once #274 and #32 move off? Leaning yes.
-  - Should `agentchat` get an `apiKeyCommand` key source, so keys don't have to sit in env vars? It was offered but not filed.
+- **Last touched**: 2026-11-23 (local:~/newstack/chakra/main)
+- **Ticket**: mission #299. PRs 328 (#327) and 331 (#330) merged, and v0.3.5 is tagged and released.
+- **Why**: jaala's 14B translator loop failed 13 of 14 questions by repeating the same draft. `CollapseStuckSteps` drops those repeats from the model's view on the first stuck finding.
+- **Where it stopped**: the user owns the jaala side. That means bumping to chakra v0.3.5, adding `FirstStuck: agent.CollapseStuckSteps(stuckKey)` in `frontends/nlmodels/translator/loop.go`, tagging jaala, and bumping Declaire. panyam/jaala#544 (the budget-exceeded message behind x03 and x04) is open.
+- **Next action**: after the user confirms jaala is in, run `make exercise-translator ARMS="14b:loop 14b"` in `~/newstack/declaire/main` and post the mission log on #299. Compare against the 2026-11-09 numbers above.
+- **Open questions**: if `14b:loop` still passes nothing, is #299 done as a build-from-preset mission, with the pass rate as a new mission? Or does it stay open on pass rate?
