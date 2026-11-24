@@ -11,8 +11,8 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834
 	github.com/charmbracelet/x/ansi v0.11.7
 	github.com/muesli/termenv v0.16.0
-	github.com/panyam/chakra/host v0.3.6
-	github.com/panyam/chakra/surfaces v0.3.6
+	github.com/panyam/chakra/host v0.3.7
+	github.com/panyam/chakra/surfaces v0.3.7
 	github.com/panyam/mcpkit v0.8.21
 	github.com/panyam/mcpkit/ext/otel v0.8.20
 	github.com/spf13/cobra v1.10.2
@@ -67,9 +67,9 @@ require (
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/reflow v0.3.0 // indirect
-	github.com/panyam/chakra/ext/exec v0.3.6 // indirect
-	github.com/panyam/chakra/ext/git v0.3.6 // indirect
-	github.com/panyam/chakra/ext/lsp v0.3.6 // indirect
+	github.com/panyam/chakra/ext/exec v0.3.7 // indirect
+	github.com/panyam/chakra/ext/git v0.3.7 // indirect
+	github.com/panyam/chakra/ext/lsp v0.3.7 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents v0.8.21 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.8.20 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
@@ -106,13 +106,13 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
-	github.com/panyam/chakra v0.3.6
-	github.com/panyam/chakra/ext/agentsmd v0.3.6 // indirect
-	github.com/panyam/chakra/ext/checkpoint v0.3.6 // indirect
-	github.com/panyam/chakra/ext/files v0.3.6 // indirect
-	github.com/panyam/chakra/provider/anthropic v0.3.6 // indirect
-	github.com/panyam/chakra/store/gorm v0.3.6
-	github.com/panyam/chakra/store/redis v0.3.6 // indirect
+	github.com/panyam/chakra v0.3.7
+	github.com/panyam/chakra/ext/agentsmd v0.3.7 // indirect
+	github.com/panyam/chakra/ext/checkpoint v0.3.7 // indirect
+	github.com/panyam/chakra/ext/files v0.3.7 // indirect
+	github.com/panyam/chakra/provider/anthropic v0.3.7 // indirect
+	github.com/panyam/chakra/store/gorm v0.3.7
+	github.com/panyam/chakra/store/redis v0.3.7 // indirect
 	github.com/panyam/gocurrent v0.1.3 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
 	github.com/panyam/mcpkit/experimental/ext/events v0.8.21 // indirect

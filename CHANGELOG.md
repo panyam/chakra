@@ -5,6 +5,13 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
+## [v0.3.7] - 2026-11-24
+
+Full notes in [docs/releases/v0.3.7.md](docs/releases/v0.3.7.md).
+
+### Fixed
+- `eval/longmemeval`: `DatasetAdapter.Load` accepts the released oracle file, whose counting answers are JSON integers. A number decodes as its literal text (PR 344).
+
 ## [v0.3.6] - 2026-11-24
 
 Full notes in [docs/releases/v0.3.6.md](docs/releases/v0.3.6.md).

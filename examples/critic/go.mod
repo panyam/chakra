@@ -5,8 +5,8 @@ go 1.26.11
 toolchain go1.27.4
 
 require (
-	github.com/panyam/chakra v0.3.6
-	github.com/panyam/chakra/host v0.3.6
+	github.com/panyam/chakra v0.3.7
+	github.com/panyam/chakra/host v0.3.7
 	github.com/panyam/mcpkit v0.8.21
 )
 
