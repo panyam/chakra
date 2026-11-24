@@ -5,6 +5,18 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
+## [v0.3.6] - 2026-11-24
+
+Full notes in [docs/releases/v0.3.6.md](docs/releases/v0.3.6.md).
+
+### Added
+- `eval/longmemeval`: `SessionMemory`, `Session` and `MemoryArm`, a shared shape for grading a memory design on LongMemEval (PR 340).
+
+### Changed
+- LongMemEval memory mode runs through `MemoryArm`. Seeding the store now counts as setup time (PR 340).
+- Go toolchain 1.27.4 in every module, OpenTelemetry exporters v1.47.0 in `surfaces/chat`, and go.mod files synced with mcpkit v0.8.21 (PR 332, PR 336).
+- Weekly govulncheck in CI (PR 332). `surfaces/web/web` uses pnpm (PR 333).
+
 ## [v0.3.5] - 2026-11-09
 
 Full notes in [docs/releases/v0.3.5.md](docs/releases/v0.3.5.md).
