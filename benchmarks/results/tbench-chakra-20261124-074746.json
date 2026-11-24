@@ -1,0 +1,79 @@
+{
+ "jobs": [
+  "tbench-chakra-20261124-074746"
+ ],
+ "source": "local",
+ "trials": [
+  {
+   "agent_s": 106.123152,
+   "agent_version": "e0bc5bee173c",
+   "cached": 114688,
+   "chakra_sha": "e0bc5bee173c",
+   "date": "2026-11-24T15:47:49.587030Z",
+   "error": null,
+   "in": 136927,
+   "job": "tbench-chakra-20261124-074746",
+   "out": 6864,
+   "reward": 1.0,
+   "setup": "chakra/openai-gpt-5.5/medium",
+   "task": "headless-terminal"
+  },
+  {
+   "agent_s": 70.906557,
+   "agent_version": "e0bc5bee173c",
+   "cached": 40448,
+   "chakra_sha": "e0bc5bee173c",
+   "date": "2026-11-24T15:47:49.619711Z",
+   "error": null,
+   "in": 54272,
+   "job": "tbench-chakra-20261124-074746",
+   "out": 2036,
+   "reward": 1.0,
+   "setup": "chakra/openai-gpt-5.5/medium",
+   "task": "hf-model-inference"
+  },
+  {
+   "agent_s": 3600.023632,
+   "agent_version": "e0bc5bee173c",
+   "cached": 397312,
+   "chakra_sha": "e0bc5bee173c",
+   "date": "2026-11-24T15:49:23.917871Z",
+   "error": "AgentTimeoutError",
+   "in": 443017,
+   "job": "tbench-chakra-20261124-074746",
+   "out": 12687,
+   "reward": 0.0,
+   "setup": "chakra/openai-gpt-5.5/medium",
+   "task": "install-windows-3.11",
+   "usage_partial": true
+  },
+  {
+   "agent_s": 189.404643,
+   "agent_version": "e0bc5bee173c",
+   "cached": 49664,
+   "chakra_sha": "e0bc5bee173c",
+   "date": "2026-11-24T15:50:14.553147Z",
+   "error": null,
+   "in": 62403,
+   "job": "tbench-chakra-20261124-074746",
+   "out": 4181,
+   "reward": 1.0,
+   "setup": "chakra/openai-gpt-5.5/medium",
+   "task": "large-scale-text-editing"
+  },
+  {
+   "agent_s": 180.6349,
+   "agent_version": "e0bc5bee173c",
+   "cached": 313344,
+   "chakra_sha": "e0bc5bee173c",
+   "date": "2026-11-24T15:54:44.217681Z",
+   "error": null,
+   "in": 349880,
+   "job": "tbench-chakra-20261124-074746",
+   "out": 8334,
+   "reward": 1.0,
+   "setup": "chakra/openai-gpt-5.5/medium",
+   "task": "largest-eigenval"
+  }
+ ]
+}

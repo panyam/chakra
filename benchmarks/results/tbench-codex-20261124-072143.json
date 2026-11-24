@@ -1,0 +1,78 @@
+{
+ "jobs": [
+  "tbench-codex-20261124-072143"
+ ],
+ "source": "local",
+ "trials": [
+  {
+   "agent_s": 373.48092,
+   "agent_version": "0.172.0",
+   "cached": 493440,
+   "chakra_sha": null,
+   "date": "2026-11-24T15:21:48.319351Z",
+   "error": null,
+   "in": 540334,
+   "job": "tbench-codex-20261124-072143",
+   "out": 15307,
+   "reward": 0.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "gpt2-codegolf"
+  },
+  {
+   "agent_s": 71.455084,
+   "agent_version": "0.172.0",
+   "cached": 66432,
+   "chakra_sha": null,
+   "date": "2026-11-24T15:21:48.359641Z",
+   "error": null,
+   "in": 98137,
+   "job": "tbench-codex-20261124-072143",
+   "out": 4058,
+   "reward": 0.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "headless-terminal"
+  },
+  {
+   "agent_s": 244.898588,
+   "agent_version": "0.172.0",
+   "cached": 358016,
+   "chakra_sha": null,
+   "date": "2026-11-24T15:27:58.093585Z",
+   "error": null,
+   "in": 402104,
+   "job": "tbench-codex-20261124-072143",
+   "out": 5034,
+   "reward": 1.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "hf-model-inference"
+  },
+  {
+   "agent_s": 295.75397,
+   "agent_version": "0.172.0",
+   "cached": 1315072,
+   "chakra_sha": null,
+   "date": "2026-11-24T15:33:16.774954Z",
+   "error": null,
+   "in": 1447963,
+   "job": "tbench-codex-20261124-072143",
+   "out": 9409,
+   "reward": 0.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "install-windows-3.11"
+  },
+  {
+   "agent_s": 91.989258,
+   "agent_version": "0.172.0",
+   "cached": 91776,
+   "chakra_sha": null,
+   "date": "2026-11-24T15:39:48.823890Z",
+   "error": null,
+   "in": 109155,
+   "job": "tbench-codex-20261124-072143",
+   "out": 1697,
+   "reward": 1.0,
+   "setup": "codex/openai-gpt-5.5/medium",
+   "task": "large-scale-text-editing"
+  }
+ ]
+}
