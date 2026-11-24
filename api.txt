@@ -1139,6 +1139,7 @@ pkg github.com/panyam/chakra/eval/longmemeval, const CatMultiSession Category
 pkg github.com/panyam/chakra/eval/longmemeval, const CatTemporal Category
 pkg github.com/panyam/chakra/eval/longmemeval, const DataPathEnv
 pkg github.com/panyam/chakra/eval/longmemeval, const LimitEnv
+pkg github.com/panyam/chakra/eval/longmemeval, func MemoryArm(func() (SessionMemory, error)) func(context.Context, Instance) (eval.Setup, error)
 pkg github.com/panyam/chakra/eval/longmemeval, func SmokeScenarios() []MemCase
 pkg github.com/panyam/chakra/eval/longmemeval, method (DatasetAdapter) Load() ([]eval.SuiteCase, error)
 pkg github.com/panyam/chakra/eval/longmemeval, method (DatasetAdapter) Name() string
@@ -1173,6 +1174,13 @@ pkg github.com/panyam/chakra/eval/longmemeval, type MemCase struct, MustNot []st
 pkg github.com/panyam/chakra/eval/longmemeval, type MemCase struct, NewCompactor func(agent.Provider) (agent.Compactor, error)
 pkg github.com/panyam/chakra/eval/longmemeval, type MemCase struct, Rubric string
 pkg github.com/panyam/chakra/eval/longmemeval, type MemCase struct, Scenario eval.Scenario
+pkg github.com/panyam/chakra/eval/longmemeval, type Session struct
+pkg github.com/panyam/chakra/eval/longmemeval, type Session struct, Date string
+pkg github.com/panyam/chakra/eval/longmemeval, type Session struct, ID string
+pkg github.com/panyam/chakra/eval/longmemeval, type Session struct, Turns []Turn
+pkg github.com/panyam/chakra/eval/longmemeval, type SessionMemory interface
+pkg github.com/panyam/chakra/eval/longmemeval, type SessionMemory interface, Ingest(context.Context, Session) (map[string]agent.Usage, error)
+pkg github.com/panyam/chakra/eval/longmemeval, type SessionMemory interface, Tools() agent.ToolSource
 pkg github.com/panyam/chakra/eval/longmemeval, type SmokeAdapter struct
 pkg github.com/panyam/chakra/eval/longmemeval, type Turn struct
 pkg github.com/panyam/chakra/eval/longmemeval, type Turn struct, Content string
