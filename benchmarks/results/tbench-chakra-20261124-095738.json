@@ -1,0 +1,22 @@
+{
+ "jobs": [
+  "tbench-chakra-20261124-095738"
+ ],
+ "source": "local",
+ "trials": [
+  {
+   "agent_s": 1333.157754,
+   "agent_version": "7e0cc58741df",
+   "cached": 2927104,
+   "chakra_sha": "7e0cc58741df",
+   "date": "2026-11-24T17:57:41.325717Z",
+   "error": null,
+   "in": 3084743,
+   "job": "tbench-chakra-20261124-095738",
+   "out": 47998,
+   "reward": 0.0,
+   "setup": "chakra/openai-gpt-5.5/medium",
+   "task": "install-windows-3.11"
+  }
+ ]
+}
