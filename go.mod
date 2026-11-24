@@ -1,12 +1,12 @@
 module github.com/panyam/chakra
 
-go 1.26.9
+go 1.26.11
 
 toolchain go1.27.4
 
 require (
 	github.com/panyam/mcpkit v0.8.21
-	github.com/panyam/servicekit v0.2.4
+	github.com/panyam/servicekit v0.2.5
 )
 
 require (
@@ -14,7 +14,7 @@ require (
 	github.com/buger/jsonparser v1.6.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
-	github.com/panyam/gocurrent v0.1.2 // indirect
+	github.com/panyam/gocurrent v0.1.3 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
