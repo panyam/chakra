@@ -1519,6 +1519,12 @@ before the result waits until then.
   child that keeps the terminal open. Before this, `collect` and the stream each slept 20ms. On
   Linux that lost the end of a burst written right at exit, because the master was closed while
   the terminal still held output. A pipe needs no signal, since `cmd.Wait` waits for its copy.
+- **A pipe's wait is bounded too, by `cmd.WaitDelay`** (#345). Say a script ends by starting
+  nginx. nginx moves to a new session, so the group kill misses it, and it keeps the pipe open.
+  `cmd.Wait` then waits for nginx to exit, past the timeout and for good. On Terminal-Bench that
+  cost a trial its whole hour. Both `run` and the pipe path of `exec_command` set `WaitDelay` to
+  `drainWait`. The one-shot result says a background process held the output
+  (`background_held_output`), so the model knows the daemon outlived the command.
 - **A tty process is drawn, not printed.** Its events carry `TTY`, `Cols` and `Rows`, and
   agentweb writes the raw bytes into xterm.js in order. The store keeps a running byte count
   beside the 64 KiB tail, so the view writes only what's new, and a reload replays to the same

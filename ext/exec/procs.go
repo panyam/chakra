@@ -539,6 +539,9 @@ func (s *Source) execCommand(args map[string]any) *core.ToolResult {
 			return toolError("exec_command: " + err.Error())
 		}
 		cmd.Stdout, cmd.Stderr = p.out, p.out
+		// As in run: a daemon holding the pipe must not keep the process
+		// reading as running (#345).
+		cmd.WaitDelay = drainWait
 		if err := cmd.Start(); err != nil {
 			return toolError("exec_command: " + err.Error())
 		}
