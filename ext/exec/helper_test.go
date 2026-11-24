@@ -92,6 +92,11 @@ func TestHelperProcess(t *testing.T) {
 		fmt.Println(child.Process.Pid)
 		time.Sleep(60 * time.Second)
 
+	case "daemon":
+		// A command that starts a daemon and exits, as `nginx` does (#345). The
+		// daemon leaves the process group and keeps this process's stdout.
+		fmt.Println(startDaemon(args[1]))
+
 	case "dial":
 		conn, err := net.DialTimeout("tcp", args[1], 3*time.Second)
 		if err != nil {

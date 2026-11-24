@@ -419,6 +419,10 @@ func (s *Source) spawn(ctx context.Context, sp spawnSpec) spawned {
 	stderr := newCapBuffer(s.maxOutput)
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
+	// A daemon the command starts (nginx, websockify -D) leaves the process
+	// group and keeps these pipes open. Without a bound, Wait waits for the
+	// daemon to exit, past the timeout and for good (#345).
+	cmd.WaitDelay = drainWait
 
 	if !sp.unconfined {
 		policy := Policy{Write: s.write, DenyRead: s.denyRead, Dir: sp.dir, AllowNetwork: sp.allowNetwork}
@@ -487,6 +491,10 @@ func renderRun(timeout time.Duration, argv []string, exit int, elapsed time.Dura
 	if !timedOut && exit != 0 && stdout.text == "" && stderr.text == "" && waitErr != nil {
 		fmt.Fprintf(&b, "\n%v", waitErr)
 	}
+	held := errors.Is(waitErr, osexec.ErrWaitDelay)
+	if held {
+		b.WriteString("\nA background process it started still held its output, so later output was not captured. It is probably still running.\n")
+	}
 
 	return &core.ToolResult{
 		IsError: timedOut,
@@ -499,6 +507,9 @@ func renderRun(timeout time.Duration, argv []string, exit int, elapsed time.Dura
 			"stdout":      stdout.text,
 			"stderr":      stderr.text,
 			"truncated":   stdout.dropped || stderr.dropped,
+			// background_held_output reports a process the command started
+			// that kept running with its output open, such as a daemon.
+			"background_held_output": held,
 		},
 	}
 }
