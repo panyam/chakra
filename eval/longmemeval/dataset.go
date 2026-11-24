@@ -91,7 +91,9 @@ type DatasetAdapter struct {
 	LongContext bool
 
 	// NewStore builds the MemoryStore each scenario is graded against, in
-	// memory mode. Nil uses the in-memory substring store.
+	// memory mode. Nil uses the in-memory substring store. Memory mode is a
+	// SessionMemory over this store, run through MemoryArm, which puts one
+	// item per session and gives the agent remember, recall and forget.
 	//
 	// Memory mode exists for this field. Grade the same 500 questions through
 	// a substring store, an embedding store, and a pgvector store, and the
@@ -103,7 +105,9 @@ type DatasetAdapter struct {
 	Types func(questionType string) bool
 
 	// Arm prepares each instance for a system under test whose memory is not
-	// a MemoryStore. It runs once per instance, before the question, as the
+	// a MemoryStore. A memory that reads the haystack one session at a time
+	// can implement SessionMemory and use MemoryArm here instead of writing
+	// its own ingest loop. It runs once per instance, before the question, as the
 	// case's eval.SuiteCase.Setup. When set, the adapter seeds no haystack,
 	// so LongContext and NewStore are ignored. The arm gets the whole
 	// Instance and does its own ingestion.
@@ -253,7 +257,9 @@ func (a DatasetAdapter) caseFor(inst Instance) eval.SuiteCase {
 	case a.LongContext:
 		sc.Scenario.History = inst.history()
 	default:
-		sc.Scenario.NewMemoryStore = a.storeFor(inst)
+		newStore := a.NewStore
+		arm := MemoryArm(func() (SessionMemory, error) { return newStoreMemory(newStore) })
+		sc.Setup = func(ctx context.Context) (eval.Setup, error) { return arm(ctx, inst) }
 	}
 
 	if a.OfficialJudge {
@@ -293,50 +299,13 @@ func (i Instance) history() []agent.Message {
 	return out
 }
 
-// storeFor returns the factory that pre-loads the haystack into a memory
-// store, one item per session.
-//
-// It stores one item per session rather than per turn. The benchmark scopes
-// its evidence to sessions (answer_session_ids names sessions). Splitting a
-// two-turn exchange into two items would separate the assistant's reply from
-// the question it answers.
-//
-// The factory runs per scenario, so each question is graded against its own
-// store and nothing leaks between them.
-func (a DatasetAdapter) storeFor(inst Instance) func() (agent.MemoryStore, error) {
-	return func() (agent.MemoryStore, error) {
-		var store agent.MemoryStore = agent.NewInMemoryMemoryStore()
-		if a.NewStore != nil {
-			s, err := a.NewStore()
-			if err != nil {
-				return nil, fmt.Errorf("longmemeval: memory store for %s: %w", inst.QuestionID, err)
-			}
-			store = s
-		}
-		ctx := context.Background()
-		for idx, session := range inst.HaystackSessions {
-			key := fmt.Sprintf("session-%d", idx)
-			if idx < len(inst.HaystackSessionIDs) && inst.HaystackSessionIDs[idx] != "" {
-				key = inst.HaystackSessionIDs[idx]
-			}
-			_, err := store.PutMemory(ctx, agent.PutMemoryRequest{
-				Item: agent.MemoryItem{Key: key, Value: renderSession(inst, idx, session)},
-			})
-			if err != nil {
-				return nil, fmt.Errorf("longmemeval: seeding %s into memory: %w", key, err)
-			}
-		}
-		return store, nil
-	}
-}
-
 // renderSession turns one session into the text stored as a memory item.
-func renderSession(inst Instance, idx int, session []Turn) string {
+func renderSession(s Session) string {
 	var b strings.Builder
-	if idx < len(inst.HaystackDates) && inst.HaystackDates[idx] != "" {
-		b.WriteString("Conversation on " + inst.HaystackDates[idx] + "\n")
+	if s.Date != "" {
+		b.WriteString("Conversation on " + s.Date + "\n")
 	}
-	for _, turn := range session {
+	for _, turn := range s.Turns {
 		b.WriteString(turn.Role)
 		b.WriteString(": ")
 		b.WriteString(turn.Content)

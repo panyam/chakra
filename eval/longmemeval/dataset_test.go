@@ -62,7 +62,13 @@ func TestDatasetAdapterLoadsEveryInstance(t *testing.T) {
 // conversation. Seeding it into context instead would silently turn every run
 // into the long-context benchmark.
 func TestDatasetMemoryModeSeedsTheStoreNotTheContext(t *testing.T) {
-	cases, err := DatasetAdapter{Path: samplePath}.Load()
+	var stores []agent.MemoryStore
+	newStore := func() (agent.MemoryStore, error) {
+		s := agent.NewInMemoryMemoryStore()
+		stores = append(stores, s)
+		return s, nil
+	}
+	cases, err := DatasetAdapter{Path: samplePath, NewStore: newStore}.Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -71,15 +77,17 @@ func TestDatasetMemoryModeSeedsTheStoreNotTheContext(t *testing.T) {
 	if len(c.Scenario.History) != 0 {
 		t.Errorf("memory mode must not seed conversation history, got %d messages", len(c.Scenario.History))
 	}
-	if c.Scenario.NewMemoryStore == nil {
-		t.Fatal("memory mode must supply a store factory")
+	if c.Setup == nil {
+		t.Fatal("memory mode must supply a setup that seeds the store")
 	}
-
-	store, err := c.Scenario.NewMemoryStore()
-	if err != nil {
-		t.Fatalf("store factory: %v", err)
+	st := setupFor(t, c)
+	if st.Tools == nil {
+		t.Fatal("memory mode must give the agent the memory tools")
 	}
-	resp, err := store.ListMemories(context.Background(), agent.ListMemoriesRequest{})
+	if len(stores) != 1 {
+		t.Fatalf("setup built %d stores, want 1", len(stores))
+	}
+	resp, err := stores[0].ListMemories(context.Background(), agent.ListMemoriesRequest{})
 	if err != nil {
 		t.Fatalf("ListMemories: %v", err)
 	}
@@ -95,6 +103,28 @@ func TestDatasetMemoryModeSeedsTheStoreNotTheContext(t *testing.T) {
 	}
 }
 
+// setupFor runs a case's setup, which is where memory mode seeds its store.
+func setupFor(t *testing.T, c eval.SuiteCase) eval.Setup {
+	t.Helper()
+	st, err := c.Setup(context.Background())
+	if err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	return st
+}
+
+// recalled reports whether the recall tool finds query in the memory a
+// setup handed the agent.
+func recalled(t *testing.T, st eval.Setup, query string) bool {
+	t.Helper()
+	res, err := st.Tools.Call(context.Background(), agent.RecallToolName, map[string]any{"query": query})
+	if err != nil || res.IsError {
+		t.Fatalf("recall: %v %+v", err, res)
+	}
+	text := res.Content[0].Text
+	return !strings.HasPrefix(text, "no memories match") && strings.Contains(text, query)
+}
+
 // TestDatasetMemoryStoresAreNotShared pins that each scenario gets its own
 // store. A shared one would let an earlier question's haystack answer a later
 // one, and that leakage would score as memory working.
@@ -103,26 +133,9 @@ func TestDatasetMemoryStoresAreNotShared(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	a, err := cases[0].Scenario.NewMemoryStore()
-	if err != nil {
-		t.Fatal(err)
-	}
-	b, err := cases[1].Scenario.NewMemoryStore()
-	if err != nil {
-		t.Fatal(err)
-	}
-	has := func(s agent.MemoryStore) bool {
-		got, err := s.ListMemories(context.Background(), agent.ListMemoriesRequest{Query: "border collie"})
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, it := range got.Items {
-			if strings.Contains(it.Item.Value, "border collie") {
-				return true
-			}
-		}
-		return false
-	}
+	a := setupFor(t, cases[0])
+	b := setupFor(t, cases[1])
+	has := func(st eval.Setup) bool { return recalled(t, st, "border collie") }
 
 	if !has(a) {
 		t.Error("the first question's store should hold its own haystack")
@@ -142,7 +155,7 @@ func TestDatasetLongContextModeSeedsHistory(t *testing.T) {
 	}
 	c := cases[0]
 
-	if c.Scenario.NewMemoryStore != nil {
+	if c.Scenario.NewMemoryStore != nil || c.Setup != nil {
 		t.Error("long-context mode must not also build a memory store")
 	}
 	if len(c.Scenario.History) != 4 {

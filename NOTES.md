@@ -1756,6 +1756,22 @@ the turns' spend, since a memory layer is judged on both.
   `TestDeterministicScorers` at the `MemCase` level. A new always-failing scorer can quietly satisfy
   an older count check, so look for counts like that when one is added.
 
+### SessionMemory, the shape a memory design plugs into (#339)
+
+Say someone wants to grade a per-session summarizer on LongMemEval. Before #339 they wrote an `Arm`
+that looped over the haystack, summed its own spend and built its own tools. A fact extractor
+repeated the same loop. `SessionMemory` now holds that shape. It has two methods: `Ingest` takes
+one dated session and reports its spend, and `Tools` returns what the agent answers with.
+`MemoryArm` runs the loop. It builds a fresh memory per instance, ingests in dataset order, sums
+the spend into `SetupUsage`, and keeps the spend when an ingest fails.
+
+- **Memory mode is the first implementation.** The default runs through `MemoryArm` over a
+  `MemoryStore`, so the contract has a real user in this repo and not only a test double. The
+  store is now seeded in `Setup`, so `SetupElapsed` includes the seeding time.
+- **It lives in `eval/longmemeval` until `host` needs it.** It would move to `agent` when a host
+  feeds a finished or compacted session into memory. panyam/jaala#415 is the first external
+  implementation.
+
 ---
 
 ## Tracking mcpkit main (PR 56, PR 62)
