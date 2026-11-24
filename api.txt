@@ -1141,6 +1141,7 @@ pkg github.com/panyam/chakra/eval/longmemeval, const DataPathEnv
 pkg github.com/panyam/chakra/eval/longmemeval, const LimitEnv
 pkg github.com/panyam/chakra/eval/longmemeval, func MemoryArm(func() (SessionMemory, error)) func(context.Context, Instance) (eval.Setup, error)
 pkg github.com/panyam/chakra/eval/longmemeval, func SmokeScenarios() []MemCase
+pkg github.com/panyam/chakra/eval/longmemeval, method (*Instance) UnmarshalJSON([]byte) error
 pkg github.com/panyam/chakra/eval/longmemeval, method (DatasetAdapter) Load() ([]eval.SuiteCase, error)
 pkg github.com/panyam/chakra/eval/longmemeval, method (DatasetAdapter) Name() string
 pkg github.com/panyam/chakra/eval/longmemeval, method (Instance) Abstention() bool

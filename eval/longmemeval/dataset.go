@@ -56,6 +56,53 @@ type Instance struct {
 	AnswerSessionIDs   []string `json:"answer_session_ids"`
 }
 
+// UnmarshalJSON decodes an instance and accepts a JSON number for answer.
+//
+// The released oracle file writes counting answers ("how many ...") as
+// integers. 32 of its 500 answers are numbers, and the rest are strings
+// (#342). The judge and the rubric read the answer as text. So a number is
+// kept as its literal decimal text: 3 stays "3" and 2.5 stays "2.5". A null
+// answer decodes as empty, and validate decides whether empty is allowed.
+// Any other shape is an error naming the field. Every other field decodes as
+// declared.
+func (i *Instance) UnmarshalJSON(b []byte) error {
+	type plain Instance
+	var raw struct {
+		plain
+		Answer json.RawMessage `json:"answer"`
+	}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	answer, err := answerText(raw.Answer)
+	if err != nil {
+		return err
+	}
+	*i = Instance(raw.plain)
+	i.Answer = answer
+	return nil
+}
+
+// answerText turns a raw answer value into the text the judge reads.
+func answerText(raw json.RawMessage) (string, error) {
+	t := strings.TrimSpace(string(raw))
+	if t == "" || t == "null" {
+		return "", nil
+	}
+	if t[0] == '"' {
+		var s string
+		err := json.Unmarshal(raw, &s)
+		return s, err
+	}
+	var n json.Number
+	dec := json.NewDecoder(strings.NewReader(t))
+	dec.UseNumber()
+	if err := dec.Decode(&n); err != nil {
+		return "", fmt.Errorf("answer: want a string or a number, got %.40s", t)
+	}
+	return n.String(), nil
+}
+
 // Abstention reports whether the instance is an abstention question, where
 // the user never supplied the information and inventing an answer is the
 // failure being measured.

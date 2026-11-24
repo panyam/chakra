@@ -371,3 +371,90 @@ func loadFixture(t *testing.T) []Instance {
 	}
 	return out
 }
+
+// withAnswer returns the fixture's first instance as JSON with its answer
+// replaced by raw, which may be any JSON value.
+func withAnswer(t *testing.T, raw string) []byte {
+	t.Helper()
+	b, err := json.Marshal(loadFixture(t)[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(b, &fields); err != nil {
+		t.Fatal(err)
+	}
+	fields["answer"] = json.RawMessage(raw)
+	out, err := json.Marshal(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+// The released oracle file writes counting answers ("how many ...") as JSON
+// integers, 32 of its 500 (#342).
+func TestDatasetLoadsANumericAnswerAsItsText(t *testing.T) {
+	second, err := json.Marshal(loadFixture(t)[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(t.TempDir(), "numeric.json")
+	file := "[" + string(withAnswer(t, "3")) + "," + string(second) + "]"
+	if err := os.WriteFile(p, []byte(file), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cases, err := DatasetAdapter{Path: p}.Load()
+	if err != nil {
+		t.Fatalf("a numeric answer must load: %v", err)
+	}
+	if len(cases) != 2 {
+		t.Fatalf("expected 2 cases, got %d", len(cases))
+	}
+
+	var inst Instance
+	if err := json.Unmarshal(withAnswer(t, "3"), &inst); err != nil {
+		t.Fatal(err)
+	}
+	if got := rubricFor(inst); !strings.Contains(got, "The reference answer is: 3\n") {
+		t.Errorf("the rubric must carry the number as text, got %q", got)
+	}
+}
+
+func TestDatasetAnswerShapes(t *testing.T) {
+	for raw, want := range map[string]string{
+		`"Lisbon"`: "Lisbon",
+		`3`:        "3",
+		`2.5`:      "2.5",
+		`1e3`:      "1e3",
+		`-4`:       "-4",
+		// null decodes as absent, as it did before #342, and validate
+		// decides whether absent is allowed.
+		`null`: "",
+	} {
+		var inst Instance
+		if err := json.Unmarshal(withAnswer(t, raw), &inst); err != nil {
+			t.Errorf("answer %s: %v", raw, err)
+			continue
+		}
+		if inst.Answer != want {
+			t.Errorf("answer %s: got %q, want %q", raw, inst.Answer, want)
+		}
+		if inst.QuestionID == "" || len(inst.HaystackSessions) == 0 {
+			t.Errorf("answer %s: the other fields must still decode, got %+v", raw, inst)
+		}
+	}
+
+	for _, raw := range []string{`true`, `{}`, `[]`} {
+		var inst Instance
+		err := json.Unmarshal(withAnswer(t, raw), &inst)
+		if err == nil {
+			t.Errorf("answer %s: expected an error, got answer %q", raw, inst.Answer)
+			continue
+		}
+		if !strings.Contains(err.Error(), "answer") {
+			t.Errorf("answer %s: the error must name the field, got %v", raw, err)
+		}
+	}
+}
