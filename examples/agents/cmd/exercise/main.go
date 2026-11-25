@@ -16,6 +16,7 @@ import (
 
 	"github.com/panyam/chakra/eval"
 	"github.com/panyam/chakra/examples/agents"
+	"github.com/panyam/chakra/examples/agents/common"
 )
 
 func main() {
@@ -39,7 +40,7 @@ func main() {
 		a, err := agents.Find(*only)
 		if err == nil {
 			var raw []byte
-			if raw, err = agents.ChatConfig(a, *profile); err == nil {
+			if raw, err = common.ChatConfig(a, *profile); err == nil {
 				err = os.WriteFile(*chat, raw, 0o600)
 			}
 		}
@@ -57,7 +58,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(2)
 		}
-		list = []agents.Agent{a}
+		list = []common.Agent{a}
 	}
 	if *live != "" && *profile == "" {
 		fmt.Fprintln(os.Stderr, "exercise: -live needs -profile, the agentchat config that defines it")
@@ -65,10 +66,10 @@ func main() {
 	}
 
 	for i, a := range list {
-		m := agents.Model{Provider: a.Scripted(), Name: "scripted"}
+		m := common.Model{Provider: a.Scripted(), Name: "scripted"}
 		if *live != "" {
 			var err error
-			if m, err = agents.Live(*profile, *live); err != nil {
+			if m, err = common.Live(*profile, *live); err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
@@ -80,7 +81,7 @@ func main() {
 		if *quiet {
 			progress = nil
 		}
-		r, err := agents.Climb(context.Background(), a, m, progress)
+		r, err := common.Climb(context.Background(), a, m, progress)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -120,7 +121,7 @@ func printFailures(r eval.LadderReport) {
 // listConnections prints each connection in the profile with its type,
 // model and price.
 func listConnections(profile string) error {
-	cs, err := agents.Connections(profile)
+	cs, err := common.Connections(profile)
 	if err != nil {
 		return err
 	}
