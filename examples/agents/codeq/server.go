@@ -21,7 +21,7 @@ func NewServer(ix *Index) *server.Server {
 				return "", fmt.Errorf("no module %q", in.Module)
 			}
 			return strings.Join(rows, "\n"), nil
-		}))
+		}, readOnly))
 	srv.Register(core.TextTool[pkgArg]("imports", "List the packages one package imports.",
 		func(_ core.ToolContext, in pkgArg) (string, error) {
 			edges, err := ix.ImportsOf(in.Package)
@@ -29,11 +29,11 @@ func NewServer(ix *Index) *server.Server {
 				return "", err
 			}
 			return edgeRows(edges), nil
-		}))
+		}, readOnly))
 	srv.Register(core.TextTool[pkgArg]("importers", "List the packages, from every module, that import one package.",
 		func(_ core.ToolContext, in pkgArg) (string, error) {
 			return edgeRows(ix.ImportersOf(in.Package)), nil
-		}))
+		}, readOnly))
 	srv.Register(core.TextTool[nameArg]("find", "Find where a function or type is declared, with its qualified name.",
 		func(_ core.ToolContext, in nameArg) (string, error) {
 			var rows []string
@@ -44,7 +44,7 @@ func NewServer(ix *Index) *server.Server {
 				return "nothing is declared as " + in.Name, nil
 			}
 			return strings.Join(rows, "\n"), nil
-		}))
+		}, readOnly))
 	srv.Register(core.TextTool[funcArg]("callers", "List the functions that call one function, from every module.",
 		func(_ core.ToolContext, in funcArg) (string, error) {
 			rows, err := ix.CallersOf(in.Function)
@@ -55,7 +55,7 @@ func NewServer(ix *Index) *server.Server {
 				return "nothing calls " + in.Function, nil
 			}
 			return strings.Join(rows, "\n"), nil
-		}))
+		}, readOnly))
 	return srv
 }
 
@@ -89,3 +89,7 @@ type nameArg struct {
 type funcArg struct {
 	Function string `json:"function" jsonschema:"a qualified function name, such as example.com/shop/internal/db.Save"`
 }
+
+// readOnly marks a tool as one that changes nothing, so an approval gate
+// such as agentchat's read-only-auto runs it without asking.
+var readOnly = core.WithToolAnnotations(map[string]any{"readOnlyHint": true})

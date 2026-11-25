@@ -2,8 +2,10 @@ package agents
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -76,5 +78,75 @@ func TestLiveReadsTheProfile(t *testing.T) {
 	}
 	if _, err := Live(path, "nope"); err == nil || !strings.Contains(err.Error(), "nope") {
 		t.Errorf("a missing connection: %v", err)
+	}
+}
+
+func writeProfile(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "agentchat.json")
+	os.WriteFile(path, []byte(`{"connections": {"active": "mini", "connections": {
+		"mini": {"type": "openai", "model": "gpt-5.5-mini", "price": {"input": 0.25, "output": 2}},
+		"local": {"type": "llamacpp"}
+	}}}`), 0o600)
+	return path
+}
+
+// Connections lists a profile's connections by name, with what each runs.
+func TestConnectionsListsTheProfile(t *testing.T) {
+	cs, err := Connections(writeProfile(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cs) != 2 || cs[0].Name != "local" || cs[1].Name != "mini" || cs[1].Model != "gpt-5.5-mini" || cs[1].Price == nil {
+		t.Errorf("connections = %+v, want local then mini, with mini's model and price", cs)
+	}
+	if _, err := Connections(filepath.Join(t.TempDir(), "none.json")); err == nil || !strings.Contains(err.Error(), "none.json") {
+		t.Errorf("a missing profile: %v", err)
+	}
+}
+
+// A connection the profile lacks is reported with the names it has.
+func TestLiveNamesTheConnectionsItHas(t *testing.T) {
+	_, err := Live(writeProfile(t), "sonnet5.5")
+	if err == nil || !strings.Contains(err.Error(), "local, mini") {
+		t.Errorf("err = %v, want it to list local, mini", err)
+	}
+}
+
+// codeq's chat config keeps the profile's connections, sets the final
+// step's instructions, and starts codeserver as an MCP server.
+func TestChatConfigForCodeq(t *testing.T) {
+	a, err := Find("codeq")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := ChatConfig(a, writeProfile(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg struct {
+		Connections struct {
+			Connections map[string]any `json:"connections"`
+		} `json:"connections"`
+		Instructions string `json:"instructions"`
+		Servers      []struct {
+			ID, Command string
+			Args        []string
+		} `json:"servers"`
+	}
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Connections.Connections) != 2 {
+		t.Errorf("connections = %v, want the profile's two", cfg.Connections.Connections)
+	}
+	if !strings.Contains(cfg.Instructions, `"in <module>"`) {
+		t.Errorf("instructions = %q, want the scoping rules", cfg.Instructions)
+	}
+	if len(cfg.Servers) != 1 || cfg.Servers[0].ID != "codeq" || !slices.Contains(cfg.Servers[0].Args, "-root") {
+		t.Errorf("servers = %+v, want codeserver with -root", cfg.Servers)
+	}
+	if _, err := ChatConfig(All[0], writeProfile(t)); err == nil {
+		t.Errorf("calc has no chat setup, and ChatConfig didn't say so")
 	}
 }

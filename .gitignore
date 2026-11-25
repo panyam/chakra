@@ -69,3 +69,6 @@ surfaces/web/app.deploy.yaml
 
 # Rendered by `make tbench-matrix` from benchmarks/results/, which is the checked-in history.
 benchmarks/matrix/
+
+# make chat-agent writes these
+examples/agents/.chat-*.json
