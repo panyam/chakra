@@ -165,6 +165,10 @@ type CaseReport struct {
 	// ran and Pass is false.
 	RunErr string `json:"runErr,omitempty"`
 
+	// Answer is the final turn's text, the reply the scorers graded. It is
+	// empty when the run failed before that turn answered.
+	Answer string `json:"answer,omitempty"`
+
 	// Usage sums the tokens of every turn in the scenario, by model name.
 	// For a one-question benchmark that is the question's turn. It leaves
 	// out sub-agents, as TurnResult.Usage does, and it leaves out the
@@ -281,6 +285,9 @@ func (s Suite) Run(ctx context.Context) SuiteReport {
 			continue
 		}
 		final := Final(results)
+		if final.Turn != nil {
+			cr.Answer = final.Turn.Text
+		}
 
 		var scorers []Scorer
 		if sc.Scorers != nil {

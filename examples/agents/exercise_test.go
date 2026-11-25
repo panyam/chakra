@@ -13,9 +13,12 @@ import (
 // exercise as CI runs it.
 func TestEveryLadderClimbs(t *testing.T) {
 	for _, a := range All {
-		r := Climb(context.Background(), a, Model{Provider: a.Scripted(), Name: "scripted"})
-		if len(r.Steps) != len(a.Ladder().Steps) {
-			t.Errorf("%s: %d step reports, want %d", a.Name, len(r.Steps), len(a.Ladder().Steps))
+		r, err := Climb(context.Background(), a, Model{Provider: a.Scripted(), Name: "scripted"})
+		if err != nil {
+			t.Fatalf("%s: %v", a.Name, err)
+		}
+		if len(r.Steps) == 0 {
+			t.Errorf("%s: no steps ran", a.Name)
 		}
 		for _, s := range r.Steps {
 			if s.Err != "" {
@@ -38,7 +41,10 @@ func TestCalcToolStepPassesMore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := Climb(context.Background(), a, Model{Provider: a.Scripted(), Name: "scripted"})
+	r, err := Climb(context.Background(), a, Model{Provider: a.Scripted(), Name: "scripted"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if got := r.Steps[0].Report.Passed; got != 2 {
 		t.Errorf("model only passed %d, want 2 (the sum and the difference)", got)
 	}

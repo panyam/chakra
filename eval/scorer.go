@@ -180,3 +180,99 @@ func Ungradeable(name, reason string) Scorer {
 		return Score{Name: name, Pass: false, Value: 0, Detail: reason}
 	})
 }
+
+// Rows grades an answer that lists rows, such as import paths or qualified
+// names. It passes when every row in want is in the answer, and no row of
+// among that is missing from want is. among is every row the answer could
+// name, so a row outside it doesn't fail the case.
+//
+// The answer is the lines that hold one row and nothing else, once list
+// markers and backticks are trimmed. So a list followed by "audit imports it
+// too, but it's in another module" grades the list. An answer with no such
+// line, such as one sentence naming two rows, is graded on its whole text.
+//
+// A row matches only as a whole token: a match followed by a letter, digit,
+// '.', '/', '_' or '-' is part of a longer row. So example.com/shop/orders
+// doesn't match inside example.com/shop/orders.Place.
+func Rows(want, among []string) Scorer {
+	wanted := map[string]bool{}
+	for _, w := range want {
+		wanted[w] = true
+	}
+	return scorerFunc(func(r Result) Score {
+		if r.Turn == nil {
+			return boolScore("Rows", false, "no turn result (run failed)")
+		}
+		text := listedRows(r.Turn.Text, among, want)
+		var missing, extra []string
+		for _, w := range want {
+			if !hasRow(text, w) {
+				missing = append(missing, w)
+			}
+		}
+		for _, a := range among {
+			if !wanted[a] && hasRow(text, a) {
+				extra = append(extra, a)
+			}
+		}
+		detail := fmt.Sprintf("%d of %d rows", len(want)-len(missing), len(want))
+		if len(missing) > 0 {
+			detail += fmt.Sprintf(", missing %s", strings.Join(missing, ", "))
+		}
+		if len(extra) > 0 {
+			detail += fmt.Sprintf(", extra %s", strings.Join(extra, ", "))
+		}
+		return boolScore("Rows", len(missing) == 0 && len(extra) == 0, detail)
+	})
+}
+
+// listedRows returns the lines of text that hold a single row of among or
+// want, joined, or text itself when no line does.
+func listedRows(text string, among, want []string) string {
+	rows := map[string]bool{}
+	for _, r := range among {
+		rows[r] = true
+	}
+	for _, r := range want {
+		rows[r] = true
+	}
+	var listed []string
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.Trim(line, " \t-*`")
+		if rows[line] {
+			listed = append(listed, line)
+		}
+	}
+	if len(listed) == 0 {
+		return text
+	}
+	return strings.Join(listed, "\n")
+}
+
+// hasRow reports whether row appears in text as a whole token.
+func hasRow(text, row string) bool {
+	for i := 0; ; {
+		j := strings.Index(text[i:], row)
+		if j < 0 {
+			return false
+		}
+		start, end := i+j, i+j+len(row)
+		if !rowByte(text, start-1) && !rowByte(text, end) {
+			return true
+		}
+		i = start + 1
+	}
+}
+
+// rowByte reports whether text[i] would continue a row. A '.' or '/' that
+// ends a sentence, before a space or the end of text, doesn't.
+func rowByte(text string, i int) bool {
+	if i < 0 || i >= len(text) {
+		return false
+	}
+	c := text[i]
+	if c == '.' || c == '/' {
+		return i+1 < len(text) && rowByte(text, i+1)
+	}
+	return c == '_' || c == '-' || c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
+}

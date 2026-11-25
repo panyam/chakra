@@ -341,3 +341,15 @@ func TestDimensionsEmpty(t *testing.T) {
 		t.Errorf("an ungraded dimension has rate 0, not a divide by zero: %v", got)
 	}
 }
+
+// A case report keeps the final answer, so a failed row in a table can be
+// traced to what the model said.
+func TestSuiteCaseReportKeepsTheAnswer(t *testing.T) {
+	suite := Suite{
+		Config: agent.RunnerConfig{Provider: agent.NewStubProvider(agent.StubTurn{Text: "rome"})},
+		Cases:  []SuiteCase{Single(Case{Name: "france", Input: "capital of france"}, ExactMatch("paris"))},
+	}
+	if got := suite.Run(context.Background()).Cases[0].Answer; got != "rome" {
+		t.Errorf("Answer = %q, want the model's reply", got)
+	}
+}
