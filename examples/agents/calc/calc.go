@@ -21,8 +21,8 @@ import (
 // Instructions is the agent's system prompt on every step.
 const Instructions = "Answer the arithmetic question with the number alone. Use the calc tool when you have one."
 
-// cases are the eval: two sums a model gets right in its head, and four
-// products and quotients it usually doesn't.
+// cases are the eval: a sum, a difference, and four products and quotients.
+// Current hosted models get all six with no tool (README, "A live run").
 var cases = []struct{ question, answer string }{
 	{"What is 2 + 3?", "5"},
 	{"What is 40 - 18?", "22"},
@@ -93,8 +93,8 @@ func evaluate(expr string) (string, error) {
 
 // Scripted is a stand-in model for CI. It adds and subtracts in its head.
 // It calls calc for a product or a quotient when the tool is offered, and
-// otherwise guesses to one significant figure, as a small model often
-// does. So the ladder's second step passes more in CI, with no model.
+// otherwise guesses to one significant figure. So the ladder's second step
+// passes more in CI, with no model.
 func Scripted() agent.Provider { return scripted{} }
 
 type scripted struct{}

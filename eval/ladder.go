@@ -3,6 +3,7 @@ package eval
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -115,7 +116,7 @@ func (r LadderReport) Table() string {
 		}
 		usd, sec := "-", "-"
 		if d, ok := s.Report.CostPerCorrect(); ok {
-			usd = fmt.Sprintf("$%.4f", d)
+			usd = dollars(d)
 		}
 		if t, ok := s.Report.TimePerCorrect(); ok {
 			sec = fmt.Sprintf("%.2f", t.Seconds())
@@ -138,4 +139,15 @@ func (r SuiteReport) TimePerCorrect() (time.Duration, bool) {
 		total += c.Elapsed + c.SetupElapsed
 	}
 	return total / time.Duration(r.Passed), true
+}
+
+// dollars prints d with at least four decimals, and more when d is small, so
+// two significant figures show. A cheap model's cost per correct answer can
+// be a few millionths of a dollar.
+func dollars(d float64) string {
+	places := 4
+	if d > 0 {
+		places = min(max(places, 1-int(math.Floor(math.Log10(d)))), 10)
+	}
+	return fmt.Sprintf("$%.*f", places, d)
 }

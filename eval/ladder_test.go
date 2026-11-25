@@ -137,3 +137,21 @@ func TestLadderTableCostAndTimePerCorrect(t *testing.T) {
 		t.Errorf("an unpriced ladder shows dollars:\n%s", unpriced.Table())
 	}
 }
+
+// A cheap model's dollars per correct keeps two significant figures, so a
+// Haiku row doesn't read $0.0000.
+func TestLadderDollarsKeepTwoSignificantFigures(t *testing.T) {
+	for _, c := range []struct {
+		d    float64
+		want string
+	}{
+		{2, "$2.0000"},
+		{0.0003, "$0.00030"},
+		{0.0000123, "$0.000012"},
+		{0, "$0.0000"},
+	} {
+		if got := dollars(c.d); got != c.want {
+			t.Errorf("dollars(%v) = %q, want %q", c.d, got, c.want)
+		}
+	}
+}
