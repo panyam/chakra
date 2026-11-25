@@ -110,3 +110,16 @@ func TestWalkWatchesOneCase(t *testing.T) {
 		t.Errorf("the step that ran every case is missing from the table:\n%s", out["table"])
 	}
 }
+
+// A recorded trace stores the case to watch as a JSON number, which decodes
+// as a float64, and replaying it still watches that case.
+func TestWalkWatchesTheCaseFromARecording(t *testing.T) {
+	a, err := Find("calc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := walk(t, a, []demokit.TraceEntry{{Kind: demokit.KindStep, StepID: "step-1", Inputs: map[string]any{"action": "watch", "case": float64(3)}}})
+	if !strings.Contains(out["step-1"], "Watching case 3: What is 17 * 23?") {
+		t.Errorf("step-1 didn't watch case 3:\n%s", out["step-1"])
+	}
+}
