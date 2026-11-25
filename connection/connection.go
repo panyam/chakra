@@ -311,7 +311,8 @@ func builtin(c Config, base, key string, onFullHistory func(reason string)) (age
 // counterpart of Build for the embedder role. Embeddings are an OpenAI-wire
 // concern (an /embeddings endpoint), so every type except "anthropic"
 // resolves through the OpenAI-compatible embedder, and "anthropic", which
-// has no embeddings API, is refused. tp opts the embedder into its
+// has no embeddings API, is refused. The key comes from APIKey, else
+// APIKeyEnv, as for Build. tp opts the embedder into its
 // agent.embed span; nil is fine.
 func BuildEmbedder(c Config, tp core.TracerProvider) (agent.Embedder, error) {
 	if c.Type == "anthropic" {
@@ -321,14 +322,10 @@ func BuildEmbedder(c Config, tp core.TracerProvider) (agent.Embedder, error) {
 	if err != nil {
 		return nil, err
 	}
-	var key string
-	if c.APIKeyEnv != "" {
-		key = os.Getenv(c.APIKeyEnv)
-	}
 	return agent.NewOpenAIEmbedder(agent.OpenAIEmbedderConfig{
 		BaseURL:        base,
 		Model:          c.Model,
-		APIKey:         key,
+		APIKey:         apiKey(c),
 		TracerProvider: tp,
 	})
 }

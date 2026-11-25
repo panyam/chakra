@@ -298,3 +298,24 @@ func TestTypesOverrideOneType(t *testing.T) {
 		t.Errorf("control: with no override, anthropic built %T", p)
 	}
 }
+
+// An embedder connection with its key in hand sends that key, as Build does,
+// and it wins over APIKeyEnv.
+func TestBuildEmbedderAPIKeyInHand(t *testing.T) {
+	t.Setenv("SOME_KEY_ENV", "from-env")
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get("Authorization")
+		http.Error(w, "no", http.StatusTeapot)
+	}))
+	defer srv.Close()
+
+	e, err := BuildEmbedder(Config{BaseURL: srv.URL, Model: "m", APIKey: "in-hand", APIKeyEnv: "SOME_KEY_ENV"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = e.Embed(context.Background(), []string{"hi"})
+	if got != "Bearer in-hand" {
+		t.Fatalf("Authorization = %q, want the in-hand key", got)
+	}
+}
