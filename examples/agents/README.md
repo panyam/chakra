@@ -8,7 +8,8 @@ step changed.
 
 | agent | job |
 |---|---|
-| [calc](calc/README.md) | Answer arithmetic, with and then without a calculator. It shows how to read the table. |
+| [calc](calc/README.md) | Answer arithmetic, without and then with a calculator. It shows how to read the table. |
+| [codeq](codeq/README.md) | Answer questions about Go code through a tool server over MCP. |
 
 ## Running the ladders
 
@@ -16,6 +17,7 @@ step changed.
 make exercise-agents                                          # every agent, on scripted models, as CI runs it
 make exercise-agents AGENT=calc                               # one agent
 make exercise-agents AGENT=calc LIVE=mini PROFILE=agentchat.json   # on a real model
+make exercise-agents AGENT=codeq CASES=1                      # also print each failing case and its answer
 ```
 
 `LIVE` names a connection in the agentchat config at `PROFILE`. The
@@ -24,8 +26,12 @@ so cached tokens are priced at the full input rate.
 
 ## Adding an agent
 
-1. A package under `examples/agents/<job>/` with `Ladder() eval.Ladder`, its
+1. A package under `examples/agents/<job>/` with its ladder, its
    `Instructions`, and `Scripted() agent.Provider`, a stand-in model for CI.
+   The ladder is `func(ctx) (eval.Ladder, stop func(), error)`, so it can
+   start what its steps share, as codeq starts its tool server. A ladder that
+   starts nothing is `func() eval.Ladder`, wrapped with `static` in
+   `agents.go`.
 2. An entry in `All` in `agents.go`.
 3. A `README.md` that walks through the steps and shows the table.
    `TestEveryLadderClimbs` fails without one.

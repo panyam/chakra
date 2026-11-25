@@ -321,8 +321,8 @@ coding-harness-parity: ## codex exec vs the coding harness, same fixture and mod
 # table, on scripted models unless LIVE names a connection in PROFILE (an
 # agentchat config). AGENT picks one agent. CI runs the same ladders through
 # make test-examples.
-exercise-agents: ## Run each agent ladder and print its table (AGENT=calc LIVE=<connection> PROFILE=<agentchat.json>)
-	@cd examples/agents && go run ./cmd/exercise $(if $(AGENT),-agent $(AGENT)) $(if $(LIVE),-live $(LIVE) -profile $(abspath $(patsubst ~/%,$(HOME)/%,$(PROFILE))))
+exercise-agents: ## Run each agent ladder and print its table (AGENT=calc LIVE=<connection> PROFILE=<agentchat.json> CASES=1)
+	@cd examples/agents && go run ./cmd/exercise $(if $(AGENT),-agent $(AGENT)) $(if $(CASES),-cases) $(if $(LIVE),-live $(LIVE) -profile $(abspath $(patsubst ~/%,$(HOME)/%,$(PROFILE))))
 
 # ---------------------------------------------------------------------------
 # Release

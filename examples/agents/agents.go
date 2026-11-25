@@ -15,14 +15,17 @@ import (
 	"github.com/panyam/chakra/connection"
 	"github.com/panyam/chakra/eval"
 	"github.com/panyam/chakra/examples/agents/calc"
+	"github.com/panyam/chakra/examples/agents/codeq"
 )
 
 // Agent is one agent's ladder and what it runs on.
 type Agent struct {
 	// Name is the agent's directory under examples/agents.
 	Name string
-	// Ladder builds the agent's steps and eval.
-	Ladder func() eval.Ladder
+	// Ladder builds the agent's steps and eval. It can start what the steps
+	// share, such as a tool server, and stop releases it once the ladder has
+	// run. stop is never nil when err is nil.
+	Ladder func(ctx context.Context) (l eval.Ladder, stop func(), err error)
 	// Instructions is the system prompt every step starts from.
 	Instructions string
 	// Scripted is the stand-in model CI runs the ladder on.
@@ -33,7 +36,13 @@ type Agent struct {
 
 // All lists the agents, in the order the exercise runs them.
 var All = []Agent{
-	{Name: "calc", Ladder: calc.Ladder, Instructions: calc.Instructions, Scripted: calc.Scripted},
+	{Name: "calc", Ladder: static(calc.Ladder), Instructions: calc.Instructions, Scripted: calc.Scripted},
+	{Name: "codeq", Ladder: codeq.Ladder, Instructions: codeq.Instructions, Scripted: codeq.Scripted},
+}
+
+// static adapts a ladder that starts nothing.
+func static(l func() eval.Ladder) func(context.Context) (eval.Ladder, func(), error) {
+	return func(context.Context) (eval.Ladder, func(), error) { return l(), func() {}, nil }
 }
 
 // Find returns the agent called name.
@@ -54,14 +63,19 @@ type Model struct {
 	Prices   eval.Prices
 }
 
-// Climb runs a's ladder on m.
-func Climb(ctx context.Context, a Agent, m Model) eval.LadderReport {
+// Climb runs a's ladder on m. It fails only when the ladder can't start.
+func Climb(ctx context.Context, a Agent, m Model) (eval.LadderReport, error) {
+	l, stop, err := a.Ladder(ctx)
+	if err != nil {
+		return eval.LadderReport{}, err
+	}
+	defer stop()
 	steps := a.MaxSteps
 	if steps == 0 {
 		steps = 8
 	}
 	base := agent.RunnerConfig{Provider: m.Provider, Instructions: a.Instructions, MaxSteps: steps}
-	return a.Ladder().Run(ctx, eval.Suite{Config: base, ModelName: m.Name, Prices: m.Prices})
+	return l.Run(ctx, eval.Suite{Config: base, ModelName: m.Name, Prices: m.Prices}), nil
 }
 
 // Live builds the model for the connection called name in an agentchat
