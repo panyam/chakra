@@ -87,10 +87,10 @@ integrated with a dedicated engine.
 - **CI fails on any change to an exported name until `api.txt` records it.** `make api-report`
   diffs each module's exported API against its `api.txt` (#143). Run `make api-update` and commit
   the diff with the change. Doc comments and parameter names don't count.
-- **An `anthropic` connection without `maxTokens` stops every reply at 4096 tokens.** The Messages
-  API needs a cap, and the provider's default is 4096. A long file write or patch gets cut off,
-  and the turn carries on as if the model had finished. Set `maxTokens` on the connection (#264).
-  The Terminal-Bench adapter sets 64000.
+- **An `anthropic`, `llamacpp` or `ollama` connection without `maxTokens` stops every reply at 4096
+  tokens.** The Messages API needs a cap, and a local server would otherwise run until its context
+  is full. A long file write or patch gets cut off, and the turn carries on as if the model had
+  finished. Set `maxTokens` on the connection (#264). The Terminal-Bench adapter sets 64000.
 - **Run tests with `-race`.** The signal, pool, and interruptible tests exist to catch races.
 - **Host behavioral tests race on a shared sequential StubProvider** when a main turn and a
   background child both pull from it. Assert *wiring* in host tests and test the *behavior* at

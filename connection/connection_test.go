@@ -319,3 +319,34 @@ func TestBuildEmbedderAPIKeyInHand(t *testing.T) {
 		t.Fatalf("Authorization = %q, want the in-hand key", got)
 	}
 }
+
+// A local connection's maxTokens reaches the request, and with none set the
+// preset's default does (agent.DefaultLocalMaxTokens).
+func TestLocalConnectionsCapEachReply(t *testing.T) {
+	var sent []int
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			MaxTokens int `json:"max_tokens"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		sent = append(sent, body.MaxTokens)
+		fmt.Fprint(w, `{"choices":[{"message":{"content":"ok"},"finish_reason":"stop"}]}`)
+	}))
+	defer ts.Close()
+	for _, c := range []Config{
+		{Type: "llamacpp", BaseURL: ts.URL},
+		{Type: "llamacpp", BaseURL: ts.URL, MaxTokens: 777},
+		{Type: "ollama", BaseURL: ts.URL, Model: "qwen2.5-coder:14b", MaxTokens: 778},
+	} {
+		p, err := Build(c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := p.Generate(context.Background(), agent.ProviderRequest{Messages: []agent.Message{{Role: agent.RoleUser, Text: "q"}}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if fmt.Sprint(sent) != fmt.Sprint([]int{agent.DefaultLocalMaxTokens, 777, 778}) {
+		t.Errorf("max_tokens sent %v", sent)
+	}
+}
