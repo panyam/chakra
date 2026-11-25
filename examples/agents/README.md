@@ -94,11 +94,11 @@ did. `make serve` runs it in a browser on http://localhost:8765, to show
 someone.
 
 Each step shows what it adds to the agent: instructions, tools, step stages
-and turn-end hooks. Then you choose **run**, which runs every case with a
-line per case and ends on the step's row, what it cost, and what the next
-step will likely cost. Or you choose **watch**, which runs one case and
-prints its transcript: each tool call and result, the answer, and its
-scores. A watched step leaves no row in the table. The last step prints the
+and turn-end hooks. Then it asks one question. Press Enter to run every case,
+with a line per case, ending on the step's row, what it cost, and what the
+next step will likely cost. Or type a case number to watch that case: its
+transcript, with each tool call and result, the answer, and its scores. A
+watched step leaves no row in the table. The last step prints the table. The last step prints the
 table.
 
 `make record LIVE=haiku` records a full walk to `walk-haiku.json`, and `make

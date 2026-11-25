@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/panyam/chakra"
@@ -92,16 +93,30 @@ func (w *Walker) Steps(d *demokit.Demo) {
 	}
 }
 
-// Step adds the demokit step for ladder step i. It asks whether to run
-// every case or watch one. Either way it first applies the step, and every
-// step before it that hasn't been applied, and prints what changed. Running
-// every case prints a line per case, the step's row and what was spent.
-// Watching one prints that case's transcript and its scores.
+// Step adds the demokit step for ladder step i. It asks one question:
+// Enter runs every case, and a case number watches that one. Either way it
+// first applies the step, and every step before it that hasn't been
+// applied, and prints what changed. Running every case prints a line per
+// case, the step's row and what was spent. Watching one prints that case's
+// transcript and its scores.
 func (w *Walker) Step(d *demokit.Demo, i int) {
 	s := w.ladder.Steps[i]
+	n := len(w.ladder.Cases)
 	step := d.Step(s.Name).ID(fmt.Sprintf("step-%d", i+1)).
-		Input(demokit.Choice("run", "watch").Named("action", "Run every case, or watch one").WithDefault("run")).
-		Input(demokit.Int().Named("case", fmt.Sprintf("Which case to watch, 1 to %d", len(w.ladder.Cases))).WithDefault(1))
+		Input(demokit.String().
+			Named("watch", fmt.Sprintf("Enter runs every case, or a case number from 1 to %d watches it", n)).
+			WithDefault("all").
+			WithParse(func(in string) (any, error) {
+				in = strings.TrimSpace(in)
+				if in == "" || in == "all" || in == "run" {
+					return "all", nil
+				}
+				c, err := strconv.Atoi(in)
+				if err != nil || c < 1 || c > n {
+					return nil, fmt.Errorf("press Enter, or type a case number from 1 to %d", n)
+				}
+				return c, nil
+			}))
 	if note := w.a.StepNotes[s.Name]; note != "" {
 		step.Note(note)
 	}
@@ -109,16 +124,17 @@ func (w *Walker) Step(d *demokit.Demo, i int) {
 		if !w.applyThrough(i) {
 			return demokit.Errf("%s", w.failed)
 		}
-		if ctx.Inputs["action"] == "watch" {
-			return w.watch(ctx.Ctx, caseNumber(ctx.Inputs["case"]))
+		if c := caseNumber(ctx.Inputs["watch"]); c > 0 {
+			return w.watch(ctx.Ctx, c)
 		}
 		w.runAll(ctx.Ctx, i)
 		return nil
 	})
 }
 
-// caseNumber reads the case input. A live prompt parses it as an int, and
-// a recorded trace decodes it from JSON as a float64.
+// caseNumber reads the watch input: a case number, or 0 to run every case.
+// A live prompt parses a number as an int, a recorded trace decodes it
+// from JSON as a float64, and "all", or no input at all, means run.
 func caseNumber(v any) int {
 	switch n := v.(type) {
 	case int:
