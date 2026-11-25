@@ -20,32 +20,38 @@ const qwenCall = "```json\n{\"name\": \"query\", \"arguments\": {\"program\": \"
 
 var offered = map[string]string{"query": "query", "weather_current": "weather.current"}
 
-// A reply made only of calls to offered tools reads as those calls, in each
-// way models write them. Anything else in the reply, or a call to a tool
-// that wasn't offered, leaves it text.
-func TestTextToolCallsReadsOnlyAWholeReplyOfCalls(t *testing.T) {
+// A call to an offered tool counts wherever a reply writes it, in each way
+// models write them. Text before the first call stays the reply's text, and
+// text after it, written before the call ran, is dropped. A reply with no
+// call to an offered tool stays as it was.
+func TestTextToolCallsFindsTheCallsInAReply(t *testing.T) {
 	for _, tc := range []struct {
 		name, text string
-		want       []string // name and args of each call; nil for text
+		want       []string // name and args of each call; nil for none
+		before     string
 	}{
-		{"Qwen's fenced JSON", qwenCall, []string{`query {"program": "node(?p, \"package\") => ?p", "repos": ["delve"]}`}},
-		{"a bare object", `{"name": "query", "arguments": {"program": "p"}}`, []string{`query {"program": "p"}`}},
-		{"Hermes tags", "<tool_call>\n{\"name\": \"query\", \"arguments\": {}}\n</tool_call>", []string{"query {}"}},
-		{"two fenced calls", "```json\n{\"name\": \"query\", \"arguments\": {\"a\": 1}}\n```\n\n```json\n{\"name\": \"query\", \"arguments\": {\"a\": 2}}\n```", []string{`query {"a": 1}`, `query {"a": 2}`}},
-		{"two objects in one fence", "```\n{\"name\": \"query\", \"arguments\": {}}\n{\"name\": \"query\", \"arguments\": {}}\n```", []string{"query {}", "query {}"}},
-		{"arguments as a string", `{"name": "query", "arguments": "{\"a\": 1}"}`, []string{`query {"a": 1}`}},
-		{"parameters for arguments", `{"name": "query", "parameters": {"a": 1}}`, []string{`query {"a": 1}`}},
-		{"a sanitized name maps back", `{"name": "weather_current", "arguments": {}}`, []string{"weather.current {}"}},
-		{"prose before the call", "Let me query.\n" + qwenCall, nil},
-		{"prose after the call", qwenCall + "\nThat should work.", nil},
-		{"a tool that wasn't offered", `{"name": "delete_repo", "arguments": {}}`, nil},
-		{"a code block in another language", "```go\n{\"name\": \"query\", \"arguments\": {}}\n```", nil},
-		{"JSON that isn't a call", "```json\n{\"rows\": [1, 2]}\n```", nil},
-		{"broken JSON", "```json\n{\"name\": \"query\", \"arguments\": {\n```", nil},
-		{"arguments that aren't an object", `{"name": "query", "arguments": [1]}`, nil},
-		{"an answer", "The package is github.com/go-delve/delve/pkg/proc.", nil},
+		{"Qwen's fenced JSON", qwenCall, []string{`query {"program": "node(?p, \"package\") => ?p", "repos": ["delve"]}`}, ""},
+		{"a bare object", `{"name": "query", "arguments": {"program": "p"}}`, []string{`query {"program": "p"}`}, ""},
+		{"Hermes tags", "<tool_call>\n{\"name\": \"query\", \"arguments\": {}}\n</tool_call>", []string{"query {}"}, ""},
+		{"two fenced calls", "```json\n{\"name\": \"query\", \"arguments\": {\"a\": 1}}\n```\n\n```json\n{\"name\": \"query\", \"arguments\": {\"a\": 2}}\n```", []string{`query {"a": 1}`, `query {"a": 2}`}, ""},
+		{"two objects in one fence", "```\n{\"name\": \"query\", \"arguments\": {}}\n{\"name\": \"query\", \"arguments\": {}}\n```", []string{"query {}", "query {}"}, ""},
+		{"arguments as a string", `{"name": "query", "arguments": "{\"a\": 1}"}`, []string{`query {"a": 1}`}, ""},
+		{"parameters for arguments", `{"name": "query", "parameters": {"a": 1}}`, []string{`query {"a": 1}`}, ""},
+		{"a sanitized name maps back", `{"name": "weather_current", "arguments": {}}`, []string{"weather.current {}"}, ""},
+		// x02's retry: a sentence, then the call.
+		{"prose before the call", "It looks like the variable was wrong. Let's correct it.\n\nHere's the corrected query:\n\n" + qwenCall, []string{`query {"program": "node(?p, \"package\") => ?p", "repos": ["delve"]}`}, "It looks like the variable was wrong. Let's correct it.\n\nHere's the corrected query:"},
+		// x01: the call, then an answer made up before it ran.
+		{"an answer after the call", qwenCall + "\n\n```answer\ngithub.com/go-delve/delve/pkg/elf, 80\n```", []string{`query {"program": "node(?p, \"package\") => ?p", "repos": ["delve"]}`}, ""},
+		{"a code block before the call", "```go\nfunc f() {}\n```\n" + qwenCall, []string{`query {"program": "node(?p, \"package\") => ?p", "repos": ["delve"]}`}, "```go\nfunc f() {}\n```"},
+		{"a tool that wasn't offered", `{"name": "delete_repo", "arguments": {}}`, nil, ""},
+		{"a fence in another language", "```go\n{\"name\": \"query\", \"arguments\": {}}\n```", nil, ""},
+		{"JSON that isn't a call", "```json\n{\"rows\": [1, 2]}\n```", nil, ""},
+		{"broken JSON", "```json\n{\"name\": \"query\", \"arguments\": {\n```", nil, ""},
+		{"arguments that aren't an object", `{"name": "query", "arguments": [1]}`, nil, ""},
+		{"a bare object inside prose", `Call {"name": "query", "arguments": {}} next.`, nil, ""},
+		{"an answer", "The package is github.com/go-delve/delve/pkg/proc.", nil, ""},
 	} {
-		calls, ok := textToolCalls(tc.text, offered)
+		calls, before, ok := textToolCalls(tc.text, offered)
 		var got []string
 		for _, c := range calls {
 			got = append(got, c.Name+" "+string(c.Args.Raw()))
@@ -53,9 +59,15 @@ func TestTextToolCallsReadsOnlyAWholeReplyOfCalls(t *testing.T) {
 		if ok != (tc.want != nil) || fmt.Sprint(got) != fmt.Sprint(tc.want) {
 			t.Errorf("%s: got %q ok=%v, want %q", tc.name, got, ok, tc.want)
 		}
+		if ok && before != tc.before {
+			t.Errorf("%s: text before the call %q, want %q", tc.name, before, tc.before)
+		}
+		if !ok && before != tc.text {
+			t.Errorf("%s: a reply with no call changed to %q", tc.name, before)
+		}
 	}
-	a, _ := textToolCalls(qwenCall, offered)
-	b, _ := textToolCalls(qwenCall, offered)
+	a, _, _ := textToolCalls(qwenCall, offered)
+	b, _, _ := textToolCalls(qwenCall, offered)
 	if a[0].ID == b[0].ID || !strings.HasPrefix(a[0].ID, "text-call-") {
 		t.Errorf("recovered calls need ids of their own: %q, %q", a[0].ID, b[0].ID)
 	}
@@ -136,9 +148,9 @@ func TestLlamaCppReadsAToolCallWrittenAsText(t *testing.T) {
 	}
 }
 
-// An answer streams as it arrives: once its text can't be a call, the held
-// text goes out and the rest follows a chunk at a time. A reply that starts
-// like a call and then isn't one comes out whole, as text.
+// An answer streams as it arrives, a chunk at a time. A sentence before a
+// call streams too, and the call follows it. A reply that starts like a call
+// and then isn't one comes out whole, as text.
 func TestLlamaCppStreamsAnAnswerAsItComes(t *testing.T) {
 	answer := "The package is pkg/proc, which holds the target."
 	ts := sseServer(t, nil, chunks(answer)...)
@@ -166,6 +178,33 @@ func TestLlamaCppStreamsAnAnswerAsItComes(t *testing.T) {
 		t.Errorf("an answer came as %q, finish %q", texts, acc.Result().FinishReason)
 	}
 
+	// x02's retry streams its sentence as it comes, then the call.
+	retry := "Let's correct it.\n\n" + qwenCall
+	ts3 := sseServer(t, nil, chunks(retry)...)
+	defer ts3.Close()
+	s3, err := llamaCpp(t, ts3.URL).Stream(context.Background(), ProviderRequest{Tools: queryTool})
+	if err != nil {
+		t.Fatal(err)
+	}
+	texts = nil
+	var acc3 DeltaAccumulator
+	for {
+		d, err := s3.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if d.Kind == DeltaText {
+			texts = append(texts, d.Text)
+		}
+		acc3.Add(d)
+	}
+	if r := acc3.Result(); strings.TrimSpace(r.Text) != "Let's correct it." || len(r.ToolCalls) != 1 || r.FinishReason != "tool_calls" || len(texts) < 2 || texts[0] != "Let's c" {
+		t.Errorf("a retry came as %q: %+v", texts, r)
+	}
+
 	code := "```go\nfunc main() {}\n```"
 	ts2 := sseServer(t, nil, chunks(code)...)
 	defer ts2.Close()
@@ -180,11 +219,14 @@ func TestLlamaCppStreamsAnAnswerAsItComes(t *testing.T) {
 
 // A Runner on llama.cpp runs the tool Qwen asked for as text, and the
 // model's next reply answers the turn: the turn panyam/declaire#378 lost.
+// The rows Qwen made up after its call don't end the turn or stay in its
+// history.
 func TestRunnerRunsAToolCallWrittenAsText(t *testing.T) {
 	var calls atomic.Int32
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
-		lines := chunks(qwenCall)
+		// x01's reply: the call, then rows made up before it ran.
+		lines := chunks(qwenCall + "\n\n```answer\ngithub.com/go-delve/delve/pkg/elf, 80\n```")
 		if calls.Add(1) > 1 {
 			lines = chunks("delve has 3 packages.")
 		}
@@ -215,5 +257,8 @@ func TestRunnerRunsAToolCallWrittenAsText(t *testing.T) {
 	}
 	if res.Text != "delve has 3 packages." || res.Steps != 2 {
 		t.Errorf("turn: steps %d, text %q", res.Steps, res.Text)
+	}
+	if first := res.Messages[0]; strings.Contains(first.Text, "pkg/elf") || len(first.ToolCalls) != 1 {
+		t.Errorf("the made-up answer stayed in the call's message: %+v", first)
 	}
 }

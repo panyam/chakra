@@ -69,15 +69,16 @@ type OpenAIConfig struct {
 	// ErrUnsupportedParam. An unknown kind fails NewOpenAIProvider.
 	Penalties []string
 
-	// TextToolCalls reads a reply that is nothing but tool calls written as
-	// text as those calls, when the request offered tools and the server
-	// returned none (panyam/declaire#378). Each call is a JSON object with a
-	// name and arguments, bare, fenced, or in <tool_call> tags, and must name
-	// an offered tool. Any other reply stays text. A model served without a
-	// parser for its tool-call format needs it, as Qwen2.5-Coder on
-	// llama-server does. While streaming, text that could still be a call is
-	// held back until it can't, so a plain answer still streams.
-	// NewLlamaCppProvider sets it.
+	// TextToolCalls reads tool calls written as text in a reply, when the
+	// request offered tools and the server returned none
+	// (panyam/declaire#378). A call is a JSON object with a name and
+	// arguments, in a fence or <tool_call> tags, or bare as the whole reply,
+	// and must name an offered tool. Text before the first call stays the
+	// reply's text, and text after it is dropped, since the model wrote it
+	// before the call ran. A reply with no such call stays as it was. A model
+	// served without a parser for its tool-call format needs it, as
+	// Qwen2.5-Coder on llama-server does. While streaming, text goes out as it
+	// comes up to where a call could start. NewLlamaCppProvider sets it.
 	TextToolCalls bool
 }
 
@@ -300,8 +301,8 @@ func (p *OpenAIProvider) Generate(ctx context.Context, req ProviderRequest) (*Pr
 		out.ToolCalls = append(out.ToolCalls, ToolCall{ID: tc.ID, Name: realToolName(safeToReal, tc.Function.Name), Args: toolCallArgsFromJSON(json.RawMessage(args))})
 	}
 	if p.cfg.TextToolCalls && len(out.ToolCalls) == 0 {
-		if calls, ok := textToolCalls(out.Text, safeToReal); ok {
-			out.Text, out.ToolCalls, out.FinishReason = "", calls, "tool_calls"
+		if calls, text, ok := textToolCalls(out.Text, safeToReal); ok {
+			out.Text, out.ToolCalls, out.FinishReason = text, calls, "tool_calls"
 		}
 	}
 	if full.Usage != nil {
