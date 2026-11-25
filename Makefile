@@ -319,13 +319,14 @@ coding-harness-parity: ## codex exec vs the coding harness, same fixture and mod
 
 # exercise-agents is mission 349's exercise: each examples/agents ladder's
 # table, on scripted models unless LIVE names a connection in PROFILE (an
-# agentchat config). AGENT picks one agent, and CASES=1 prints each failing
-# case. LIVE=? lists PROFILE's connections, as make profiles does. CI runs the
+# agentchat config). AGENT picks one agent. Each step and case prints to
+# stderr as it runs, and QUIET=1 leaves just the tables. CASES=1 prints each
+# failing case after its table. LIVE=? lists PROFILE's connections, as make profiles does. CI runs the
 # same ladders through make test-examples.
 PROFILE ?= $(HOME)/.agentchat/exercise-agents.json
 profile_path = $(abspath $(patsubst ~/%,$(HOME)/%,$(PROFILE)))
-exercise-agents: ## Run each agent ladder and print its table (AGENT=codeq LIVE=<connection> CASES=1; LIVE=? lists connections)
-	@cd examples/agents && go run ./cmd/exercise $(if $(AGENT),-agent $(AGENT)) $(if $(CASES),-cases) $(if $(LIVE),-live '$(LIVE)' -profile $(profile_path))
+exercise-agents: ## Run each agent ladder and print its table (AGENT=codeq LIVE=<connection> CASES=1 QUIET=1; LIVE=? lists connections)
+	@cd examples/agents && go run ./cmd/exercise $(if $(AGENT),-agent $(AGENT)) $(if $(CASES),-cases) $(if $(QUIET),-quiet) $(if $(LIVE),-live '$(LIVE)' -profile $(profile_path))
 
 profiles: ## List the connections in PROFILE (default ~/.agentchat/exercise-agents.json)
 	@cd examples/agents && go run ./cmd/exercise -profiles -profile $(profile_path)

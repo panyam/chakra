@@ -25,9 +25,9 @@ require (
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
-	github.com/panyam/mcpkit/experimental/ext/agents v0.8.22 // indirect
+	github.com/panyam/mcpkit/experimental/ext/agents v0.8.23 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.8.20 // indirect
-	github.com/panyam/mcpkit/experimental/ext/events v0.8.22 // indirect
+	github.com/panyam/mcpkit/experimental/ext/events v0.8.23 // indirect
 	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.20 // indirect
 	github.com/panyam/mcpkit/ext/auth v0.8.20 // indirect
 	github.com/panyam/mcpkit/ext/skills v0.8.20 // indirect
@@ -45,6 +45,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/net v0.61.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
@@ -53,7 +54,7 @@ require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.6.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/gorilla/websocket v1.5.4-0.20240701034025-d67f41855da4 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
@@ -70,7 +71,7 @@ require (
 	github.com/panyam/chakra/provider/anthropic v0.3.9
 	github.com/panyam/gocurrent v0.1.3 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
-	github.com/panyam/mcpkit v0.8.22
+	github.com/panyam/mcpkit v0.8.23
 	github.com/panyam/servicekit v0.2.5 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pgvector/pgvector-go v0.4.1 // indirect

@@ -150,6 +150,11 @@ type Suite struct {
 	// Prices turns each case's token counts into a dollar cost. Nil reports
 	// tokens and time only.
 	Prices Prices
+
+	// OnCase, when set, hears each case as it finishes, with its index in
+	// Cases, before the next one starts. A long run can print progress
+	// with it. It runs on the goroutine that called Run.
+	OnCase func(i int, r CaseReport)
 }
 
 // CaseReport is one case's outcome. It holds the per-scorer verdicts and
@@ -217,7 +222,7 @@ func (r SuiteReport) Pass() bool { return r.Failed == 0 }
 // records it in the scores, or RunErr records it for a build failure.
 func (s Suite) Run(ctx context.Context) SuiteReport {
 	report := SuiteReport{Total: len(s.Cases)}
-	for _, sc := range s.Cases {
+	for i, sc := range s.Cases {
 		cr := CaseReport{Case: sc.Scenario.Name, Pass: true}
 
 		fail := func(format string, args ...any) {
@@ -226,6 +231,7 @@ func (s Suite) Run(ctx context.Context) SuiteReport {
 			s.price(&cr)
 			report.Cases = append(report.Cases, cr)
 			report.Failed++
+			s.heard(i, cr)
 		}
 
 		cfg := s.Config
@@ -311,8 +317,16 @@ func (s Suite) Run(ctx context.Context) SuiteReport {
 		} else {
 			report.Failed++
 		}
+		s.heard(i, cr)
 	}
 	return report
+}
+
+// heard passes a finished case to OnCase, when it is set.
+func (s Suite) heard(i int, cr CaseReport) {
+	if s.OnCase != nil {
+		s.OnCase(i, cr)
+	}
 }
 
 // addUsage adds from into into, relabelling "" as ModelName and dropping

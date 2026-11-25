@@ -1178,6 +1178,7 @@ pkg github.com/panyam/chakra/eval, type Suite struct
 pkg github.com/panyam/chakra/eval, type Suite struct, Cases []SuiteCase
 pkg github.com/panyam/chakra/eval, type Suite struct, Config agent.RunnerConfig
 pkg github.com/panyam/chakra/eval, type Suite struct, ModelName string
+pkg github.com/panyam/chakra/eval, type Suite struct, OnCase func(int, CaseReport)
 pkg github.com/panyam/chakra/eval, type Suite struct, Prices Prices
 pkg github.com/panyam/chakra/eval, type SuiteCase struct
 pkg github.com/panyam/chakra/eval, type SuiteCase struct, Configure func(agent.RunnerConfig) (agent.RunnerConfig, error)

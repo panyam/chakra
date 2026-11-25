@@ -13,7 +13,7 @@ require (
 	github.com/muesli/termenv v0.16.0
 	github.com/panyam/chakra/host v0.3.9
 	github.com/panyam/chakra/surfaces v0.3.9
-	github.com/panyam/mcpkit v0.8.22
+	github.com/panyam/mcpkit v0.8.23
 	github.com/panyam/mcpkit/ext/otel v0.8.20
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
@@ -70,7 +70,7 @@ require (
 	github.com/panyam/chakra/ext/exec v0.3.9 // indirect
 	github.com/panyam/chakra/ext/git v0.3.9 // indirect
 	github.com/panyam/chakra/ext/lsp v0.3.9 // indirect
-	github.com/panyam/mcpkit/experimental/ext/agents v0.8.22 // indirect
+	github.com/panyam/mcpkit/experimental/ext/agents v0.8.23 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.8.20 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pgvector/pgvector-go v0.4.1 // indirect
@@ -102,7 +102,7 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/gorilla/websocket v1.5.4-0.20240701034025-d67f41855da4 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
@@ -115,7 +115,7 @@ require (
 	github.com/panyam/chakra/store/redis v0.3.9 // indirect
 	github.com/panyam/gocurrent v0.1.3 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
-	github.com/panyam/mcpkit/experimental/ext/events v0.8.22 // indirect
+	github.com/panyam/mcpkit/experimental/ext/events v0.8.23 // indirect
 	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.20 // indirect
 	github.com/panyam/mcpkit/ext/auth v0.8.20 // indirect
 	github.com/panyam/mcpkit/ext/skills v0.8.20 // indirect
