@@ -5,10 +5,10 @@ go 1.26.11
 toolchain go1.27.4
 
 require (
-	github.com/panyam/chakra v0.3.8
-	github.com/panyam/chakra/host v0.3.8
-	github.com/panyam/mcpkit v0.8.21
-	github.com/panyam/mcpkit/experimental/ext/events v0.8.21
+	github.com/panyam/chakra v0.3.9
+	github.com/panyam/chakra/host v0.3.9
+	github.com/panyam/mcpkit v0.8.22
+	github.com/panyam/mcpkit/experimental/ext/events v0.8.22
 	github.com/panyam/mcpkit/ext/tasks v0.8.20
 )
 
@@ -24,7 +24,7 @@ require (
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/panyam/gocurrent v0.1.3 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
-	github.com/panyam/mcpkit/experimental/ext/agents v0.8.21 // indirect
+	github.com/panyam/mcpkit/experimental/ext/agents v0.8.22 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.8.20 // indirect
 	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.20 // indirect
 	github.com/panyam/mcpkit/ext/auth v0.8.20 // indirect
