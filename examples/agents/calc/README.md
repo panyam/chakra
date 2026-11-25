@@ -22,7 +22,7 @@ models get all six right with no tool (see the live run below).
 ## The table
 
 ```
-$ make exercise-agents AGENT=calc
+$ make exercise
 on scripted
 calc: 6 cases
 step         pass  change  usd/correct  sec/correct
@@ -47,7 +47,7 @@ say nothing about a real model.
 run. Here are Claude Haiku 5.5 and Sonnet 5.5, on 2026-11-25:
 
 ```
-$ make exercise-agents AGENT=calc LIVE=haiku PROFILE=~/.agentchat/exercise-agents.json
+$ make exercise LIVE=haiku
 on haiku
 calc: 6 cases
 step         pass  change  usd/correct  sec/correct

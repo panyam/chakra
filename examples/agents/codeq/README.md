@@ -69,7 +69,7 @@ row the question names, and the package of a wanted function.
 On the scripted model CI runs:
 
 ```
-$ make exercise-agents AGENT=codeq
+$ make exercise
 on scripted
 codeq: 10 cases
 step            pass   change  usd/correct  sec/correct
@@ -89,11 +89,11 @@ nothing about a real model.
 On Claude Haiku 5.5 and Sonnet 5.5, on 2026-11-25. [WALK.md](WALK.md) is a
 recorded walk on Haiku, with every case's line and what each step added. It
 re-renders from `walk-haiku.json` with no model calls:
-`make walk-agent AGENT=codeq LIVE=haiku ARGS="--doc md --from codeq/walk-haiku.json"`.
+`make walk-md LIVE=haiku` in this directory.
 
 
 ```
-$ make exercise-agents AGENT=codeq LIVE=haiku PROFILE=~/.agentchat/exercise-agents.json
+$ make exercise LIVE=haiku
 on haiku
 codeq: 10 cases
 step            pass   change  usd/correct  sec/correct
@@ -126,6 +126,6 @@ answer.
 
 ## Chatting with it
 
-`make chat-agent AGENT=codeq LIVE=sonnet` opens agentchat with the last step's
+`make chat LIVE=sonnet`, in this directory, opens agentchat with the last step's
 instructions and codeserver attached. The stuck policy and the answer check
 are code, so the chat runs without them.

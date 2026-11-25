@@ -35,8 +35,8 @@ type Agent struct {
 	Scripted func() agent.Provider
 	// MaxSteps caps each turn. Zero means 8.
 	MaxSteps int
-	// Chat sets the agent up for agentchat, as its last step, for make
-	// chat-agent. Nil means the agent can't run there yet.
+	// Chat sets the agent up for agentchat, as its last step, for its make
+	// chat target. Nil means the agent can't run there yet.
 	Chat func() (ChatSetup, error)
 
 	// About is the walk's opening section: the job, the eval, and anything

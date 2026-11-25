@@ -1,8 +1,8 @@
 // Package agents lists chakra's agents for a job, each built as a ladder
 // (mission #349). Every agent lives in its own directory with a README that
-// walks through its steps. The shared machinery is in common: make
-// exercise-agents runs each ladder and prints its table, and make walk-agent
-// steps through one ladder with demokit.
+// walks through its steps, and a Makefile that includes common/agent.mk. The
+// shared machinery is in common: Climb runs a ladder and prints its table,
+// and Walk steps through one with demokit.
 package agents
 
 import (

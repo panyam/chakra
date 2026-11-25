@@ -34,7 +34,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/h
 # explicitly and the platform's own backend refuses. See the module README.
 GOTESTFLAGS ?= -race -timeout 300s
 
-.PHONY: help build test test-examples test-web test-web-e2e testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg exercise-agents profiles chat-agent walk-agent dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report tbench-ingest tbench-matrix tbench-stale tbench-stale-locked tbench-ref mission-tbench deploy-web weblogs \
+.PHONY: help build test test-examples test-web test-web-e2e testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg exercise-agents dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report tbench-ingest tbench-matrix tbench-stale tbench-stale-locked tbench-ref mission-tbench deploy-web weblogs \
         check-no-binaries check-ext-isolation check-dep-consistency setup-hooks api-report api-update vulncheck
 
 help: ## Show this help
@@ -317,36 +317,13 @@ tbench-stale-locked:
 coding-harness-parity: ## codex exec vs the coding harness, same fixture and model, side by side (needs codex and OPENAI_API_KEY; PARITY_MODEL=gpt-5.5, PARITY_ACTIVE=openai, PARITY_INSTRUCTIONS=codex)
 	@bash scripts/coding-harness-parity.sh
 
-# exercise-agents is mission 349's exercise: each examples/agents ladder's
-# table, on scripted models unless LIVE names a connection in PROFILE (an
-# agentchat config). AGENT picks one agent. Each step and case prints to
-# stderr as it runs, and QUIET=1 leaves just the tables. CASES=1 prints each
-# failing case after its table. LIVE=? lists PROFILE's connections, as make profiles does. CI runs the
-# same ladders through make test-examples.
-PROFILE ?= $(HOME)/.agentchat/exercise-agents.json
-profile_path = $(abspath $(patsubst ~/%,$(HOME)/%,$(PROFILE)))
-exercise-agents: ## Run each agent ladder and print its table (AGENT=codeq LIVE=<connection> CASES=1 QUIET=1; LIVE=? lists connections)
-	@cd examples/agents && go run ./cmd/exercise $(if $(AGENT),-agent $(AGENT)) $(if $(CASES),-cases) $(if $(QUIET),-quiet) $(if $(LIVE),-live '$(LIVE)' -profile $(profile_path))
-
-profiles: ## List the connections in PROFILE (default ~/.agentchat/exercise-agents.json)
-	@cd examples/agents && go run ./cmd/exercise -profiles -profile $(profile_path)
-
-# walk-agent steps through one agent's ladder with demokit (#369): each step
-# shows what it adds, then runs every case or lets you watch one. MODE=tui (a
-# styled terminal UI), MODE=note (notebook cells you can scroll back through),
-# or MODE=serve (a browser on :8765). ARGS passes demokit flags, such as
-# ARGS="--record run.json", and ARGS="--doc md --from run.json" renders a
-# recorded walk with no model calls.
-walk-agent: ## Walk one agent's ladder step by step (AGENT=codeq LIVE=<connection> MODE=tui|note|serve ARGS="--record run.json")
-	@[ -n "$(AGENT)" ] || { echo "make walk-agent needs AGENT, such as AGENT=codeq"; exit 2; }
-	@cd examples/agents && go run ./cmd/walk -agent $(AGENT) $(if $(LIVE),-live $(LIVE) -profile $(profile_path)) $(if $(filter tui,$(MODE)),--tui) $(if $(filter note,$(MODE)),--note) $(if $(filter serve,$(MODE)),--serve :8765) $(ARGS)
-
-chat-agent: ## Chat with an agent's last step in agentchat (AGENT=codeq, LIVE=<connection> or PROFILE's active one)
-	@[ -n "$(AGENT)" ] || { echo "make chat-agent needs AGENT, such as AGENT=codeq"; exit 2; }
-	@cfg="$(CURDIR)/examples/agents/.chat-$(AGENT).json" && \
-	  (cd examples/agents && go run ./cmd/exercise -agent $(AGENT) -chat-config "$$cfg" -profile $(profile_path)) && \
-	  echo "agentchat config: $$cfg" && \
-	  cd surfaces/chat && go run . --config "$$cfg" $(if $(LIVE),--active $(LIVE))
+# exercise-agents is mission 349's exercise: every examples/agents ladder's
+# table. CI runs the same ladders through make test-examples. Each agent has
+# its own targets, such as make tui and make chat, in its directory
+# (examples/agents/README.md). AGENT=codeq runs one agent, and LIVE, PROFILE,
+# CASES and QUIET pass through.
+exercise-agents: ## Run each agent ladder and print its table (AGENT=codeq LIVE=<connection>; more in examples/agents)
+	@$(MAKE) -s -C examples/agents$(if $(AGENT),/$(AGENT)) exercise
 
 # ---------------------------------------------------------------------------
 # Release
