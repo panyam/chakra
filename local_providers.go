@@ -35,6 +35,10 @@ const DefaultLlamaCppBaseURL = "http://localhost:8080/v1"
 // prefix's tokens come back as Usage.CachedInputTokens. Seeds are sent as
 // given, and so is every SamplingPenalties field, DRY included (#276).
 //
+// It reads tool calls a model writes as text (OpenAIConfig.TextToolCalls),
+// since llama-server parses some models' tool calls and not others',
+// Qwen2.5-Coder's among the second.
+//
 // The caller sets Temperature. A request with none leaves llama-server
 // sampling at its own default, 0.8. A caller wanting greedy, repeatable
 // decoding sets 0.
@@ -53,6 +57,7 @@ func NewLlamaCppProvider(cfg LlamaCppConfig) (*OpenAIProvider, error) {
 		GuidedDialect: GuidedDialectLlamaCpp,
 		Penalties:     []string{PenaltyRepeat, PenaltyFrequency, PenaltyPresence, PenaltyDRY},
 		ExtraBody:     map[string]any{"cache_prompt": true},
+		TextToolCalls: true,
 	})
 }
 
