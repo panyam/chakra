@@ -10,6 +10,7 @@ step changed.
 |---|---|
 | [calc](calc/README.md) | Answer arithmetic, without and then with a calculator. It shows how to read the table. |
 | [codeq](codeq/README.md) | Answer questions about Go code through a tool server over MCP. |
+| [codefix](codefix/README.md) | Fix a bug in a Go module until its tests pass. |
 
 ## Running an agent
 

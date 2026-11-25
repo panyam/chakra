@@ -1,0 +1,69 @@
+[
+  {
+    "kind": "section",
+    "title": "The job",
+    "body": "codefix fixes bugs in a small Go module, example.com/shopkit: money, cart, discount and report packages, each with tests.\nEach case copies the module, brings in one bug and hands the agent a bug report. It passes when go test ./... passes and no _test.go file changed.\nThe bugs: an off-by-one, a comparison that leaves out its threshold, a missing nil check that panics, a bug one package away from where it shows, and a report with two bugs in two files.\n\nThe steps:\n1. read + edit\n2. + run tests\n3. + repo map\n4. + plan slot\n5. + test gate"
+  },
+  {
+    "kind": "step",
+    "title": "read + edit",
+    "step_id": "step-1",
+    "visit": 1,
+    "inputs": {
+      "action": "run",
+      "case": 1
+    },
+    "output": "  + tools: read_file, edit_file, apply_patch, write_file, delete_file, list_files, search_files\n\nRunning 5 cases:\n  PASS   7.1s  $0.00306  Cart totals come out low. money.Sum seems to miss an item.\n         got  Fixed `money.Sum` in `money/money.go`: its loop started at index 1, so the first price was dropped from eve...\n         want go test ./... passes, tests unchanged\n  PASS   7.4s  $0.00349  An order of exactly $10.00 gets no discount, and it should.\n         got  I changed the threshold check in `shopkit/discount/discount.go` from `total \u003e Threshold` to `total \u003e= Thres...\n         want go test ./... passes, tests unchanged\n  PASS   5.7s  $0.00228  A test in the cart package panics.\n         got  I added a nil check to `Cart.Total` in `shopkit/cart/cart.go`, so a nil cart returns 0 instead of dereferen...\n         want go test ./... passes, tests unchanged\n  PASS   7.1s  $0.00390  The report's summary line shows the wrong priciest item.\n         got  Fixed `money.Max` in `money/money.go`: it compared `x \u003c best`, so it returned the smallest price instead of...\n         want go test ./... passes, tests unchanged\n  PASS  10.3s  $0.00397  Two things are off in the summary line: discounts round down instead of to the nearest cent, and cents under ten lose their leading zero.\n         got  I changed two things, but I couldn't run `go test ./...` because I have no shell here. I checked the arithm...\n         want go test ./... passes, tests unchanged\n\nread + edit passed 5 of 5.\nThis step cost $0.01669, and the walk has spent $0.01669.\nThe next step runs the same 5 cases, so expect about $0.01669 more.\n"
+  },
+  {
+    "kind": "step",
+    "title": "+ run tests",
+    "step_id": "step-2",
+    "visit": 1,
+    "inputs": {
+      "action": "run",
+      "case": 1
+    },
+    "output": "  + tools: read_file, edit_file, apply_patch, write_file, delete_file, list_files, search_files, run_tests\n\nRunning 5 cases:\n  PASS   3.7s  $0.00155  Cart totals come out low. money.Sum seems to miss an item.\n         got  Fixed `money.Sum` in `money/money.go`: its loop started at index 1, so the first amount was dropped; it now...\n         want go test ./... passes, tests unchanged\n  PASS   5.0s  $0.00200  An order of exactly $10.00 gets no discount, and it should.\n         got  Changed `discount/discount.go` so `Apply` uses `total \u003e= Threshold` instead of `total \u003e Threshold`, so an o...\n         want go test ./... passes, tests unchanged\n  PASS   4.5s  $0.00222  A test in the cart package panics.\n         got  Added a nil-receiver guard to `Cart.Total` in `cart/cart.go` so it returns 0 for a nil cart instead of dere...\n         want go test ./... passes, tests unchanged\n  PASS   5.6s  $0.00266  The report's summary line shows the wrong priciest item.\n         got  Fixed `money.Max` in `money/money.go`, which compared with `\u003c` instead of `\u003e`, so it never picked the large...\n         want go test ./... passes, tests unchanged\n  PASS   7.3s  $0.00278  Two things are off in the summary line: discounts round down instead of to the nearest cent, and cents under ten lose their leading zero.\n         got  Fixed the discount rounding in `discount/discount.go` (`(total*pct+50)/100` rounds to the nearest cent inst...\n         want go test ./... passes, tests unchanged\n\n+ run tests passed 5 of 5, +0 on the step before.\nThis step cost $0.01121, and the walk has spent $0.02790.\nThe next step runs the same 5 cases, so expect about $0.01121 more.\n"
+  },
+  {
+    "kind": "step",
+    "title": "+ repo map",
+    "step_id": "step-3",
+    "visit": 1,
+    "inputs": {
+      "action": "run",
+      "case": 1
+    },
+    "output": "  + 1 step stage(s), run before each model call\n\nRunning 5 cases:\n  PASS   2.9s  $0.00114  Cart totals come out low. money.Sum seems to miss an item.\n         got  Fixed `money.Sum` in `money/money.go` by starting its loop at index 0 instead of 1, so the first item is no...\n         want go test ./... passes, tests unchanged\n  PASS   3.5s  $0.00129  An order of exactly $10.00 gets no discount, and it should.\n         got  Changed the threshold check in `discount/discount.go` from `total \u003e Threshold` to `total \u003e= Threshold`, so ...\n         want go test ./... passes, tests unchanged\n  PASS   4.0s  $0.00141  A test in the cart package panics.\n         got  Added a nil-receiver guard to `(*Cart).Total` in `cart/cart.go` so a nil cart returns 0, and `go test ./......\n         want go test ./... passes, tests unchanged\n  PASS   4.5s  $0.00139  The report's summary line shows the wrong priciest item.\n         got  Fixed `money.Max` in `money/money.go`, which was returning the smallest price instead of the largest (`x \u003c ...\n         want go test ./... passes, tests unchanged\n  PASS   6.1s  $0.00203  Two things are off in the summary line: discounts round down instead of to the nearest cent, and cents under ten lose their leading zero.\n         got  Changed `discount.Apply` to round the discount to the nearest cent, and `report.dollars` to zero-pad cents ...\n         want go test ./... passes, tests unchanged\n\n+ repo map passed 5 of 5, +0 on the step before.\nThis step cost $0.00725, and the walk has spent $0.03515.\nThe next step runs the same 5 cases, so expect about $0.00725 more.\n"
+  },
+  {
+    "kind": "step",
+    "title": "+ plan slot",
+    "step_id": "step-4",
+    "visit": 1,
+    "inputs": {
+      "action": "run",
+      "case": 1
+    },
+    "output": "  + tools: read_file, edit_file, apply_patch, write_file, delete_file, list_files, search_files, run_tests, write_slot\n  + 1 step stage(s), run before each model call\n\nRunning 5 cases:\n  PASS   3.3s  $0.00122  Cart totals come out low. money.Sum seems to miss an item.\n         got  Fixed `money.Sum` in `money/money.go`, whose loop started at index 1 and so skipped the first price; it now...\n         want go test ./... passes, tests unchanged\n  PASS   3.3s  $0.00142  An order of exactly $10.00 gets no discount, and it should.\n         got  Changed the threshold check in `discount/discount.go` from `total \u003e Threshold` to `total \u003e= Threshold`, so ...\n         want go test ./... passes, tests unchanged\n  PASS   3.9s  $0.00146  A test in the cart package panics.\n         got  Added a nil-receiver check to `(*Cart).Total` in `cart/cart.go` so it returns 0 for a nil cart instead of d...\n         want go test ./... passes, tests unchanged\n  PASS   4.7s  $0.00149  The report's summary line shows the wrong priciest item.\n         got  Fixed `money.Max` in `money/money.go` so it returns the largest amount instead of the smallest (it was usin...\n         want go test ./... passes, tests unchanged\n  PASS   5.7s  $0.00200  Two things are off in the summary line: discounts round down instead of to the nearest cent, and cents under ten lose their leading zero.\n         got  Fixed the discount to round to the nearest cent (`discount/discount.go`) and the cents to print with two di...\n         want go test ./... passes, tests unchanged\n\n+ plan slot passed 5 of 5, +0 on the step before.\nThis step cost $0.00758, and the walk has spent $0.04273.\nThe next step runs the same 5 cases, so expect about $0.00758 more.\n"
+  },
+  {
+    "kind": "step",
+    "title": "+ test gate",
+    "step_id": "step-5",
+    "visit": 1,
+    "inputs": {
+      "action": "run",
+      "case": 1
+    },
+    "output": "  + 1 turn-end hook(s), which can send an answer back\n\nRunning 5 cases:\n  PASS   3.3s  $0.00121  Cart totals come out low. money.Sum seems to miss an item.\n         got  Fixed `money.Sum` in `money/money.go` so its loop starts at index 0 instead of 1, which had been skipping t...\n         want go test ./... passes, tests unchanged\n  PASS   3.0s  $0.00136  An order of exactly $10.00 gets no discount, and it should.\n         got  Changed `discount.Apply` to use `total \u003e= Threshold` instead of `\u003e`, so a $10.00 order (1000 cents) now get...\n         want go test ./... passes, tests unchanged\n  PASS   4.1s  $0.00148  A test in the cart package panics.\n         got  Fixed `(*Cart).Total` in `cart/cart.go` to return 0 for a nil cart, matching the doc comment and `Priciest`...\n         want go test ./... passes, tests unchanged\n  PASS   5.3s  $0.00156  The report's summary line shows the wrong priciest item.\n         got  Fixed `money.Max` in `money/money.go`: it was keeping the smallest amount (`x \u003c best`), so it now returns t...\n         want go test ./... passes, tests unchanged\n  PASS   5.7s  $0.00208  Two things are off in the summary line: discounts round down instead of to the nearest cent, and cents under ten lose their leading zero.\n         got  Fixed the discount to round to the nearest cent (`discount/discount.go`) and the cents formatting to zero-p...\n         want go test ./... passes, tests unchanged\n\n+ test gate passed 5 of 5, +0 on the step before.\nThis step cost $0.00768, and the walk has spent $0.05041.\n"
+  },
+  {
+    "kind": "step",
+    "title": "The table",
+    "step_id": "table",
+    "visit": 1,
+    "output": "codefix: 5 cases\nstep         pass  change  usd/correct  sec/correct  \nread + edit  5/5           $0.0033      7.58         \n+ run tests  5/5   +0      $0.0022      5.30         \n+ repo map   5/5   +0      $0.0014      4.23         \n+ plan slot  5/5   +0      $0.0015      4.25         \n+ test gate  5/5   +0      $0.0015      4.32         \n"
+  }
+]
