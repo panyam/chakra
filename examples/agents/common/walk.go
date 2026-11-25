@@ -110,12 +110,23 @@ func (w *Walker) Step(d *demokit.Demo, i int) {
 			return demokit.Errf("%s", w.failed)
 		}
 		if ctx.Inputs["action"] == "watch" {
-			n, _ := ctx.Inputs["case"].(int)
-			return w.watch(ctx.Ctx, n)
+			return w.watch(ctx.Ctx, caseNumber(ctx.Inputs["case"]))
 		}
 		w.runAll(ctx.Ctx, i)
 		return nil
 	})
+}
+
+// caseNumber reads the case input. A live prompt parses it as an int, and
+// a recorded trace decodes it from JSON as a float64.
+func caseNumber(v any) int {
+	switch n := v.(type) {
+	case int:
+		return n
+	case float64:
+		return int(n)
+	}
+	return 0
 }
 
 // Table adds the final step, which prints the table of every step that ran
@@ -202,7 +213,29 @@ func (w *Walker) watch(ctx context.Context, n int) *demokit.StepResult {
 	}
 	sc := w.ladder.Cases[n-1]
 	fmt.Printf("\nWatching case %d: %s\n\n", n, sc.Scenario.Name)
-	results, err := eval.RunScenario(ctx, w.cfg, sc.Scenario)
+	cfg, scenario := w.cfg, sc.Scenario
+	if sc.Configure != nil {
+		var err error
+		if cfg, err = sc.Configure(cfg); err != nil {
+			return demokit.Err(err)
+		}
+	}
+	if sc.Setup != nil {
+		st, err := sc.Setup(ctx)
+		if err != nil {
+			return demokit.Errf("setup: %v", err)
+		}
+		if st.Tools != nil {
+			scenario.Tools = st.Tools
+		}
+		if st.Instructions != "" {
+			scenario.Instructions = st.Instructions
+		}
+		if st.History != nil {
+			scenario.History = st.History
+		}
+	}
+	results, err := eval.RunScenario(ctx, cfg, scenario)
 	if err != nil {
 		return demokit.Err(err)
 	}
@@ -214,7 +247,7 @@ func (w *Walker) watch(ctx context.Context, n int) *demokit.StepResult {
 	if sc.Scorers == nil {
 		return nil
 	}
-	for _, s := range sc.Scorers(w.cfg.Provider) {
+	for _, s := range sc.Scorers(cfg.Provider) {
 		v := s.Score(final)
 		mark := "PASS"
 		if !v.Pass {

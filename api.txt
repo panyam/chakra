@@ -1159,6 +1159,7 @@ pkg github.com/panyam/chakra/eval, type Score struct, Detail string
 pkg github.com/panyam/chakra/eval, type Score struct, Name string
 pkg github.com/panyam/chakra/eval, type Score struct, Pass bool
 pkg github.com/panyam/chakra/eval, type Score struct, Value float64
+pkg github.com/panyam/chakra/eval, type Score struct, Want string
 pkg github.com/panyam/chakra/eval, type Scorer interface
 pkg github.com/panyam/chakra/eval, type Scorer interface, Score(Result) Score
 pkg github.com/panyam/chakra/eval, type Setup struct

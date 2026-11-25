@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/panyam/chakra/examples/agents/calc"
+	"github.com/panyam/chakra/examples/agents/codefix"
 	"github.com/panyam/chakra/examples/agents/codeq"
 	"github.com/panyam/chakra/examples/agents/common"
 )
@@ -17,6 +18,7 @@ import (
 var All = []common.Agent{
 	calc.Agent(),
 	codeq.Agent(),
+	codefix.Agent(),
 }
 
 // Find returns the agent called name.

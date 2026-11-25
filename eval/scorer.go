@@ -2,6 +2,7 @@ package eval
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/panyam/chakra"
@@ -17,6 +18,11 @@ type Score struct {
 	Pass   bool    `json:"pass"`
 	Value  float64 `json:"value"`
 	Detail string  `json:"detail,omitempty"`
+	// Want is the expected answer in a short form, such as the rows Rows
+	// wants or the text Contains looks for, for a report to print beside
+	// the answer. It is set whether or not the case passed, and empty for a
+	// scorer with nothing to compare against.
+	Want string `json:"want,omitempty"`
 }
 
 // Scorer grades a Result. Implementations must be pure functions of the
@@ -39,14 +45,20 @@ func boolScore(name string, ok bool, detail string) Score {
 	return Score{Name: name, Pass: ok, Value: v, Detail: detail}
 }
 
+// wants sets a score's Want.
+func wants(s Score, want string) Score {
+	s.Want = want
+	return s
+}
+
 // ExactMatch passes when the final turn text equals want exactly.
 func ExactMatch(want string) Scorer {
 	return scorerFunc(func(r Result) Score {
 		if r.Turn == nil {
-			return boolScore("ExactMatch", false, "no turn result (run failed)")
+			return wants(boolScore("ExactMatch", false, "no turn result (run failed)"), want)
 		}
 		got := r.Turn.Text
-		return boolScore("ExactMatch", got == want, fmt.Sprintf("want %q, got %q", want, got))
+		return wants(boolScore("ExactMatch", got == want, fmt.Sprintf("want %q, got %q", want, got)), want)
 	})
 }
 
@@ -54,11 +66,11 @@ func ExactMatch(want string) Scorer {
 func Contains(substr string) Scorer {
 	return scorerFunc(func(r Result) Score {
 		if r.Turn == nil {
-			return boolScore("Contains", false, "no turn result (run failed)")
+			return wants(boolScore("Contains", false, "no turn result (run failed)"), fmt.Sprintf("contains %q", substr))
 		}
 		got := r.Turn.Text
-		return boolScore("Contains", strings.Contains(got, substr),
-			fmt.Sprintf("want substring %q in %q", substr, got))
+		return wants(boolScore("Contains", strings.Contains(got, substr),
+			fmt.Sprintf("want substring %q in %q", substr, got)), fmt.Sprintf("contains %q", substr))
 	})
 }
 
@@ -195,13 +207,15 @@ func Ungradeable(name, reason string) Scorer {
 // '.', '/', '_' or '-' is part of a longer row. So example.com/shop/orders
 // doesn't match inside example.com/shop/orders.Place.
 func Rows(want, among []string) Scorer {
+	sorted := slices.Sorted(slices.Values(want))
+	short := strings.Join(sorted, ", ")
 	wanted := map[string]bool{}
 	for _, w := range want {
 		wanted[w] = true
 	}
 	return scorerFunc(func(r Result) Score {
 		if r.Turn == nil {
-			return boolScore("Rows", false, "no turn result (run failed)")
+			return wants(boolScore("Rows", false, "no turn result (run failed)"), short)
 		}
 		text := listedRows(r.Turn.Text, among, want)
 		var missing, extra []string
@@ -222,7 +236,7 @@ func Rows(want, among []string) Scorer {
 		if len(extra) > 0 {
 			detail += fmt.Sprintf(", extra %s", strings.Join(extra, ", "))
 		}
-		return boolScore("Rows", len(missing) == 0 && len(extra) == 0, detail)
+		return wants(boolScore("Rows", len(missing) == 0 && len(extra) == 0, detail), short)
 	})
 }
 
