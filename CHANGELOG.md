@@ -5,6 +5,18 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
+## [v0.3.9] - 2026-11-25
+
+Full notes in [docs/releases/v0.3.9.md](docs/releases/v0.3.9.md).
+
+### Added
+- `OpenAIConfig.TextToolCalls`: read tool calls a model writes as text, in a fence, in `<tool_call>` tags or as the whole reply. llama.cpp turns it on (PR 360).
+- llama.cpp and Ollama cap each reply at `DefaultLocalMaxTokens` (4096) unless the request or connection sets one. `LlamaCppConfig.MaxTokens`, `OllamaConfig.MaxTokens` and `OpenAIConfig.MaxTokens` set it, and a connection's `maxTokens` reaches both (PR 361).
+- `eval.Ladder`, `LadderReport.Table()` and `SuiteReport.TimePerCorrect`, with `make exercise-agents` and the `calc` ladder (PR 363).
+
+### Fixed
+- The ladder table shows a cheap model's cost to two significant figures, and `PROFILE=~/...` expands (PR 364).
+
 ## [v0.3.8] - 2026-11-25
 
 Full notes in [docs/releases/v0.3.8.md](docs/releases/v0.3.8.md).

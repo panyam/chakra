@@ -5,12 +5,12 @@ go 1.26.11
 toolchain go1.27.4
 
 require (
-	github.com/panyam/chakra v0.3.8
+	github.com/panyam/chakra v0.3.9
 	github.com/panyam/gocurrent v0.1.3
-	github.com/panyam/mcpkit v0.8.21
-	github.com/panyam/mcpkit/experimental/ext/agents v0.8.21
+	github.com/panyam/mcpkit v0.8.22
+	github.com/panyam/mcpkit/experimental/ext/agents v0.8.22
 	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.8.20
-	github.com/panyam/mcpkit/experimental/ext/events v0.8.21
+	github.com/panyam/mcpkit/experimental/ext/events v0.8.22
 	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.20
 	github.com/panyam/mcpkit/ext/auth v0.8.20
 	github.com/panyam/mcpkit/ext/skills v0.8.20

@@ -10,9 +10,9 @@ replace github.com/panyam/chakra/host => ../../host
 
 require (
 	github.com/creack/pty v1.1.24
-	github.com/panyam/chakra v0.3.8
-	github.com/panyam/chakra/host v0.3.8
-	github.com/panyam/mcpkit v0.8.21
+	github.com/panyam/chakra v0.3.9
+	github.com/panyam/chakra/host v0.3.9
+	github.com/panyam/mcpkit v0.8.22
 	golang.org/x/sys v0.49.0
 )
 
@@ -28,9 +28,9 @@ require (
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/panyam/gocurrent v0.1.3 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
-	github.com/panyam/mcpkit/experimental/ext/agents v0.8.21 // indirect
+	github.com/panyam/mcpkit/experimental/ext/agents v0.8.22 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.8.20 // indirect
-	github.com/panyam/mcpkit/experimental/ext/events v0.8.21 // indirect
+	github.com/panyam/mcpkit/experimental/ext/events v0.8.22 // indirect
 	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.20 // indirect
 	github.com/panyam/mcpkit/ext/auth v0.8.20 // indirect
 	github.com/panyam/mcpkit/ext/skills v0.8.20 // indirect
