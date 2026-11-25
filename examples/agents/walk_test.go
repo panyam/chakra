@@ -92,8 +92,8 @@ func TestWalkWatchesOneCase(t *testing.T) {
 		t.Fatal(err)
 	}
 	replay := []demokit.TraceEntry{
-		{Kind: demokit.KindStep, StepID: "step-1", Inputs: map[string]any{"action": "run", "case": 1}},
-		{Kind: demokit.KindStep, StepID: "step-2", Inputs: map[string]any{"action": "watch", "case": 5}},
+		{Kind: demokit.KindStep, StepID: "step-1", Inputs: map[string]any{"watch": "all"}},
+		{Kind: demokit.KindStep, StepID: "step-2", Inputs: map[string]any{"watch": 5}},
 	}
 	out := walk(t, a, replay)
 	for _, want := range []string{"Watching case 5: Which packages in example.com/shop import example.com/ledger/journal?", `tool call: importers({"package":"example.com/ledger/journal"})`, "answer: example.com/shop/orders", "PASS Rows"} {
@@ -118,8 +118,39 @@ func TestWalkWatchesTheCaseFromARecording(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	out := walk(t, a, []demokit.TraceEntry{{Kind: demokit.KindStep, StepID: "step-1", Inputs: map[string]any{"action": "watch", "case": float64(3)}}})
+	out := walk(t, a, []demokit.TraceEntry{{Kind: demokit.KindStep, StepID: "step-1", Inputs: map[string]any{"watch": float64(3)}}})
 	if !strings.Contains(out["step-1"], "Watching case 3: What is 17 * 23?") {
 		t.Errorf("step-1 didn't watch case 3:\n%s", out["step-1"])
+	}
+}
+
+// One prompt per step: Enter runs every case, and a number watches that
+// case. Anything else asks again.
+func TestWalkAsksOneQuestionPerStep(t *testing.T) {
+	a, err := Find("calc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, stop, err := common.Walk(context.Background(), a, common.Model{Provider: a.Scripted(), Name: "scripted"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop()
+	inputs := d.StepByID("step-1").Inputs()
+	if len(inputs) != 1 || inputs[0].Name != "watch" || inputs[0].Default != "all" {
+		t.Fatalf("step-1 inputs = %+v, want one input, watch, defaulting to all", inputs)
+	}
+	parse := inputs[0].Parse
+	for in, want := range map[string]any{"all": "all", "run": "all", " 2 ": 2, "7": nil, "0": nil, "x": nil} {
+		got, err := parse(in)
+		if want == nil {
+			if err == nil {
+				t.Errorf("parse(%q) = %v, want an error", in, got)
+			}
+			continue
+		}
+		if err != nil || got != want {
+			t.Errorf("parse(%q) = %v, %v; want %v", in, got, err, want)
+		}
 	}
 }
