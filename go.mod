@@ -5,7 +5,7 @@ go 1.26.11
 toolchain go1.27.4
 
 require (
-	github.com/panyam/mcpkit v0.8.21
+	github.com/panyam/mcpkit v0.8.22
 	github.com/panyam/servicekit v0.2.5
 )
 

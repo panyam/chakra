@@ -6,7 +6,7 @@ toolchain go1.27.4
 
 require (
 	github.com/panyam/chakra v0.3.9
-	github.com/panyam/mcpkit v0.8.21
+	github.com/panyam/mcpkit v0.8.22
 )
 
 require (
