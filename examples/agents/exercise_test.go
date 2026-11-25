@@ -15,7 +15,7 @@ import (
 // exercise as CI runs it.
 func TestEveryLadderClimbs(t *testing.T) {
 	for _, a := range All {
-		r, err := Climb(context.Background(), a, Model{Provider: a.Scripted(), Name: "scripted"})
+		r, err := Climb(context.Background(), a, Model{Provider: a.Scripted(), Name: "scripted"}, nil)
 		if err != nil {
 			t.Fatalf("%s: %v", a.Name, err)
 		}
@@ -43,7 +43,7 @@ func TestCalcToolStepPassesMore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := Climb(context.Background(), a, Model{Provider: a.Scripted(), Name: "scripted"})
+	r, err := Climb(context.Background(), a, Model{Provider: a.Scripted(), Name: "scripted"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,5 +148,27 @@ func TestChatConfigForCodeq(t *testing.T) {
 	}
 	if _, err := ChatConfig(All[0], writeProfile(t)); err == nil {
 		t.Errorf("calc has no chat setup, and ChatConfig didn't say so")
+	}
+}
+
+// With a progress writer, Climb prints each step as it starts and each case
+// as it finishes, so a live run shows where it is.
+func TestClimbPrintsProgress(t *testing.T) {
+	a, err := Find("calc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var b strings.Builder
+	if _, err := Climb(context.Background(), a, Model{Provider: a.Scripted(), Name: "scripted"}, &b); err != nil {
+		t.Fatal(err)
+	}
+	out := b.String()
+	for _, want := range []string{"[1/2 model only]", "[2/2 + calc tool]", "PASS", "What is 2 + 3?", "FAIL", `want substring "391" in "about 400"`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("progress lacks %q:\n%s", want, out)
+		}
+	}
+	if strings.Index(out, "[1/2") > strings.Index(out, "What is 2 + 3?") {
+		t.Errorf("a case printed before its step's header:\n%s", out)
 	}
 }

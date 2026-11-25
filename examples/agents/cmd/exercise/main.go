@@ -9,6 +9,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -22,6 +23,7 @@ func main() {
 	live := flag.String("live", "", "run on this connection from -profile, rather than the scripted model")
 	profile := flag.String("profile", "", "the agentchat config holding -live's connection")
 	cases := flag.Bool("cases", false, "after each table, print every failing case with its scores")
+	quiet := flag.Bool("quiet", false, "print only the tables, not each step and case as it runs")
 	profiles := flag.Bool("profiles", false, "list the connections in -profile and exit")
 	chat := flag.String("chat-config", "", "write an agentchat config for -agent, using -profile's connections, to this path and exit")
 	flag.Parse()
@@ -74,7 +76,11 @@ func main() {
 		if i > 0 {
 			fmt.Println()
 		}
-		r, err := agents.Climb(context.Background(), a, m)
+		var progress io.Writer = os.Stderr
+		if *quiet {
+			progress = nil
+		}
+		r, err := agents.Climb(context.Background(), a, m, progress)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)

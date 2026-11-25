@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"maps"
 	"os"
 	"slices"
@@ -95,7 +96,10 @@ type Model struct {
 }
 
 // Climb runs a's ladder on m. It fails only when the ladder can't start.
-func Climb(ctx context.Context, a Agent, m Model) (eval.LadderReport, error) {
+// When progress isn't nil, Climb writes each step to it as the step starts,
+// and each case as it finishes: PASS or FAIL, time, cost when priced, the
+// question, and why a failed case failed.
+func Climb(ctx context.Context, a Agent, m Model, progress io.Writer) (eval.LadderReport, error) {
 	l, stop, err := a.Ladder(ctx)
 	if err != nil {
 		return eval.LadderReport{}, err
@@ -106,7 +110,55 @@ func Climb(ctx context.Context, a Agent, m Model) (eval.LadderReport, error) {
 		steps = 8
 	}
 	base := agent.RunnerConfig{Provider: m.Provider, Instructions: a.Instructions, MaxSteps: steps}
-	return l.Run(ctx, eval.Suite{Config: base, ModelName: m.Name, Prices: m.Prices}), nil
+	suite := eval.Suite{Config: base, ModelName: m.Name, Prices: m.Prices}
+	if progress != nil {
+		fmt.Fprintf(progress, "%s on %s: %d steps, %d cases each\n", a.Name, m.Name, len(l.Steps), len(l.Cases))
+		for i := range l.Steps {
+			l.Steps[i] = announce(l.Steps[i], i, len(l.Steps), progress)
+		}
+		suite.OnCase = func(_ int, r eval.CaseReport) { fmt.Fprintln(progress, caseLine(r)) }
+	}
+	return l.Run(ctx, suite), nil
+}
+
+// announce wraps s so it prints its header when the ladder reaches it.
+func announce(s eval.Step, i, n int, w io.Writer) eval.Step {
+	configure := s.Configure
+	s.Configure = func(c agent.RunnerConfig) (agent.RunnerConfig, error) {
+		fmt.Fprintf(w, "[%d/%d %s]\n", i+1, n, s.Name)
+		if configure == nil {
+			return c, nil
+		}
+		return configure(c)
+	}
+	return s
+}
+
+// caseLine is one finished case: verdict, time, cost and question, then
+// the first reason it failed.
+func caseLine(r eval.CaseReport) string {
+	verdict := "PASS"
+	if !r.Pass {
+		verdict = "FAIL"
+	}
+	line := fmt.Sprintf("  %s %5.1fs", verdict, r.Elapsed.Seconds())
+	if r.Cost != nil {
+		line += fmt.Sprintf("  $%.5f", *r.Cost)
+	}
+	line += "  " + r.Case
+	if r.Pass {
+		return line
+	}
+	why := r.RunErr
+	for _, sc := range r.Scores {
+		if why == "" && !sc.Pass {
+			why = sc.Name + ": " + sc.Detail
+		}
+	}
+	if len(why) > 160 {
+		why = why[:160] + "..."
+	}
+	return line + "\n         " + why
 }
 
 // Connection is one connection in an agentchat config, as Connections

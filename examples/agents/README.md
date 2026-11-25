@@ -19,6 +19,20 @@ make exercise-agents AGENT=codeq              # one agent
 make profiles                                 # list the connections you can run on
 make exercise-agents AGENT=codeq LIVE=sonnet  # one agent on a real model
 make exercise-agents AGENT=codeq CASES=1      # also print each failing case and its answer
+make exercise-agents QUIET=1                  # only the tables
+```
+
+While a ladder runs, each step prints a header to stderr as it starts, and
+each case prints a line as it finishes: PASS or FAIL, seconds, dollars when
+the connection has a price, the question, and why a failed case failed. The
+tables go to stdout.
+
+```
+codeq on haiku: 4 steps, 10 cases each
+[1/4 tools only]
+  PASS   1.7s  $0.00024  What is the qualified name of the function Format?
+  PASS   1.3s  $0.00023  What is the qualified name of the type Amount?
+  ...
 ```
 
 `LIVE` names a connection in an agentchat config, and `PROFILE` is that

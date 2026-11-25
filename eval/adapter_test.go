@@ -3,8 +3,10 @@ package eval
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -351,5 +353,23 @@ func TestSuiteCaseReportKeepsTheAnswer(t *testing.T) {
 	}
 	if got := suite.Run(context.Background()).Cases[0].Answer; got != "rome" {
 		t.Errorf("Answer = %q, want the model's reply", got)
+	}
+}
+
+// OnCase hears each case as it finishes, in order, failures included, so a
+// long run can show progress.
+func TestSuiteOnCaseHearsEachCase(t *testing.T) {
+	var heard []string
+	suite := Suite{
+		Config: agent.RunnerConfig{Provider: agent.NewStubProvider(agent.StubTurn{Text: "paris"})},
+		Cases: []SuiteCase{
+			Single(Case{Name: "france", Input: "capital of france"}, ExactMatch("paris")),
+			{Scenario: Scenario{Name: "empty"}, Scorers: func(agent.Provider) []Scorer { return nil }},
+		},
+		OnCase: func(i int, r CaseReport) { heard = append(heard, fmt.Sprintf("%d %s %v", i, r.Case, r.Pass)) },
+	}
+	suite.Run(context.Background())
+	if want := []string{"0 france true", "1 empty false"}; !slices.Equal(heard, want) {
+		t.Errorf("heard %v, want %v", heard, want)
 	}
 }
