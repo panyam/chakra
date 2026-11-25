@@ -1013,6 +1013,9 @@ pkg github.com/panyam/chakra/connection, func BuildEmbedder(Config, core.TracerP
 pkg github.com/panyam/chakra/connection, func ResolveBaseURL(Config) (string, error)
 pkg github.com/panyam/chakra/connection, method (Config) Cost(*agent.Usage) (float64, bool)
 pkg github.com/panyam/chakra/connection, method (Options) Build(Config) (agent.Provider, error)
+pkg github.com/panyam/chakra/connection, method (Row) Cases() int
+pkg github.com/panyam/chakra/connection, method (Row) Cost(*Price) (float64, bool)
+pkg github.com/panyam/chakra/connection, method (TableRouter) Route(context.Context, Request) ([]string, error)
 pkg github.com/panyam/chakra/connection, method (Types) Build(Config) (agent.Provider, error)
 pkg github.com/panyam/chakra/connection, type Builder func(Config) (agent.Provider, error)
 pkg github.com/panyam/chakra/connection, type Config struct
@@ -1036,6 +1039,29 @@ pkg github.com/panyam/chakra/connection, type Price struct
 pkg github.com/panyam/chakra/connection, type Price struct, CachedInput *float64
 pkg github.com/panyam/chakra/connection, type Price struct, Input float64
 pkg github.com/panyam/chakra/connection, type Price struct, Output float64
+pkg github.com/panyam/chakra/connection, type Request struct
+pkg github.com/panyam/chakra/connection, type Request struct, Lambda float64
+pkg github.com/panyam/chakra/connection, type Request struct, Tags []string
+pkg github.com/panyam/chakra/connection, type Router interface
+pkg github.com/panyam/chakra/connection, type Router interface, Route(context.Context, Request) ([]string, error)
+pkg github.com/panyam/chakra/connection, type Row struct
+pkg github.com/panyam/chakra/connection, type Row struct, Abstain int
+pkg github.com/panyam/chakra/connection, type Row struct, Arm string
+pkg github.com/panyam/chakra/connection, type Row struct, Connection string
+pkg github.com/panyam/chakra/connection, type Row struct, Dollars *float64
+pkg github.com/panyam/chakra/connection, type Row struct, Pass int
+pkg github.com/panyam/chakra/connection, type Row struct, Runs int
+pkg github.com/panyam/chakra/connection, type Row struct, Seconds float64
+pkg github.com/panyam/chakra/connection, type Row struct, Tag string
+pkg github.com/panyam/chakra/connection, type Row struct, TokensCached int
+pkg github.com/panyam/chakra/connection, type Row struct, TokensIn int
+pkg github.com/panyam/chakra/connection, type Row struct, TokensOut int
+pkg github.com/panyam/chakra/connection, type Row struct, Wrong int
+pkg github.com/panyam/chakra/connection, type TableRouter struct
+pkg github.com/panyam/chakra/connection, type TableRouter struct, Arm string
+pkg github.com/panyam/chakra/connection, type TableRouter struct, Connections map[string]Config
+pkg github.com/panyam/chakra/connection, type TableRouter struct, MinCases int
+pkg github.com/panyam/chakra/connection, type TableRouter struct, Rows []Row
 pkg github.com/panyam/chakra/connection, type ThinkingHint struct
 pkg github.com/panyam/chakra/connection, type ThinkingHint struct, CloseTag string
 pkg github.com/panyam/chakra/connection, type ThinkingHint struct, OpenTag string
