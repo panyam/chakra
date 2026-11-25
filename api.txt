@@ -1086,13 +1086,17 @@ pkg github.com/panyam/chakra/eval, func Transcript(Result) string
 pkg github.com/panyam/chakra/eval, func Ungradeable(string, string) Scorer
 pkg github.com/panyam/chakra/eval, method (DimensionReport) CostPerPass() (float64, bool)
 pkg github.com/panyam/chakra/eval, method (DimensionReport) Rate() float64
+pkg github.com/panyam/chakra/eval, method (Ladder) Run(context.Context, Suite) LadderReport
+pkg github.com/panyam/chakra/eval, method (LadderReport) Table() string
 pkg github.com/panyam/chakra/eval, method (Prices) Cost(...map[string]agent.Usage) (float64, bool)
+pkg github.com/panyam/chakra/eval, method (StepReport) Delta() int
 pkg github.com/panyam/chakra/eval, method (Suite) Run(context.Context) SuiteReport
 pkg github.com/panyam/chakra/eval, method (SuiteReport) Cost() (float64, bool)
 pkg github.com/panyam/chakra/eval, method (SuiteReport) CostPerCorrect() (float64, bool)
 pkg github.com/panyam/chakra/eval, method (SuiteReport) Dimensions() []DimensionReport
 pkg github.com/panyam/chakra/eval, method (SuiteReport) Pass() bool
 pkg github.com/panyam/chakra/eval, method (SuiteReport) String() string
+pkg github.com/panyam/chakra/eval, method (SuiteReport) TimePerCorrect() (time.Duration, bool)
 pkg github.com/panyam/chakra/eval, type Adapter interface
 pkg github.com/panyam/chakra/eval, type Adapter interface, Load() ([]SuiteCase, error)
 pkg github.com/panyam/chakra/eval, type Adapter interface, Name() string
@@ -1119,6 +1123,13 @@ pkg github.com/panyam/chakra/eval, type DimensionReport struct, Failed int
 pkg github.com/panyam/chakra/eval, type DimensionReport struct, Name string
 pkg github.com/panyam/chakra/eval, type DimensionReport struct, Passed int
 pkg github.com/panyam/chakra/eval, type DimensionReport struct, Total int
+pkg github.com/panyam/chakra/eval, type Ladder struct
+pkg github.com/panyam/chakra/eval, type Ladder struct, Cases []SuiteCase
+pkg github.com/panyam/chakra/eval, type Ladder struct, Name string
+pkg github.com/panyam/chakra/eval, type Ladder struct, Steps []Step
+pkg github.com/panyam/chakra/eval, type LadderReport struct
+pkg github.com/panyam/chakra/eval, type LadderReport struct, Ladder string
+pkg github.com/panyam/chakra/eval, type LadderReport struct, Steps []StepReport
 pkg github.com/panyam/chakra/eval, type Price struct
 pkg github.com/panyam/chakra/eval, type Price struct, InputPerM float64
 pkg github.com/panyam/chakra/eval, type Price struct, OutputPerM float64
@@ -1149,6 +1160,14 @@ pkg github.com/panyam/chakra/eval, type Setup struct, History []agent.Message
 pkg github.com/panyam/chakra/eval, type Setup struct, Instructions string
 pkg github.com/panyam/chakra/eval, type Setup struct, Tools agent.ToolSource
 pkg github.com/panyam/chakra/eval, type Setup struct, Usage map[string]agent.Usage
+pkg github.com/panyam/chakra/eval, type Step struct
+pkg github.com/panyam/chakra/eval, type Step struct, Configure func(agent.RunnerConfig) (agent.RunnerConfig, error)
+pkg github.com/panyam/chakra/eval, type Step struct, Name string
+pkg github.com/panyam/chakra/eval, type StepReport struct
+pkg github.com/panyam/chakra/eval, type StepReport struct, Before int
+pkg github.com/panyam/chakra/eval, type StepReport struct, Err string
+pkg github.com/panyam/chakra/eval, type StepReport struct, Report SuiteReport
+pkg github.com/panyam/chakra/eval, type StepReport struct, Step string
 pkg github.com/panyam/chakra/eval, type Suite struct
 pkg github.com/panyam/chakra/eval, type Suite struct, Cases []SuiteCase
 pkg github.com/panyam/chakra/eval, type Suite struct, Config agent.RunnerConfig
