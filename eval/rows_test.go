@@ -32,3 +32,24 @@ func TestRowsWantsEveryRowAndNoOtherKnownRow(t *testing.T) {
 		t.Errorf("a failed run passed: %+v", got)
 	}
 }
+
+// The scorers that grade against an expected answer say what it is in
+// Want, so a report can print got and want side by side, even on a pass.
+func TestScorersSayWhatTheyWant(t *testing.T) {
+	r := Result{Turn: &agent.TurnResult{Text: "paris"}}
+	for _, c := range []struct {
+		s    Scorer
+		want string
+	}{
+		{ExactMatch("paris"), "paris"},
+		{Contains("par"), `contains "par"`},
+		{Rows([]string{"b", "a"}, nil), "a, b"},
+	} {
+		if got := c.s.Score(r).Want; got != c.want {
+			t.Errorf("Want = %q, want %q", got, c.want)
+		}
+	}
+	if got := Contains("x").Score(Result{}).Want; got != `contains "x"` {
+		t.Errorf("a failed run's Want = %q, want it set all the same", got)
+	}
+}

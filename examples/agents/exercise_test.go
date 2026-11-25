@@ -174,3 +174,35 @@ func TestClimbPrintsProgress(t *testing.T) {
 		t.Errorf("a case printed before its step's header:\n%s", out)
 	}
 }
+
+// LIVE=active, or 1, runs on the profile's active connection.
+func TestLiveActiveUsesTheProfilesActiveConnection(t *testing.T) {
+	for _, name := range []string{"active", "1"} {
+		m, err := common.Live(writeProfile(t), name)
+		if err != nil || m.Name != "mini" {
+			t.Errorf("Live(%q) = %q, %v; want the active connection, mini", name, m.Name, err)
+		}
+	}
+}
+
+// Every case line, pass or fail, is followed by what the model answered and
+// what the case wanted.
+func TestCaseLinesShowGotAndWant(t *testing.T) {
+	a, err := Find("calc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var b strings.Builder
+	if _, err := common.Climb(context.Background(), a, common.Model{Provider: a.Scripted(), Name: "scripted"}, &b); err != nil {
+		t.Fatal(err)
+	}
+	out := b.String()
+	for _, want := range []string{
+		"PASS", "What is 2 + 3?\n         got  5\n         want contains \"5\"",
+		"FAIL", "What is 17 * 23?\n         got  about 400\n         want contains \"391\"",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("progress lacks %q:\n%s", want, out)
+		}
+	}
+}

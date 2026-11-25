@@ -121,7 +121,8 @@ func announce(s eval.Step, i, n int, w io.Writer) eval.Step {
 }
 
 // caseLine is one finished case: verdict, time, cost and question, then
-// the first reason it failed.
+// what the model answered and what the case wanted, then for a failure the
+// first reason it failed.
 func caseLine(r eval.CaseReport) string {
 	verdict := "PASS"
 	if !r.Pass {
@@ -132,6 +133,21 @@ func caseLine(r eval.CaseReport) string {
 		line += fmt.Sprintf("  $%.5f", *r.Cost)
 	}
 	line += "  " + r.Case
+
+	got := r.Answer
+	if got == "" {
+		got = "(no answer)"
+	}
+	line += "\n         got  " + clip(got)
+	want := ""
+	for _, sc := range r.Scores {
+		if sc.Want != "" && (want == "" || !sc.Pass) {
+			want = sc.Want
+		}
+	}
+	if want != "" {
+		line += "\n         want " + clip(want)
+	}
 	if r.Pass {
 		return line
 	}
@@ -141,10 +157,23 @@ func caseLine(r eval.CaseReport) string {
 			why = sc.Name + ": " + sc.Detail
 		}
 	}
-	if len(why) > 160 {
-		why = why[:160] + "..."
+	return line + "\n         " + clip(why)
+}
+
+// clip puts text on one line, joining its lines with " | ", and cuts it to
+// 110 bytes.
+func clip(text string) string {
+	var lines []string
+	for _, l := range strings.Split(strings.TrimSpace(text), "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			lines = append(lines, l)
+		}
 	}
-	return line + "\n         " + why
+	one := strings.Join(lines, " | ")
+	if len(one) > 110 {
+		one = one[:107] + "..."
+	}
+	return one
 }
 
 // Connection is one connection in an agentchat config, as Connections
@@ -156,19 +185,27 @@ type Connection struct {
 
 // readProfile reads the connections of the agentchat config at path.
 func readProfile(path string) (map[string]connection.Config, error) {
+	m, _, err := readProfileActive(path)
+	return m, err
+}
+
+// readProfileActive reads the connections of the agentchat config at path,
+// and the name of its active one.
+func readProfileActive(path string) (map[string]connection.Config, string, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("agents: reading the profile: %w", err)
+		return nil, "", fmt.Errorf("agents: reading the profile: %w", err)
 	}
 	var cfg struct {
 		Connections struct {
+			Active      string                       `json:"active"`
 			Connections map[string]connection.Config `json:"connections"`
 		} `json:"connections"`
 	}
 	if err := json.Unmarshal(raw, &cfg); err != nil {
-		return nil, fmt.Errorf("agents: %s: %w", path, err)
+		return nil, "", fmt.Errorf("agents: %s: %w", path, err)
 	}
-	return cfg.Connections.Connections, nil
+	return cfg.Connections.Connections, cfg.Connections.Active, nil
 }
 
 // Connections lists the connections in the agentchat config at path, by
@@ -189,11 +226,18 @@ func Connections(path string) ([]Connection, error) {
 // config at path, with connection.Build. The connection's Price, when it
 // has one, prices the run. eval.Price has no cached-input rate, so cached
 // tokens are priced at the input rate. A name the config lacks is an error
-// that lists the names it has.
+// that lists the names it has. "active", or "1", names the config's active
+// connection, so LIVE=1 means "on whatever the profile is set to".
 func Live(path, name string) (Model, error) {
-	m, err := readProfile(path)
+	m, active, err := readProfileActive(path)
 	if err != nil {
 		return Model{}, err
+	}
+	if name == "active" || name == "1" {
+		if active == "" {
+			return Model{}, fmt.Errorf("agents: %s sets no active connection. Name one of %s", path, strings.Join(slices.Sorted(maps.Keys(m)), ", "))
+		}
+		name = active
 	}
 	c, ok := m[name]
 	if !ok {
