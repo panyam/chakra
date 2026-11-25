@@ -1080,6 +1080,7 @@ pkg github.com/panyam/chakra/eval, func MaxSteps(int) Scorer
 pkg github.com/panyam/chakra/eval, func NoError() Scorer
 pkg github.com/panyam/chakra/eval, func NotContains(string) Scorer
 pkg github.com/panyam/chakra/eval, func NotDenied() Scorer
+pkg github.com/panyam/chakra/eval, func Rows([]string, []string) Scorer
 pkg github.com/panyam/chakra/eval, func Run(context.Context, agent.RunnerConfig, Case) (Result, error)
 pkg github.com/panyam/chakra/eval, func RunScenario(context.Context, agent.RunnerConfig, Scenario) ([]Result, error)
 pkg github.com/panyam/chakra/eval, func Single(Case, ...Scorer) SuiteCase
@@ -1112,6 +1113,7 @@ pkg github.com/panyam/chakra/eval, type Case struct, MaxSteps int
 pkg github.com/panyam/chakra/eval, type Case struct, Name string
 pkg github.com/panyam/chakra/eval, type Case struct, Tools agent.ToolSource
 pkg github.com/panyam/chakra/eval, type CaseReport struct
+pkg github.com/panyam/chakra/eval, type CaseReport struct, Answer string
 pkg github.com/panyam/chakra/eval, type CaseReport struct, Case string
 pkg github.com/panyam/chakra/eval, type CaseReport struct, Cost *float64
 pkg github.com/panyam/chakra/eval, type CaseReport struct, Elapsed time.Duration
