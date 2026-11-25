@@ -69,6 +69,12 @@ type OpenAIConfig struct {
 	// ErrUnsupportedParam. An unknown kind fails NewOpenAIProvider.
 	Penalties []string
 
+	// MaxTokens is sent as max_tokens on a request that sets no
+	// ProviderRequest.MaxTokens. 0 sends none, and the server's own limit
+	// applies. OpenAI's is the model's; llama.cpp's and Ollama's is none, so
+	// their presets set one (DefaultLocalMaxTokens).
+	MaxTokens int
+
 	// TextToolCalls reads tool calls written as text in a reply, when the
 	// request offered tools and the server returned none
 	// (panyam/declaire#378). A call is a JSON object with a name and
@@ -398,8 +404,10 @@ func (p *OpenAIProvider) buildBody(req ProviderRequest, stream bool) map[string]
 	if req.Temperature != nil {
 		body["temperature"] = *req.Temperature
 	}
-	if req.MaxTokens > 0 {
-		body["max_tokens"] = req.MaxTokens
+	if n := req.MaxTokens; n > 0 {
+		body["max_tokens"] = n
+	} else if n := p.cfg.MaxTokens; n > 0 {
+		body["max_tokens"] = n
 	}
 	if req.Seed != nil {
 		body["seed"] = *req.Seed

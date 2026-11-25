@@ -53,11 +53,14 @@ type Config struct {
 	// over APIKeyEnv. It is never read from or written to a config file.
 	APIKey string `json:"-"`
 
-	// MaxTokens caps each reply's length. Read only for Type "anthropic",
-	// whose API requires a cap on every request. Zero keeps the provider's
-	// default of 4096, which cuts off a long file write or patch partway
-	// through, and the turn then goes on as if the model had stopped there.
-	// Set it to what the model allows for agentic work (#264).
+	// MaxTokens caps each reply's length. Read for Type "anthropic", whose
+	// API requires a cap on every request, and for "llamacpp" and "ollama",
+	// whose servers otherwise generate until the context is full. Zero keeps
+	// the provider's default of 4096 (agent.DefaultLocalMaxTokens for the
+	// local two), which cuts off a long file write or patch partway through,
+	// and the turn then goes on as if the model had stopped there. Set it to
+	// what the model allows for agentic work (#264). For a local server, a
+	// negative value sends no cap.
 	MaxTokens int `json:"maxTokens,omitempty"`
 
 	// Dim is the embedding vector width, meaningful only when this
@@ -293,9 +296,9 @@ func builtin(c Config, base, key string, onFullHistory func(reason string)) (age
 			OnFullHistory:   onFullHistory,
 		})
 	case "llamacpp":
-		return agent.NewLlamaCppProvider(agent.LlamaCppConfig{BaseURL: base, Model: c.Model, APIKey: key})
+		return agent.NewLlamaCppProvider(agent.LlamaCppConfig{BaseURL: base, Model: c.Model, APIKey: key, MaxTokens: c.MaxTokens})
 	case "ollama":
-		return agent.NewOllamaProvider(agent.OllamaConfig{BaseURL: base, Model: c.Model, APIKey: key})
+		return agent.NewOllamaProvider(agent.OllamaConfig{BaseURL: base, Model: c.Model, APIKey: key, MaxTokens: c.MaxTokens})
 	default:
 		return agent.NewOpenAIProvider(agent.OpenAIConfig{
 			BaseURL:          base,

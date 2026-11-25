@@ -2,6 +2,7 @@ pkg github.com/panyam/chakra, const AwaitAgentToolName
 pkg github.com/panyam/chakra, const CancelAgentToolName
 pkg github.com/panyam/chakra, const DefaultListRunsLimit
 pkg github.com/panyam/chakra, const DefaultLlamaCppBaseURL
+pkg github.com/panyam/chakra, const DefaultLocalMaxTokens
 pkg github.com/panyam/chakra, const DefaultOllamaBaseURL
 pkg github.com/panyam/chakra, const DefaultStubEmbedderDim
 pkg github.com/panyam/chakra, const DeltaFinish DeltaKind
@@ -558,6 +559,7 @@ pkg github.com/panyam/chakra, type LlamaCppConfig struct
 pkg github.com/panyam/chakra, type LlamaCppConfig struct, APIKey string
 pkg github.com/panyam/chakra, type LlamaCppConfig struct, BaseURL string
 pkg github.com/panyam/chakra, type LlamaCppConfig struct, HTTPClient *http.Client
+pkg github.com/panyam/chakra, type LlamaCppConfig struct, MaxTokens int
 pkg github.com/panyam/chakra, type LlamaCppConfig struct, Model string
 pkg github.com/panyam/chakra, type LoadRunRequest struct
 pkg github.com/panyam/chakra, type LoadRunRequest struct, RunID string
@@ -597,6 +599,7 @@ pkg github.com/panyam/chakra, type OllamaConfig struct
 pkg github.com/panyam/chakra, type OllamaConfig struct, APIKey string
 pkg github.com/panyam/chakra, type OllamaConfig struct, BaseURL string
 pkg github.com/panyam/chakra, type OllamaConfig struct, HTTPClient *http.Client
+pkg github.com/panyam/chakra, type OllamaConfig struct, MaxTokens int
 pkg github.com/panyam/chakra, type OllamaConfig struct, Model string
 pkg github.com/panyam/chakra, type OpenAIConfig struct
 pkg github.com/panyam/chakra, type OpenAIConfig struct, APIKey string
@@ -604,6 +607,7 @@ pkg github.com/panyam/chakra, type OpenAIConfig struct, BaseURL string
 pkg github.com/panyam/chakra, type OpenAIConfig struct, ExtraBody map[string]any
 pkg github.com/panyam/chakra, type OpenAIConfig struct, GuidedDialect GuidedDialect
 pkg github.com/panyam/chakra, type OpenAIConfig struct, HTTPClient *http.Client
+pkg github.com/panyam/chakra, type OpenAIConfig struct, MaxTokens int
 pkg github.com/panyam/chakra, type OpenAIConfig struct, Model string
 pkg github.com/panyam/chakra, type OpenAIConfig struct, NoResponseSchema bool
 pkg github.com/panyam/chakra, type OpenAIConfig struct, NoTemperature bool

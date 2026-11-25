@@ -23,6 +23,30 @@ type LlamaCppConfig struct {
 
 	// HTTPClient overrides http.DefaultClient, as in OpenAIConfig.
 	HTTPClient *http.Client
+
+	// MaxTokens caps each reply's length when a request sets no cap. 0 means
+	// DefaultLocalMaxTokens. A negative value sends none, and llama-server
+	// then generates until the context is full.
+	MaxTokens int
+}
+
+// DefaultLocalMaxTokens is the reply cap the llama.cpp and Ollama presets
+// send when neither the config nor the request sets one. Both servers
+// otherwise generate until the context is full. Qwen2.5-Coder 32B on
+// Declaire's bench wrote one reply past 6,600 tokens at about 4 tokens a
+// second, and the run stalled on it for half an hour. The cap matches
+// AnthropicConfig's default.
+const DefaultLocalMaxTokens = 4096
+
+// localMaxTokens is the cap a local preset sends for n.
+func localMaxTokens(n int) int {
+	switch {
+	case n == 0:
+		return DefaultLocalMaxTokens
+	case n < 0:
+		return 0
+	}
+	return n
 }
 
 // DefaultLlamaCppBaseURL is llama-server's default address.
@@ -38,6 +62,9 @@ const DefaultLlamaCppBaseURL = "http://localhost:8080/v1"
 // It reads tool calls a model writes as text (OpenAIConfig.TextToolCalls),
 // since llama-server parses some models' tool calls and not others',
 // Qwen2.5-Coder's among the second.
+//
+// A reply is capped at MaxTokens, DefaultLocalMaxTokens unless set, when the
+// request sets no cap of its own.
 //
 // The caller sets Temperature. A request with none leaves llama-server
 // sampling at its own default, 0.8. A caller wanting greedy, repeatable
@@ -58,6 +85,7 @@ func NewLlamaCppProvider(cfg LlamaCppConfig) (*OpenAIProvider, error) {
 		Penalties:     []string{PenaltyRepeat, PenaltyFrequency, PenaltyPresence, PenaltyDRY},
 		ExtraBody:     map[string]any{"cache_prompt": true},
 		TextToolCalls: true,
+		MaxTokens:     localMaxTokens(cfg.MaxTokens),
 	})
 }
 
@@ -77,6 +105,11 @@ type OllamaConfig struct {
 
 	// HTTPClient overrides http.DefaultClient, as in OpenAIConfig.
 	HTTPClient *http.Client
+
+	// MaxTokens caps each reply's length when a request sets no cap, as in
+	// LlamaCppConfig: 0 means DefaultLocalMaxTokens, and a negative value
+	// sends none.
+	MaxTokens int
 }
 
 // DefaultOllamaBaseURL is Ollama's default address.
@@ -89,7 +122,7 @@ const DefaultOllamaBaseURL = "http://localhost:11434/v1"
 // is refused with ErrUnsupportedParam before anything is sent. Seeds are sent
 // as given. Of the SamplingPenalties, Ollama's /v1 reads Frequency and
 // Presence. It ignores repeat_penalty there and has no DRY sampler, so those
-// are refused.
+// are refused. A reply is capped as NewLlamaCppProvider caps one.
 func NewOllamaProvider(cfg OllamaConfig) (*OpenAIProvider, error) {
 	if cfg.Model == "" {
 		return nil, fmt.Errorf("agent: OllamaConfig requires Model")
@@ -103,5 +136,6 @@ func NewOllamaProvider(cfg OllamaConfig) (*OpenAIProvider, error) {
 		APIKey:        cfg.APIKey,
 		HTTPClient:    cfg.HTTPClient,
 		GuidedDialect: GuidedDialectOllama,
+		MaxTokens:     localMaxTokens(cfg.MaxTokens),
 	})
 }
