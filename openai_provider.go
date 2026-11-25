@@ -68,6 +68,17 @@ type OpenAIConfig struct {
 	// four. A request that sets a kind outside the list is refused with
 	// ErrUnsupportedParam. An unknown kind fails NewOpenAIProvider.
 	Penalties []string
+
+	// TextToolCalls reads a reply that is nothing but tool calls written as
+	// text as those calls, when the request offered tools and the server
+	// returned none (panyam/declaire#378). Each call is a JSON object with a
+	// name and arguments, bare, fenced, or in <tool_call> tags, and must name
+	// an offered tool. Any other reply stays text. A model served without a
+	// parser for its tool-call format needs it, as Qwen2.5-Coder on
+	// llama-server does. While streaming, text that could still be a call is
+	// held back until it can't, so a plain answer still streams.
+	// NewLlamaCppProvider sets it.
+	TextToolCalls bool
 }
 
 // GuidedDialect selects how OpenAIProvider encodes ProviderRequest.Guided.
@@ -236,6 +247,9 @@ func (p *OpenAIProvider) Stream(ctx context.Context, req ProviderRequest) (Strea
 	_, safeToReal := toolNameMaps(req.Tools)
 	st := &openaiStream{nameMap: safeToReal}
 	st.sseStream = sseStream{ctx: ctx, body: resp.Body, events: ssehttp.NewSSEEventReader(resp.Body), decode: st.decode}
+	if p.cfg.TextToolCalls && len(req.Tools) > 0 {
+		return newTextCallStream(st, safeToReal), nil
+	}
 	return st, nil
 }
 
@@ -284,6 +298,11 @@ func (p *OpenAIProvider) Generate(ctx context.Context, req ProviderRequest) (*Pr
 			args = "{}"
 		}
 		out.ToolCalls = append(out.ToolCalls, ToolCall{ID: tc.ID, Name: realToolName(safeToReal, tc.Function.Name), Args: toolCallArgsFromJSON(json.RawMessage(args))})
+	}
+	if p.cfg.TextToolCalls && len(out.ToolCalls) == 0 {
+		if calls, ok := textToolCalls(out.Text, safeToReal); ok {
+			out.Text, out.ToolCalls, out.FinishReason = "", calls, "tool_calls"
+		}
 	}
 	if full.Usage != nil {
 		out.Usage = full.Usage.toUsage(full.Timings)

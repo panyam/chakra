@@ -608,6 +608,7 @@ pkg github.com/panyam/chakra, type OpenAIConfig struct, Model string
 pkg github.com/panyam/chakra, type OpenAIConfig struct, NoResponseSchema bool
 pkg github.com/panyam/chakra, type OpenAIConfig struct, NoTemperature bool
 pkg github.com/panyam/chakra, type OpenAIConfig struct, Penalties []string
+pkg github.com/panyam/chakra, type OpenAIConfig struct, TextToolCalls bool
 pkg github.com/panyam/chakra, type OpenAIEmbedder struct
 pkg github.com/panyam/chakra, type OpenAIEmbedderConfig struct
 pkg github.com/panyam/chakra, type OpenAIEmbedderConfig struct, APIKey string
