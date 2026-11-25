@@ -1008,6 +1008,38 @@ pkg github.com/panyam/chakra, var ErrUnsupportedParam
 pkg github.com/panyam/chakra, var ToolChoiceAuto
 pkg github.com/panyam/chakra, var ToolChoiceNone
 pkg github.com/panyam/chakra, var ToolChoiceRequired
+pkg github.com/panyam/chakra/connection, func Build(Config) (agent.Provider, error)
+pkg github.com/panyam/chakra/connection, func BuildEmbedder(Config, core.TracerProvider) (agent.Embedder, error)
+pkg github.com/panyam/chakra/connection, func ResolveBaseURL(Config) (string, error)
+pkg github.com/panyam/chakra/connection, method (Config) Cost(*agent.Usage) (float64, bool)
+pkg github.com/panyam/chakra/connection, method (Options) Build(Config) (agent.Provider, error)
+pkg github.com/panyam/chakra/connection, method (Types) Build(Config) (agent.Provider, error)
+pkg github.com/panyam/chakra/connection, type Builder func(Config) (agent.Provider, error)
+pkg github.com/panyam/chakra/connection, type Config struct
+pkg github.com/panyam/chakra/connection, type Config struct, APIKey string
+pkg github.com/panyam/chakra/connection, type Config struct, APIKeyEnv string
+pkg github.com/panyam/chakra/connection, type Config struct, BaseURL string
+pkg github.com/panyam/chakra/connection, type Config struct, Dim int
+pkg github.com/panyam/chakra/connection, type Config struct, MaxTokens int
+pkg github.com/panyam/chakra/connection, type Config struct, Model string
+pkg github.com/panyam/chakra/connection, type Config struct, Price *Price
+pkg github.com/panyam/chakra/connection, type Config struct, ReasoningEffort string
+pkg github.com/panyam/chakra/connection, type Config struct, ResponseSchema *bool
+pkg github.com/panyam/chakra/connection, type Config struct, Temperature *bool
+pkg github.com/panyam/chakra/connection, type Config struct, ThinkingHint *ThinkingHint
+pkg github.com/panyam/chakra/connection, type Config struct, Type string
+pkg github.com/panyam/chakra/connection, type Config struct, Vision bool
+pkg github.com/panyam/chakra/connection, type Options struct
+pkg github.com/panyam/chakra/connection, type Options struct, OnFullHistory func(string)
+pkg github.com/panyam/chakra/connection, type Options struct, Types Types
+pkg github.com/panyam/chakra/connection, type Price struct
+pkg github.com/panyam/chakra/connection, type Price struct, CachedInput *float64
+pkg github.com/panyam/chakra/connection, type Price struct, Input float64
+pkg github.com/panyam/chakra/connection, type Price struct, Output float64
+pkg github.com/panyam/chakra/connection, type ThinkingHint struct
+pkg github.com/panyam/chakra/connection, type ThinkingHint struct, CloseTag string
+pkg github.com/panyam/chakra/connection, type ThinkingHint struct, OpenTag string
+pkg github.com/panyam/chakra/connection, type Types map[string]Builder
 pkg github.com/panyam/chakra/eval, func Contains(string) Scorer
 pkg github.com/panyam/chakra/eval, func ExactMatch(string) Scorer
 pkg github.com/panyam/chakra/eval, func Final([]Result) Result
