@@ -81,11 +81,16 @@ chat runs without it. Only codeq can run in agentchat so far.
 one with [demokit](https://github.com/panyam/demokit):
 
 ```
-make walk-agent AGENT=codeq                   # on the scripted model, Enter at each step
-make walk-agent AGENT=codeq LIVE=haiku        # on a real model
-make walk-agent AGENT=codeq MODE=tui          # styled terminal UI
-make walk-agent AGENT=codeq MODE=serve        # in a browser, on http://localhost:8765
+make walk-agent AGENT=codeq MODE=tui              # styled terminal UI, on the scripted model
+make walk-agent AGENT=codeq MODE=note             # notebook: a cell per step, scroll back to compare
+make walk-agent AGENT=codeq MODE=note LIVE=haiku  # the same on a real model
+make walk-agent AGENT=codeq                       # plain text, Enter at each step
+make walk-agent AGENT=codeq MODE=serve            # in a browser, on http://localhost:8765, to show someone
 ```
+
+The TUI and notebook modes are the ones to work in. The notebook keeps every
+step's output as a cell, so you can scroll back and compare what two steps
+did.
 
 Each step shows what it adds to the agent: instructions, tools, step stages
 and turn-end hooks. Then you choose **run**, which runs every case with a

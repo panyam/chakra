@@ -332,13 +332,14 @@ profiles: ## List the connections in PROFILE (default ~/.agentchat/exercise-agen
 	@cd examples/agents && go run ./cmd/exercise -profiles -profile $(profile_path)
 
 # walk-agent steps through one agent's ladder with demokit (#369): each step
-# shows what it adds, then runs every case or lets you watch one. MODE=tui or
-# MODE=serve (a browser on :8765). ARGS passes demokit flags, such as
+# shows what it adds, then runs every case or lets you watch one. MODE=tui (a
+# styled terminal UI), MODE=note (notebook cells you can scroll back through),
+# or MODE=serve (a browser on :8765). ARGS passes demokit flags, such as
 # ARGS="--record run.json", and ARGS="--doc md --from run.json" renders a
 # recorded walk with no model calls.
-walk-agent: ## Walk one agent's ladder step by step (AGENT=codeq LIVE=<connection> MODE=tui|serve ARGS="--record run.json")
+walk-agent: ## Walk one agent's ladder step by step (AGENT=codeq LIVE=<connection> MODE=tui|note|serve ARGS="--record run.json")
 	@[ -n "$(AGENT)" ] || { echo "make walk-agent needs AGENT, such as AGENT=codeq"; exit 2; }
-	@cd examples/agents && go run ./cmd/walk -agent $(AGENT) $(if $(LIVE),-live $(LIVE) -profile $(profile_path)) $(if $(filter tui,$(MODE)),--tui) $(if $(filter serve,$(MODE)),--serve :8765) $(ARGS)
+	@cd examples/agents && go run ./cmd/walk -agent $(AGENT) $(if $(LIVE),-live $(LIVE) -profile $(profile_path)) $(if $(filter tui,$(MODE)),--tui) $(if $(filter note,$(MODE)),--note) $(if $(filter serve,$(MODE)),--serve :8765) $(ARGS)
 
 chat-agent: ## Chat with an agent's last step in agentchat (AGENT=codeq, LIVE=<connection> or PROFILE's active one)
 	@[ -n "$(AGENT)" ] || { echo "make chat-agent needs AGENT, such as AGENT=codeq"; exit 2; }
