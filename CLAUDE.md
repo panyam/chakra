@@ -31,8 +31,8 @@ the PR says so as its main decision and updates the page in the same PR.
 Work is ranked by which mission it serves, not by how recently it was filed. The active mission is
 #349 (`mission_build_your_agents`). Someone builds an agent for a job in `examples/agents/<job>/`, a
 step at a time, and each step's table shows what it changed on the job's eval. The exercise is
-`make exercise-agents`, and `LIVE=<connection> PROFILE=<agentchat.json>` runs it on a real model
-(`examples/agents/README.md`). After each merge on the mission, run it and log the tables on #349.
+`make exercise-agents`, `LIVE=<connection>` runs it on a real model (`make profiles` lists them), and
+`make chat-agent` opens an agent in agentchat (`examples/agents/README.md`). After each merge on the mission, run it and log the tables on #349.
 Closed missions keep their exercises running: #299 (the same Declaire exercise), #162 (`make coding-harness-exercise`, `make
 mission-tbench`, see `examples/coding-harness/README.md` and `examples/terminal-bench/README.md`),
 #57 (`make dogfood`), #89 (`make host-exercise`). #172's exercise lives in jaala. Two missions are

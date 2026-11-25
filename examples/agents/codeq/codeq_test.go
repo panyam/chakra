@@ -123,3 +123,25 @@ func TestEachStepPassesMore(t *testing.T) {
 func agentConfig() agent.RunnerConfig {
 	return agent.RunnerConfig{Provider: Scripted(), Instructions: Instructions, MaxSteps: 8}
 }
+
+// Every codeserver tool says it's read-only, so agentchat's approval gate
+// runs it under read-only-auto.
+func TestServerToolsAreReadOnly(t *testing.T) {
+	c, _, stop, err := Start(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop()
+	tools, err := agent.NewClientSource(c).Tools(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tools) != 5 {
+		t.Fatalf("%d tools, want 5", len(tools))
+	}
+	for _, tool := range tools {
+		if tool.Annotations["readOnlyHint"] != true {
+			t.Errorf("%s: annotations %v, want readOnlyHint", tool.Name, tool.Annotations)
+		}
+	}
+}

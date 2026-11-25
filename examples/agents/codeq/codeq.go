@@ -171,3 +171,18 @@ func answerCheck(among []string) agent.TurnEndHook {
 		return agent.TurnEndVerdict{}, nil
 	}
 }
+
+// ChatInstructions is the prompt of the ladder's last step, for running
+// codeq in agentchat.
+const ChatInstructions = Instructions + "\n" + rules
+
+// ChatServer is the command that runs codeserver on the fixture, for an
+// agentchat config: go run, from the examples/agents module, so agentchat
+// needs no built binary.
+func ChatServer() (command string, args []string, dir string, err error) {
+	root, err := Fixture()
+	if err != nil {
+		return "", nil, "", err
+	}
+	return "go", []string{"run", "github.com/panyam/chakra/examples/agents/codeq/cmd/codeserver", "-root", root}, filepath.Dir(filepath.Dir(root)), nil
+}

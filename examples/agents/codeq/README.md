@@ -119,3 +119,9 @@ per case.
 
 Set `CASES=1` to print each failing case with its scores and the model's
 answer.
+
+## Chatting with it
+
+`make chat-agent AGENT=codeq LIVE=sonnet` opens agentchat with the last step's
+instructions and codeserver attached. The stuck policy and the answer check
+are code, so the chat runs without them.

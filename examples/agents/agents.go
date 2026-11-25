@@ -9,7 +9,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
+	"slices"
+	"strings"
 
 	"github.com/panyam/chakra"
 	"github.com/panyam/chakra/connection"
@@ -32,12 +35,40 @@ type Agent struct {
 	Scripted func() agent.Provider
 	// MaxSteps caps each turn. Zero means 8.
 	MaxSteps int
+	// Chat sets the agent up for agentchat, as its last step, for make
+	// chat-agent. Nil means the agent can't run there yet.
+	Chat func() (ChatSetup, error)
+}
+
+// ChatSetup is what an agentchat config needs to run an agent: its prompt
+// and the MCP servers it calls. Steps that are code, such as a stuck
+// detector or a TurnEnd hook, have no config field, so agentchat runs
+// without them.
+type ChatSetup struct {
+	Instructions string
+	Servers      []ChatServer
+}
+
+// ChatServer is one stdio MCP server in an agentchat config.
+type ChatServer struct {
+	ID      string   `json:"id"`
+	Command string   `json:"command"`
+	Args    []string `json:"args,omitempty"`
+	Dir     string   `json:"dir,omitempty"`
 }
 
 // All lists the agents, in the order the exercise runs them.
 var All = []Agent{
 	{Name: "calc", Ladder: static(calc.Ladder), Instructions: calc.Instructions, Scripted: calc.Scripted},
-	{Name: "codeq", Ladder: codeq.Ladder, Instructions: codeq.Instructions, Scripted: codeq.Scripted},
+	{Name: "codeq", Ladder: codeq.Ladder, Instructions: codeq.Instructions, Scripted: codeq.Scripted, Chat: codeqChat},
+}
+
+func codeqChat() (ChatSetup, error) {
+	cmd, args, dir, err := codeq.ChatServer()
+	if err != nil {
+		return ChatSetup{}, err
+	}
+	return ChatSetup{Instructions: codeq.ChatInstructions, Servers: []ChatServer{{ID: "codeq", Command: cmd, Args: args, Dir: dir}}}, nil
 }
 
 // static adapts a ladder that starts nothing.
@@ -78,14 +109,18 @@ func Climb(ctx context.Context, a Agent, m Model) (eval.LadderReport, error) {
 	return l.Run(ctx, eval.Suite{Config: base, ModelName: m.Name, Prices: m.Prices}), nil
 }
 
-// Live builds the model for the connection called name in an agentchat
-// config at path, with connection.Build. The connection's Price, when it
-// has one, prices the run. eval.Price has no cached-input rate, so cached
-// tokens are priced at the input rate.
-func Live(path, name string) (Model, error) {
+// Connection is one connection in an agentchat config, as Connections
+// lists it.
+type Connection struct {
+	Name string
+	connection.Config
+}
+
+// readProfile reads the connections of the agentchat config at path.
+func readProfile(path string) (map[string]connection.Config, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return Model{}, err
+		return nil, fmt.Errorf("agents: reading the profile: %w", err)
 	}
 	var cfg struct {
 		Connections struct {
@@ -93,19 +128,79 @@ func Live(path, name string) (Model, error) {
 		} `json:"connections"`
 	}
 	if err := json.Unmarshal(raw, &cfg); err != nil {
-		return Model{}, fmt.Errorf("agents: %s: %w", path, err)
+		return nil, fmt.Errorf("agents: %s: %w", path, err)
 	}
-	c, ok := cfg.Connections.Connections[name]
+	return cfg.Connections.Connections, nil
+}
+
+// Connections lists the connections in the agentchat config at path, by
+// name.
+func Connections(path string) ([]Connection, error) {
+	m, err := readProfile(path)
+	if err != nil {
+		return nil, err
+	}
+	var out []Connection
+	for _, name := range slices.Sorted(maps.Keys(m)) {
+		out = append(out, Connection{Name: name, Config: m[name]})
+	}
+	return out, nil
+}
+
+// Live builds the model for the connection called name in an agentchat
+// config at path, with connection.Build. The connection's Price, when it
+// has one, prices the run. eval.Price has no cached-input rate, so cached
+// tokens are priced at the input rate. A name the config lacks is an error
+// that lists the names it has.
+func Live(path, name string) (Model, error) {
+	m, err := readProfile(path)
+	if err != nil {
+		return Model{}, err
+	}
+	c, ok := m[name]
 	if !ok {
-		return Model{}, fmt.Errorf("agents: %s has no connection %q", path, name)
+		return Model{}, fmt.Errorf("agents: %s has no connection %q. It has %s", path, name, strings.Join(slices.Sorted(maps.Keys(m)), ", "))
 	}
 	p, err := connection.Build(c)
 	if err != nil {
 		return Model{}, fmt.Errorf("agents: connection %q: %w", name, err)
 	}
-	m := Model{Provider: p, Name: name}
+	model := Model{Provider: p, Name: name}
 	if c.Price != nil {
-		m.Prices = eval.Prices{name: {InputPerM: c.Price.Input, OutputPerM: c.Price.Output}}
+		model.Prices = eval.Prices{name: {InputPerM: c.Price.Input, OutputPerM: c.Price.Output}}
 	}
-	return m, nil
+	return model, nil
+}
+
+// ChatConfig writes an agentchat config that runs a as its last step. It
+// copies the connections block of the config at profile, and adds a's
+// instructions and MCP servers.
+func ChatConfig(a Agent, profile string) ([]byte, error) {
+	if a.Chat == nil {
+		return nil, fmt.Errorf("agents: %s can't run in agentchat yet", a.Name)
+	}
+	setup, err := a.Chat()
+	if err != nil {
+		return nil, err
+	}
+	raw, err := os.ReadFile(profile)
+	if err != nil {
+		return nil, fmt.Errorf("agents: reading the profile: %w", err)
+	}
+	var cfg struct {
+		Connections json.RawMessage `json:"connections"`
+	}
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		return nil, fmt.Errorf("agents: %s: %w", profile, err)
+	}
+	steps := a.MaxSteps
+	if steps == 0 {
+		steps = 8
+	}
+	return json.MarshalIndent(map[string]any{
+		"connections":  cfg.Connections,
+		"instructions": setup.Instructions,
+		"maxSteps":     steps,
+		"servers":      setup.Servers,
+	}, "", "  ")
 }

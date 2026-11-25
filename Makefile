@@ -34,7 +34,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/h
 # explicitly and the platform's own backend refuses. See the module README.
 GOTESTFLAGS ?= -race -timeout 300s
 
-.PHONY: help build test test-examples test-web test-web-e2e testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg exercise-agents dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report tbench-ingest tbench-matrix tbench-stale tbench-stale-locked tbench-ref mission-tbench deploy-web weblogs \
+.PHONY: help build test test-examples test-web test-web-e2e testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg exercise-agents profiles chat-agent dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report tbench-ingest tbench-matrix tbench-stale tbench-stale-locked tbench-ref mission-tbench deploy-web weblogs \
         check-no-binaries check-ext-isolation check-dep-consistency setup-hooks api-report api-update vulncheck
 
 help: ## Show this help
@@ -319,10 +319,23 @@ coding-harness-parity: ## codex exec vs the coding harness, same fixture and mod
 
 # exercise-agents is mission 349's exercise: each examples/agents ladder's
 # table, on scripted models unless LIVE names a connection in PROFILE (an
-# agentchat config). AGENT picks one agent. CI runs the same ladders through
-# make test-examples.
-exercise-agents: ## Run each agent ladder and print its table (AGENT=calc LIVE=<connection> PROFILE=<agentchat.json> CASES=1)
-	@cd examples/agents && go run ./cmd/exercise $(if $(AGENT),-agent $(AGENT)) $(if $(CASES),-cases) $(if $(LIVE),-live $(LIVE) -profile $(abspath $(patsubst ~/%,$(HOME)/%,$(PROFILE))))
+# agentchat config). AGENT picks one agent, and CASES=1 prints each failing
+# case. LIVE=? lists PROFILE's connections, as make profiles does. CI runs the
+# same ladders through make test-examples.
+PROFILE ?= $(HOME)/.agentchat/exercise-agents.json
+profile_path = $(abspath $(patsubst ~/%,$(HOME)/%,$(PROFILE)))
+exercise-agents: ## Run each agent ladder and print its table (AGENT=codeq LIVE=<connection> CASES=1; LIVE=? lists connections)
+	@cd examples/agents && go run ./cmd/exercise $(if $(AGENT),-agent $(AGENT)) $(if $(CASES),-cases) $(if $(LIVE),-live '$(LIVE)' -profile $(profile_path))
+
+profiles: ## List the connections in PROFILE (default ~/.agentchat/exercise-agents.json)
+	@cd examples/agents && go run ./cmd/exercise -profiles -profile $(profile_path)
+
+chat-agent: ## Chat with an agent's last step in agentchat (AGENT=codeq, LIVE=<connection> or PROFILE's active one)
+	@[ -n "$(AGENT)" ] || { echo "make chat-agent needs AGENT, such as AGENT=codeq"; exit 2; }
+	@cfg="$(CURDIR)/examples/agents/.chat-$(AGENT).json" && \
+	  (cd examples/agents && go run ./cmd/exercise -agent $(AGENT) -chat-config "$$cfg" -profile $(profile_path)) && \
+	  echo "agentchat config: $$cfg" && \
+	  cd surfaces/chat && go run . --config "$$cfg" $(if $(LIVE),--active $(LIVE))
 
 # ---------------------------------------------------------------------------
 # Release
