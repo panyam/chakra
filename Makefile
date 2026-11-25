@@ -12,7 +12,7 @@ MODULES := . host surfaces surfaces/chat surfaces/web \
 
 # EXAMPLES are built, vetted and tested like MODULES but never tagged, which is
 # also what a cross-extension test module (tests/<a>_<b>_e2e) needs.
-EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/host-exercise examples/coding-harness tests/files_git_e2e tests/chat_element_rooms_e2e
+EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/host-exercise examples/coding-harness examples/agents tests/files_git_e2e tests/chat_element_rooms_e2e
 
 # CI runs these same targets rather than restating the module list, so adding a
 # module is one edit here. It overrides GOTESTFLAGS only to add -v.
@@ -34,7 +34,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/h
 # explicitly and the platform's own backend refuses. See the module README.
 GOTESTFLAGS ?= -race -timeout 300s
 
-.PHONY: help build test test-examples test-web test-web-e2e testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report tbench-ingest tbench-matrix tbench-stale tbench-stale-locked tbench-ref mission-tbench deploy-web weblogs \
+.PHONY: help build test test-examples test-web test-web-e2e testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg exercise-agents dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report tbench-ingest tbench-matrix tbench-stale tbench-stale-locked tbench-ref mission-tbench deploy-web weblogs \
         check-no-binaries check-ext-isolation check-dep-consistency setup-hooks api-report api-update vulncheck
 
 help: ## Show this help
@@ -316,6 +316,13 @@ tbench-stale-locked:
 
 coding-harness-parity: ## codex exec vs the coding harness, same fixture and model, side by side (needs codex and OPENAI_API_KEY; PARITY_MODEL=gpt-5.5, PARITY_ACTIVE=openai, PARITY_INSTRUCTIONS=codex)
 	@bash scripts/coding-harness-parity.sh
+
+# exercise-agents is mission 349's exercise: each examples/agents ladder's
+# table, on scripted models unless LIVE names a connection in PROFILE (an
+# agentchat config). AGENT picks one agent. CI runs the same ladders through
+# make test-examples.
+exercise-agents: ## Run each agent ladder and print its table (AGENT=calc LIVE=<connection> PROFILE=<agentchat.json>)
+	@cd examples/agents && go run ./cmd/exercise $(if $(AGENT),-agent $(AGENT)) $(if $(LIVE),-live $(LIVE) -profile $(abspath $(PROFILE)))
 
 # ---------------------------------------------------------------------------
 # Release

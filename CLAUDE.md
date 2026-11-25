@@ -29,15 +29,15 @@ the PR says so as its main decision and updates the page in the same PR.
 ## Issues and missions
 
 Work is ranked by which mission it serves, not by how recently it was filed. The active mission is
-#337 (`mission_translator_loop_pass_rate`). jaala's translator loop on a 14B local model builds from
-chakra's graph-query preset (`presets/`), and should pass more of Declaire's questions than the
-plain 14B arm. chakra can't import jaala, so the preset holds no jaala code. The exercise lives in
-the consumer: `make exercise-translator ARMS="14b:loop 14b"` in panyam/declaire. After each merge on
-the mission that reaches jaala, run it and log the output on #337.
+#349 (`mission_build_your_agents`). Someone builds an agent for a job in `examples/agents/<job>/`, a
+step at a time, and each step's table shows what it changed on the job's eval. The exercise is
+`make exercise-agents`, and `LIVE=<connection> PROFILE=<agentchat.json>` runs it on a real model
+(`examples/agents/README.md`). After each merge on the mission, run it and log the tables on #349.
 Closed missions keep their exercises running: #299 (the same Declaire exercise), #162 (`make coding-harness-exercise`, `make
 mission-tbench`, see `examples/coding-harness/README.md` and `examples/terminal-bench/README.md`),
-#57 (`make dogfood`), #89 (`make host-exercise`). #172's exercise lives in jaala. #142
-(`mission_api_v1`) is paused. Its exercise `make api-report` runs in CI.
+#57 (`make dogfood`), #89 (`make host-exercise`). #172's exercise lives in jaala. Two missions are
+paused. #142 (`mission_api_v1`) has its exercise `make api-report` in CI. #337 (14B translator loop
+against plain 14B) has `make exercise-translator ARMS="14b:loop 14b"` in panyam/declaire.
 
 A new issue gets one of `P0`–`P3` (P1 is capped at 5 per mission), plus either a `mission_<slug>`
 label with a blocked-by link from the mission, or `waiting` with its trigger named in the body.
