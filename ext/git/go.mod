@@ -9,8 +9,8 @@ replace github.com/panyam/chakra => ../..
 replace github.com/panyam/chakra/host => ../../host
 
 require (
-	github.com/panyam/chakra v0.3.7
-	github.com/panyam/chakra/host v0.3.7
+	github.com/panyam/chakra v0.3.8
+	github.com/panyam/chakra/host v0.3.8
 	github.com/panyam/mcpkit v0.8.21
 )
 

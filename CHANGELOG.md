@@ -5,6 +5,21 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
+## [v0.3.8] - 2026-11-25
+
+Full notes in [docs/releases/v0.3.8.md](docs/releases/v0.3.8.md).
+
+### Added
+- `connection`: a package with the connection-to-provider builder (`Config`, `Price`, `Build`, `Types`, `BuildEmbedder`). It needs only the root module, so building providers from a profile no longer imports host (PR 357).
+- `connection.Row`, `Router` and `TableRouter`: per-tag profile rows and a router that orders connections by pass rate less a cost knob (PR 358).
+
+### Changed
+- host's connection types are aliases of the `connection` types, and its builders call into it. Builder errors start `connection:` (PR 357).
+
+### Fixed
+- `BuildEmbedder` sends a key set on `APIKey`, as the chat builder does (PR 357).
+- `ext/exec`: a command that starts a daemon returns rather than waiting past its timeout (PR 346).
+
 ## [v0.3.7] - 2026-11-24
 
 Full notes in [docs/releases/v0.3.7.md](docs/releases/v0.3.7.md).
