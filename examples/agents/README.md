@@ -75,18 +75,53 @@ the profile's active one when it's unset. A step written as code, such as a
 stuck detector or a `TurnEnd` hook, has no agentchat config field, so the
 chat runs without it. Only codeq can run in agentchat so far.
 
+## Walking a ladder
+
+`make exercise-agents` runs a whole ladder. `make walk-agent` steps through
+one with [demokit](https://github.com/panyam/demokit):
+
+```
+make walk-agent AGENT=codeq                   # on the scripted model, Enter at each step
+make walk-agent AGENT=codeq LIVE=haiku        # on a real model
+make walk-agent AGENT=codeq MODE=tui          # styled terminal UI
+make walk-agent AGENT=codeq MODE=serve        # in a browser, on http://localhost:8765
+```
+
+Each step shows what it adds to the agent: instructions, tools, step stages
+and turn-end hooks. Then you choose **run**, which runs every case with a
+line per case and ends on the step's row, what it cost, and what the next
+step will likely cost. Or you choose **watch**, which runs one case and
+prints its transcript: each tool call and result, the answer, and its
+scores. A watched step leaves no row in the table. The last step prints the
+table.
+
+A walk records with `ARGS="--non-interactive --record run.json"`, and
+`ARGS="--doc md --from run.json"` renders the recording as markdown with no
+model calls. Render with the same `LIVE` the walk ran on. `--replay`
+reuses a recording's inputs but runs the steps again, so on a live
+connection it calls the model again. [codeq/WALK.md](codeq/WALK.md) is a
+recorded walk on Haiku 5.5.
+
 ## Adding an agent
 
 1. A package under `examples/agents/<job>/` with its ladder, its
    `Instructions`, and `Scripted() agent.Provider`, a stand-in model for CI.
    The ladder is `func(ctx) (eval.Ladder, stop func(), error)`, so it can
    start what its steps share, as codeq starts its tool server. A ladder that
-   starts nothing is `func() eval.Ladder`, wrapped with `static` in
+   starts nothing is `func() eval.Ladder`, wrapped with `common.Static`.
+2. `Agent() common.Agent` in that package, and an entry in `All` in
    `agents.go`.
-2. An entry in `All` in `agents.go`.
-3. A `README.md` that walks through the steps and shows the table.
+3. For the walk, `About` (the opening section) and `StepNotes` (why each step
+   exists). `Walk` lays the walk out in code when the default isn't enough.
+   It gets a `common.Walker`, whose `Intro`, `Steps`, `Step` and `Table` are
+   the default pieces, and can add demokit sections and steps between them.
+   codeq adds a section on its tool server after the intro.
+4. A `README.md` that walks through the steps and shows the table.
    `TestEveryLadderClimbs` fails without one.
-4. Optionally, `Chat` in its `All` entry, so `make chat-agent` can run it.
+5. Optionally, `Chat`, so `make chat-agent` can run it.
+
+`common` holds what every agent shares: `Agent`, `Climb`, the profile
+helpers, `ChatConfig`, and `Walk`.
 
 A step that needs something chakra lacks, or something awkward to use, becomes
 a ticket on mission 349.

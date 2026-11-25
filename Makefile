@@ -34,7 +34,7 @@ EXAMPLES := examples/agent-async examples/critic examples/multi-agent examples/h
 # explicitly and the platform's own backend refuses. See the module README.
 GOTESTFLAGS ?= -race -timeout 300s
 
-.PHONY: help build test test-examples test-web test-web-e2e testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg exercise-agents profiles chat-agent dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report tbench-ingest tbench-matrix tbench-stale tbench-stale-locked tbench-ref mission-tbench deploy-web weblogs \
+.PHONY: help build test test-examples test-web test-web-e2e testall vet fmt check-fmt cover tidy-all sync-mcpkit bump-siblings tag tag-push pg exercise-agents profiles chat-agent walk-agent dogfood dogfood-web coding-harness-exercise coding-harness-exercise-live coding-harness-web coding-harness-parity tbench-build tbench tbench-report tbench-ingest tbench-matrix tbench-stale tbench-stale-locked tbench-ref mission-tbench deploy-web weblogs \
         check-no-binaries check-ext-isolation check-dep-consistency setup-hooks api-report api-update vulncheck
 
 help: ## Show this help
@@ -330,6 +330,15 @@ exercise-agents: ## Run each agent ladder and print its table (AGENT=codeq LIVE=
 
 profiles: ## List the connections in PROFILE (default ~/.agentchat/exercise-agents.json)
 	@cd examples/agents && go run ./cmd/exercise -profiles -profile $(profile_path)
+
+# walk-agent steps through one agent's ladder with demokit (#369): each step
+# shows what it adds, then runs every case or lets you watch one. MODE=tui or
+# MODE=serve (a browser on :8765). ARGS passes demokit flags, such as
+# ARGS="--record run.json", and ARGS="--doc md --from run.json" renders a
+# recorded walk with no model calls.
+walk-agent: ## Walk one agent's ladder step by step (AGENT=codeq LIVE=<connection> MODE=tui|serve ARGS="--record run.json")
+	@[ -n "$(AGENT)" ] || { echo "make walk-agent needs AGENT, such as AGENT=codeq"; exit 2; }
+	@cd examples/agents && go run ./cmd/walk -agent $(AGENT) $(if $(LIVE),-live $(LIVE) -profile $(profile_path)) $(if $(filter tui,$(MODE)),--tui) $(if $(filter serve,$(MODE)),--serve :8765) $(ARGS)
 
 chat-agent: ## Chat with an agent's last step in agentchat (AGENT=codeq, LIVE=<connection> or PROFILE's active one)
 	@[ -n "$(AGENT)" ] || { echo "make chat-agent needs AGENT, such as AGENT=codeq"; exit 2; }

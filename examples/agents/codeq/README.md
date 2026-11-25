@@ -86,7 +86,11 @@ nothing about a real model.
 
 ## A live run
 
-On Claude Haiku 5.5 and Sonnet 5.5, on 2026-11-25:
+On Claude Haiku 5.5 and Sonnet 5.5, on 2026-11-25. [WALK.md](WALK.md) is a
+recorded walk on Haiku, with every case's line and what each step added. It
+re-renders from `walk-haiku.json` with no model calls:
+`make walk-agent AGENT=codeq LIVE=haiku ARGS="--doc md --from codeq/walk-haiku.json"`.
+
 
 ```
 $ make exercise-agents AGENT=codeq LIVE=haiku PROFILE=~/.agentchat/exercise-agents.json

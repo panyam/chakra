@@ -1,0 +1,63 @@
+[
+  {
+    "kind": "section",
+    "title": "The job",
+    "body": "codeq answers questions about Go code in two small modules, example.com/shop and example.com/ledger.\nEvery answer is a set of rows: import paths, or qualified names such as example.com/shop/orders.Place. eval.Rows grades them.\nThree things trip a model. A question scoped to one module, where the tool also returns rows from the other. A question about non-test files, where one row comes only from a test. And a bare function name, which the callers tool refuses.\n\nThe steps:\n1. tools only\n2. + instructions\n3. + stuck policy\n4. + answer check"
+  },
+  {
+    "kind": "section",
+    "title": "The tool server",
+    "body": "cmd/codeserver is an MCP server. The ladder builds it, runs it as its own process, and connects over stdio.\n\n| tool | answers |\n|---|---|\n| packages | the packages of a module |\n| imports | what one package imports |\n| importers | what imports a package, from every module |\n| find | the qualified name of a function or type |\n| callers | what calls a function, from every module |"
+  },
+  {
+    "kind": "step",
+    "title": "tools only",
+    "step_id": "step-1",
+    "visit": 1,
+    "inputs": {
+      "action": "run",
+      "case": 1
+    },
+    "output": "  + tools: packages, imports, importers, find, callers\n\nRunning 10 cases:\n  PASS   1.8s  $0.00025  What is the qualified name of the function Format?\n  PASS   1.5s  $0.00024  What is the qualified name of the type Amount?\n  PASS   1.7s  $0.00027  Which packages does example.com/shop/orders import?\n  PASS   1.9s  $0.00033  Which packages in example.com/shop import example.com/ledger/money, counting only non-test files?\n  PASS   1.7s  $0.00030  Which packages in example.com/shop import example.com/ledger/journal?\n  PASS   1.8s  $0.00030  Which functions in example.com/shop call example.com/ledger/journal.Post?\n  PASS   1.7s  $0.00027  Which functions call Save from example.com/shop/internal/db?\n  PASS   1.1s  $0.00023  Which packages make up the module example.com/ledger?\n  PASS   1.6s  $0.00024  Which packages import example.com/shop/catalog?\n  PASS   1.6s  $0.00026  Which packages in example.com/shop import example.com/shop/orders?\n\ntools only passed 10 of 10.\nThis step cost $0.00269, and the walk has spent $0.00269.\nThe next step runs the same 10 cases, so expect about $0.00269 more.\n"
+  },
+  {
+    "kind": "step",
+    "title": "+ instructions",
+    "step_id": "step-2",
+    "visit": 1,
+    "inputs": {
+      "action": "run",
+      "case": 1
+    },
+    "output": "  + instructions:\n      Use packages for a module's packages, imports for what one package imports, importers for what imports a package, find to turn a bare name into a qualified one, and callers for what calls a function.\n      When a question says \"in \u003cmodule\u003e\", leave out every row from other modules.\n      When a question says \"non-test\", leave out rows marked (test files only).\n\nRunning 10 cases:\n  PASS   1.4s  $0.00026  What is the qualified name of the function Format?\n  PASS   1.7s  $0.00027  What is the qualified name of the type Amount?\n  PASS   1.6s  $0.00031  Which packages does example.com/shop/orders import?\n  PASS   2.3s  $0.00035  Which packages in example.com/shop import example.com/ledger/money, counting only non-test files?\n  PASS   2.0s  $0.00033  Which packages in example.com/shop import example.com/ledger/journal?\n  PASS   2.3s  $0.00037  Which functions in example.com/shop call example.com/ledger/journal.Post?\n  PASS   1.8s  $0.00032  Which functions call Save from example.com/shop/internal/db?\n  PASS   1.1s  $0.00025  Which packages make up the module example.com/ledger?\n  PASS   1.5s  $0.00026  Which packages import example.com/shop/catalog?\n  PASS   1.7s  $0.00028  Which packages in example.com/shop import example.com/shop/orders?\n\n+ instructions passed 10 of 10, +0 on the step before.\nThis step cost $0.00300, and the walk has spent $0.00569.\nThe next step runs the same 10 cases, so expect about $0.00300 more.\n"
+  },
+  {
+    "kind": "step",
+    "title": "+ stuck policy",
+    "step_id": "step-3",
+    "visit": 1,
+    "inputs": {
+      "action": "run",
+      "case": 1
+    },
+    "output": "  + 1 step stage(s), run before each model call\n\nRunning 10 cases:\n  PASS   1.4s  $0.00027  What is the qualified name of the function Format?\n  PASS   1.7s  $0.00027  What is the qualified name of the type Amount?\n  PASS   1.6s  $0.00031  Which packages does example.com/shop/orders import?\n  PASS   2.0s  $0.00034  Which packages in example.com/shop import example.com/ledger/money, counting only non-test files?\n  PASS   1.8s  $0.00032  Which packages in example.com/shop import example.com/ledger/journal?\n  PASS   1.8s  $0.00032  Which functions in example.com/shop call example.com/ledger/journal.Post?\n  PASS   1.9s  $0.00031  Which functions call Save from example.com/shop/internal/db?\n  PASS   1.2s  $0.00025  Which packages make up the module example.com/ledger?\n  PASS   1.4s  $0.00025  Which packages import example.com/shop/catalog?\n  PASS   1.7s  $0.00032  Which packages in example.com/shop import example.com/shop/orders?\n\n+ stuck policy passed 10 of 10, +0 on the step before.\nThis step cost $0.00296, and the walk has spent $0.00865.\nThe next step runs the same 10 cases, so expect about $0.00296 more.\n"
+  },
+  {
+    "kind": "step",
+    "title": "+ answer check",
+    "step_id": "step-4",
+    "visit": 1,
+    "inputs": {
+      "action": "run",
+      "case": 1
+    },
+    "output": "  + 1 turn-end hook(s), which can send an answer back\n\nRunning 10 cases:\n  PASS   2.2s  $0.00040  What is the qualified name of the function Format?\n  PASS   2.4s  $0.00043  What is the qualified name of the type Amount?\n  PASS   9.2s  $0.00179  Which packages does example.com/shop/orders import?\n  PASS   2.5s  $0.00047  Which packages in example.com/shop import example.com/ledger/money, counting only non-test files?\n  PASS   2.5s  $0.00047  Which packages in example.com/shop import example.com/ledger/journal?\n  PASS   2.5s  $0.00045  Which functions in example.com/shop call example.com/ledger/journal.Post?\n  PASS   3.1s  $0.00048  Which functions call Save from example.com/shop/internal/db?\n  PASS   1.8s  $0.00040  Which packages make up the module example.com/ledger?\n  PASS   2.4s  $0.00041  Which packages import example.com/shop/catalog?\n  PASS   3.2s  $0.00044  Which packages in example.com/shop import example.com/shop/orders?\n\n+ answer check passed 10 of 10, +0 on the step before.\nThis step cost $0.00575, and the walk has spent $0.01440.\n"
+  },
+  {
+    "kind": "step",
+    "title": "The table",
+    "step_id": "table",
+    "visit": 1,
+    "output": "codeq: 10 cases\nstep            pass   change  usd/correct  sec/correct  \ntools only      10/10          $0.00027     1.65         \n+ instructions  10/10  +0      $0.00030     1.74         \n+ stuck policy  10/10  +0      $0.00030     1.65         \n+ answer check  10/10  +0      $0.00057     3.18         \n"
+  }
+]
