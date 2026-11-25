@@ -122,8 +122,6 @@ pkg github.com/panyam/chakra/host, method (BaseExtension) StepStages() []agent.S
 pkg github.com/panyam/chakra/host, method (BaseExtension) Tools() (agent.ToolSource, error)
 pkg github.com/panyam/chakra/host, method (BaseExtension) TurnEndHooks() []agent.TurnEndHook
 pkg github.com/panyam/chakra/host, method (BaseExtension) TurnStart(context.Context) error
-pkg github.com/panyam/chakra/host, method (ConnectionConfig) Cost(*agent.Usage) (float64, bool)
-pkg github.com/panyam/chakra/host, method (ConnectionTypes) Build(ConnectionConfig) (agent.Provider, error)
 pkg github.com/panyam/chakra/host, method (PromptSectionFunc) Section(context.Context) string
 pkg github.com/panyam/chakra/host, type Announcer interface
 pkg github.com/panyam/chakra/host, type Announcer interface, SetAnnounce(func(string))
@@ -206,21 +204,8 @@ pkg github.com/panyam/chakra/host, type Config struct, SubAgents []SubAgentConfi
 pkg github.com/panyam/chakra/host, type Config struct, TaskGraceSec int
 pkg github.com/panyam/chakra/host, type Config struct, Team *HostTeamConfig
 pkg github.com/panyam/chakra/host, type Config struct, Triggers []TriggerConfig
-pkg github.com/panyam/chakra/host, type ConnectionConfig struct
-pkg github.com/panyam/chakra/host, type ConnectionConfig struct, APIKey string
-pkg github.com/panyam/chakra/host, type ConnectionConfig struct, APIKeyEnv string
-pkg github.com/panyam/chakra/host, type ConnectionConfig struct, BaseURL string
-pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Dim int
-pkg github.com/panyam/chakra/host, type ConnectionConfig struct, MaxTokens int
-pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Model string
-pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Price *Price
-pkg github.com/panyam/chakra/host, type ConnectionConfig struct, ReasoningEffort string
-pkg github.com/panyam/chakra/host, type ConnectionConfig struct, ResponseSchema *bool
-pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Temperature *bool
-pkg github.com/panyam/chakra/host, type ConnectionConfig struct, ThinkingHint *ThinkingHint
-pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Type string
-pkg github.com/panyam/chakra/host, type ConnectionConfig struct, Vision bool
-pkg github.com/panyam/chakra/host, type ConnectionTypes map[string]ProviderBuilder
+pkg github.com/panyam/chakra/host, type ConnectionConfig = connection.Config
+pkg github.com/panyam/chakra/host, type ConnectionTypes = connection.Types
 pkg github.com/panyam/chakra/host, type ConnectionsConfig struct
 pkg github.com/panyam/chakra/host, type ConnectionsConfig struct, Active string
 pkg github.com/panyam/chakra/host, type ConnectionsConfig struct, AgentRoles map[string]string
@@ -308,10 +293,7 @@ pkg github.com/panyam/chakra/host, type OffloadConfig struct, PreviewLen int
 pkg github.com/panyam/chakra/host, type OffloadConfig struct, ThresholdBytes int
 pkg github.com/panyam/chakra/host, type PlanExtension struct
 pkg github.com/panyam/chakra/host, type PlanExtension struct, embedded BaseExtension
-pkg github.com/panyam/chakra/host, type Price struct
-pkg github.com/panyam/chakra/host, type Price struct, CachedInput *float64
-pkg github.com/panyam/chakra/host, type Price struct, Input float64
-pkg github.com/panyam/chakra/host, type Price struct, Output float64
+pkg github.com/panyam/chakra/host, type Price = connection.Price
 pkg github.com/panyam/chakra/host, type ProcessController interface
 pkg github.com/panyam/chakra/host, type ProcessController interface, ResizeProcess(string, int, int) error
 pkg github.com/panyam/chakra/host, type ProcessController interface, WriteProcess(string, string) error
@@ -332,7 +314,7 @@ pkg github.com/panyam/chakra/host, type ProcessReporter interface, SetProcessOut
 pkg github.com/panyam/chakra/host, type PromptSection interface
 pkg github.com/panyam/chakra/host, type PromptSection interface, Section(context.Context) string
 pkg github.com/panyam/chakra/host, type PromptSectionFunc func(context.Context) string
-pkg github.com/panyam/chakra/host, type ProviderBuilder func(ConnectionConfig) (agent.Provider, error)
+pkg github.com/panyam/chakra/host, type ProviderBuilder = connection.Builder
 pkg github.com/panyam/chakra/host, type RunRestorer interface
 pkg github.com/panyam/chakra/host, type RunRestorer interface, RestoreRun(agent.Run)
 pkg github.com/panyam/chakra/host, type SamplingConfig struct
@@ -398,9 +380,7 @@ pkg github.com/panyam/chakra/host, type SystemPromptBuilder struct, Sections []P
 pkg github.com/panyam/chakra/host, type TeamMemberConfig struct
 pkg github.com/panyam/chakra/host, type TeamMemberConfig struct, HandoffTo []string
 pkg github.com/panyam/chakra/host, type TeamMemberConfig struct, embedded SubAgentConfig
-pkg github.com/panyam/chakra/host, type ThinkingHint struct
-pkg github.com/panyam/chakra/host, type ThinkingHint struct, CloseTag string
-pkg github.com/panyam/chakra/host, type ThinkingHint struct, OpenTag string
+pkg github.com/panyam/chakra/host, type ThinkingHint = connection.ThinkingHint
 pkg github.com/panyam/chakra/host, type ToolCallConfig struct
 pkg github.com/panyam/chakra/host, type ToolCallConfig struct, Arguments map[string]any
 pkg github.com/panyam/chakra/host, type ToolCallConfig struct, Name string

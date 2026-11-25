@@ -12,7 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/panyam/chakra"
+	agent "github.com/panyam/chakra"
+	"github.com/panyam/chakra/connection"
 )
 
 func TestDefaultProviderBuilder_OpenAIResponses(t *testing.T) {
@@ -23,7 +24,7 @@ func TestDefaultProviderBuilder_OpenAIResponses(t *testing.T) {
 	if _, ok := p.(*agent.ResponsesProvider); !ok {
 		t.Fatalf("openai-responses built %T, want *agent.ResponsesProvider", p)
 	}
-	if u, _ := resolveBaseURL(ConnectionConfig{Type: "openai-responses"}); u != "https://api.openai.com/v1" {
+	if u, _ := connection.ResolveBaseURL(ConnectionConfig{Type: "openai-responses"}); u != "https://api.openai.com/v1" {
 		t.Fatalf("base = %q", u)
 	}
 }

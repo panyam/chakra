@@ -3,15 +3,10 @@ package host
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"math"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/panyam/chakra"
-	"github.com/panyam/mcpkit/core"
+	agent "github.com/panyam/chakra"
 )
 
 func twoConn() *ConnectionsConfig {
@@ -104,108 +99,6 @@ func TestConnectionRegistry_ValidationErrors(t *testing.T) {
 		if _, err := newConnectionRegistry(cfg, stubBuilder(t)); err == nil {
 			t.Fatalf("%s: newConnectionRegistry succeeded, want error", name)
 		}
-	}
-}
-
-func TestResolveBaseURL(t *testing.T) {
-	if u, _ := resolveBaseURL(ConnectionConfig{Type: "lmstudio"}); u != "http://localhost:1234/v1" {
-		t.Fatalf("lmstudio base = %q", u)
-	}
-	if u, _ := resolveBaseURL(ConnectionConfig{Type: "lmstudio", BaseURL: "http://x/v1"}); u != "http://x/v1" {
-		t.Fatalf("BaseURL should override type, got %q", u)
-	}
-	if _, err := resolveBaseURL(ConnectionConfig{Model: "m"}); err == nil {
-		t.Fatal("no type and no baseUrl should error")
-	}
-	if u, _ := resolveBaseURL(ConnectionConfig{Type: "gemini"}); u != "https://generativelanguage.googleapis.com/v1beta/openai" {
-		t.Fatalf("gemini base = %q", u)
-	}
-	if u, _ := resolveBaseURL(ConnectionConfig{Type: "anthropic"}); u != "https://api.anthropic.com" {
-		t.Fatalf("anthropic base = %q", u)
-	}
-	if u, _ := resolveBaseURL(ConnectionConfig{Type: "openrouter"}); u != "https://openrouter.ai/api/v1" {
-		t.Fatalf("openrouter base = %q", u)
-	}
-	if u, _ := resolveBaseURL(ConnectionConfig{Type: "litellm"}); u != "http://localhost:4000/v1" {
-		t.Fatalf("litellm base = %q", u)
-	}
-	// a router connection can override the preset base (hosted litellm)
-	if u, _ := resolveBaseURL(ConnectionConfig{Type: "litellm", BaseURL: "https://gw.example/v1"}); u != "https://gw.example/v1" {
-		t.Fatalf("litellm BaseURL override = %q", u)
-	}
-}
-
-// TestThinkingHintWrapsProvider pins that a ThinkingHint on a connection makes
-// DefaultProviderBuilder wrap the provider in the inline-reasoning parser, and
-// that no hint leaves it unwrapped.
-func TestThinkingHintWrapsProvider(t *testing.T) {
-	plain, err := DefaultProviderBuilder(ConnectionConfig{Type: "lmstudio", Model: "m"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := plain.(*agent.OpenAIProvider); !ok {
-		t.Fatalf("no hint should be the bare provider, got %T", plain)
-	}
-	hinted, err := DefaultProviderBuilder(ConnectionConfig{
-		Type: "lmstudio", Model: "m",
-		ThinkingHint: &ThinkingHint{OpenTag: "<think>", CloseTag: "</think>"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := hinted.(*agent.OpenAIProvider); ok {
-		t.Fatal("a ThinkingHint should wrap the provider, but got the bare *agent.OpenAIProvider")
-	}
-}
-
-// TestRouterPresets_BuildOpenAIWire pins that the router types build the
-// OpenAI-wire provider (they are gateways, not a native provider).
-func TestRouterPresets_BuildOpenAIWire(t *testing.T) {
-	for _, typ := range []string{"openrouter", "litellm"} {
-		p, err := DefaultProviderBuilder(ConnectionConfig{Type: typ, Model: "m"})
-		if err != nil {
-			t.Fatalf("%s build: %v", typ, err)
-		}
-		if _, ok := p.(*agent.OpenAIProvider); !ok {
-			t.Fatalf("%s built %T, want *agent.OpenAIProvider", typ, p)
-		}
-	}
-}
-
-// TestDefaultProviderBuilder_ProviderType pins that only "anthropic" routes to
-// the native Messages-API provider; every other type (gemini included) builds
-// the OpenAI-wire provider.
-func TestDefaultProviderBuilder_ProviderType(t *testing.T) {
-	anth, err := DefaultProviderBuilder(ConnectionConfig{Type: "anthropic", Model: "claude-sonnet-5"})
-	if err != nil {
-		t.Fatalf("anthropic build: %v", err)
-	}
-	if _, ok := anth.(*agent.AnthropicProvider); !ok {
-		t.Fatalf("anthropic type built %T, want *agent.AnthropicProvider", anth)
-	}
-	gem, err := DefaultProviderBuilder(ConnectionConfig{Type: "gemini", Model: "gemini-2.5-flash"})
-	if err != nil {
-		t.Fatalf("gemini build: %v", err)
-	}
-	if _, ok := gem.(*agent.OpenAIProvider); !ok {
-		t.Fatalf("gemini type built %T, want *agent.OpenAIProvider", gem)
-	}
-}
-
-// TestBuildEmbedder pins that openai/gemini connections build an OpenAI-wire
-// embedder and anthropic (no embeddings API) is rejected.
-func TestBuildEmbedder(t *testing.T) {
-	for _, typ := range []string{"openai", "gemini", "lmstudio"} {
-		e, err := BuildEmbedder(ConnectionConfig{Type: typ, Model: "embed-model", Dim: 1536}, nil)
-		if err != nil {
-			t.Fatalf("%s embedder: %v", typ, err)
-		}
-		if _, ok := e.(*agent.OpenAIEmbedder); !ok {
-			t.Fatalf("%s built %T, want *agent.OpenAIEmbedder", typ, e)
-		}
-	}
-	if _, err := BuildEmbedder(ConnectionConfig{Type: "anthropic", Model: "claude"}, nil); err == nil {
-		t.Fatal("anthropic embedder should error (no embeddings API)")
 	}
 }
 
@@ -383,82 +276,5 @@ func TestLocalConnectionsReportWhatTheyCanSend(t *testing.T) {
 	c.Connections["bare"] = ConnectionConfig{Type: "openai"}
 	if _, err := newConnectionRegistry(&c, nil); err == nil || !strings.Contains(err.Error(), "has no model") {
 		t.Errorf("control: an openai connection without a model: %v", err)
-	}
-}
-
-// "responseSchema": false on a connection makes the built provider ask for
-// json_object rather than json_schema, so the structured finalize can run on
-// DeepSeek (#215). As a control, a connection without it still sends
-// json_schema.
-func TestConnectionResponseSchemaFalseSendsJSONObject(t *testing.T) {
-	var format string
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			ResponseFormat struct {
-				Type string `json:"type"`
-			} `json:"response_format"`
-		}
-		json.NewDecoder(r.Body).Decode(&body)
-		format = body.ResponseFormat.Type
-		fmt.Fprint(w, `{"choices":[{"message":{"content":"{}"},"finish_reason":"stop"}]}`)
-	}))
-	defer ts.Close()
-
-	for _, tc := range []struct{ conn, want string }{
-		{`{"baseUrl": "` + ts.URL + `", "model": "deepseek-chat", "responseSchema": false}`, "json_object"},
-		{`{"baseUrl": "` + ts.URL + `", "model": "gpt-4.1-mini"}`, "json_schema"},
-	} {
-		var conn ConnectionConfig
-		if err := json.Unmarshal([]byte(tc.conn), &conn); err != nil {
-			t.Fatal(err)
-		}
-		p, err := DefaultProviderBuilder(conn)
-		if err != nil {
-			t.Fatal(err)
-		}
-		format = ""
-		if _, err := p.Generate(context.Background(), agent.ProviderRequest{
-			Messages:       []agent.Message{{Role: agent.RoleUser, Text: "hi"}},
-			ResponseSchema: core.NewRawJSON(json.RawMessage(`{"type":"object"}`)),
-		}); err != nil {
-			t.Fatal(err)
-		}
-		if format != tc.want {
-			t.Errorf("%s sent response_format %q, want %q", tc.conn, format, tc.want)
-		}
-	}
-}
-
-func TestConnectionCost(t *testing.T) {
-	cachedRate := 0.25
-	usage := &agent.Usage{InputTokens: 1_000_000, CachedInputTokens: 400_000, OutputTokens: 100_000}
-	cases := []struct {
-		name   string
-		price  *Price
-		usage  *agent.Usage
-		want   float64
-		wantOK bool
-	}{
-		{"cached tokens at the cached rate", &Price{Input: 2, CachedInput: &cachedRate, Output: 10}, usage, 0.6*2 + 0.4*0.25 + 0.1*10, true},
-		{"cached tokens at the input rate when no cached rate", &Price{Input: 2, Output: 10}, usage, 1*2 + 0.1*10, true},
-		{"no price is unknown", nil, usage, 0, false},
-		{"no usage is unknown", &Price{Input: 2, Output: 10}, nil, 0, false},
-		{"cached above input is capped", &Price{Input: 1, CachedInput: &cachedRate, Output: 0}, &agent.Usage{InputTokens: 100, CachedInputTokens: 500}, 100 * 0.25 / 1e6, true},
-	}
-	for _, c := range cases {
-		got, ok := ConnectionConfig{Price: c.price}.Cost(c.usage)
-		if ok != c.wantOK || math.Abs(got-c.want) > 1e-12 {
-			t.Errorf("%s: Cost = %v, %v; want %v, %v", c.name, got, ok, c.want, c.wantOK)
-		}
-	}
-}
-
-func TestConnectionPriceLoadsFromJSON(t *testing.T) {
-	var conn ConnectionConfig
-	if err := json.Unmarshal([]byte(`{"type":"openai-responses","model":"gpt-5.5","price":{"input":1.25,"cachedInput":0.125,"output":10}}`), &conn); err != nil {
-		t.Fatal(err)
-	}
-	if conn.Price == nil || conn.Price.Input != 1.25 || conn.Price.CachedInput == nil || *conn.Price.CachedInput != 0.125 || conn.Price.Output != 10 {
-		t.Errorf("price = %+v", conn.Price)
 	}
 }
