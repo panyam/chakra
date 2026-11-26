@@ -89,11 +89,7 @@ func addSpend(total, add map[string]agent.Usage) map[string]agent.Usage {
 		if total == nil {
 			total = map[string]agent.Usage{}
 		}
-		t := total[model]
-		t.InputTokens += u.InputTokens
-		t.OutputTokens += u.OutputTokens
-		t.CachedInputTokens += u.CachedInputTokens
-		total[model] = t
+		total[model] = total[model].Add(u)
 	}
 	return total
 }

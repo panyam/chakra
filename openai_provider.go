@@ -486,6 +486,9 @@ type oaUsage struct {
 	PromptTokensDetails *struct {
 		CachedTokens int `json:"cached_tokens"`
 	} `json:"prompt_tokens_details"`
+	CompletionTokensDetails *struct {
+		ReasoningTokens int `json:"reasoning_tokens"`
+	} `json:"completion_tokens_details"`
 }
 
 // oaTimings is llama.cpp's own report, beside usage. Only cache_n is read,
@@ -501,6 +504,9 @@ func (u *oaUsage) toUsage(t *oaTimings) *Usage {
 		out.CachedInputTokens = u.PromptTokensDetails.CachedTokens
 	case t != nil:
 		out.CachedInputTokens = t.CacheN
+	}
+	if d := u.CompletionTokensDetails; d != nil {
+		out.ReasoningTokens = d.ReasoningTokens
 	}
 	return out
 }
@@ -527,6 +533,10 @@ type openaiStream struct {
 	sseStream
 	started map[int]bool
 	nameMap map[string]string // safe→real tool name, to reverse sanitized names on tool_call deltas
+	// reasoningChunks counts the chunks that carried reasoning. llama.cpp
+	// streams one token per chunk and sends no reasoning count, so this
+	// count stands in for one (#374).
+	reasoningChunks int
 }
 
 // decode turns one SSE data payload into Deltas. The "[DONE]" sentinel ends the
@@ -547,8 +557,17 @@ func (s *openaiStream) decode(payload string) ([]Delta, bool, error) {
 // and the rest are DeltaToolCallArgs.
 func (s *openaiStream) chunkDeltas(chunk oaChunk) []Delta {
 	var out []Delta
+	if len(chunk.Choices) > 0 {
+		if d := chunk.Choices[0].Delta; d.ReasoningContent+d.Reasoning != "" {
+			s.reasoningChunks++
+		}
+	}
 	if chunk.Usage != nil {
-		out = append(out, Delta{Kind: DeltaUsage, Usage: chunk.Usage.toUsage(chunk.Timings)})
+		u := chunk.Usage.toUsage(chunk.Timings)
+		if u.ReasoningTokens == 0 {
+			u.ReasoningTokens = min(s.reasoningChunks, u.OutputTokens)
+		}
+		out = append(out, Delta{Kind: DeltaUsage, Usage: u})
 	}
 	if len(chunk.Choices) == 0 {
 		return out

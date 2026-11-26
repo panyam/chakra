@@ -335,7 +335,7 @@ func (o *execOutput) countLocked(scope string, ev agent.Event) {
 	case agent.EventStep:
 		o.tally.ModelCalls++
 		if scope == "" && ev.Usage != nil {
-			o.mainUsage = addUsage(o.mainUsage, *ev.Usage)
+			o.mainUsage = o.mainUsage.Add(*ev.Usage)
 		}
 		usd := o.priceLocked(ev.Model, ev.Usage)
 		if o.jsonl {
@@ -350,12 +350,12 @@ func (o *execOutput) countLocked(scope string, ev agent.Event) {
 func (o *execOutput) priceLocked(model string, u *agent.Usage) *float64 {
 	name := o.connName(model)
 	if u != nil {
-		o.tally.Usage = addUsage(o.tally.Usage, *u)
+		o.tally.Usage = o.tally.Usage.Add(*u)
 		if name != "" {
 			if o.tally.UsageByConnection == nil {
 				o.tally.UsageByConnection = map[string]agent.Usage{}
 			}
-			o.tally.UsageByConnection[name] = addUsage(o.tally.UsageByConnection[name], *u)
+			o.tally.UsageByConnection[name] = o.tally.UsageByConnection[name].Add(*u)
 		}
 	}
 	usd, ok := o.conns[name].Cost(u)
@@ -382,11 +382,7 @@ func (o *execOutput) connName(model string) string {
 // event and runs on the active connection.
 func (o *execOutput) finishLocked(res *agent.TurnResult) {
 	o.tally.Steps = res.Steps
-	extra := agent.Usage{
-		InputTokens:       res.Usage.InputTokens - o.mainUsage.InputTokens,
-		OutputTokens:      res.Usage.OutputTokens - o.mainUsage.OutputTokens,
-		CachedInputTokens: res.Usage.CachedInputTokens - o.mainUsage.CachedInputTokens,
-	}
+	extra := res.Usage.Sub(o.mainUsage)
 	o.mainUsage = res.Usage
 	if extra.InputTokens > 0 || extra.OutputTokens > 0 {
 		o.tally.ModelCalls++
@@ -410,14 +406,6 @@ func (o *execOutput) writeSummary(err error) {
 		}
 	}
 	o.writeLocked("summary", o.tally)
-}
-
-func addUsage(a, b agent.Usage) agent.Usage {
-	return agent.Usage{
-		InputTokens:       a.InputTokens + b.InputTokens,
-		OutputTokens:      a.OutputTokens + b.OutputTokens,
-		CachedInputTokens: a.CachedInputTokens + b.CachedInputTokens,
-	}
 }
 
 // execFrame is one JSON line. A decoded agentweb Watch frame has the same

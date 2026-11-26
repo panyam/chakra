@@ -49,9 +49,7 @@ func (s *samplingState) add(u *agent.Usage) (int, agent.Usage) {
 	defer s.mu.Unlock()
 	s.requests++
 	if u != nil {
-		s.usage.InputTokens += u.InputTokens
-		s.usage.OutputTokens += u.OutputTokens
-		s.usage.CachedInputTokens += u.CachedInputTokens
+		s.usage = s.usage.Add(*u)
 	}
 	return s.requests, s.usage
 }

@@ -103,11 +103,25 @@ func (r LadderReport) Table() string {
 		cases = max(cases, s.Report.Total)
 	}
 	fmt.Fprintf(&b, "%s: %d cases\n", r.Ladder, cases)
+	// The reasoning column shows only when some step thought, so a ladder
+	// on models that don't keeps its table as it was.
+	thought := false
+	for _, s := range r.Steps {
+		thought = thought || s.Report.ReasoningTokens() > 0
+	}
 	w := tabwriter.NewWriter(&b, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "step\tpass\tchange\tusd/correct\tsec/correct\t")
+	head := "step\tpass\tchange\tusd/correct\tsec/correct\t"
+	if thought {
+		head += "reasoning/correct\t"
+	}
+	fmt.Fprintln(w, head)
 	for i, s := range r.Steps {
 		if s.Err != "" {
-			fmt.Fprintf(w, "%s\t-\t-\t-\t-\t%s\n", s.Step, s.Err)
+			dashes := "-\t-\t-\t-\t"
+			if thought {
+				dashes += "-\t"
+			}
+			fmt.Fprintf(w, "%s\t%s%s\n", s.Step, dashes, s.Err)
 			continue
 		}
 		change := ""
@@ -121,7 +135,15 @@ func (r LadderReport) Table() string {
 		if t, ok := s.Report.TimePerCorrect(); ok {
 			sec = fmt.Sprintf("%.2f", t.Seconds())
 		}
-		fmt.Fprintf(w, "%s\t%d/%d\t%s\t%s\t%s\t\n", s.Step, s.Report.Passed, s.Report.Total, change, usd, sec)
+		row := fmt.Sprintf("%s\t%d/%d\t%s\t%s\t%s\t", s.Step, s.Report.Passed, s.Report.Total, change, usd, sec)
+		if thought {
+			think := "-"
+			if n, ok := s.Report.ReasoningPerCorrect(); ok {
+				think = fmt.Sprint(n)
+			}
+			row += think + "\t"
+		}
+		fmt.Fprintln(w, row)
 	}
 	w.Flush()
 	return b.String()
@@ -139,6 +161,32 @@ func (r SuiteReport) TimePerCorrect() (time.Duration, bool) {
 		total += c.Elapsed + c.SetupElapsed
 	}
 	return total / time.Duration(r.Passed), true
+}
+
+// ReasoningTokens sums the reasoning tokens of every case's turns, setup
+// included, over every model. Zero means no model thought, or none of the
+// providers reported it (agent.Usage.ReasoningTokens).
+func (r SuiteReport) ReasoningTokens() int {
+	n := 0
+	for _, c := range r.Cases {
+		for _, u := range c.Usage {
+			n += u.ReasoningTokens
+		}
+		for _, u := range c.SetupUsage {
+			n += u.ReasoningTokens
+		}
+	}
+	return n
+}
+
+// ReasoningPerCorrect is ReasoningTokens over the number of cases that
+// passed, rounded down. Failed cases count in the total, as in
+// TimePerCorrect. It reports false when nothing passed.
+func (r SuiteReport) ReasoningPerCorrect() (int, bool) {
+	if r.Passed == 0 {
+		return 0, false
+	}
+	return r.ReasoningTokens() / r.Passed, true
 }
 
 // dollars prints d with at least four decimals, and more when d is small, so

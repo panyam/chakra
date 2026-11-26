@@ -310,6 +310,8 @@ pkg github.com/panyam/chakra, method (StuckFinding) String() string
 pkg github.com/panyam/chakra, method (ToolChoice) IsZero() bool
 pkg github.com/panyam/chakra, method (ToolNames) Real(string) string
 pkg github.com/panyam/chakra, method (ToolNames) Wire(string) string
+pkg github.com/panyam/chakra, method (Usage) Add(Usage) Usage
+pkg github.com/panyam/chakra, method (Usage) Sub(Usage) Usage
 pkg github.com/panyam/chakra, type AgentHop struct
 pkg github.com/panyam/chakra, type AgentHop struct, Name string
 pkg github.com/panyam/chakra, type AgentPath []AgentHop
@@ -998,6 +1000,7 @@ pkg github.com/panyam/chakra, type Usage struct
 pkg github.com/panyam/chakra, type Usage struct, CachedInputTokens int
 pkg github.com/panyam/chakra, type Usage struct, InputTokens int
 pkg github.com/panyam/chakra, type Usage struct, OutputTokens int
+pkg github.com/panyam/chakra, type Usage struct, ReasoningTokens int
 pkg github.com/panyam/chakra, type WindowStrategy string
 pkg github.com/panyam/chakra, var ErrContextBudget
 pkg github.com/panyam/chakra, var ErrInputRequired
@@ -1061,6 +1064,7 @@ pkg github.com/panyam/chakra/connection, type Row struct, Tag string
 pkg github.com/panyam/chakra/connection, type Row struct, TokensCached int
 pkg github.com/panyam/chakra/connection, type Row struct, TokensIn int
 pkg github.com/panyam/chakra/connection, type Row struct, TokensOut int
+pkg github.com/panyam/chakra/connection, type Row struct, TokensReasoning int
 pkg github.com/panyam/chakra/connection, type Row struct, Wrong int
 pkg github.com/panyam/chakra/connection, type TableRouter struct
 pkg github.com/panyam/chakra/connection, type TableRouter struct, Arm string
@@ -1100,6 +1104,8 @@ pkg github.com/panyam/chakra/eval, method (SuiteReport) Cost() (float64, bool)
 pkg github.com/panyam/chakra/eval, method (SuiteReport) CostPerCorrect() (float64, bool)
 pkg github.com/panyam/chakra/eval, method (SuiteReport) Dimensions() []DimensionReport
 pkg github.com/panyam/chakra/eval, method (SuiteReport) Pass() bool
+pkg github.com/panyam/chakra/eval, method (SuiteReport) ReasoningPerCorrect() (int, bool)
+pkg github.com/panyam/chakra/eval, method (SuiteReport) ReasoningTokens() int
 pkg github.com/panyam/chakra/eval, method (SuiteReport) String() string
 pkg github.com/panyam/chakra/eval, method (SuiteReport) TimePerCorrect() (time.Duration, bool)
 pkg github.com/panyam/chakra/eval, type Adapter interface

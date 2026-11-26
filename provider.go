@@ -587,6 +587,41 @@ type Usage struct {
 	// llama.cpp, the caller sets cache_prompt through OpenAIConfig.ExtraBody.
 	// This field only reports what happened.
 	CachedInputTokens int `json:"cachedInputTokens,omitempty"`
+
+	// ReasoningTokens counts the part of OutputTokens the model spent
+	// thinking before it answered, so it never exceeds OutputTokens. Zero
+	// means the model didn't think or the provider didn't say, and the two
+	// can't be told apart. OpenAIProvider reads
+	// usage.completion_tokens_details.reasoning_tokens. llama.cpp sends no
+	// count, so when a stream carried reasoning and the server sent none,
+	// OpenAIProvider counts the reasoning chunks, one token each, as
+	// llama.cpp streams them. A non-streaming call to llama.cpp reports zero.
+	// ResponsesProvider reads usage.output_tokens_details.reasoning_tokens.
+	// Anthropic bills thinking inside output_tokens and sends no separate
+	// figure, so AnthropicProvider reports zero.
+	ReasoningTokens int `json:"reasoningTokens,omitempty"`
+}
+
+// Add returns u with every count in o added to it. Sum usage with Add
+// rather than field by field, so a new count reaches every total.
+func (u Usage) Add(o Usage) Usage {
+	return Usage{
+		InputTokens:       u.InputTokens + o.InputTokens,
+		OutputTokens:      u.OutputTokens + o.OutputTokens,
+		CachedInputTokens: u.CachedInputTokens + o.CachedInputTokens,
+		ReasoningTokens:   u.ReasoningTokens + o.ReasoningTokens,
+	}
+}
+
+// Sub returns u with every count in o taken from it. It gives the usage
+// between two running totals, such as what one call added to a turn.
+func (u Usage) Sub(o Usage) Usage {
+	return Usage{
+		InputTokens:       u.InputTokens - o.InputTokens,
+		OutputTokens:      u.OutputTokens - o.OutputTokens,
+		CachedInputTokens: u.CachedInputTokens - o.CachedInputTokens,
+		ReasoningTokens:   u.ReasoningTokens - o.ReasoningTokens,
+	}
 }
 
 // DeltaKind discriminates Delta payloads.

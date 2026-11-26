@@ -342,10 +342,7 @@ func (s Suite) addUsage(into, from map[string]agent.Usage) map[string]agent.Usag
 		if into == nil {
 			into = map[string]agent.Usage{}
 		}
-		sum := into[name]
-		sum.InputTokens += u.InputTokens
-		sum.OutputTokens += u.OutputTokens
-		into[name] = sum
+		into[name] = into[name].Add(u)
 	}
 	return into
 }
