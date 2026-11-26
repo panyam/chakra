@@ -78,9 +78,11 @@ func TestModelUserPlaysTheCustomer(t *testing.T) {
 		req.Messages[2].Role != agent.RoleUser || req.Messages[2].Text != "Shall I go ahead?" {
 		t.Errorf("messages = %+v, want an opening user message, then the customer's as assistant and the agent's text as user, tools left out", req.Messages)
 	}
-	p.reply = " DONE "
-	if _, done, _ := u(context.Background(), nil); !done {
-		t.Errorf("DONE didn't end the conversation")
+	for _, reply := range []string{" DONE ", "DONE\nThanks for your help!", "DONE."} {
+		p.reply = reply
+		if _, done, _ := u(context.Background(), nil); !done {
+			t.Errorf("%q didn't end the conversation", reply)
+		}
 	}
 }
 

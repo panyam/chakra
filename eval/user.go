@@ -43,7 +43,10 @@ func ModelUser(p agent.Provider, goal string) User {
 			return "", false, err
 		}
 		next := strings.TrimSpace(resp.Text)
-		if next == userDone || next == "" {
+		// A model often adds a word or a line after DONE ("DONE. Thanks!"),
+		// and that reply would otherwise reach the agent as a message.
+		first, _, _ := strings.Cut(next, "\n")
+		if next == "" || strings.TrimRight(strings.TrimSpace(first), ".!") == userDone {
 			return "", true, nil
 		}
 		return next, false, nil
