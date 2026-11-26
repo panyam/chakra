@@ -350,3 +350,43 @@ func TestLocalConnectionsCapEachReply(t *testing.T) {
 		t.Errorf("max_tokens sent %v", sent)
 	}
 }
+
+// Gemini's OpenAI endpoint thinks only when the request sets
+// reasoning_effort, so a connection's reasoningEffort reaches the plain
+// OpenAI wire too. A connection without one sends nothing.
+func TestReasoningEffortReachesTheOpenAIWire(t *testing.T) {
+	var effort *string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			ReasoningEffort *string `json:"reasoning_effort"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		effort = body.ReasoningEffort
+		fmt.Fprint(w, `{"choices":[{"message":{"content":"17"},"finish_reason":"stop"}]}`)
+	}))
+	defer ts.Close()
+	for _, tc := range []struct{ conn, want string }{
+		{`{"type": "gemini", "baseUrl": "` + ts.URL + `", "model": "gemini-3.5-flash-lite", "reasoningEffort": "medium"}`, "medium"},
+		{`{"type": "gemini", "baseUrl": "` + ts.URL + `", "model": "gemini-3.5-flash-lite"}`, ""},
+	} {
+		var conn Config
+		if err := json.Unmarshal([]byte(tc.conn), &conn); err != nil {
+			t.Fatal(err)
+		}
+		p, err := Build(conn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		effort = nil
+		if _, err := p.Generate(context.Background(), agent.ProviderRequest{Messages: []agent.Message{{Role: agent.RoleUser, Text: "hi"}}}); err != nil {
+			t.Fatal(err)
+		}
+		got := ""
+		if effort != nil {
+			got = *effort
+		}
+		if got != tc.want || (tc.want == "" && effort != nil) {
+			t.Errorf("%s sent reasoning_effort %v, want %q", tc.conn, effort, tc.want)
+		}
+	}
+}

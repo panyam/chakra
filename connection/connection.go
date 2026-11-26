@@ -84,9 +84,12 @@ type Config struct {
 	Vision bool `json:"vision,omitempty"`
 
 	// ReasoningEffort is sent as the Responses API's reasoning.effort, with
-	// summary "auto" so the reasoning streams as thinking. Read only for
-	// Type "openai-responses", and only reasoning models accept it: leave it
-	// empty for any other model, or the request is refused. A binary that
+	// summary "auto" so the reasoning streams as thinking. On the plain
+	// OpenAI wire it is sent as reasoning_effort, which OpenAI's reasoning
+	// models and Gemini's OpenAI endpoint read; Gemini thinks only when it
+	// is set. Only reasoning models accept it: leave it empty for any other
+	// model, or the request is refused. llamacpp, ollama and the root
+	// module's anthropic provider ignore it. A binary that
 	// routes "anthropic" through Anthropic's SDK (Types) sends it as
 	// output_config.effort there, and the root module's provider ignores it.
 	ReasoningEffort string `json:"reasoningEffort,omitempty"`
@@ -300,12 +303,17 @@ func builtin(c Config, base, key string, onFullHistory func(reason string)) (age
 	case "ollama":
 		return agent.NewOllamaProvider(agent.OllamaConfig{BaseURL: base, Model: c.Model, APIKey: key, MaxTokens: c.MaxTokens})
 	default:
+		var extra map[string]any
+		if c.ReasoningEffort != "" {
+			extra = map[string]any{"reasoning_effort": c.ReasoningEffort}
+		}
 		return agent.NewOpenAIProvider(agent.OpenAIConfig{
 			BaseURL:          base,
 			Model:            c.Model,
 			APIKey:           key,
 			NoTemperature:    c.Temperature != nil && !*c.Temperature,
 			NoResponseSchema: c.ResponseSchema != nil && !*c.ResponseSchema,
+			ExtraBody:        extra,
 		})
 	}
 }

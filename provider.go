@@ -596,6 +596,9 @@ type Usage struct {
 	// count, so when a stream carried reasoning and the server sent none,
 	// OpenAIProvider counts the reasoning chunks, one token each, as
 	// llama.cpp streams them. A non-streaming call to llama.cpp reports zero.
+	// Gemini's OpenAI endpoint leaves thinking out of completion_tokens and
+	// counts it only in total_tokens, so OpenAIProvider takes the gap as
+	// reasoning and adds it to OutputTokens too.
 	// ResponsesProvider reads usage.output_tokens_details.reasoning_tokens.
 	// Anthropic bills thinking inside output_tokens and sends no separate
 	// figure, so AnthropicProvider reports zero.
