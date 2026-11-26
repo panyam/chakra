@@ -1021,6 +1021,7 @@ pkg github.com/panyam/chakra/connection, func BuildEmbedder(Config, core.TracerP
 pkg github.com/panyam/chakra/connection, func ResolveBaseURL(Config) (string, error)
 pkg github.com/panyam/chakra/connection, method (Config) Cost(*agent.Usage) (float64, bool)
 pkg github.com/panyam/chakra/connection, method (Options) Build(Config) (agent.Provider, error)
+pkg github.com/panyam/chakra/connection, method (Price) Cost(agent.Usage) float64
 pkg github.com/panyam/chakra/connection, method (Row) Cases() int
 pkg github.com/panyam/chakra/connection, method (Row) Cost(*Price) (float64, bool)
 pkg github.com/panyam/chakra/connection, method (TableRouter) Route(context.Context, Request) ([]string, error)
@@ -1144,10 +1145,7 @@ pkg github.com/panyam/chakra/eval, type Ladder struct, Steps []Step
 pkg github.com/panyam/chakra/eval, type LadderReport struct
 pkg github.com/panyam/chakra/eval, type LadderReport struct, Ladder string
 pkg github.com/panyam/chakra/eval, type LadderReport struct, Steps []StepReport
-pkg github.com/panyam/chakra/eval, type Price struct
-pkg github.com/panyam/chakra/eval, type Price struct, InputPerM float64
-pkg github.com/panyam/chakra/eval, type Price struct, OutputPerM float64
-pkg github.com/panyam/chakra/eval, type Prices map[string]Price
+pkg github.com/panyam/chakra/eval, type Prices map[string]connection.Price
 pkg github.com/panyam/chakra/eval, type Result struct
 pkg github.com/panyam/chakra/eval, type Result struct, Case Case
 pkg github.com/panyam/chakra/eval, type Result struct, Err error

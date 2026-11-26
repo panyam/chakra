@@ -66,13 +66,17 @@ func TestLiveReadsTheProfile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "agentchat.json")
 	os.WriteFile(path, []byte(`{"connections": {"active": "local", "connections": {
 		"local": {"type": "llamacpp"},
-		"mini": {"type": "openai", "model": "gpt-5.5-mini", "price": {"input": 0.25, "output": 2}}
+		"mini": {"type": "openai", "model": "gpt-5.5-mini", "price": {"input": 0.25, "cachedInput": 0.025, "output": 2}}
 	}}}`), 0o600)
 	m, err := common.Live(path, "mini")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m.Name != "mini" || m.Provider == nil || m.Prices["mini"].InputPerM != 0.25 || m.Prices["mini"].OutputPerM != 2 {
+	if m.Name != "mini" || m.Provider == nil || m.Prices["mini"].Input != 0.25 || m.Prices["mini"].Output != 2 {
+		t.Errorf("mini = %+v", m)
+	}
+	if c := m.Prices["mini"].CachedInput; c == nil || *c != 0.025 {
+		t.Errorf("mini's cached rate = %v, want 0.025", c)
 		t.Errorf("mini = %+v", m)
 	}
 	if m, err := common.Live(path, "local"); err != nil || m.Prices != nil {
@@ -87,7 +91,7 @@ func writeProfile(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "agentchat.json")
 	os.WriteFile(path, []byte(`{"connections": {"active": "mini", "connections": {
-		"mini": {"type": "openai", "model": "gpt-5.5-mini", "price": {"input": 0.25, "output": 2}},
+		"mini": {"type": "openai", "model": "gpt-5.5-mini", "price": {"input": 0.25, "cachedInput": 0.025, "output": 2}},
 		"local": {"type": "llamacpp"}
 	}}}`), 0o600)
 	return path

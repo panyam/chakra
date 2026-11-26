@@ -134,8 +134,8 @@ func near(a, b float64) bool { return math.Abs(a-b) < 1e-9 }
 
 func TestSuiteCostPerCorrectAnswer(t *testing.T) {
 	report := costSuite(Prices{
-		"extractor": {InputPerM: 1, OutputPerM: 2},
-		"answerer":  {InputPerM: 3, OutputPerM: 15},
+		"extractor": {Input: 1, Output: 2},
+		"answerer":  {Input: 3, Output: 15},
 	})
 	// A: setup 1M in + 0.5M out on extractor = 1 + 1, and the question
 	// 0.5M in + 0.1M out on answerer = 1.5 + 1.5, so 5 in all.
@@ -167,7 +167,7 @@ func TestSuiteCostPerCorrectAnswer(t *testing.T) {
 func TestSuiteWithoutPricesReportsTokensOnly(t *testing.T) {
 	for name, prices := range map[string]Prices{
 		"no prices":        nil,
-		"one model priced": {"answerer": {InputPerM: 3, OutputPerM: 15}},
+		"one model priced": {"answerer": {Input: 3, Output: 15}},
 	} {
 		report := costSuite(prices)
 		for _, c := range report.Cases {
@@ -201,5 +201,18 @@ func TestDimensionCostCountsEachCaseOnce(t *testing.T) {
 	d := report.Dimensions()[0]
 	if d.Cost == nil || *d.Cost != 2 {
 		t.Fatalf("dimension cost = %+v, want 2", d)
+	}
+}
+
+func TestPricesChargeCachedInputAtTheCachedRate(t *testing.T) {
+	cached := 0.25
+	usage := map[string]agent.Usage{"m": {InputTokens: 1_000_000, CachedInputTokens: 800_000, OutputTokens: 100_000}}
+	got, ok := Prices{"m": {Input: 2, CachedInput: &cached, Output: 10}}.Cost(usage)
+	if want := 0.2*2 + 0.8*0.25 + 0.1*10; !ok || !near(got, want) {
+		t.Errorf("Cost = %v, %v; want %v (cached tokens at the cached rate)", got, ok, want)
+	}
+	got, ok = Prices{"m": {Input: 2, Output: 10}}.Cost(usage)
+	if want := 1*2 + 0.1*10.0; !ok || !near(got, want) {
+		t.Errorf("Cost = %v, %v; want %v (no cached rate bills cached tokens at Input)", got, ok, want)
 	}
 }

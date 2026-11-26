@@ -224,8 +224,7 @@ func Connections(path string) ([]Connection, error) {
 
 // Live builds the model for the connection called name in an agentchat
 // config at path, with connection.Build. The connection's Price, when it
-// has one, prices the run. eval.Price has no cached-input rate, so cached
-// tokens are priced at the input rate. A name the config lacks is an error
+// has one, prices the run, cached-input rate included. A name the config lacks is an error
 // that lists the names it has. "active", or "1", names the config's active
 // connection, so LIVE=1 means "on whatever the profile is set to".
 func Live(path, name string) (Model, error) {
@@ -249,7 +248,7 @@ func Live(path, name string) (Model, error) {
 	}
 	model := Model{Provider: p, Name: name}
 	if c.Price != nil {
-		model.Prices = eval.Prices{name: {InputPerM: c.Price.Input, OutputPerM: c.Price.Output}}
+		model.Prices = eval.Prices{name: *c.Price}
 	}
 	return model, nil
 }

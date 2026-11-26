@@ -115,7 +115,7 @@ func TestLadderTableCostAndTimePerCorrect(t *testing.T) {
 			Single(Case{Name: "a2", Input: "go"}, Contains("said a")),
 		},
 	}
-	priced := l.Run(context.Background(), Suite{Config: agent.RunnerConfig{Provider: p}, ModelName: "m", Prices: Prices{"m": {InputPerM: 2}}})
+	priced := l.Run(context.Background(), Suite{Config: agent.RunnerConfig{Provider: p}, ModelName: "m", Prices: Prices{"m": {Input: 2}}})
 	if d, ok := priced.Steps[1].Report.CostPerCorrect(); !ok || d != 2 {
 		t.Errorf("+ a: CostPerCorrect = %v, %v; want 2 (two cases at $2, two correct)", d, ok)
 	}

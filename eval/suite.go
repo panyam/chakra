@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/panyam/chakra"
+	"github.com/panyam/chakra/connection"
 )
 
 // SuiteCase is one graded unit: a scenario to run and the scorers that grade
@@ -119,16 +120,11 @@ type Setup struct {
 	Usage map[string]agent.Usage
 }
 
-// Price is what one model charges, in dollars per million tokens.
-type Price struct {
-	InputPerM  float64 `json:"inputPerM"`
-	OutputPerM float64 `json:"outputPerM"`
-}
-
-// Prices maps a model name to its Price. The names are the ones CaseReport
-// uses, so the keys of TurnResult.UsageByModel and Setup.Usage, with ""
+// Prices maps a model name to its connection.Price, the same price a
+// connection's "price" block holds. The names are the ones CaseReport uses,
+// so the keys of TurnResult.UsageByModel and Setup.Usage, with ""
 // relabelled as Suite.ModelName.
-type Prices map[string]Price
+type Prices map[string]connection.Price
 
 // Cost prices every usage map together. It reports false when any model
 // with a non-zero token count has no price, because a total that leaves out
@@ -148,7 +144,7 @@ func (p Prices) Cost(usage ...map[string]agent.Usage) (float64, bool) {
 			if !ok {
 				return 0, false
 			}
-			total += float64(n.InputTokens)*price.InputPerM/1e6 + float64(n.OutputTokens)*price.OutputPerM/1e6
+			total += price.Cost(n)
 		}
 	}
 	return total, true
