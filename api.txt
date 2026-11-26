@@ -1077,6 +1077,7 @@ pkg github.com/panyam/chakra/eval, func Final([]Result) Result
 pkg github.com/panyam/chakra/eval, func Judge(agent.Provider, string) Scorer
 pkg github.com/panyam/chakra/eval, func LoadSuite(agent.RunnerConfig, Adapter) (Suite, bool, error)
 pkg github.com/panyam/chakra/eval, func MaxSteps(int) Scorer
+pkg github.com/panyam/chakra/eval, func ModelUser(agent.Provider, string) User
 pkg github.com/panyam/chakra/eval, func NoError() Scorer
 pkg github.com/panyam/chakra/eval, func NotContains(string) Scorer
 pkg github.com/panyam/chakra/eval, func NotDenied() Scorer
@@ -1096,6 +1097,7 @@ pkg github.com/panyam/chakra/eval, method (LadderReport) Table() string
 pkg github.com/panyam/chakra/eval, method (Prices) Cost(...map[string]agent.Usage) (float64, bool)
 pkg github.com/panyam/chakra/eval, method (StepReport) Delta() int
 pkg github.com/panyam/chakra/eval, method (Suite) Run(context.Context) SuiteReport
+pkg github.com/panyam/chakra/eval, method (SuiteCase) Prepare(context.Context, agent.RunnerConfig) (agent.RunnerConfig, Scenario, Setup, error)
 pkg github.com/panyam/chakra/eval, method (SuiteReport) Cost() (float64, bool)
 pkg github.com/panyam/chakra/eval, method (SuiteReport) CostPerCorrect() (float64, bool)
 pkg github.com/panyam/chakra/eval, method (SuiteReport) Dimensions() []DimensionReport
@@ -1149,11 +1151,13 @@ pkg github.com/panyam/chakra/eval, type Scenario struct
 pkg github.com/panyam/chakra/eval, type Scenario struct, History []agent.Message
 pkg github.com/panyam/chakra/eval, type Scenario struct, Instructions string
 pkg github.com/panyam/chakra/eval, type Scenario struct, MaxSteps int
+pkg github.com/panyam/chakra/eval, type Scenario struct, MaxUserTurns int
 pkg github.com/panyam/chakra/eval, type Scenario struct, Memory bool
 pkg github.com/panyam/chakra/eval, type Scenario struct, Name string
 pkg github.com/panyam/chakra/eval, type Scenario struct, NewMemoryStore func() (agent.MemoryStore, error)
 pkg github.com/panyam/chakra/eval, type Scenario struct, Tools agent.ToolSource
 pkg github.com/panyam/chakra/eval, type Scenario struct, Turns []string
+pkg github.com/panyam/chakra/eval, type Scenario struct, User User
 pkg github.com/panyam/chakra/eval, type Score struct
 pkg github.com/panyam/chakra/eval, type Score struct, Detail string
 pkg github.com/panyam/chakra/eval, type Score struct, Name string
@@ -1186,11 +1190,13 @@ pkg github.com/panyam/chakra/eval, type SuiteCase struct, Configure func(agent.R
 pkg github.com/panyam/chakra/eval, type SuiteCase struct, Scenario Scenario
 pkg github.com/panyam/chakra/eval, type SuiteCase struct, Scorers func(agent.Provider) []Scorer
 pkg github.com/panyam/chakra/eval, type SuiteCase struct, Setup func(context.Context) (Setup, error)
+pkg github.com/panyam/chakra/eval, type SuiteCase struct, User func(agent.Provider) User
 pkg github.com/panyam/chakra/eval, type SuiteReport struct
 pkg github.com/panyam/chakra/eval, type SuiteReport struct, Cases []CaseReport
 pkg github.com/panyam/chakra/eval, type SuiteReport struct, Failed int
 pkg github.com/panyam/chakra/eval, type SuiteReport struct, Passed int
 pkg github.com/panyam/chakra/eval, type SuiteReport struct, Total int
+pkg github.com/panyam/chakra/eval, type User func(context.Context, []agent.Message) (string, bool, error)
 pkg github.com/panyam/chakra/eval/agentdojo, const ScoreSecurity
 pkg github.com/panyam/chakra/eval/agentdojo, const ScoreUtility
 pkg github.com/panyam/chakra/eval/agentdojo, func AttackSuccessRate(eval.SuiteReport) float64

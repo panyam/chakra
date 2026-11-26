@@ -229,27 +229,9 @@ func (w *Walker) watch(ctx context.Context, n int) *demokit.StepResult {
 	}
 	sc := w.ladder.Cases[n-1]
 	fmt.Printf("\nWatching case %d: %s\n\n", n, sc.Scenario.Name)
-	cfg, scenario := w.cfg, sc.Scenario
-	if sc.Configure != nil {
-		var err error
-		if cfg, err = sc.Configure(cfg); err != nil {
-			return demokit.Err(err)
-		}
-	}
-	if sc.Setup != nil {
-		st, err := sc.Setup(ctx)
-		if err != nil {
-			return demokit.Errf("setup: %v", err)
-		}
-		if st.Tools != nil {
-			scenario.Tools = st.Tools
-		}
-		if st.Instructions != "" {
-			scenario.Instructions = st.Instructions
-		}
-		if st.History != nil {
-			scenario.History = st.History
-		}
+	cfg, scenario, _, err := sc.Prepare(ctx, w.cfg)
+	if err != nil {
+		return demokit.Err(err)
 	}
 	results, err := eval.RunScenario(ctx, cfg, scenario)
 	if err != nil {
