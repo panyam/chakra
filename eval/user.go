@@ -35,9 +35,24 @@ func ModelUser(p agent.Provider, goal string) User {
 				msgs = append(msgs, agent.Message{Role: agent.RoleUser, Text: m.Text})
 			}
 		}
-		// Some APIs, Anthropic's among them, need the first message to be the
-		// user's, and from the customer's side the agent hasn't spoken yet.
+		// Some APIs, Anthropic's among them, need the roles to alternate,
+		// starting and ending with the user's, which here is the agent's.
+		// From the customer's side the agent hasn't spoken first. A refused
+		// answer and its retry are two agent replies in a row. And a turn
+		// that ended without text leaves the customer's message last.
 		msgs = append([]agent.Message{{Role: agent.RoleUser, Text: "(The support chat has started. Write your first message.)"}}, msgs...)
+		if msgs[len(msgs)-1].Role != agent.RoleUser {
+			msgs = append(msgs, agent.Message{Role: agent.RoleUser, Text: "(The agent didn't reply.)"})
+		}
+		merged := msgs[:1]
+		for _, m := range msgs[1:] {
+			if last := &merged[len(merged)-1]; last.Role == m.Role {
+				last.Text += "\n\n" + m.Text
+				continue
+			}
+			merged = append(merged, m)
+		}
+		msgs = merged
 		resp, err := p.Generate(ctx, agent.ProviderRequest{Instructions: instructions, Messages: msgs})
 		if err != nil {
 			return "", false, err

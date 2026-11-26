@@ -131,3 +131,38 @@ func TestSuiteCaseUserGetsTheProvider(t *testing.T) {
 		t.Errorf("the user's yes didn't reach the agent: %s", r)
 	}
 }
+
+// The customer's view always alternates and ends on the agent, as
+// Anthropic's API requires: two agent replies in a row (a refused answer
+// and its retry) merge into one, and a turn that ended with no text gets a
+// note in its place.
+func TestModelUserSendsAnAlternatingConversation(t *testing.T) {
+	p := &recorder{reply: "ok"}
+	u := ModelUser(p, "goal")
+	check := func(conv []agent.Message) {
+		t.Helper()
+		if _, _, err := u(context.Background(), conv); err != nil {
+			t.Fatal(err)
+		}
+		ms := p.req.Messages
+		for i := 1; i < len(ms); i++ {
+			if ms[i].Role == ms[i-1].Role {
+				t.Errorf("messages %d and %d are both %s: %+v", i-1, i, ms[i].Role, ms)
+			}
+		}
+		if ms[len(ms)-1].Role != agent.RoleUser {
+			t.Errorf("the last message is %s, want the agent's (user): %+v", ms[len(ms)-1].Role, ms)
+		}
+	}
+	check([]agent.Message{
+		{Role: agent.RoleUser, Text: "How long is the warranty?"},
+		{Role: agent.RoleAssistant, Text: "One year."},
+		{Role: agent.RoleSystem, Text: "Cite the page."},
+		{Role: agent.RoleAssistant, Text: "One year [warranty]."},
+	})
+	check([]agent.Message{
+		{Role: agent.RoleUser, Text: "Refund A1."},
+		{Role: agent.RoleAssistant, ToolCalls: []agent.ToolCall{{ID: "1", Name: "refund_order"}}},
+		{Role: agent.RoleTool, Text: "error"},
+	})
+}
