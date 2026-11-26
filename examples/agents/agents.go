@@ -12,6 +12,7 @@ import (
 	"github.com/panyam/chakra/examples/agents/codefix"
 	"github.com/panyam/chakra/examples/agents/codeq"
 	"github.com/panyam/chakra/examples/agents/common"
+	"github.com/panyam/chakra/examples/agents/support"
 )
 
 // All lists the agents, in the order the exercise runs them.
@@ -19,6 +20,7 @@ var All = []common.Agent{
 	calc.Agent(),
 	codeq.Agent(),
 	codefix.Agent(),
+	support.Agent(),
 }
 
 // Find returns the agent called name.
