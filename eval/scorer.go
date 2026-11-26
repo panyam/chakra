@@ -55,7 +55,7 @@ func wants(s Score, want string) Score {
 func ExactMatch(want string) Scorer {
 	return scorerFunc(func(r Result) Score {
 		if r.Turn == nil {
-			return wants(boolScore("ExactMatch", false, "no turn result (run failed)"), want)
+			return wants(boolScore("ExactMatch", false, noTurn(r)), want)
 		}
 		got := r.Turn.Text
 		return wants(boolScore("ExactMatch", got == want, fmt.Sprintf("want %q, got %q", want, got)), want)
@@ -66,7 +66,7 @@ func ExactMatch(want string) Scorer {
 func Contains(substr string) Scorer {
 	return scorerFunc(func(r Result) Score {
 		if r.Turn == nil {
-			return wants(boolScore("Contains", false, "no turn result (run failed)"), fmt.Sprintf("contains %q", substr))
+			return wants(boolScore("Contains", false, noTurn(r)), fmt.Sprintf("contains %q", substr))
 		}
 		got := r.Turn.Text
 		return wants(boolScore("Contains", strings.Contains(got, substr),
@@ -82,7 +82,7 @@ func Contains(substr string) Scorer {
 func NotContains(substr string) Scorer {
 	return scorerFunc(func(r Result) Score {
 		if r.Turn == nil {
-			return boolScore("NotContains", false, "no turn result (run failed)")
+			return boolScore("NotContains", false, noTurn(r))
 		}
 		got := r.Turn.Text
 		return boolScore("NotContains", !strings.Contains(got, substr),
@@ -111,7 +111,7 @@ func ToolCalled(name string) Scorer {
 func MaxSteps(n int) Scorer {
 	return scorerFunc(func(r Result) Score {
 		if r.Turn == nil {
-			return boolScore("MaxSteps", false, "no turn result (run failed)")
+			return boolScore("MaxSteps", false, noTurn(r))
 		}
 		steps := r.Turn.Steps
 		return boolScore("MaxSteps", steps <= n, fmt.Sprintf("steps=%d, cap=%d", steps, n))
@@ -122,7 +122,7 @@ func MaxSteps(n int) Scorer {
 func StepCount(n int) Scorer {
 	return scorerFunc(func(r Result) Score {
 		if r.Turn == nil {
-			return boolScore("StepCount", false, "no turn result (run failed)")
+			return boolScore("StepCount", false, noTurn(r))
 		}
 		steps := r.Turn.Steps
 		return boolScore("StepCount", steps == n, fmt.Sprintf("steps=%d, want=%d", steps, n))
@@ -215,7 +215,7 @@ func Rows(want, among []string) Scorer {
 	}
 	return scorerFunc(func(r Result) Score {
 		if r.Turn == nil {
-			return wants(boolScore("Rows", false, "no turn result (run failed)"), short)
+			return wants(boolScore("Rows", false, noTurn(r)), short)
 		}
 		text := listedRows(r.Turn.Text, among, want)
 		var missing, extra []string
@@ -289,4 +289,13 @@ func rowByte(text string, i int) bool {
 		return i+1 < len(text) && rowByte(text, i+1)
 	}
 	return c == '_' || c == '-' || c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
+}
+
+// noTurn is a scorer's detail for a run with no turn result, with the run's
+// error when there is one.
+func noTurn(r Result) string {
+	if r.Err != nil {
+		return "no turn result (run failed: " + r.Err.Error() + ")"
+	}
+	return "no turn result (run failed)"
 }

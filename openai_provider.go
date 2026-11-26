@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
 
 	ssehttp "github.com/panyam/servicekit/http"
 )
@@ -86,7 +87,20 @@ type OpenAIConfig struct {
 	// Qwen2.5-Coder on llama-server does. While streaming, text goes out as it
 	// comes up to where a call could start. NewLlamaCppProvider sets it.
 	TextToolCalls bool
+
+	// ThoughtSignatures says the server signs its tool calls and wants each
+	// signature back, as Gemini 3 does. The provider sends back every
+	// signature it has seen whatever this says. This adds
+	// PlaceholderThoughtSignature to the first call of an assistant message
+	// whose calls the provider never saw, such as a resumed session's.
+	// connection sets it for type "gemini".
+	ThoughtSignatures bool
 }
+
+// PlaceholderThoughtSignature stands in for a tool call's lost thought
+// signature. Gemini accepts it instead of refusing the request, and warns
+// that the model may do worse without the real one.
+const PlaceholderThoughtSignature = "skip_thought_signature_validator"
 
 // GuidedDialect selects how OpenAIProvider encodes ProviderRequest.Guided.
 type GuidedDialect string
@@ -116,6 +130,10 @@ const (
 type OpenAIProvider struct {
 	cfg  OpenAIConfig
 	http *http.Client
+	// sigs keeps the thought signature of each tool call the server signed,
+	// by call ID, so buildBody can send it back. It lives here and not on
+	// Message, which carries no provider blobs (A2).
+	sigs *signatures
 }
 
 // NewOpenAIProvider validates cfg and returns a provider. BaseURL and Model
@@ -145,7 +163,7 @@ func NewOpenAIProvider(cfg OpenAIConfig) (*OpenAIProvider, error) {
 	}
 	cfg.Penalties = slices.Clone(cfg.Penalties)
 	cfg.ExtraBody = maps.Clone(cfg.ExtraBody)
-	return &OpenAIProvider{cfg: cfg, http: hc}, nil
+	return &OpenAIProvider{cfg: cfg, http: hc, sigs: &signatures{}}, nil
 }
 
 // ProviderCapabilities always reports a seed, since the provider sends one
@@ -252,7 +270,7 @@ func (p *OpenAIProvider) Stream(ctx context.Context, req ProviderRequest) (Strea
 		return nil, err
 	}
 	_, safeToReal := toolNameMaps(req.Tools)
-	st := &openaiStream{nameMap: safeToReal}
+	st := &openaiStream{nameMap: safeToReal, sigs: p.sigs}
 	st.sseStream = sseStream{ctx: ctx, body: resp.Body, events: ssehttp.NewSSEEventReader(resp.Body), decode: st.decode}
 	if p.cfg.TextToolCalls && len(req.Tools) > 0 {
 		return newTextCallStream(st, safeToReal), nil
@@ -300,6 +318,7 @@ func (p *OpenAIProvider) Generate(ctx context.Context, req ProviderRequest) (*Pr
 	}
 	_, safeToReal := toolNameMaps(req.Tools)
 	for _, tc := range choice.Message.ToolCalls {
+		p.sigs.put(tc.ID, tc.signature())
 		args := tc.Function.Arguments
 		if args == "" {
 			args = "{}"
@@ -365,6 +384,7 @@ func (p *OpenAIProvider) buildBody(req ProviderRequest, stream bool) map[string]
 			}
 			if len(m.ToolCalls) > 0 {
 				calls := make([]map[string]any, len(m.ToolCalls))
+				signed := false
 				for i, tc := range m.ToolCalls {
 					calls[i] = map[string]any{
 						"id":   tc.ID,
@@ -374,6 +394,15 @@ func (p *OpenAIProvider) buildBody(req ProviderRequest, stream bool) map[string]
 							"arguments": string(tc.Args.Raw()),
 						},
 					}
+					if sig := p.sigs.get(tc.ID); sig != "" {
+						calls[i]["extra_content"] = signatureField(sig)
+						signed = true
+					}
+				}
+				// Gemini signs only the first call of a step, and wants a
+				// signature on it.
+				if !signed && p.cfg.ThoughtSignatures {
+					calls[0]["extra_content"] = signatureField(PlaceholderThoughtSignature)
 				}
 				entry["tool_calls"] = calls
 			}
@@ -478,6 +507,62 @@ type oaToolCall struct {
 		Name      string `json:"name"`
 		Arguments string `json:"arguments"`
 	} `json:"function"`
+	ExtraContent *struct {
+		Google struct {
+			ThoughtSignature string `json:"thought_signature"`
+		} `json:"google"`
+	} `json:"extra_content,omitempty"`
+}
+
+func signatureField(sig string) map[string]any {
+	return map[string]any{"google": map[string]any{"thought_signature": sig}}
+}
+
+// maxSignatures bounds the signatures one provider keeps. A turn needs only
+// those of its own history, and a call evicted early gets the placeholder.
+const maxSignatures = 4096
+
+// signatures maps tool-call IDs to thought signatures, forgetting the
+// oldest past maxSignatures. Safe for concurrent use.
+type signatures struct {
+	mu    sync.Mutex
+	byID  map[string]string
+	order []string
+}
+
+func (s *signatures) put(id, sig string) {
+	if s == nil || id == "" || sig == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.byID == nil {
+		s.byID = make(map[string]string)
+	}
+	if _, ok := s.byID[id]; !ok {
+		s.order = append(s.order, id)
+	}
+	s.byID[id] = sig
+	if len(s.order) > maxSignatures {
+		delete(s.byID, s.order[0])
+		s.order = s.order[1:]
+	}
+}
+
+func (s *signatures) get(id string) string {
+	if s == nil {
+		return ""
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.byID[id]
+}
+
+func (tc oaToolCall) signature() string {
+	if tc.ExtraContent == nil {
+		return ""
+	}
+	return tc.ExtraContent.Google.ThoughtSignature
 }
 
 type oaUsage struct {
@@ -546,6 +631,13 @@ type openaiStream struct {
 	// streams one token per chunk and sends no reasoning count, so this
 	// count stands in for one (#374).
 	reasoningChunks int
+	sigs            *signatures
+	// ids holds the call ID started at each index, and alias sends a wire
+	// index to the index it now stands for. Gemini streams every parallel
+	// call whole at index 0, so a new ID at a started index is a new call.
+	ids   map[int]string
+	alias map[int]int
+	next  int
 }
 
 // decode turns one SSE data payload into Deltas. The "[DONE]" sentinel ends the
@@ -590,13 +682,28 @@ func (s *openaiStream) chunkDeltas(chunk oaChunk) []Delta {
 	}
 	for _, tc := range choice.Delta.ToolCalls {
 		if s.started == nil {
-			s.started = make(map[int]bool)
+			s.started, s.ids, s.alias = make(map[int]bool), make(map[int]string), make(map[int]int)
 		}
-		if !s.started[tc.Index] {
-			s.started[tc.Index] = true
+		idx := tc.Index
+		if a, ok := s.alias[tc.Index]; ok {
+			idx = a
+		}
+		if tc.ID != "" && s.started[idx] && s.ids[idx] != tc.ID {
+			idx = s.next
+			s.alias[tc.Index] = idx
+		}
+		s.next = max(s.next, idx+1)
+		if tc.ID != "" {
+			s.sigs.put(tc.ID, tc.signature())
+		} else if sig := tc.signature(); sig != "" {
+			s.sigs.put(s.ids[idx], sig)
+		}
+		if !s.started[idx] {
+			s.started[idx] = true
+			s.ids[idx] = tc.ID
 			out = append(out, Delta{
 				Kind:       DeltaToolCallStart,
-				Index:      tc.Index,
+				Index:      idx,
 				ToolCallID: tc.ID,
 				ToolName:   realToolName(s.nameMap, tc.Function.Name),
 				Text:       tc.Function.Arguments,
@@ -604,7 +711,7 @@ func (s *openaiStream) chunkDeltas(chunk oaChunk) []Delta {
 			continue
 		}
 		if tc.Function.Arguments != "" {
-			out = append(out, Delta{Kind: DeltaToolCallArgs, Index: tc.Index, Text: tc.Function.Arguments})
+			out = append(out, Delta{Kind: DeltaToolCallArgs, Index: idx, Text: tc.Function.Arguments})
 		}
 	}
 	if choice.FinishReason != nil && *choice.FinishReason != "" {

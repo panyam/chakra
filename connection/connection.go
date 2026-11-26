@@ -308,12 +308,13 @@ func builtin(c Config, base, key string, onFullHistory func(reason string)) (age
 			extra = map[string]any{"reasoning_effort": c.ReasoningEffort}
 		}
 		return agent.NewOpenAIProvider(agent.OpenAIConfig{
-			BaseURL:          base,
-			Model:            c.Model,
-			APIKey:           key,
-			NoTemperature:    c.Temperature != nil && !*c.Temperature,
-			NoResponseSchema: c.ResponseSchema != nil && !*c.ResponseSchema,
-			ExtraBody:        extra,
+			BaseURL:           base,
+			Model:             c.Model,
+			APIKey:            key,
+			NoTemperature:     c.Temperature != nil && !*c.Temperature,
+			NoResponseSchema:  c.ResponseSchema != nil && !*c.ResponseSchema,
+			ExtraBody:         extra,
+			ThoughtSignatures: c.Type == "gemini",
 		})
 	}
 }

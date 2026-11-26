@@ -390,3 +390,54 @@ func TestReasoningEffortReachesTheOpenAIWire(t *testing.T) {
 		}
 	}
 }
+
+// A gemini connection sends a thought signature with every tool call it
+// replays, so a resumed history doesn't fail with Gemini's 400. An openai
+// connection sends none, since OpenAI may refuse the field.
+func TestGeminiConnectionsSignReplayedToolCalls(t *testing.T) {
+	var sent bool
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Messages []struct {
+				ToolCalls []struct {
+					ExtraContent *struct {
+						Google struct {
+							ThoughtSignature string `json:"thought_signature"`
+						} `json:"google"`
+					} `json:"extra_content"`
+				} `json:"tool_calls"`
+			} `json:"messages"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		sent = false
+		for _, m := range body.Messages {
+			for _, tc := range m.ToolCalls {
+				if tc.ExtraContent != nil && tc.ExtraContent.Google.ThoughtSignature != "" {
+					sent = true
+				}
+			}
+		}
+		fmt.Fprint(w, `{"choices":[{"message":{"content":"5"},"finish_reason":"stop"}]}`)
+	}))
+	defer ts.Close()
+	msgs := []agent.Message{
+		{Role: agent.RoleUser, Text: "What is 2 + 3?"},
+		{Role: agent.RoleAssistant, ToolCalls: []agent.ToolCall{{ID: "c1", Name: "calc", Args: core.NewRawJSON(json.RawMessage(`{"expr":"2+3"}`))}}},
+		{Role: agent.RoleTool, ToolCallID: "c1", Text: "5"},
+	}
+	for _, tc := range []struct {
+		typ  string
+		want bool
+	}{{"gemini", true}, {"openai", false}} {
+		p, err := Build(Config{Type: tc.typ, BaseURL: ts.URL, Model: "m"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := p.Generate(context.Background(), agent.ProviderRequest{Messages: msgs}); err != nil {
+			t.Fatal(err)
+		}
+		if sent != tc.want {
+			t.Errorf("%s: signature sent = %v, want %v", tc.typ, sent, tc.want)
+		}
+	}
+}
