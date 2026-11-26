@@ -155,3 +155,37 @@ func TestLadderDollarsKeepTwoSignificantFigures(t *testing.T) {
 		}
 	}
 }
+
+// A step that thought shows its reasoning tokens per correct answer. A
+// ladder where no step thought keeps the table it had.
+func TestLadderTableShowsReasoningOnlyWhenAStepThought(t *testing.T) {
+	step := func(name string, passed, reasoning int) StepReport {
+		return StepReport{Step: name, Report: SuiteReport{Passed: passed, Total: 2, Cases: []CaseReport{
+			{Usage: map[string]agent.Usage{"m": {InputTokens: 10, OutputTokens: 900, ReasoningTokens: reasoning}}},
+		}}}
+	}
+	thought := LadderReport{Ladder: "think", Steps: []StepReport{step("off", 1, 0), step("+ thinking", 2, 800)}}
+	if n, ok := thought.Steps[1].Report.ReasoningPerCorrect(); !ok || n != 400 {
+		t.Errorf("+ thinking: ReasoningPerCorrect = %d, %v; want 400 (800 over two correct)", n, ok)
+	}
+	table := thought.Table()
+	for _, want := range []string{"reasoning/correct", "400"} {
+		if !strings.Contains(table, want) {
+			t.Errorf("table lacks %q:\n%s", want, table)
+		}
+	}
+	plain := LadderReport{Ladder: "plain", Steps: []StepReport{step("off", 1, 0), step("on", 2, 0)}}
+	if strings.Contains(plain.Table(), "reasoning") {
+		t.Errorf("a ladder with no thinking shows a reasoning column:\n%s", plain.Table())
+	}
+}
+
+// The suite's per-case sum keeps every count, so a ladder built from real
+// turns sees reasoning tokens, and cached tokens too.
+func TestSuiteUsageSumKeepsEveryCount(t *testing.T) {
+	u := agent.Usage{InputTokens: 100, OutputTokens: 50, CachedInputTokens: 80, ReasoningTokens: 30}
+	got := Suite{ModelName: "m"}.addUsage(map[string]agent.Usage{"m": u}, map[string]agent.Usage{"": u})
+	if want := u.Add(u); got["m"] != want {
+		t.Errorf("sum = %+v, want %+v", got["m"], want)
+	}
+}

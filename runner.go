@@ -645,9 +645,7 @@ func (r *Runner) RunTurn(ctx context.Context, req TurnRequest) (*TurnResult, err
 			return nil, r.failSpan(emit, turnSpan, err)
 		}
 		if resp.Usage != nil {
-			usage.InputTokens += resp.Usage.InputTokens
-			usage.OutputTokens += resp.Usage.OutputTokens
-			usage.CachedInputTokens += resp.Usage.CachedInputTokens
+			usage = usage.Add(*resp.Usage)
 			treeBudget.addTokens(resp.Usage.InputTokens + resp.Usage.OutputTokens)
 		}
 		byModel.add(view.ProviderName, resp.Usage)
@@ -827,9 +825,7 @@ type usageByModel map[string]Usage
 func (m usageByModel) add(name string, u *Usage) {
 	t := m[name] // touch the key even without usage, so a named step counts as named
 	if u != nil {
-		t.InputTokens += u.InputTokens
-		t.OutputTokens += u.OutputTokens
-		t.CachedInputTokens += u.CachedInputTokens
+		t = t.Add(*u)
 	}
 	m[name] = t
 }
@@ -838,11 +834,8 @@ func (m usageByModel) add(name string, u *Usage) {
 // to name. name is the configured provider's label, since that provider makes
 // the call.
 func (m usageByModel) addDelta(name string, before, after Usage) {
-	m.add(name, &Usage{
-		InputTokens:       after.InputTokens - before.InputTokens,
-		OutputTokens:      after.OutputTokens - before.OutputTokens,
-		CachedInputTokens: after.CachedInputTokens - before.CachedInputTokens,
-	})
+	d := after.Sub(before)
+	m.add(name, &d)
 }
 
 // result is the TurnResult.UsageByModel value: nil unless some step was named.
@@ -935,9 +928,7 @@ func (r *Runner) finalizeStructured(ctx context.Context, instructions string, ms
 			return core.RawJSON{}, "", err
 		}
 		if resp.Usage != nil {
-			usage.InputTokens += resp.Usage.InputTokens
-			usage.OutputTokens += resp.Usage.OutputTokens
-			usage.CachedInputTokens += resp.Usage.CachedInputTokens
+			*usage = usage.Add(*resp.Usage)
 			treeBudgetFrom(ctx).addTokens(resp.Usage.InputTokens + resp.Usage.OutputTokens)
 		}
 		last = stripJSONFence(resp.Text)
@@ -997,9 +988,7 @@ func (r *Runner) finalizeGuided(ctx context.Context, instructions string, msgs [
 		return "", err
 	}
 	if resp.Usage != nil {
-		usage.InputTokens += resp.Usage.InputTokens
-		usage.OutputTokens += resp.Usage.OutputTokens
-		usage.CachedInputTokens += resp.Usage.CachedInputTokens
+		*usage = usage.Add(*resp.Usage)
 		treeBudgetFrom(ctx).addTokens(resp.Usage.InputTokens + resp.Usage.OutputTokens)
 	}
 	return resp.Text, nil

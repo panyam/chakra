@@ -32,6 +32,10 @@ type Row struct {
 	TokensIn     int `json:"tokensIn,omitempty"`
 	TokensCached int `json:"tokensCached,omitempty"`
 	TokensOut    int `json:"tokensOut,omitempty"`
+	// TokensReasoning counts the part of TokensOut spent thinking, as
+	// agent.Usage.ReasoningTokens does. Cost doesn't read it, since
+	// TokensOut already bills it.
+	TokensReasoning int `json:"tokensReasoning,omitempty"`
 	// Seconds is the cases' wall time.
 	Seconds float64 `json:"seconds,omitempty"`
 }
@@ -74,6 +78,7 @@ func (r *Row) add(o Row) {
 	r.TokensIn += o.TokensIn
 	r.TokensCached += o.TokensCached
 	r.TokensOut += o.TokensOut
+	r.TokensReasoning += o.TokensReasoning
 	r.Seconds += o.Seconds
 }
 

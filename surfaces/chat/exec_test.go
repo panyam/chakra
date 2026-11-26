@@ -28,6 +28,9 @@ type modelReply struct {
 	// usage, when set, is sent as the stream's final usage chunk:
 	// prompt, cached and completion tokens.
 	usage *[3]int
+	// reasoning, when set, streams one reasoning_content chunk per entry
+	// before the text, as llama.cpp does.
+	reasoning []string
 }
 
 // fakeModel is an OpenAI-compatible endpoint that answers each request with
@@ -75,6 +78,9 @@ func fakeModel(t *testing.T, replies ...modelReply) *httptest.Server {
 			}}}}}})
 			send(map[string]any{"choices": []any{map[string]any{"delta": map[string]any{}, "finish_reason": "tool_calls"}}})
 		} else {
+			for _, r := range rep.reasoning {
+				send(map[string]any{"choices": []any{map[string]any{"delta": map[string]any{"reasoning_content": r}}}})
+			}
 			send(map[string]any{"choices": []any{map[string]any{"delta": map[string]any{"content": rep.text}}}})
 			send(map[string]any{"choices": []any{map[string]any{"delta": map[string]any{}, "finish_reason": "stop"}}})
 		}
@@ -510,5 +516,20 @@ func TestExecSummaryCountsTheStructuredFinalizeCall(t *testing.T) {
 	}
 	if s.USD == nil || !near(*s.USD, (1500*1+120*10)/1e6) {
 		t.Errorf("summary usd %v", s.USD)
+	}
+}
+
+// A model that thinks before it answers shows its reasoning tokens in the
+// summary, which is where a benchmark driver reads usage.
+func TestExecSummaryCountsReasoningTokens(t *testing.T) {
+	srv := fakeModel(t, modelReply{text: "Two files.", reasoning: []string{"Let", " me", " count"}, usage: &[3]int{1000, 0, 20}})
+	out, _, code := runExecConfig(t, connConfig(srv, ""), "",
+		"-p", "list", "--approve", "read-only-auto", "--json", "--workspace", t.TempDir())
+	if code != 0 {
+		t.Fatalf("exit %d:\n%s", code, out)
+	}
+	s := lastSummary(t, out)
+	if s.Usage.ReasoningTokens != 3 || s.UsageByConnection["bench"].ReasoningTokens != 3 {
+		t.Errorf("summary usage %+v by connection %+v, want 3 reasoning tokens", s.Usage, s.UsageByConnection)
 	}
 }

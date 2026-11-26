@@ -200,3 +200,24 @@ func TestTableRouterPartlyPricedRowsAreUnknown(t *testing.T) {
 		t.Errorf("Route = %v, want %v", got, want)
 	}
 }
+
+// Two runs of a tag add their reasoning tokens, and the count doesn't change
+// the cost, since TokensOut already bills it.
+func TestRowSumsReasoningTokens(t *testing.T) {
+	var rows []Row
+	if err := json.Unmarshal([]byte(`[{"connection":"q","tag":"F4","pass":1,"tokensOut":900,"tokensReasoning":800},{"connection":"q","tag":"F4","pass":1,"tokensOut":100,"tokensReasoning":50}]`), &rows); err != nil {
+		t.Fatal(err)
+	}
+	sum := rows[0]
+	sum.add(rows[1])
+	if sum.TokensReasoning != 850 || sum.TokensOut != 1000 {
+		t.Errorf("sum = %+v, want 850 reasoning of 1000 out", sum)
+	}
+	price := &Price{Output: 1}
+	withThinking, _ := sum.Cost(price)
+	sum.TokensReasoning = 0
+	without, _ := sum.Cost(price)
+	if withThinking != without {
+		t.Errorf("cost with reasoning = %v, without = %v; want the same", withThinking, without)
+	}
+}

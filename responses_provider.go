@@ -400,12 +400,18 @@ type rsUsage struct {
 	InputTokensDetails *struct {
 		CachedTokens int `json:"cached_tokens"`
 	} `json:"input_tokens_details"`
+	OutputTokensDetails *struct {
+		ReasoningTokens int `json:"reasoning_tokens"`
+	} `json:"output_tokens_details"`
 }
 
 func (u *rsUsage) toUsage() *Usage {
 	out := &Usage{InputTokens: u.InputTokens, OutputTokens: u.OutputTokens}
 	if u.InputTokensDetails != nil {
 		out.CachedInputTokens = u.InputTokensDetails.CachedTokens
+	}
+	if u.OutputTokensDetails != nil {
+		out.ReasoningTokens = u.OutputTokensDetails.ReasoningTokens
 	}
 	return out
 }
