@@ -126,3 +126,53 @@ func TestUsageAddAndSubCoverEveryCount(t *testing.T) {
 		}
 	}
 }
+
+// Gemini's OpenAI endpoint counts thinking only in total_tokens. The gap is
+// reasoning, billed as output, so it joins both counts. A server that sends
+// a reasoning count, or whose total adds up, is left as it said.
+var openaiTotalGapCases = []struct {
+	name  string
+	usage string
+	want  Usage
+}{
+	{"thinking only in the total", `{"prompt_tokens":15,"completion_tokens":2,"total_tokens":394}`, Usage{InputTokens: 15, OutputTokens: 379, ReasoningTokens: 377}},
+	{"total adds up", `{"prompt_tokens":15,"completion_tokens":2,"total_tokens":17}`, Usage{InputTokens: 15, OutputTokens: 2}},
+	{"no total", `{"prompt_tokens":15,"completion_tokens":2}`, Usage{InputTokens: 15, OutputTokens: 2}},
+	{"count sent wins", `{"prompt_tokens":15,"completion_tokens":40,"total_tokens":90,"completion_tokens_details":{"reasoning_tokens":32}}`, Usage{InputTokens: 15, OutputTokens: 40, ReasoningTokens: 32}},
+}
+
+func TestOpenAIGenerateTakesHiddenThinkingFromTheTotal(t *testing.T) {
+	for _, tc := range openaiTotalGapCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ts := jsonServer(t, `{"choices":[{"message":{"content":"17"},"finish_reason":"stop"}],"usage":`+tc.usage+`}`)
+			defer ts.Close()
+			res, err := newTestProvider(t, ts.URL).Generate(context.Background(), ProviderRequest{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if res.Usage == nil || *res.Usage != tc.want {
+				t.Fatalf("usage = %+v, want %+v", res.Usage, tc.want)
+			}
+		})
+	}
+}
+
+// Gemini sends a running usage on every chunk. The last one holds the
+// call's totals.
+func TestOpenAIStreamTakesHiddenThinkingFromTheTotal(t *testing.T) {
+	ts := sseServer(t, nil,
+		`{"choices":[{"delta":{"content":"1"}}],"usage":{"prompt_tokens":15,"completion_tokens":1,"total_tokens":423}}`,
+		`{"choices":[{"delta":{"content":"7"},"finish_reason":"stop"}],"usage":{"prompt_tokens":15,"completion_tokens":2,"total_tokens":424}}`,
+		`[DONE]`,
+	)
+	defer ts.Close()
+	s, err := newTestProvider(t, ts.URL).Stream(context.Background(), ProviderRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	want := Usage{InputTokens: 15, OutputTokens: 409, ReasoningTokens: 407}
+	if res := drain(t, s); res.Usage == nil || *res.Usage != want {
+		t.Fatalf("usage = %+v, want %+v", res.Usage, want)
+	}
+}

@@ -483,6 +483,7 @@ type oaToolCall struct {
 type oaUsage struct {
 	PromptTokens        int `json:"prompt_tokens"`
 	CompletionTokens    int `json:"completion_tokens"`
+	TotalTokens         int `json:"total_tokens"`
 	PromptTokensDetails *struct {
 		CachedTokens int `json:"cached_tokens"`
 	} `json:"prompt_tokens_details"`
@@ -507,6 +508,14 @@ func (u *oaUsage) toUsage(t *oaTimings) *Usage {
 	}
 	if d := u.CompletionTokensDetails; d != nil {
 		out.ReasoningTokens = d.ReasoningTokens
+	}
+	// Gemini's OpenAI endpoint leaves its thinking out of completion_tokens
+	// and sends no reasoning count. The thinking shows only in total_tokens,
+	// and Google bills it as output. So a total above prompt plus completion
+	// is thinking, and it goes back into the output (#374).
+	if gap := u.TotalTokens - u.PromptTokens - u.CompletionTokens; gap > 0 && out.ReasoningTokens == 0 {
+		out.OutputTokens += gap
+		out.ReasoningTokens = gap
 	}
 	return out
 }
