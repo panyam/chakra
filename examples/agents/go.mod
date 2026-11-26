@@ -5,7 +5,7 @@ go 1.26.11
 toolchain go1.27.4
 
 require (
-	github.com/panyam/chakra v0.3.9
+	github.com/panyam/chakra v0.3.10
 	github.com/panyam/demokit v0.0.33
 	github.com/panyam/mcpkit v0.8.23
 )
@@ -17,7 +17,7 @@ require (
 	github.com/fernet/fernet-go v0.0.0-20240119011108-303da6aec611 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
-	github.com/panyam/chakra/host v0.3.9 // indirect
+	github.com/panyam/chakra/host v0.3.10 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents v0.8.23 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.8.20 // indirect
 	github.com/panyam/mcpkit/experimental/ext/events v0.8.23 // indirect
@@ -61,8 +61,8 @@ require (
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
-	github.com/panyam/chakra/ext/exec v0.3.9
-	github.com/panyam/chakra/ext/files v0.3.9
+	github.com/panyam/chakra/ext/exec v0.3.10
+	github.com/panyam/chakra/ext/files v0.3.10
 	github.com/panyam/demokit/notebook v0.0.33 // indirect
 	github.com/panyam/gocurrent v0.1.3 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
@@ -90,3 +90,5 @@ replace github.com/panyam/mcpkit => ../../../../mcpkit/main
 replace github.com/panyam/chakra/ext/files => ../../ext/files
 
 replace github.com/panyam/chakra/ext/exec => ../../ext/exec
+
+replace github.com/panyam/chakra/host => ../../host

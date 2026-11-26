@@ -10,8 +10,8 @@ replace github.com/panyam/chakra/host => ../../host
 
 require (
 	github.com/creack/pty v1.1.24
-	github.com/panyam/chakra v0.3.9
-	github.com/panyam/chakra/host v0.3.9
+	github.com/panyam/chakra v0.3.10
+	github.com/panyam/chakra/host v0.3.10
 	github.com/panyam/mcpkit v0.8.23
 	golang.org/x/sys v0.49.0
 )

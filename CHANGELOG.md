@@ -5,6 +5,21 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Every module in the repo is tagged at
 the same version.
 
+## [v0.3.10] - 2026-11-25
+
+Full notes in [docs/releases/v0.3.10.md](docs/releases/v0.3.10.md).
+
+### Added
+- `Usage.ReasoningTokens`: the thinking part of the output, from OpenAI and Responses usage details, counted from llama.cpp's reasoning chunks, and taken from the gap in Gemini's `total_tokens` (PRs 376, 379).
+- `Usage.Add` and `Usage.Sub`; `connection.Row.TokensReasoning`; `eval.SuiteReport.ReasoningTokens` and `ReasoningPerCorrect`, with a `reasoning/correct` ladder column (PR 376).
+- `reasoningEffort` is sent as `reasoning_effort` on the plain OpenAI wire (PR 379).
+- `eval.Rows`, `CaseReport.Answer` and `Suite.OnCase`; the codeq and codefix agents, `make profiles`, `make chat-agent` and `make walk-agent` (PRs 366, 367, 368, 370, 372, 373).
+- `eval.ModelUser` plays a scenario's customer from a goal, and `examples/agents/support` is a customer-support agent built on it (PR 378).
+
+### Fixed
+- Gemini's thinking now counts as output, so its cost is no longer undercounted (PR 379).
+- `eval`'s case usage keeps cached tokens (PR 376).
+
 ## [v0.3.9] - 2026-11-25
 
 Full notes in [docs/releases/v0.3.9.md](docs/releases/v0.3.9.md).

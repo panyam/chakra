@@ -76,8 +76,6 @@ github.com/muesli/cancelreader v0.2.2 h1:3I4Kt4BQjOR54NavqnDogx/MIoWBFa0StPA8ELU
 github.com/muesli/cancelreader v0.2.2/go.mod h1:3XuTXfFS2VjM+HTLZY9Ak0l6eUKfijIfMUZ4EgX0QYo=
 github.com/muesli/termenv v0.16.0 h1:S5AlUN9dENB57rsbnkPyfdGuWIlkmzJjbFf0Tf5FWUc=
 github.com/muesli/termenv v0.16.0/go.mod h1:ZRfOIKPFDYQoDFF4Olj7/QJbW60Ol/kL1pU3VfY/Cnk=
-github.com/panyam/chakra/host v0.3.9 h1:ilQVG6xU1tMTQx7QBP1B8s/6QUF7bTK3TY5I6Y73Yoo=
-github.com/panyam/chakra/host v0.3.9/go.mod h1:OPaL7G7Z8mziEEdevwVdrdPia8kQYRNMcTHrv8syS68=
 github.com/panyam/demokit v0.0.33 h1:oUdbxZ+CXxlEflTx7l08rCY6jf9Jc9pQz3rJ5YhwnTs=
 github.com/panyam/demokit v0.0.33/go.mod h1:ZFEAyYkJyeVS47dM33dKE/h/arZ8Er6Sy9o56VoEPSw=
 github.com/panyam/demokit/notebook v0.0.33 h1:pxjilZRcfl4QkbehVJqZrpVRa0X6uMI3Ko3f9oZ6kZw=
