@@ -12,6 +12,7 @@ step changed.
 | [codeq](codeq/README.md) | Answer questions about Go code through a tool server over MCP. |
 | [codefix](codefix/README.md) | Fix a bug in a Go module until its tests pass. |
 | [support](support/README.md) | Answer a shop's customers from policy pages, and refund, readdress or hand off through tools. A model plays each customer. |
+| [copilot](copilot/README.md) | Work beside a user on a kanban board inside a `host.App`: see their actions as events, react through a trigger, and don't overwrite what they change mid-turn. |
 
 ## Running an agent
 

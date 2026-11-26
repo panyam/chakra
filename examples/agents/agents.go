@@ -12,6 +12,7 @@ import (
 	"github.com/panyam/chakra/examples/agents/codefix"
 	"github.com/panyam/chakra/examples/agents/codeq"
 	"github.com/panyam/chakra/examples/agents/common"
+	"github.com/panyam/chakra/examples/agents/copilot"
 	"github.com/panyam/chakra/examples/agents/support"
 )
 
@@ -21,6 +22,7 @@ var All = []common.Agent{
 	codeq.Agent(),
 	codefix.Agent(),
 	support.Agent(),
+	copilot.Agent(),
 }
 
 // Find returns the agent called name.

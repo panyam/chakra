@@ -3,6 +3,8 @@ package connection
 import (
 	"context"
 	"sort"
+
+	agent "github.com/panyam/chakra"
 )
 
 // Row is how one connection did on one kind of task, run one way (#348).
@@ -54,12 +56,7 @@ func (r Row) Cost(price *Price) (float64, bool) {
 	if price == nil {
 		return 0, false
 	}
-	cachedRate := price.Input
-	if price.CachedInput != nil {
-		cachedRate = *price.CachedInput
-	}
-	cached := min(r.TokensCached, r.TokensIn)
-	return (float64(r.TokensIn-cached)*price.Input + float64(cached)*cachedRate + float64(r.TokensOut)*price.Output) / 1e6, true
+	return price.Cost(agent.Usage{InputTokens: r.TokensIn, CachedInputTokens: r.TokensCached, OutputTokens: r.TokensOut}), true
 }
 
 // add sums o into r. The sum has Dollars only when both had it, since a run

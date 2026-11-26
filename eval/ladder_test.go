@@ -115,7 +115,7 @@ func TestLadderTableCostAndTimePerCorrect(t *testing.T) {
 			Single(Case{Name: "a2", Input: "go"}, Contains("said a")),
 		},
 	}
-	priced := l.Run(context.Background(), Suite{Config: agent.RunnerConfig{Provider: p}, ModelName: "m", Prices: Prices{"m": {InputPerM: 2}}})
+	priced := l.Run(context.Background(), Suite{Config: agent.RunnerConfig{Provider: p}, ModelName: "m", Prices: Prices{"m": {Input: 2}}})
 	if d, ok := priced.Steps[1].Report.CostPerCorrect(); !ok || d != 2 {
 		t.Errorf("+ a: CostPerCorrect = %v, %v; want 2 (two cases at $2, two correct)", d, ok)
 	}
@@ -187,5 +187,30 @@ func TestSuiteUsageSumKeepsEveryCount(t *testing.T) {
 	got := Suite{ModelName: "m"}.addUsage(map[string]agent.Usage{"m": u}, map[string]agent.Usage{"": u})
 	if want := u.Add(u); got["m"] != want {
 		t.Errorf("sum = %+v, want %+v", got["m"], want)
+	}
+}
+
+// A step's Driver runs that step's cases and every later step's, until a
+// step brings another.
+func TestStepDriverRunsItsStepAndLaterOnes(t *testing.T) {
+	var ran []string
+	driver := func(label string) Driver {
+		return func(_ context.Context, _ agent.RunnerConfig, s Scenario) ([]Result, error) {
+			ran = append(ran, label)
+			return []Result{{Case: Case{Name: s.Name}, Turn: &agent.TurnResult{Text: label}}}, nil
+		}
+	}
+	l := Ladder{
+		Name:  "drive",
+		Steps: []Step{{Name: "base"}, {Name: "+ a", Driver: driver("a")}, {Name: "+ more"}, {Name: "+ b", Driver: driver("b")}},
+		Cases: []SuiteCase{Single(Case{Name: "c", Input: "go"}, Contains("b"))},
+	}
+	p := agent.NewStubProvider(agent.StubTurn{Text: "base"})
+	r := l.Run(context.Background(), Suite{Config: agent.RunnerConfig{Provider: p}})
+	if got := strings.Join(ran, ","); got != "a,a,b" {
+		t.Errorf("drivers ran %q, want a,a,b (base on RunScenario, + more inheriting a)", got)
+	}
+	if r.Steps[3].Report.Passed != 1 || r.Steps[1].Report.Passed != 0 {
+		t.Errorf("passes = %d, %d; want only + b to pass", r.Steps[1].Report.Passed, r.Steps[3].Report.Passed)
 	}
 }

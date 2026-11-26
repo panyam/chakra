@@ -136,21 +136,29 @@ type Price struct {
 // Cost prices one usage report at the connection's Price. It returns false
 // when the connection has no Price or the provider reported no usage, since
 // either way the cost is unknown rather than zero.
-//
-// Anthropic bills cache writes above the input rate. Usage has no field for
-// them and counts them in InputTokens, so Cost bills them at Input and comes
-// out low for a call that wrote the cache.
 func (c Config) Cost(u *agent.Usage) (float64, bool) {
 	if c.Price == nil || u == nil {
 		return 0, false
 	}
-	cachedRate := c.Price.Input
-	if c.Price.CachedInput != nil {
-		cachedRate = *c.Price.CachedInput
+	return c.Price.Cost(*u), true
+}
+
+// Cost prices u in dollars. Cached input tokens go at CachedInput, or at
+// Input when CachedInput is nil, and the rest of the input at Input. A
+// cached count above InputTokens is capped at it, since a provider that
+// reports more cached tokens than prompt tokens is miscounting.
+//
+// Anthropic bills cache writes above the input rate. Usage has no field for
+// them and counts them in InputTokens, so Cost bills them at Input and comes
+// out low for a call that wrote the cache.
+func (p Price) Cost(u agent.Usage) float64 {
+	cachedRate := p.Input
+	if p.CachedInput != nil {
+		cachedRate = *p.CachedInput
 	}
 	cached := min(u.CachedInputTokens, u.InputTokens)
 	fresh := u.InputTokens - cached
-	return (float64(fresh)*c.Price.Input + float64(cached)*cachedRate + float64(u.OutputTokens)*c.Price.Output) / 1e6, true
+	return (float64(fresh)*p.Input + float64(cached)*cachedRate + float64(u.OutputTokens)*p.Output) / 1e6
 }
 
 // ThinkingHint delimits a model's inline reasoning. An empty OpenTag
