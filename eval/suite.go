@@ -55,6 +55,48 @@ type SuiteCase struct {
 	// An error fails this case with RunErr "setup: ...", and the suite moves
 	// on. The Usage returned with an error is still reported.
 	Setup func(context.Context) (Setup, error)
+
+	// User builds the case's simulated user, which picks the messages after
+	// the Scenario's Turns (Scenario.User). It takes the provider the turns
+	// run on, as Scorers does, so ModelUser can play the customer on the
+	// suite's model. Nil keeps Scenario.User.
+	User func(agent.Provider) User
+}
+
+// Prepare applies the case's Configure to cfg, then its Setup and User to
+// a copy of its Scenario, as Suite.Run does before the first turn. A caller
+// that runs one case on its own, such as a walk watching one case, calls
+// it so the case runs as it would in the suite. The returned Setup is
+// Setup's result, usage included, even with an error.
+func (sc SuiteCase) Prepare(ctx context.Context, cfg agent.RunnerConfig) (agent.RunnerConfig, Scenario, Setup, error) {
+	if sc.Configure != nil {
+		adapted, err := sc.Configure(cfg)
+		if err != nil {
+			return cfg, sc.Scenario, Setup{}, fmt.Errorf("configure: %w", err)
+		}
+		cfg = adapted
+	}
+	scenario := sc.Scenario
+	var st Setup
+	if sc.Setup != nil {
+		var err error
+		if st, err = sc.Setup(ctx); err != nil {
+			return cfg, scenario, st, fmt.Errorf("setup: %w", err)
+		}
+		if st.Tools != nil {
+			scenario.Tools = st.Tools
+		}
+		if st.Instructions != "" {
+			scenario.Instructions = st.Instructions
+		}
+		if st.History != nil {
+			scenario.History = st.History
+		}
+	}
+	if sc.User != nil {
+		scenario.User = sc.User(cfg.Provider)
+	}
+	return cfg, scenario, st, nil
 }
 
 // Setup is what SuiteCase.Setup hands back. Each field that is set overrides
@@ -234,35 +276,15 @@ func (s Suite) Run(ctx context.Context) SuiteReport {
 			s.heard(i, cr)
 		}
 
-		cfg := s.Config
-		if sc.Configure != nil {
-			adapted, err := sc.Configure(cfg)
-			if err != nil {
-				fail("configure: %v", err)
-				continue
-			}
-			cfg = adapted
-		}
-
-		scenario := sc.Scenario
+		setupStart := time.Now()
+		cfg, scenario, st, err := sc.Prepare(ctx, s.Config)
 		if sc.Setup != nil {
-			start := time.Now()
-			st, err := sc.Setup(ctx)
-			cr.SetupElapsed = time.Since(start)
+			cr.SetupElapsed = time.Since(setupStart)
 			cr.SetupUsage = s.addUsage(nil, st.Usage)
-			if err != nil {
-				fail("setup: %v", err)
-				continue
-			}
-			if st.Tools != nil {
-				scenario.Tools = st.Tools
-			}
-			if st.Instructions != "" {
-				scenario.Instructions = st.Instructions
-			}
-			if st.History != nil {
-				scenario.History = st.History
-			}
+		}
+		if err != nil {
+			fail("%v", err)
+			continue
 		}
 
 		start := time.Now()

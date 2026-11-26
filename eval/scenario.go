@@ -66,7 +66,21 @@ type Scenario struct {
 
 	// MaxSteps overrides RunnerConfig.MaxSteps per turn when positive.
 	MaxSteps int
+
+	// User, when set, picks each customer message after the scripted Turns
+	// run out. RunScenario calls it after every agent turn with the whole
+	// conversation, and stops when it reports done. ModelUser has a model
+	// play the part from a goal, as τ²-bench's simulated user does.
+	User User
+
+	// MaxUserTurns caps the turns User adds. Zero means 6.
+	MaxUserTurns int
 }
+
+// User picks the next message in a conversation with the agent, or reports
+// done. conversation is everything so far, the agent's latest reply last.
+// What a User spends isn't counted in the case's usage, as a Judge's isn't.
+type User func(ctx context.Context, conversation []agent.Message) (next string, done bool, err error)
 
 // RunScenario applies the scenario's overrides to a copy of cfg and runs
 // each turn in order. It threads history and one shared working-memory
@@ -124,7 +138,7 @@ func RunScenario(ctx context.Context, cfg agent.RunnerConfig, s Scenario) ([]Res
 	// backends, for instance) or share it across a suite.
 	history := append([]agent.Message(nil), s.History...)
 	results := make([]Result, 0, len(s.Turns))
-	for i, input := range s.Turns {
+	run := func(input string) {
 		history = append(history, agent.Message{Role: agent.RoleUser, Text: input})
 
 		var events []agent.Event
@@ -133,11 +147,31 @@ func RunScenario(ctx context.Context, cfg agent.RunnerConfig, s Scenario) ([]Res
 		turn, runErr := runner.Run(ctx, history, emit)
 		// Each turn is named "<scenario>#<n>" so a per-turn Result is
 		// traceable back to its position in the scenario.
-		c := Case{Name: fmt.Sprintf("%s#%d", s.Name, i+1), Input: input}
+		c := Case{Name: fmt.Sprintf("%s#%d", s.Name, len(results)+1), Input: input}
 		results = append(results, Result{Case: c, Turn: turn, Events: events, Err: runErr})
 		if turn != nil {
 			history = append(history, turn.Messages...)
 		}
+	}
+	for _, input := range s.Turns {
+		run(input)
+	}
+	if s.User == nil {
+		return results, nil
+	}
+	limit := s.MaxUserTurns
+	if limit <= 0 {
+		limit = 6
+	}
+	for range limit {
+		next, done, err := s.User(ctx, history)
+		if err != nil {
+			return results, fmt.Errorf("eval: scenario %q user: %w", s.Name, err)
+		}
+		if done {
+			break
+		}
+		run(next)
 	}
 	return results, nil
 }
