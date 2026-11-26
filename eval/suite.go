@@ -189,6 +189,9 @@ type Suite struct {
 	// tokens and time only.
 	Prices Prices
 
+	// Driver runs each case's scenario. Nil means RunScenario.
+	Driver Driver
+
 	// OnCase, when set, hears each case as it finishes, with its index in
 	// Cases, before the next one starts. A long run can print progress
 	// with it. It runs on the goroutine that called Run.
@@ -284,7 +287,11 @@ func (s Suite) Run(ctx context.Context) SuiteReport {
 		}
 
 		start := time.Now()
-		results, err := RunScenario(ctx, cfg, scenario)
+		drive := s.Driver
+		if drive == nil {
+			drive = RunScenario
+		}
+		results, err := drive(ctx, cfg, scenario)
 		cr.Elapsed = time.Since(start)
 		for _, r := range results {
 			if r.Turn == nil {

@@ -23,6 +23,7 @@ type Walker struct {
 	m       Model
 	ladder  eval.Ladder
 	cfg     agent.RunnerConfig
+	driver  eval.Driver
 	applied []bool
 	failed  string
 	reports []eval.StepReport
@@ -184,6 +185,10 @@ func (w *Walker) applyThrough(i int) bool {
 		for _, line := range changes(w.cfg, next) {
 			fmt.Println("  " + line)
 		}
+		if s.Driver != nil {
+			fmt.Println("  runs each case its own way from here (Driver)")
+			w.driver = s.Driver
+		}
 		w.cfg = next
 		w.applied[j] = true
 	}
@@ -194,7 +199,7 @@ func (w *Walker) applyThrough(i int) bool {
 // the step's row.
 func (w *Walker) runAll(ctx context.Context, i int) {
 	fmt.Printf("\nRunning %d cases:\n", len(w.ladder.Cases))
-	suite := eval.Suite{Config: w.cfg, Cases: w.ladder.Cases, ModelName: w.m.Name, Prices: w.m.Prices,
+	suite := eval.Suite{Config: w.cfg, Cases: w.ladder.Cases, ModelName: w.m.Name, Prices: w.m.Prices, Driver: w.driver,
 		OnCase: func(_ int, r eval.CaseReport) { fmt.Println(caseLine(r)) }}
 	rep := suite.Run(ctx)
 	sr := eval.StepReport{Step: w.ladder.Steps[i].Name, Report: rep, Before: w.passed}
@@ -233,7 +238,11 @@ func (w *Walker) watch(ctx context.Context, n int) *demokit.StepResult {
 	if err != nil {
 		return demokit.Err(err)
 	}
-	results, err := eval.RunScenario(ctx, cfg, scenario)
+	drive := w.driver
+	if drive == nil {
+		drive = eval.RunScenario
+	}
+	results, err := drive(ctx, cfg, scenario)
 	if err != nil {
 		return demokit.Err(err)
 	}

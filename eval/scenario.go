@@ -82,6 +82,15 @@ type Scenario struct {
 // What a User spends isn't counted in the case's usage, as a Judge's isn't.
 type User func(ctx context.Context, conversation []agent.Message) (next string, done bool, err error)
 
+// Driver runs one scenario on cfg and returns one Result per turn, the
+// graded turn last, as RunScenario does. A case that runs somewhere other
+// than a bare Runner brings its own: inside a host.App, say, where events
+// and triggers start turns too. Such a driver applies the scenario's
+// overrides (Instructions, MaxSteps, Tools) itself, and it may add a Result
+// for a turn no user message started. The error means the run couldn't
+// happen at all. A turn that ran and failed goes in its Result's Err.
+type Driver func(ctx context.Context, cfg agent.RunnerConfig, s Scenario) ([]Result, error)
+
 // RunScenario applies the scenario's overrides to a copy of cfg and runs
 // each turn in order. It threads history and one shared working-memory
 // source across the turns. It returns one Result per turn, and the last is

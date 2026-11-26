@@ -34,6 +34,12 @@ type Step struct {
 	// the next one's Configure is called, so Configure may append to the
 	// config's slices.
 	Configure func(agent.RunnerConfig) (agent.RunnerConfig, error)
+	// Driver, when set, runs this step's cases and every later step's,
+	// until a later step sets its own. A step that changes how a case runs,
+	// not only what the Runner is configured with, sets it: one that moves
+	// the agent into a host.App with its event pipeline, for instance. Nil
+	// keeps the driver of the step before, and RunScenario for the first.
+	Driver Driver
 }
 
 // StepReport is one step's outcome.
@@ -83,6 +89,9 @@ func (l Ladder) Run(ctx context.Context, s Suite) LadderReport {
 			sr.Err = failed
 			report.Steps = append(report.Steps, sr)
 			continue
+		}
+		if step.Driver != nil {
+			s.Driver = step.Driver
 		}
 		s.Config = cfg
 		sr.Report = s.Run(ctx)

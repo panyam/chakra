@@ -84,6 +84,7 @@ pkg github.com/panyam/chakra/host, method (*App) ServerTools(context.Context, st
 pkg github.com/panyam/chakra/host, method (*App) Sessions(context.Context) ([]agent.RunInfo, error)
 pkg github.com/panyam/chakra/host, method (*App) SessionsPage(context.Context, string) (SessionPage, error)
 pkg github.com/panyam/chakra/host, method (*App) SetRoots(context.Context, ...string) error
+pkg github.com/panyam/chakra/host, method (*App) Settle(context.Context) error
 pkg github.com/panyam/chakra/host, method (*App) Submit(context.Context, string, TurnOptions) (bool, error)
 pkg github.com/panyam/chakra/host, method (*App) Subscribe(context.Context) <-chan HostEvent
 pkg github.com/panyam/chakra/host, method (*App) SwitchProvider(string) error

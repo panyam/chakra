@@ -367,3 +367,59 @@ func TestDeliverFiresTriggersWithoutOverlap(t *testing.T) {
 		t.Fatalf("proactive turns overlapped: %d model calls at once", m)
 	}
 }
+
+// slowProvider delays every call, so a proactive turn is still running
+// when the code that delivered its event moves on.
+type slowProvider struct{ agent.Provider }
+
+func (p slowProvider) Stream(ctx context.Context, req agent.ProviderRequest) (agent.Stream, error) {
+	time.Sleep(50 * time.Millisecond)
+	return p.Provider.Stream(ctx, req)
+}
+
+type countDone struct{ done, fired atomic.Int32 }
+
+func (c *countDone) On(e HostEvent) {
+	switch e.Kind {
+	case HostTurnDone:
+		c.done.Add(1)
+	case HostTriggerFired:
+		c.fired.Add(1)
+	}
+}
+
+func TestSettleWaitsForDeliveredEventsAndTheirTurns(t *testing.T) {
+	ts := startTestServer(t)
+	cfg := testConfig(ts.URL)
+	cfg.Triggers = []TriggerConfig{{Event: "page.click", Instructions: "The user clicked.", Label: "click"}}
+	seen := &countDone{}
+	app, err := NewApp(cfg, &syncWriter{}, strings.NewReader(""),
+		WithProvider(slowProvider{agent.NewStubProvider(agent.StubTurn{Text: "noted"})}), WithObserver(seen))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	ctx := context.Background()
+	for _, name := range []string{"page.click", "page.scroll"} {
+		if err := app.Deliver(ctx, agent.IncomingEvent{Server: "page", Name: name, Data: core.NewRawJSON(json.RawMessage(`{}`))}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := app.Settle(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if f, d := seen.fired.Load(), seen.done.Load(); f != 1 || d != 1 {
+		t.Errorf("after Settle: %d triggers fired and %d turns done, want 1 and 1", f, d)
+	}
+	if n := app.streams.consumed.Load(); n != 2 {
+		t.Errorf("after Settle: %d events consumed, want 2", n)
+	}
+	closed, err := NewApp(testConfig(ts.URL), &syncWriter{}, strings.NewReader(""), WithProvider(agent.NewStubProvider()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	closed.Close()
+	if err := closed.Settle(ctx); err == nil {
+		t.Error("Settle on a closed App returned nil")
+	}
+}

@@ -1138,6 +1138,7 @@ pkg github.com/panyam/chakra/eval, type DimensionReport struct, Failed int
 pkg github.com/panyam/chakra/eval, type DimensionReport struct, Name string
 pkg github.com/panyam/chakra/eval, type DimensionReport struct, Passed int
 pkg github.com/panyam/chakra/eval, type DimensionReport struct, Total int
+pkg github.com/panyam/chakra/eval, type Driver func(context.Context, agent.RunnerConfig, Scenario) ([]Result, error)
 pkg github.com/panyam/chakra/eval, type Ladder struct
 pkg github.com/panyam/chakra/eval, type Ladder struct, Cases []SuiteCase
 pkg github.com/panyam/chakra/eval, type Ladder struct, Name string
@@ -1177,6 +1178,7 @@ pkg github.com/panyam/chakra/eval, type Setup struct, Tools agent.ToolSource
 pkg github.com/panyam/chakra/eval, type Setup struct, Usage map[string]agent.Usage
 pkg github.com/panyam/chakra/eval, type Step struct
 pkg github.com/panyam/chakra/eval, type Step struct, Configure func(agent.RunnerConfig) (agent.RunnerConfig, error)
+pkg github.com/panyam/chakra/eval, type Step struct, Driver Driver
 pkg github.com/panyam/chakra/eval, type Step struct, Name string
 pkg github.com/panyam/chakra/eval, type StepReport struct
 pkg github.com/panyam/chakra/eval, type StepReport struct, Before int
@@ -1186,6 +1188,7 @@ pkg github.com/panyam/chakra/eval, type StepReport struct, Step string
 pkg github.com/panyam/chakra/eval, type Suite struct
 pkg github.com/panyam/chakra/eval, type Suite struct, Cases []SuiteCase
 pkg github.com/panyam/chakra/eval, type Suite struct, Config agent.RunnerConfig
+pkg github.com/panyam/chakra/eval, type Suite struct, Driver Driver
 pkg github.com/panyam/chakra/eval, type Suite struct, ModelName string
 pkg github.com/panyam/chakra/eval, type Suite struct, OnCase func(int, CaseReport)
 pkg github.com/panyam/chakra/eval, type Suite struct, Prices Prices

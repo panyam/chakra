@@ -68,6 +68,11 @@ type streamSet struct {
 	// wait for one to pass through.
 	consumed atomic.Int64
 
+	// settles holds App.Settle's waiters by marker id, and settleSeq numbers
+	// the markers.
+	settles   sync.Map
+	settleSeq atomic.Int64
+
 	// fanIn merges every subscription into one channel, and the consumer
 	// drains it. Nil when the async control plane is off.
 	fanIn *gocurrent.FanIn[agent.IncomingEvent]

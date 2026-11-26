@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -89,6 +90,37 @@ func (a *App) Deliver(ctx context.Context, ev agent.IncomingEvent) error {
 	}
 }
 
+// settleServer marks the events Settle sends through the pipeline. A
+// config's server ids are names a person typed, and none starts with a NUL.
+const settleServer = "\x00settle"
+
+// Settle returns once every event Deliver accepted before the call has
+// been handled: injected or dropped, and any proactive turn it started
+// has finished. A test or an eval uses it to know that an event it
+// delivered has reached the model, or failed to, before the next user
+// turn. Events from server streams aren't waited for, since they arrive
+// on their own schedule.
+//
+// It returns ctx's error if ctx ends first, and an error once the App is
+// closed.
+func (a *App) Settle(ctx context.Context) error {
+	id := strconv.FormatInt(a.streams.settleSeq.Add(1), 10)
+	done := make(chan struct{})
+	a.streams.settles.Store(id, done)
+	defer a.streams.settles.Delete(id)
+	if err := a.Deliver(ctx, agent.IncomingEvent{Server: settleServer, ID: id}); err != nil {
+		return err
+	}
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-a.streams.ctx.Done():
+		return errors.New("host: Settle on a closed App")
+	}
+}
+
 // consumeEvents is the single goroutine that owns the policy pipeline:
 // ingest into injection, evaluate triggers, and run approved proactive
 // turns (serialized against user turns by the turn mutex inside
@@ -101,6 +133,12 @@ func (a *App) consumeEvents(ctx context.Context) {
 		case ev, ok := <-a.streams.fanIn.OutputChan():
 			if !ok {
 				return
+			}
+			if ev.Server == settleServer {
+				if done, ok := a.streams.settles.Load(ev.ID); ok {
+					close(done.(chan struct{}))
+				}
+				continue
 			}
 			a.injection.Ingest(ev)
 			if firing := a.triggers.OnEvent(ev); firing != nil {
