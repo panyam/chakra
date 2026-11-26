@@ -58,6 +58,7 @@ pkg github.com/panyam/chakra, const PenaltyDRY
 pkg github.com/panyam/chakra, const PenaltyFrequency
 pkg github.com/panyam/chakra, const PenaltyPresence
 pkg github.com/panyam/chakra, const PenaltyRepeat
+pkg github.com/panyam/chakra, const PlaceholderThoughtSignature
 pkg github.com/panyam/chakra, const PlanCompleted
 pkg github.com/panyam/chakra, const PlanInProgress
 pkg github.com/panyam/chakra, const PlanPending
@@ -615,6 +616,7 @@ pkg github.com/panyam/chakra, type OpenAIConfig struct, NoResponseSchema bool
 pkg github.com/panyam/chakra, type OpenAIConfig struct, NoTemperature bool
 pkg github.com/panyam/chakra, type OpenAIConfig struct, Penalties []string
 pkg github.com/panyam/chakra, type OpenAIConfig struct, TextToolCalls bool
+pkg github.com/panyam/chakra, type OpenAIConfig struct, ThoughtSignatures bool
 pkg github.com/panyam/chakra, type OpenAIEmbedder struct
 pkg github.com/panyam/chakra, type OpenAIEmbedderConfig struct
 pkg github.com/panyam/chakra, type OpenAIEmbedderConfig struct, APIKey string

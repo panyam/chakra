@@ -312,3 +312,14 @@ func TestSuiteReportJSONRoundTrips(t *testing.T) {
 		t.Fatalf("round-trip drift: %+v", back)
 	}
 }
+
+// A turn that failed says why, so a ladder line shows the provider's error
+// and not only that the run failed.
+func TestScorersShowWhyTheRunFailed(t *testing.T) {
+	r := Result{Err: errors.New("HTTP 400: Function call is missing a thought_signature")}
+	for _, s := range []Scorer{ExactMatch("5"), Contains("5"), NotContains("x"), MaxSteps(3), StepCount(1), Rows([]string{"5"}, nil)} {
+		if d := s.Score(r).Detail; !strings.Contains(d, "missing a thought_signature") {
+			t.Errorf("detail = %q, want the run error", d)
+		}
+	}
+}
