@@ -55,8 +55,8 @@ codeq on haiku: 4 steps, 10 cases each
 config's path. It defaults to `~/.agentchat/exercise-agents.json`. `make
 profiles` (or `make exercise LIVE=?`) lists its connections with their type, model and
 price, and a name it lacks is an error that lists the ones it has. A
-connection's `price` prices the run. `eval.Price` has no cached-input rate,
-so cached tokens are priced at the full input rate.
+connection's `price` prices the run. Cached input tokens bill at its
+`cachedInput` rate, or at the input rate when it has none.
 
 A profile holds only a `connections` block. This one has Claude Haiku 5.5 and
 Sonnet 5.5, with prices per million tokens:
@@ -111,6 +111,26 @@ connection it calls the model again. [codeq/WALK.md](codeq/WALK.md) is a
 recorded walk on Haiku 5.5.
 
 ## Adding an agent
+
+Two checks come before any code, and the plan records both.
+
+- **Calibrate the eval on a live model.** Draft the cases first. Run them on
+  Haiku, and on a 14B too where one is set up, with the bare step and with
+  the step you plan to finish on. Two numbers decide whether to build. The
+  bare step should fail a good share of the cases, and the last step should
+  plausibly pass them. If the bare step already passes nearly everything, the
+  ladder can't show a step helping, so make the eval harder before building
+  it. codeq skipped this check, and Haiku passed 10 of 10 on every step
+  (#365). The run costs a few cents.
+- **Name each step's hook point.** List the steps, and give each one its
+  point from [`docs/HOOKS.md`](../../docs/HOOKS.md): turn start, each model
+  call, each tool call, turn end, or events. A step with no matching point
+  needs a host or core change, and that change becomes part of the plan.
+  copilot found three such gaps while it was being built (#383). The plan
+  would have named them first.
+
+The scripted model's gaps should copy failures the live run showed, so its
+climb replays real mistakes.
 
 1. A package under `examples/agents/<job>/` with its ladder, its
    `Instructions`, and `Scripted() agent.Provider`, a stand-in model for CI.
