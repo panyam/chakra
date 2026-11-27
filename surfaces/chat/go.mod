@@ -116,7 +116,7 @@ require (
 	github.com/panyam/gocurrent v0.1.3 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
 	github.com/panyam/mcpkit/experimental/ext/events v0.8.23 // indirect
-	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.20 // indirect
+	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.23 // indirect
 	github.com/panyam/mcpkit/ext/auth v0.8.20 // indirect
 	github.com/panyam/mcpkit/ext/skills v0.8.20 // indirect
 	github.com/panyam/oneauth v0.3.19 // indirect

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"path"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -27,8 +28,8 @@ import (
 //     and a negation in prose that names the packages it left out too,
 //     until a note asks for rows alone.
 //   - On a multi-hop question it stops after one hop: direct callers, or
-//     direct imports. No step of this ladder fixes that. Breaking a problem
-//     into hops is mission 395's work.
+//     direct imports, unless a note says to walk. Then it repeats the
+//     lookup on every row until nothing new comes back.
 //
 // So each step passes more in CI, with no model. Only a live run says what a
 // step does for a real one.
@@ -48,8 +49,9 @@ var (
 	askDefined   = regexp.MustCompile(`^What is the qualified name of the (?:function|type) (\w+)(?: in (\S+))?\?`)
 	askNone      = regexp.MustCompile(`^Which packages in (\S+) import nothing from (\S+?),`)
 	askReach     = regexp.MustCompile(`^Which functions (?:in (\S+) )?reach (\S+) only through`)
-	askAllCalls  = regexp.MustCompile(`^Which functions call (\S+), directly or through`)
+	askAllCalls  = regexp.MustCompile(`^Which functions (?:in (\S+) )?call (\S+), directly or through`)
 	askDependsOn = regexp.MustCompile(`^Which packages in (\S+) does (\S+) depend on`)
+	askThrough   = regexp.MustCompile(`^Which packages in (\S+) depend on (\S+) only through`)
 	askImports   = regexp.MustCompile(`^Which packages does (\S+) import\?`)
 	askImporters = regexp.MustCompile(`^Which packages (?:in (\S+) )?import ([^\s,?]+)`)
 	askCallers   = regexp.MustCompile(`^Which functions (?:in (\S+) )?call (\S+?)(?: from (\S+))?\?`)
@@ -58,7 +60,7 @@ var (
 
 func (scripted) reply(req agent.ProviderRequest) agent.StubTurn {
 	var question, lastTool string
-	stuck, rowsAsked := false, false
+	stuck, rowsAsked, walk := false, false, false
 	for _, m := range req.Messages {
 		switch m.Role {
 		case agent.RoleUser:
@@ -70,6 +72,7 @@ func (scripted) reply(req agent.ProviderRequest) agent.StubTurn {
 		case agent.RoleSystem:
 			stuck = stuck || strings.Contains(m.Text, "Try a different approach")
 			rowsAsked = rowsAsked || strings.Contains(m.Text, "one row per line")
+			walk = walk || strings.Contains(m.Text, "more than one lookup")
 		}
 	}
 	scope := strings.Contains(req.Instructions, `"in <module>"`)
@@ -77,6 +80,12 @@ func (scripted) reply(req agent.ProviderRequest) agent.StubTurn {
 
 	if m := askNone.FindStringSubmatch(question); m != nil {
 		return answerNone(req, m[1], m[2], noTests, rowsAsked)
+	}
+
+	if walk {
+		if w, ok := walkFor(question); ok {
+			return w.next(req, scope, noTests)
+		}
 	}
 
 	var tool string
@@ -92,7 +101,11 @@ func (scripted) reply(req agent.ProviderRequest) agent.StubTurn {
 		m := askReach.FindStringSubmatch(question)
 		module, tool, args = m[1], "callers", map[string]string{"function": m[2]}
 	case askAllCalls.MatchString(question):
-		tool, args = "callers", map[string]string{"function": askAllCalls.FindStringSubmatch(question)[1]}
+		m := askAllCalls.FindStringSubmatch(question)
+		module, tool, args = m[1], "callers", map[string]string{"function": m[2]}
+	case askThrough.MatchString(question):
+		m := askThrough.FindStringSubmatch(question)
+		module, tool, args = m[1], "importers", map[string]string{"package": m[2]}
 	case askDependsOn.MatchString(question):
 		m := askDependsOn.FindStringSubmatch(question)
 		module, tool, args = m[1], "imports", map[string]string{"package": m[2]}
@@ -195,4 +208,92 @@ func answerNone(req agent.ProviderRequest, module, other string, noTests, rowsAs
 	}
 	return agent.StubTurn{Text: "These import nothing from " + other + ":\n- " + strings.Join(none, "\n- ") +
 		"\n\nThese do:\n- " + strings.Join(some, "\n- ")}
+}
+
+// walker is a multi-hop question as a walk: the lookup to repeat, its
+// argument, where it starts, the module to keep in the answer, and whether
+// the first lookup's rows leave the answer.
+type walker struct {
+	tool, arg, start, module string
+	dropFirst                bool
+}
+
+func walkFor(q string) (walker, bool) {
+	switch {
+	case askReach.MatchString(q):
+		m := askReach.FindStringSubmatch(q)
+		return walker{"callers", "function", m[2], m[1], true}, true
+	case askAllCalls.MatchString(q):
+		m := askAllCalls.FindStringSubmatch(q)
+		return walker{"callers", "function", m[2], m[1], false}, true
+	case askThrough.MatchString(q):
+		m := askThrough.FindStringSubmatch(q)
+		return walker{"importers", "package", m[2], m[1], true}, true
+	case askDependsOn.MatchString(q):
+		m := askDependsOn.FindStringSubmatch(q)
+		return walker{"imports", "package", m[2], m[1], false}, true
+	}
+	return walker{}, false
+}
+
+// next looks up every row it reached but hasn't looked up yet, in one step.
+// Once every row has been looked up, it answers with the rows the question
+// keeps. It walks rows from every module, and leaves out test-only rows
+// only when its instructions and the question say non-test.
+func (w walker) next(req agent.ProviderRequest, scope, noTests bool) agent.StubTurn {
+	ids := map[string]string{}
+	results := map[string]string{}
+	for _, m := range req.Messages {
+		for _, tc := range m.ToolCalls {
+			var in map[string]string
+			_ = json.Unmarshal(tc.Args.Raw(), &in)
+			ids[tc.ID] = in[w.arg]
+		}
+		if m.Role == agent.RoleTool {
+			results[ids[m.ToolCallID]] = m.Text
+		}
+	}
+	rows := func(text string) []string {
+		var out []string
+		for _, line := range strings.Split(text, "\n") {
+			row, testOnly := strings.CutSuffix(strings.TrimSpace(line), " (test files only)")
+			if strings.HasPrefix(row, "example.com/") && !(testOnly && noTests) {
+				out = append(out, row)
+			}
+		}
+		return out
+	}
+	reached := []string{}
+	seen := map[string]bool{w.start: true}
+	var calls []agent.ToolCall
+	for queue := []string{w.start}; len(queue) > 0; queue = queue[1:] {
+		res, ok := results[queue[0]]
+		if !ok {
+			raw, _ := json.Marshal(map[string]string{w.arg: queue[0]})
+			calls = append(calls, agent.ToolCall{ID: "w" + strconv.Itoa(len(ids)+len(calls)), Name: w.tool, Args: core.NewRawJSON(raw)})
+			continue
+		}
+		for _, r := range rows(res) {
+			if !seen[r] {
+				seen[r] = true
+				reached = append(reached, r)
+				queue = append(queue, r)
+			}
+		}
+	}
+	if len(calls) > 0 {
+		return agent.StubTurn{ToolCalls: calls}
+	}
+	first := rows(results[w.start])
+	var answer []string
+	for _, r := range reached {
+		if scope && w.module != "" && !strings.HasPrefix(r, w.module+"/") {
+			continue
+		}
+		if w.dropFirst && slices.Contains(first, r) {
+			continue
+		}
+		answer = append(answer, r)
+	}
+	return agent.StubTurn{Text: strings.Join(answer, "\n")}
 }

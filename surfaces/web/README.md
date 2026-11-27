@@ -170,7 +170,8 @@ The join endpoint's `RoomOf` and the `attach` resource have to name the same
 room. The bridge agrees a page with the agents that act for the page's own
 user, so the join endpoint's `Subject` and the agent's token have to name the
 same user. `tests/chat_element_rooms_e2e` runs the whole arrangement on two
-local origins.
+local origins. `examples/agents/copilot/web` is a kanban board built this way, with page
+events that reach the agent through roomsevents (#397).
 
 ### The coding agent at /code/
 

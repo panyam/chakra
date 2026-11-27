@@ -11,6 +11,7 @@ cd examples/agents/copilot
 make tui                 # walk the ladder on the scripted model
 make note LIVE=haiku     # on a real model
 make exercise            # the whole ladder, table at the end
+make web LIVE=haiku      # the board in a browser, with the agent beside it
 ```
 
 ## The page
@@ -129,6 +130,29 @@ it was built for:
   "Q3 launch plan" anyway?"
 - The walk cost $0.017.
 
+## The board in a browser
+
+`make web LIVE=haiku` serves the board as a real page on
+http://localhost:8781/, with `<chakra-chat>` beside it (#397). Turn on "Let
+the agent use this page" in the chat, then drag a card or double-click one to
+rename it.
+
+- The page holds the board in the browser. It offers the agent the same five
+  tools through a relay room, as agentweb's README describes under "Page tools
+  through a relay room".
+- Each drag or rename goes out as `card.moved` or `card.renamed`. The app
+  declares both events with `priority: critical` and board.go's templates.
+  roomsevents turns them into MCP Events, and the agent's host subscribes to
+  them.
+- The done-check trigger fires on a card moved to Done. Drag C2 to Done, and
+  the agent moves it back to Doing, highlights it and names the open items.
+- The page's tools refuse an edit to a card the user changed after the
+  agent's last `read_board`, as step 6's guard does.
+
+`web/` is a module of its own, since the relay needs massrelay. Its test runs
+a Go page in the same room, with a stub model, and checks the mid-turn rename
+and the trigger.
+
 ## What the build found
 
 - In-process code had no way to know an event it passed to `App.Deliver`
@@ -143,3 +167,6 @@ it was built for:
 - `App.Deliver` only queues an event. A user action timed for the gap
   between two model calls could reach the host after the second call began,
   so the page waits on `App.Settle` after each action.
+- A trigger's turn runs on the goroutine that reads events, so an event the
+  user sends during that turn waits until it ends, critical or not. The web
+  test checks the mid-turn rename in a typed turn for that reason.

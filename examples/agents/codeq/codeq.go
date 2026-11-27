@@ -1,7 +1,7 @@
 // Package codeq is an agent that answers questions about Go code through a
 // tool server over MCP (#351). The server, cmd/codeserver, indexes two small
 // modules in testdata, example.com/shop and example.com/ledger, and runs as
-// its own process. The eval asks fifteen questions whose answers are rows:
+// its own process. The eval asks twenty questions whose answers are rows:
 // import paths, or qualified names such as example.com/shop/orders.Place.
 package codeq
 
@@ -76,6 +76,16 @@ var questions = []question{
 		[]string{"example.com/shop/api.Handle", "example.com/shop/checkout.Run", "example.com/shop/cmd/shopd.main", "example.com/shop/orders.Place", "example.com/shop/payments.Charge"}, multiHop},
 	{"Which packages in example.com/ledger does example.com/shop/api depend on, directly or through other packages?",
 		[]string{"example.com/ledger/journal", "example.com/ledger/money"}, multiHop},
+	{"Which functions in example.com/shop reach example.com/shop/receipt.Format only through other functions, without calling it directly?",
+		[]string{"example.com/shop/api.Handle", "example.com/shop/checkout.Run"}, multiHop},
+	{"Which functions in example.com/shop call example.com/ledger/money.Add, directly or through other functions?",
+		[]string{"example.com/shop/api.Handle", "example.com/shop/checkout.Run", "example.com/shop/cmd/shopd.main", "example.com/shop/orders.Place"}, multiHop},
+	{"Which packages in example.com/ledger does example.com/shop/refunds depend on, directly or through other packages?",
+		[]string{"example.com/ledger/audit", "example.com/ledger/journal", "example.com/ledger/money"}, multiHop},
+	{"Which packages in example.com/shop does example.com/shop/cmd/shopd depend on, directly or through other packages?",
+		[]string{"example.com/shop/catalog", "example.com/shop/internal/db", "example.com/shop/orders", "example.com/shop/payments"}, multiHop},
+	{"Which packages in example.com/shop depend on example.com/ledger/money only through other packages, without importing it directly, counting only non-test files?",
+		[]string{"example.com/shop/api", "example.com/shop/checkout", "example.com/shop/cmd/shopd", "example.com/shop/payments", "example.com/shop/refunds"}, multiHop},
 }
 
 // Fixture is the directory holding the two modules, found through the go
@@ -119,7 +129,7 @@ func Start(ctx context.Context) (c *client.Client, ix *Index, stop func(), err e
 	return c, ix, func() { c.Close(); os.RemoveAll(dir) }, nil
 }
 
-// Ladder starts the tool server and returns codeq's four steps over its fifteen
+// Ladder starts the tool server and returns codeq's steps over its twenty
 // questions. The caller runs stop once the ladder has run.
 func Ladder(ctx context.Context) (l eval.Ladder, stop func(), err error) {
 	c, ix, stop, err := Start(ctx)
@@ -155,6 +165,10 @@ func Ladder(ctx context.Context) (l eval.Ladder, stop func(), err error) {
 			}},
 			{Name: "+ answer check", Configure: func(cfg agent.RunnerConfig) (agent.RunnerConfig, error) {
 				cfg.TurnEnd = append(cfg.TurnEnd, answerCheck(among))
+				return cfg, nil
+			}},
+			{Name: "+ routing", Configure: func(cfg agent.RunnerConfig) (agent.RunnerConfig, error) {
+				cfg.StepStages = append(slices.Clip(cfg.StepStages), router())
 				return cfg, nil
 			}},
 		},

@@ -86,6 +86,51 @@ func TestQuestionAnswersMatchTheIndex(t *testing.T) {
 		}
 	}
 	check(questions[14].text, ledger)
+	byText := func(prefix string) string {
+		i := slices.IndexFunc(questions, func(q question) bool { return strings.HasPrefix(q.text, prefix) })
+		if i < 0 {
+			t.Fatalf("no question starting %q", prefix)
+		}
+		return questions[i].text
+	}
+	directFormat, _ := ix.CallersOf("example.com/shop/receipt.Format")
+	check(byText("Which functions in example.com/shop reach example.com/shop/receipt.Format"),
+		slices.DeleteFunc(inShop(reach("example.com/shop/receipt.Format")), func(x string) bool { return slices.Contains(directFormat, x) }))
+	check(byText("Which functions in example.com/shop call example.com/ledger/money.Add"), inShop(reach("example.com/ledger/money.Add")))
+	// deps lists the packages p imports from non-test files, directly or
+	// through other packages, inside prefix.
+	deps := func(p, prefix string) []string {
+		seen := map[string]bool{}
+		var walk func(string)
+		walk = func(p string) {
+			es, _ := ix.ImportsOf(p)
+			for _, e := range es {
+				if !e.TestOnly && !seen[e.Path] {
+					seen[e.Path] = true
+					walk(e.Path)
+				}
+			}
+		}
+		walk(p)
+		var out []string
+		for d := range seen {
+			if strings.HasPrefix(d, prefix) {
+				out = append(out, d)
+			}
+		}
+		return out
+	}
+	check(byText("Which packages in example.com/ledger does example.com/shop/refunds"), deps("example.com/shop/refunds", "example.com/ledger/"))
+	check(byText("Which packages in example.com/shop does example.com/shop/cmd/shopd"), deps("example.com/shop/cmd/shopd", "example.com/shop/"))
+	var through []string
+	for _, p := range ix.PackagesIn("example.com/shop") {
+		es, _ := ix.ImportsOf(p)
+		directly := slices.ContainsFunc(es, func(e Edge) bool { return !e.TestOnly && e.Path == "example.com/ledger/money" })
+		if !directly && slices.Contains(deps(p, ""), "example.com/ledger/money") {
+			through = append(through, p)
+		}
+	}
+	check(byText("Which packages in example.com/shop depend on example.com/ledger/money only through"), through)
 	var none []string
 	for _, p := range ix.PackagesIn("example.com/shop") {
 		es, _ := ix.ImportsOf(p)
