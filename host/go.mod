@@ -11,7 +11,7 @@ require (
 	github.com/panyam/mcpkit/experimental/ext/agents v0.8.23
 	github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.8.20
 	github.com/panyam/mcpkit/experimental/ext/events v0.8.23
-	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.20
+	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.23
 	github.com/panyam/mcpkit/ext/auth v0.8.20
 	github.com/panyam/mcpkit/ext/skills v0.8.20
 	github.com/panyam/mcpkit/ext/tasks v0.8.20

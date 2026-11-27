@@ -90,8 +90,8 @@ github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.8.20 h1:v+j03Dw6o
 github.com/panyam/mcpkit/experimental/ext/agents/clients/go v0.8.20/go.mod h1:f/3RfpSGX0EUbMY+Flv+KatTnp9mQiMN/1vsA35G0aw=
 github.com/panyam/mcpkit/experimental/ext/events v0.8.23 h1:tE5N42ZttA5/IcBCy8UnIej2rK/NVGx+t76C2A3xHlc=
 github.com/panyam/mcpkit/experimental/ext/events v0.8.23/go.mod h1:KppYUHfg85PGMoqnMDzyYCtvNdNJARknoqzIRtArE7o=
-github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.20 h1:aK/YQSTD/jGUTlk0niQjwgkCPMaI1V1O7Rfyut+PmKw=
-github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.20/go.mod h1:rTDtJ0OxG5IMSJu6CnHAgYhZ/zDvyrcpz5EZ9A88FWY=
+github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.23 h1:h0Eatkc9qh91X3cxDFVmDywmuWfDnWWamqxsp5XE1Yw=
+github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.23/go.mod h1:XifOgsRNv0JDEs2tOM5zel/vM7kd6xdqF3wkWe3odsY=
 github.com/panyam/mcpkit/ext/auth v0.8.20 h1:3ywmCYhMJvibSAOy7xGOXpZW+sLkpnh4SJdB/2ti/5s=
 github.com/panyam/mcpkit/ext/auth v0.8.20/go.mod h1:VRzNReUh1xwW/775aMd+Oc46sQwJia2SWwOj9MV9ASA=
 github.com/panyam/mcpkit/ext/skills v0.8.20 h1:QBplbW3mmdFCiYuMgRbzdftSJOtCLNGP2X1RpIz9SLE=
