@@ -55,12 +55,33 @@ type StepReport struct {
 	// Before is the previous step's Passed, for Delta. It is zero on the
 	// first step.
 	Before int `json:"before"`
+	// BeforeRuns is the previous step's passes in each run, for Resolved.
+	// It is empty on the first step.
+	BeforeRuns []int `json:"beforeRuns,omitempty"`
 }
 
 // Delta is how many more cases this step passed than the step before. It is
 // zero on the first step. With repeats it counts passes over every repeat,
 // so the table divides it by the repeats.
 func (s StepReport) Delta() int { return s.Report.Passed - s.Before }
+
+// Resolved reports whether this step's change is larger than the run-to-run
+// spread, so a reader can trust its sign (#398). With repeats, the change
+// is resolved when this step's runs and the step before's don't overlap:
+// the lowest of one is above the highest of the other. A single run of a
+// live model shows no spread, so its change is never resolved. A single run
+// of a model that isn't live always is, since every run would give the same
+// answers. The first step has no change, and Resolved reports true.
+func (s StepReport) Resolved() bool {
+	if len(s.BeforeRuns) == 0 {
+		return true
+	}
+	runs := s.Report.PassesPerRun()
+	if len(runs) < 2 || len(s.BeforeRuns) < 2 {
+		return !s.Report.Live
+	}
+	return slices.Min(runs) > slices.Max(s.BeforeRuns) || slices.Max(runs) < slices.Min(s.BeforeRuns)
+}
 
 // LadderReport is a Ladder's outcome, a StepReport per step in order.
 type LadderReport struct {
@@ -78,8 +99,9 @@ func (l Ladder) Run(ctx context.Context, s Suite) LadderReport {
 	s.Cases = l.Cases
 	var failed string
 	before := 0
+	var beforeRuns []int
 	for i, step := range l.Steps {
-		sr := StepReport{Step: step.Name, Before: before}
+		sr := StepReport{Step: step.Name, Before: before, BeforeRuns: beforeRuns}
 		if failed == "" && step.Configure != nil {
 			next, err := step.Configure(cfg)
 			if err != nil {
@@ -98,6 +120,7 @@ func (l Ladder) Run(ctx context.Context, s Suite) LadderReport {
 		s.Config = cfg
 		sr.Report = s.Run(ctx)
 		before = sr.Report.Passed
+		beforeRuns = sr.Report.PassesPerRun()
 		report.Steps = append(report.Steps, sr)
 	}
 	return report
@@ -109,6 +132,8 @@ func (l Ladder) Run(ctx context.Context, s Suite) LadderReport {
 // When the suite ran each case more than once, the pass cell is the mean
 // over the repeats with the lowest and highest run after it, such as
 // "7.3/10 (6-8)", and the change is the change in that mean.
+// A change that isn't Resolved starts with "~", and a line under the table
+// says why.
 // It returns the string and does not print (constraint A4).
 func (r LadderReport) Table() string {
 	var b strings.Builder
@@ -129,6 +154,7 @@ func (r LadderReport) Table() string {
 		head += "reasoning/correct\t"
 	}
 	fmt.Fprintln(w, head)
+	marked := false
 	for i, s := range r.Steps {
 		if s.Err != "" {
 			dashes := "-\t-\t-\t-\t"
@@ -152,6 +178,10 @@ func (r LadderReport) Table() string {
 				change = fmt.Sprintf("%+.1f", float64(s.Delta())/float64(repeats))
 			}
 		}
+		if i > 0 && !s.Resolved() {
+			change = "~" + change
+			marked = true
+		}
 		usd, sec := "-", "-"
 		if d, ok := s.Report.CostPerCorrect(); ok {
 			usd = dollars(d)
@@ -170,7 +200,20 @@ func (r LadderReport) Table() string {
 		fmt.Fprintln(w, row)
 	}
 	w.Flush()
+	if marked {
+		b.WriteString("\n" + unresolvedNote(r) + "\n")
+	}
 	return b.String()
+}
+
+// unresolvedNote explains the "~" a Table puts on an unresolved change.
+func unresolvedNote(r LadderReport) string {
+	for _, s := range r.Steps {
+		if s.Report.Repeats > 1 {
+			return "~ this step's runs overlap the step before's, so the change is within the spread."
+		}
+	}
+	return "~ one run of a live model shows no spread, so the change may be noise. Running each case more than once measures it."
 }
 
 // TimePerCorrect is the wall time of every case's turns, setup included,

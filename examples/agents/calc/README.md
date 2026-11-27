@@ -52,13 +52,17 @@ on haiku
 calc: 6 cases
 step         pass  change  usd/correct  sec/correct
 model only   6/6           $0.000019    0.59
-+ calc tool  6/6   +0      $0.00013     1.00
++ calc tool  6/6   ~+0     $0.00013     1.00
+
+~ one run of a live model shows no spread, so the change may be noise. Running each case more than once measures it.
 
 on sonnet
 calc: 6 cases
 step         pass  change  usd/correct  sec/correct
 model only   6/6           $0.00029     0.86
-+ calc tool  6/6   +0      $0.0025      1.47
++ calc tool  6/6   ~+0     $0.0025      1.47
+
+~ one run of a live model shows no spread, so the change may be noise. Running each case more than once measures it.
 ```
 
 Both models get every case in their heads. The tool step passes nothing more,

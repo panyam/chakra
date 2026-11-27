@@ -61,8 +61,11 @@ connection's `price` prices the run. Cached input tokens bill at its
 A live model gives different answers from run to run, so one run can move a
 step by a case or two either way. `REPEATS=3` runs each case three times. The
 pass column then shows the mean, out of the distinct cases, with the lowest
-and highest run in brackets, such as `10.7/15 (9-12)`. Two steps whose
-ranges overlap haven't been told apart.
+and highest run in brackets, such as `10.7/15 (9-12)`. When a step's range
+overlaps the step before's, the change starts with `~`, as in `~+1.0`, and a
+line under the table says why. Those two steps haven't been told apart.
+One live run has no range at all, so it marks every change. The scripted
+model gives the same answers every run, so its table has no marks (#398).
 
 A profile holds only a `connections` block. This one has Claude Haiku 5.5 and
 Sonnet 5.5, with prices per million tokens:

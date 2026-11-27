@@ -247,3 +247,69 @@ func TestRepeatsRunEachCaseAndTheTableShowsTheSpread(t *testing.T) {
 		t.Errorf("table:\n%s\nwant 2 cases and a pass cell of 1.7/2 (1-2)", tbl)
 	}
 }
+
+// sequence answers each call with the next of answers, in call order.
+func sequence(answers ...string) *replyProvider {
+	i := 0
+	return &replyProvider{reply: func(agent.ProviderRequest) agent.StubTurn {
+		a := answers[i%len(answers)]
+		i++
+		return agent.StubTurn{Text: a}
+	}}
+}
+
+// threeCases is a ladder of three steps over three cases that pass on
+// "right".
+func threeCases() Ladder {
+	return Ladder{
+		Name:  "r",
+		Steps: []Step{{Name: "one"}, {Name: "two"}, {Name: "three"}},
+		Cases: []SuiteCase{
+			Single(Case{Name: "a", Input: "q"}, ExactMatch("right")),
+			Single(Case{Name: "b", Input: "q"}, ExactMatch("right")),
+			Single(Case{Name: "c", Input: "q"}, ExactMatch("right")),
+		},
+	}
+}
+
+func TestAChangeWithinTheSpreadIsMarked(t *testing.T) {
+	const r, w = "right", "wrong"
+	// Passes per run: step one 0, 1, 0. Step two 1, 1, 0, which overlaps.
+	// Step three 3, 3, 3, which doesn't.
+	p := sequence(
+		w, w, w, r, w, w, w, w, w,
+		r, w, w, r, w, w, w, w, w,
+		r, r, r, r, r, r, r, r, r)
+	rep := threeCases().Run(context.Background(), Suite{Config: agent.RunnerConfig{Provider: p}, Repeats: 3})
+	if got := []bool{rep.Steps[1].Resolved(), rep.Steps[2].Resolved()}; got[0] || !got[1] {
+		t.Errorf("resolved = %v, want [false true]", got)
+	}
+	tbl := rep.Table()
+	for _, want := range []string{"~+0.3", "+2.3", "~ this step's runs overlap the step before's"} {
+		if !strings.Contains(tbl, want) {
+			t.Errorf("table:\n%s\nwant %q", tbl, want)
+		}
+	}
+	if strings.Contains(tbl, "~+2.3") {
+		t.Errorf("a change outside the spread is marked:\n%s", tbl)
+	}
+}
+
+func TestOneRunOfALiveModelMarksEveryChange(t *testing.T) {
+	const r, w = "right", "wrong"
+	answers := []string{w, w, w, r, w, w, r, r, r}
+	live := threeCases().Run(context.Background(), Suite{Config: agent.RunnerConfig{Provider: sequence(answers...)}, Live: true})
+	tbl := live.Table()
+	for _, want := range []string{"~+1", "~+2", "~ one run of a live model shows no spread"} {
+		if !strings.Contains(tbl, want) {
+			t.Errorf("live table:\n%s\nwant %q", tbl, want)
+		}
+	}
+	scripted := threeCases().Run(context.Background(), Suite{Config: agent.RunnerConfig{Provider: sequence(answers...)}})
+	if tbl := scripted.Table(); strings.Contains(tbl, "~") {
+		t.Errorf("a scripted model's single run is marked:\n%s", tbl)
+	}
+	if !scripted.Steps[1].Resolved() {
+		t.Error("a scripted model's single run is unresolved")
+	}
+}

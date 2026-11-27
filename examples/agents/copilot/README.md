@@ -104,11 +104,13 @@ model calls.
 ```
 step                pass  change  usd/correct  sec/correct
 chat only           0/8           -            -
-+ page tools        2/8   +2      $0.0012      6.80
-+ page events       4/8   +2      $0.00061     3.14
-+ trigger           6/8   +2      $0.00056     2.81
-+ critical events   7/8   +1      $0.00058     3.04
-+ stale-edit guard  8/8   +1      $0.00047     2.47
++ page tools        2/8   ~+2     $0.0012      6.80
++ page events       4/8   ~+2     $0.00061     3.14
++ trigger           6/8   ~+2     $0.00056     2.81
++ critical events   7/8   ~+1     $0.00058     3.04
++ stale-edit guard  8/8   ~+1     $0.00047     2.47
+
+~ one run of a live model shows no spread, so the change may be noise. Running each case more than once measures it.
 ```
 
 Haiku climbs the same as the scripted model, and each step fixes the case

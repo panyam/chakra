@@ -104,22 +104,34 @@ a real model.
 
 ## A live run
 
-On Claude Haiku 5.5, on 2026-11-26, with `REPEATS=3`. Each case ran three
-times. The pass column shows the mean, with the lowest and highest run in
-brackets.
+On Claude Haiku 5.5, with `REPEATS=3`, on 2026-11-26 and again on
+2026-11-27. Each case ran three times. The pass column shows the mean, with
+the lowest and highest run in brackets. A `~` marks a change whose runs
+overlap the step before's.
 
 ```
 $ make exercise LIVE=haiku REPEATS=3
+on 2026-11-26
 step            pass             change  usd/correct  sec/correct
 tools only      9.7/15 (9-11)            $0.00084     5.02
-+ instructions  10.7/15 (9-12)   +1.0    $0.00081     4.67
-+ stuck policy  10.0/15 (9-11)   -0.7    $0.00084     4.82
++ instructions  10.7/15 (9-12)   ~+1.0   $0.00081     4.67
++ stuck policy  10.0/15 (9-11)   ~-0.7   $0.00084     4.82
 + answer check  14.0/15 (14-14)  +4.0    $0.00089     4.97
+
+on 2026-11-27
+step            pass             change  usd/correct  sec/correct
+tools only      9.7/15 (9-10)            $0.00087     5.25
++ instructions  10.3/15 (10-11)  ~+0.7   $0.00080     4.43
++ stuck policy  10.7/15 (9-12)   ~+0.3   $0.00081     4.49
++ answer check  14.3/15 (14-15)  +3.7    $0.00092     5.08
+
+~ this step's runs overlap the step before's, so the change is within the spread.
 ```
 
 The bare step fails a third of the cases, and the answer check passes all
-but one. The middle two steps move within the spread, so these runs don't
-tell them apart. Per step:
+but one. Both days mark the middle two steps, so these runs don't tell them
+apart. The stuck policy's change even flips sign between the days. Per step,
+on 2026-11-26:
 
 - **tools only.** Both lookalike questions fail on every run. Haiku gives
   the right `Format` and then mentions the other module's: "The search also
@@ -133,13 +145,13 @@ tell them apart. Per step:
   Its numbers sit inside the same spread.
 - **+ answer check.** Sent back for rows alone, Haiku drops the mentions and
   fixes the negation. It also passes two of the three multi-hop questions
-  on every run. "Which functions
-  in example.com/shop reach journal.Post only through other functions" fails
-  on every run.
+  on every run. "Which functions in example.com/shop reach journal.Post
+  only through other functions" fails on every run.
 
 [WALK.md](WALK.md) is one recorded walk on Haiku, with every case's line and
-what each step added. In that walk the steps passed 10, 10, 10 and 15, and
-it cost $0.039. It re-renders from `walk-haiku.json` with no model calls:
+what each step added. In that walk the steps passed 8, 13, 10 and 14, and
+it cost $0.037. One run swung +5 and then -3 on the two steps the repeats
+can't tell apart, so the walk marks every change as possible noise. It re-renders from `walk-haiku.json` with no model calls:
 `make walk-md LIVE=haiku` in this directory.
 
 Gemini 3.5 Flash-Lite passed 12 and 13 of 15 on the first two steps in one

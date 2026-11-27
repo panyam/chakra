@@ -84,6 +84,9 @@ type Model struct {
 	Name     string
 	Prices   eval.Prices
 	Repeats  int
+	// Live is true for a model built from a connection, whose answers can
+	// vary between runs, and false for a scripted stand-in.
+	Live bool
 }
 
 // Climb runs a's ladder on m. It fails only when the ladder can't start.
@@ -101,7 +104,7 @@ func Climb(ctx context.Context, a Agent, m Model, progress io.Writer) (eval.Ladd
 		steps = 8
 	}
 	base := agent.RunnerConfig{Provider: m.Provider, Instructions: a.Instructions, MaxSteps: steps}
-	suite := eval.Suite{Config: base, ModelName: m.Name, Prices: m.Prices, Repeats: m.Repeats}
+	suite := eval.Suite{Config: base, ModelName: m.Name, Prices: m.Prices, Repeats: m.Repeats, Live: m.Live}
 	if progress != nil {
 		fmt.Fprintf(progress, "%s on %s: %d steps, %d cases each\n", a.Name, m.Name, len(l.Steps), len(l.Cases))
 		for i := range l.Steps {
@@ -251,7 +254,7 @@ func Live(path, name string) (Model, error) {
 	if err != nil {
 		return Model{}, fmt.Errorf("agents: connection %q: %w", name, err)
 	}
-	model := Model{Provider: p, Name: name}
+	model := Model{Provider: p, Name: name, Live: true}
 	if c.Price != nil {
 		model.Prices = eval.Prices{name: *c.Price}
 	}

@@ -199,12 +199,14 @@ func (w *Walker) applyThrough(i int) bool {
 // the step's row.
 func (w *Walker) runAll(ctx context.Context, i int) {
 	fmt.Printf("\nRunning %d cases:\n", len(w.ladder.Cases))
-	suite := eval.Suite{Config: w.cfg, Cases: w.ladder.Cases, ModelName: w.m.Name, Prices: w.m.Prices, Driver: w.driver,
+	suite := eval.Suite{Config: w.cfg, Cases: w.ladder.Cases, ModelName: w.m.Name, Prices: w.m.Prices, Driver: w.driver, Live: w.m.Live,
 		OnCase: func(_ int, r eval.CaseReport) { fmt.Println(caseLine(r)) }}
 	rep := suite.Run(ctx)
 	sr := eval.StepReport{Step: w.ladder.Steps[i].Name, Report: rep, Before: w.passed}
 	if len(w.reports) == 0 {
 		sr.Before = rep.Passed
+	} else {
+		sr.BeforeRuns = w.reports[len(w.reports)-1].Report.PassesPerRun()
 	}
 	w.reports = append(w.reports, sr)
 	w.passed = rep.Passed
@@ -212,6 +214,9 @@ func (w *Walker) runAll(ctx context.Context, i int) {
 	summary := fmt.Sprintf("\n%s passed %d of %d", sr.Step, rep.Passed, rep.Total)
 	if len(w.reports) > 1 {
 		summary += fmt.Sprintf(", %+d on the step before", sr.Delta())
+		if !sr.Resolved() {
+			summary += ". That's one run of a live model, so the change may be noise"
+		}
 	}
 	fmt.Println(summary + ".")
 	cost, ok := rep.Cost()

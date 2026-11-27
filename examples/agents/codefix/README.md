@@ -84,10 +84,12 @@ with every case's answer. `make walk-md LIVE=haiku` re-renders it from
 ```
 step         pass  change  usd/correct  sec/correct
 read + edit  5/5           $0.0033      7.58
-+ run tests  5/5   +0      $0.0022      5.30
-+ repo map   5/5   +0      $0.0014      4.23
-+ plan slot  5/5   +0      $0.0015      4.25
-+ test gate  5/5   +0      $0.0015      4.32
++ run tests  5/5   ~+0     $0.0022      5.30
++ repo map   5/5   ~+0     $0.0014      4.23
++ plan slot  5/5   ~+0     $0.0015      4.25
++ test gate  5/5   ~+0     $0.0015      4.32
+
+~ one run of a live model shows no spread, so the change may be noise. Running each case more than once measures it.
 ```
 
 Haiku fixes all five bugs from the start, even without running the tests.
