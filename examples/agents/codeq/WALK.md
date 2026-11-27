@@ -40,60 +40,62 @@ The model gets a two-line prompt and the five tools. Nothing tells it about the 
   + tools: packages, imports, importers, find, callers
 
 Running 15 cases:
-  FAIL   2.0s  $0.00027  What is the qualified name of the function Format in example.com/ledger?
-         got  The function is **`example.com/ledger/money.Format`**, declared at `example.com/ledger/money/money.go:13`. ...
+  FAIL   1.6s  $0.00028  What is the qualified name of the function Format in example.com/ledger?
+         got  The qualified name is **`example.com/ledger/money.Format`**, declared at `example.com/ledger/money/money.go...
          want example.com/ledger/money.Format
          Rows: 1 of 1 rows, extra example.com/shop/receipt.Format
-  PASS   1.5s  $0.00025  What is the qualified name of the type Amount?
-         got  The qualified name of the type `Amount` is **`example.com/ledger/money.Amount`**. It's declared at `example...
+  PASS   1.3s  $0.00023  What is the qualified name of the type Amount?
+         got  The type `Amount` is declared at `example.com/ledger/money/money.go:7`, so its qualified name is `example.c...
          want example.com/ledger/money.Amount
-  PASS   1.4s  $0.00027  Which packages does example.com/shop/orders import?
+  PASS   1.5s  $0.00027  Which packages does example.com/shop/orders import?
          got  `example.com/shop/orders` imports these packages: | - `errors` | - `example.com/ledger/journal` | - `exampl...
          want example.com/ledger/journal, example.com/ledger/money, example.com/shop/catalog, example.com/shop/internal/db
-  PASS   2.4s  $0.00035  Which packages in example.com/shop import example.com/ledger/money, counting only non-test files?
+  PASS   2.2s  $0.00035  Which packages in example.com/shop import example.com/ledger/money, counting only non-test files?
          got  Three packages in example.com/shop import example.com/ledger/money in non-test files: | - example.com/shop/...
          want example.com/shop/catalog, example.com/shop/orders, example.com/shop/receipt
-  PASS   2.1s  $0.00031  Which packages in example.com/shop import example.com/ledger/journal?
+  PASS   2.0s  $0.00031  Which packages in example.com/shop import example.com/ledger/journal?
          got  Three packages in example.com/shop import example.com/ledger/journal: | - example.com/shop/orders | - examp...
          want example.com/shop/orders, example.com/shop/payments, example.com/shop/refunds
-  PASS   1.9s  $0.00029  Which functions in example.com/shop call example.com/ledger/journal.Post?
-         got  Two functions in example.com/shop call `example.com/ledger/journal.Post`: | - `example.com/shop/orders.Plac...
+  FAIL   1.8s  $0.00029  Which functions in example.com/shop call example.com/ledger/journal.Post?
+         got  Two functions in example.com/shop call `example.com/ledger/journal.Post`: | 1. `example.com/shop/orders.Pla...
          want example.com/shop/orders.Place, example.com/shop/payments.Charge
-  PASS   1.7s  $0.00029  Which functions call Save from example.com/shop/internal/db?
+         Rows: 2 of 2 rows, extra example.com/ledger/audit.Replay
+  PASS   1.6s  $0.00028  Which functions call Save from example.com/shop/internal/db?
          got  Two functions call `Save` from `example.com/shop/internal/db`: | 1. `example.com/shop/orders.Place` | 2. `e...
          want example.com/shop/orders.Place, example.com/shop/payments.Charge
   PASS   1.0s  $0.00023  Which packages make up the module example.com/ledger?
          got  The module example.com/ledger contains three packages: | - example.com/ledger/audit | - example.com/ledger/...
          want example.com/ledger/audit, example.com/ledger/journal, example.com/ledger/money
-  PASS   1.9s  $0.00026  Which packages import example.com/shop/catalog?
-         got  Only one package imports `example.com/shop/catalog`: `example.com/shop/orders`. The lookup covered every mo...
+  PASS   1.4s  $0.00025  Which packages import example.com/shop/catalog?
+         got  Only one package imports `example.com/shop/catalog`: **`example.com/shop/orders`**. I searched every module...
          want example.com/shop/orders
-  PASS   1.7s  $0.00024  Which packages in example.com/shop import example.com/shop/orders?
-         got  Two packages in example.com/shop import example.com/shop/orders: | - example.com/shop/checkout | - example....
+  PASS   1.6s  $0.00027  Which packages in example.com/shop import example.com/shop/orders?
+         got  Two packages in `example.com/shop` import `example.com/shop/orders`: | - `example.com/shop/checkout` | - `e...
          want example.com/shop/checkout, example.com/shop/cmd/shopd
-  FAIL   1.5s  $0.00025  What is the qualified name of the function Format in example.com/shop?
-         got  The function Format in example.com/shop is `example.com/shop/receipt.Format`, declared at example.com/shop/...
+  FAIL   1.6s  $0.00029  What is the qualified name of the function Format in example.com/shop?
+         got  The qualified name is **`example.com/shop/receipt.Format`**, declared at `example.com/shop/receipt/receipt....
          want example.com/shop/receipt.Format
          Rows: 1 of 1 rows, extra example.com/ledger/money.Format
-  FAIL   6.9s  $0.00118  Which packages in example.com/shop import nothing from example.com/ledger, counting only non-test files?
+  FAIL   7.2s  $0.00125  Which packages in example.com/shop import nothing from example.com/ledger, counting only non-test files?
          got  Four packages in example.com/shop import nothing from example.com/ledger in their non-test files: | - **api...
          want example.com/shop/api, example.com/shop/checkout, example.com/shop/cmd/shopd, example.com/shop/internal/db
-         Rows: 1 of 4 rows, missing example.com/shop/api, example.com/shop/cmd/shopd, example.com/shop/internal/db, ...
-  FAIL   8.9s  $0.00144  Which functions in example.com/shop reach example.com/ledger/journal.Post only through other functions, without calling it directly?
-         got  Three shop functions reach `journal.Post` only through other functions: | - **`example.com/shop/checkout.Ru...
+         Rows: 0 of 4 rows, missing example.com/shop/api, example.com/shop/checkout, example.com/shop/cmd/shopd, exa...
+  FAIL  10.0s  $0.00166  Which functions in example.com/shop reach example.com/ledger/journal.Post only through other functions, without calling it directly?
+         got  Four functions in example.com/shop reach `journal.Post` only through intermediate calls: | 1. **`refunds.Is...
          want example.com/shop/api.Handle, example.com/shop/checkout.Run, example.com/shop/cmd/shopd.main, example.com/sh...
-         Rows: 3 of 4 rows, missing example.com/shop/refunds.Issue, extra example.com/ledger/audit.Replay
-  FAIL   5.9s  $0.00110  Which functions call example.com/shop/internal/db.Save, directly or through other functions?
-         got  Eight functions reach `example.com/shop/internal/db.Save`, either directly or through other functions: | - ...
+         Rows: 0 of 4 rows, missing example.com/shop/api.Handle, example.com/shop/checkout.Run, example.com/shop/cmd...
+  FAIL   6.2s  $0.00114  Which functions call example.com/shop/internal/db.Save, directly or through other functions?
+         got  Five functions reach `example.com/shop/internal/db.Save`: | **Direct callers of `db.Save`:** | - `example.c...
          want example.com/shop/api.Handle, example.com/shop/checkout.Run, example.com/shop/cmd/shopd.main, example.com/sh...
          Rows: 2 of 5 rows, missing example.com/shop/api.Handle, example.com/shop/checkout.Run, example.com/shop/cmd...
-  PASS   6.9s  $0.00117  Which packages in example.com/ledger does example.com/shop/api depend on, directly or through other packages?
-         got  The shop API depends on two packages in example.com/ledger, both through the shop's `checkout` package: | -...
+  FAIL   5.8s  $0.00117  Which packages in example.com/ledger does example.com/shop/api depend on, directly or through other packages?
+         got  The example.com/shop/api package depends on two packages in example.com/ledger: **example.com/ledger/journa...
          want example.com/ledger/journal, example.com/ledger/money
+         Rows: 2 of 2 rows, extra example.com/ledger/audit
 
-tools only passed 10 of 15.
-This step cost $0.00790, and the walk has spent $0.00790.
-The next step runs the same 15 cases, so expect about $0.00790 more.
+tools only passed 8 of 15.
+This step cost $0.00827, and the walk has spent $0.00827.
+The next step runs the same 15 cases, so expect about $0.00827 more.
 ```
 
 ### 2. + instructions
@@ -111,60 +113,57 @@ The prompt now says which tool answers what, and spells out the two scoping rule
       When a question says "non-test", leave out rows marked (test files only).
 
 Running 15 cases:
-  PASS   1.5s  $0.00027  What is the qualified name of the function Format in example.com/ledger?
-         got  The qualified name is **`example.com/ledger/money.Format`**, declared at `example.com/ledger/money/money.go...
+  PASS   1.3s  $0.00025  What is the qualified name of the function Format in example.com/ledger?
+         got  The qualified name of `Format` in example.com/ledger is **example.com/ledger/money.Format**, declared at ex...
          want example.com/ledger/money.Format
-  PASS   1.3s  $0.00025  What is the qualified name of the type Amount?
-         got  The type Amount is qualified as `example.com/ledger/money.Amount`. It is declared in `example.com/ledger/mo...
+  PASS   1.3s  $0.00026  What is the qualified name of the type Amount?
+         got  The type `Amount` is `example.com/ledger/money.Amount`. It is declared at `example.com/ledger/money/money.g...
          want example.com/ledger/money.Amount
-  PASS   1.9s  $0.00031  Which packages does example.com/shop/orders import?
+  PASS   2.0s  $0.00032  Which packages does example.com/shop/orders import?
          got  `example.com/shop/orders` imports these packages: | - `errors` | - `example.com/ledger/journal` | - `exampl...
          want example.com/ledger/journal, example.com/ledger/money, example.com/shop/catalog, example.com/shop/internal/db
-  PASS   2.2s  $0.00035  Which packages in example.com/shop import example.com/ledger/money, counting only non-test files?
+  PASS   2.1s  $0.00035  Which packages in example.com/shop import example.com/ledger/money, counting only non-test files?
          got  Three packages in example.com/shop import example.com/ledger/money in non-test files: | - example.com/shop/...
          want example.com/shop/catalog, example.com/shop/orders, example.com/shop/receipt
-  PASS   2.0s  $0.00034  Which packages in example.com/shop import example.com/ledger/journal?
+  PASS   2.1s  $0.00032  Which packages in example.com/shop import example.com/ledger/journal?
          got  Three packages in example.com/shop import example.com/ledger/journal: | - example.com/shop/orders | - examp...
          want example.com/shop/orders, example.com/shop/payments, example.com/shop/refunds
-  PASS   2.2s  $0.00036  Which functions in example.com/shop call example.com/ledger/journal.Post?
+  PASS   1.8s  $0.00031  Which functions in example.com/shop call example.com/ledger/journal.Post?
          got  Two functions in example.com/shop call `example.com/ledger/journal.Post`: | - `example.com/shop/orders.Plac...
          want example.com/shop/orders.Place, example.com/shop/payments.Charge
-  PASS   3.4s  $0.00055  Which functions call Save from example.com/shop/internal/db?
-         got  Two functions call `example.com/shop/internal/db.Save`: | - `example.com/shop/orders.Place` | - `example.co...
+  PASS   2.2s  $0.00034  Which functions call Save from example.com/shop/internal/db?
+         got  Two functions call `Save` from `example.com/shop/internal/db`: | - `example.com/shop/orders.Place` | - `exa...
          want example.com/shop/orders.Place, example.com/shop/payments.Charge
-  PASS   1.2s  $0.00025  Which packages make up the module example.com/ledger?
+  PASS   1.3s  $0.00025  Which packages make up the module example.com/ledger?
          got  The module example.com/ledger has three packages: | - example.com/ledger/audit | - example.com/ledger/journ...
          want example.com/ledger/audit, example.com/ledger/journal, example.com/ledger/money
-  PASS   1.4s  $0.00027  Which packages import example.com/shop/catalog?
+  PASS   1.5s  $0.00027  Which packages import example.com/shop/catalog?
          got  Only one package imports `example.com/shop/catalog`: **`example.com/shop/orders`**.
          want example.com/shop/orders
-  PASS   1.8s  $0.00029  Which packages in example.com/shop import example.com/shop/orders?
+  PASS   1.6s  $0.00028  Which packages in example.com/shop import example.com/shop/orders?
          got  Two packages in example.com/shop import example.com/shop/orders: | - example.com/shop/checkout | - example....
          want example.com/shop/checkout, example.com/shop/cmd/shopd
-  FAIL   1.8s  $0.00031  What is the qualified name of the function Format in example.com/shop?
-         got  The qualified name is **`example.com/shop/receipt.Format`**, declared at `example.com/shop/receipt/receipt....
+  PASS   1.5s  $0.00029  What is the qualified name of the function Format in example.com/shop?
+         got  The function is `example.com/shop/receipt.Format`, declared at `example.com/shop/receipt/receipt.go:11`.
          want example.com/shop/receipt.Format
-         Rows: 1 of 1 rows, extra example.com/ledger/money.Format
-  FAIL   8.3s  $0.00142  Which packages in example.com/shop import nothing from example.com/ledger, counting only non-test files?
-         got  Four packages in example.com/shop import nothing from example.com/ledger in their non-test files: | - **exa...
+  FAIL   4.5s  $0.00092  Which packages in example.com/shop import nothing from example.com/ledger, counting only non-test files?
+         got  Five packages in example.com/shop import nothing from example.com/ledger in their non-test files: | - `exam...
          want example.com/shop/api, example.com/shop/checkout, example.com/shop/cmd/shopd, example.com/shop/internal/db
-         Rows: 4 of 4 rows, extra example.com/ledger/audit, example.com/ledger/journal, example.com/ledger/money, ex...
-  FAIL   7.7s  $0.00134  Which functions in example.com/shop reach example.com/ledger/journal.Post only through other functions, without calling it directly?
-         got  Three functions in example.com/shop reach `journal.Post` only through other functions: | - **`example.com/s...
+         Rows: 4 of 4 rows, extra example.com/shop/payments
+  FAIL   5.7s  $0.00091  Which functions in example.com/shop reach example.com/ledger/journal.Post only through other functions, without calling it directly?
+         got  Three shop functions reach `journal.Post` only indirectly: | - **`example.com/shop/checkout.Run`**: calls `...
          want example.com/shop/api.Handle, example.com/shop/checkout.Run, example.com/shop/cmd/shopd.main, example.com/sh...
-         Rows: 3 of 4 rows, missing example.com/shop/refunds.Issue, extra example.com/ledger/audit.Replay
-  FAIL   6.0s  $0.00109  Which functions call example.com/shop/internal/db.Save, directly or through other functions?
-         got  Eight functions call `example.com/shop/internal/db.Save`, directly or indirectly: | **Direct callers:** | -...
+         Rows: 3 of 4 rows, missing example.com/shop/api.Handle, extra example.com/ledger/audit.Replay
+  PASS   5.9s  $0.00110  Which functions call example.com/shop/internal/db.Save, directly or through other functions?
+         got  Five functions call `db.Save`, either directly or through other functions: | - **Directly:** `example.com/s...
          want example.com/shop/api.Handle, example.com/shop/checkout.Run, example.com/shop/cmd/shopd.main, example.com/sh...
-         Rows: 2 of 5 rows, missing example.com/shop/api.Handle, example.com/shop/checkout.Run, example.com/shop/cmd...
-  FAIL   7.4s  $0.00129  Which packages in example.com/ledger does example.com/shop/api depend on, directly or through other packages?
-         got  The shop/api package depends on two ledger packages, **journal** and **money**. It does not depend on **aud...
+  PASS   9.3s  $0.00158  Which packages in example.com/ledger does example.com/shop/api depend on, directly or through other packages?
+         got  `example.com/shop/api` depends on two packages in `example.com/ledger`, both indirectly: | - **example.com/...
          want example.com/ledger/journal, example.com/ledger/money
-         Rows: 0 of 2 rows, missing example.com/ledger/journal, example.com/ledger/money, extra example.com/shop/che...
 
-+ instructions passed 10 of 15, +0 on the step before.
-This step cost $0.00869, and the walk has spent $0.01659.
-The next step runs the same 15 cases, so expect about $0.00869 more.
++ instructions passed 13 of 15, +5 on the step before. That's one run of a live model, so the change may be noise.
+This step cost $0.00775, and the walk has spent $0.01603.
+The next step runs the same 15 cases, so expect about $0.00775 more.
 ```
 
 ### 3. + stuck policy
@@ -179,60 +178,60 @@ A stuck detector watches for a call repeated three times, and adds a note to the
   + 1 step stage(s), run before each model call
 
 Running 15 cases:
-  PASS   1.3s  $0.00025  What is the qualified name of the function Format in example.com/ledger?
-         got  The function Format in example.com/ledger is **example.com/ledger/money.Format**, declared at example.com/l...
+  FAIL   1.5s  $0.00028  What is the qualified name of the function Format in example.com/ledger?
+         got  The qualified name is **example.com/ledger/money.Format**, declared at `example.com/ledger/money/money.go:1...
          want example.com/ledger/money.Format
-  PASS   1.4s  $0.00027  What is the qualified name of the type Amount?
-         got  The type `Amount` is `example.com/ledger/money.Amount`. It is declared in `example.com/ledger/money/money.g...
+         Rows: 1 of 1 rows, extra example.com/shop/receipt.Format
+  PASS   1.2s  $0.00025  What is the qualified name of the type Amount?
+         got  The qualified name of the type Amount is `example.com/ledger/money.Amount`. It is declared at `example.com/...
          want example.com/ledger/money.Amount
-  PASS   1.8s  $0.00031  Which packages does example.com/shop/orders import?
+  PASS   1.7s  $0.00031  Which packages does example.com/shop/orders import?
          got  `example.com/shop/orders` imports these packages: | - `errors` | - `example.com/ledger/journal` | - `exampl...
          want example.com/ledger/journal, example.com/ledger/money, example.com/shop/catalog, example.com/shop/internal/db
-  PASS   2.1s  $0.00035  Which packages in example.com/shop import example.com/ledger/money, counting only non-test files?
-         got  Three packages in example.com/shop import example.com/ledger/money in non-test files: | - example.com/shop/...
+  PASS   1.7s  $0.00031  Which packages in example.com/shop import example.com/ledger/money, counting only non-test files?
+         got  Three packages in example.com/shop import example.com/ledger/money from non-test files: | - example.com/sho...
          want example.com/shop/catalog, example.com/shop/orders, example.com/shop/receipt
-  PASS   1.9s  $0.00033  Which packages in example.com/shop import example.com/ledger/journal?
+  PASS   2.0s  $0.00033  Which packages in example.com/shop import example.com/ledger/journal?
          got  Three packages in example.com/shop import example.com/ledger/journal: | - example.com/shop/orders | - examp...
          want example.com/shop/orders, example.com/shop/payments, example.com/shop/refunds
-  PASS   2.3s  $0.00036  Which functions in example.com/shop call example.com/ledger/journal.Post?
+  PASS   2.0s  $0.00035  Which functions in example.com/shop call example.com/ledger/journal.Post?
          got  Two functions in example.com/shop call `example.com/ledger/journal.Post`: | - `example.com/shop/orders.Plac...
          want example.com/shop/orders.Place, example.com/shop/payments.Charge
-  PASS   2.1s  $0.00035  Which functions call Save from example.com/shop/internal/db?
+  PASS   1.8s  $0.00031  Which functions call Save from example.com/shop/internal/db?
          got  Two functions call `Save` from `example.com/shop/internal/db`: | - `example.com/shop/orders.Place` | - `exa...
          want example.com/shop/orders.Place, example.com/shop/payments.Charge
-  PASS   1.3s  $0.00025  Which packages make up the module example.com/ledger?
+  PASS   1.2s  $0.00025  Which packages make up the module example.com/ledger?
          got  The module example.com/ledger has three packages: | - example.com/ledger/audit | - example.com/ledger/journ...
          want example.com/ledger/audit, example.com/ledger/journal, example.com/ledger/money
-  PASS   1.5s  $0.00026  Which packages import example.com/shop/catalog?
-         got  Only one package imports `example.com/shop/catalog`: **`example.com/shop/orders`**.
+  PASS   1.4s  $0.00026  Which packages import example.com/shop/catalog?
+         got  Only one package imports `example.com/shop/catalog`: **example.com/shop/orders**.
          want example.com/shop/orders
-  PASS   1.6s  $0.00027  Which packages in example.com/shop import example.com/shop/orders?
-         got  Two packages in example.com/shop import example.com/shop/orders: | - example.com/shop/checkout | - example....
+  PASS   2.1s  $0.00033  Which packages in example.com/shop import example.com/shop/orders?
+         got  Two packages in example.com/shop import `example.com/shop/orders`: | - `example.com/shop/checkout` | - `exa...
          want example.com/shop/checkout, example.com/shop/cmd/shopd
   FAIL   1.6s  $0.00029  What is the qualified name of the function Format in example.com/shop?
          got  The qualified name is **`example.com/shop/receipt.Format`**, declared at `example.com/shop/receipt/receipt....
          want example.com/shop/receipt.Format
          Rows: 1 of 1 rows, extra example.com/ledger/money.Format
-  FAIL   6.1s  $0.00106  Which packages in example.com/shop import nothing from example.com/ledger, counting only non-test files?
+  FAIL   4.7s  $0.00094  Which packages in example.com/shop import nothing from example.com/ledger, counting only non-test files?
          got  Five packages in example.com/shop import nothing from example.com/ledger in non-test files: | - **api**: im...
          want example.com/shop/api, example.com/shop/checkout, example.com/shop/cmd/shopd, example.com/shop/internal/db
          Rows: 1 of 4 rows, missing example.com/shop/api, example.com/shop/cmd/shopd, example.com/shop/internal/db, ...
-  FAIL   9.5s  $0.00166  Which functions in example.com/shop reach example.com/ledger/journal.Post only through other functions, without calling it directly?
-         got  Four functions in example.com/shop reach `journal.Post` only through other functions: | - **`checkout.Run`*...
+  FAIL   9.7s  $0.00175  Which functions in example.com/shop reach example.com/ledger/journal.Post only through other functions, without calling it directly?
+         got  Four functions in example.com/shop reach `journal.Post` only indirectly: | - **`checkout.Run`** calls `orde...
          want example.com/shop/api.Handle, example.com/shop/checkout.Run, example.com/shop/cmd/shopd.main, example.com/sh...
          Rows: 0 of 4 rows, missing example.com/shop/api.Handle, example.com/shop/checkout.Run, example.com/shop/cmd...
-  FAIL   5.7s  $0.00106  Which functions call example.com/shop/internal/db.Save, directly or through other functions?
-         got  Eight functions reach `db.Save`, either directly or through other callers: | **Direct callers of `db.Save`:...
+  FAIL   5.6s  $0.00107  Which functions call example.com/shop/internal/db.Save, directly or through other functions?
+         got  Eight functions call `example.com/shop/internal/db.Save`, directly or indirectly: | **Direct callers:** | -...
          want example.com/shop/api.Handle, example.com/shop/checkout.Run, example.com/shop/cmd/shopd.main, example.com/sh...
          Rows: 2 of 5 rows, missing example.com/shop/api.Handle, example.com/shop/checkout.Run, example.com/shop/cmd...
-  FAIL   7.8s  $0.00138  Which packages in example.com/ledger does example.com/shop/api depend on, directly or through other packages?
-         got  The shop/api package depends on two ledger packages, `example.com/ledger/journal` and `example.com/ledger/m...
+  PASS   7.9s  $0.00129  Which packages in example.com/ledger does example.com/shop/api depend on, directly or through other packages?
+         got  `example.com/shop/api` depends on two packages in `example.com/ledger`, both transitively: | - **`example.c...
          want example.com/ledger/journal, example.com/ledger/money
-         Rows: 2 of 2 rows, extra example.com/ledger/audit, example.com/shop/checkout
 
-+ stuck policy passed 10 of 15, +0 on the step before.
-This step cost $0.00844, and the walk has spent $0.02503.
-The next step runs the same 15 cases, so expect about $0.00844 more.
++ stuck policy passed 10 of 15, -3 on the step before. That's one run of a live model, so the change may be noise.
+This step cost $0.00832, and the walk has spent $0.02435.
+The next step runs the same 15 cases, so expect about $0.00832 more.
 ```
 
 ### 4. + answer check
@@ -247,54 +246,55 @@ A turn-end hook refuses an answer unless every line is a row the index knows, an
   + 1 turn-end hook(s), which can send an answer back
 
 Running 15 cases:
-  PASS   2.4s  $0.00044  What is the qualified name of the function Format in example.com/ledger?
+  PASS   1.9s  $0.00037  What is the qualified name of the function Format in example.com/ledger?
          got  example.com/ledger/money.Format
          want example.com/ledger/money.Format
-  PASS   3.0s  $0.00046  What is the qualified name of the type Amount?
+  PASS   2.5s  $0.00043  What is the qualified name of the type Amount?
          got  example.com/ledger/money.Amount
          want example.com/ledger/money.Amount
-  PASS  15.8s  $0.00203  Which packages does example.com/shop/orders import?
+  PASS   9.1s  $0.00167  Which packages does example.com/shop/orders import?
          got  errors | example.com/ledger/journal | example.com/ledger/money | example.com/shop/catalog | example.com/sho...
          want example.com/ledger/journal, example.com/ledger/money, example.com/shop/catalog, example.com/shop/internal/db
-  PASS   2.7s  $0.00050  Which packages in example.com/shop import example.com/ledger/money, counting only non-test files?
+  PASS   2.8s  $0.00050  Which packages in example.com/shop import example.com/ledger/money, counting only non-test files?
          got  example.com/shop/catalog | example.com/shop/orders | example.com/shop/receipt
          want example.com/shop/catalog, example.com/shop/orders, example.com/shop/receipt
   PASS   2.6s  $0.00048  Which packages in example.com/shop import example.com/ledger/journal?
          got  example.com/shop/orders | example.com/shop/payments | example.com/shop/refunds
          want example.com/shop/orders, example.com/shop/payments, example.com/shop/refunds
-  PASS   2.6s  $0.00048  Which functions in example.com/shop call example.com/ledger/journal.Post?
+  PASS   2.8s  $0.00049  Which functions in example.com/shop call example.com/ledger/journal.Post?
          got  example.com/shop/orders.Place | example.com/shop/payments.Charge
          want example.com/shop/orders.Place, example.com/shop/payments.Charge
-  PASS   3.8s  $0.00063  Which functions call Save from example.com/shop/internal/db?
+  PASS   2.9s  $0.00047  Which functions call Save from example.com/shop/internal/db?
          got  example.com/shop/orders.Place | example.com/shop/payments.Charge
          want example.com/shop/orders.Place, example.com/shop/payments.Charge
-  PASS   2.2s  $0.00039  Which packages make up the module example.com/ledger?
+  PASS   1.9s  $0.00039  Which packages make up the module example.com/ledger?
          got  example.com/ledger/audit | example.com/ledger/journal | example.com/ledger/money
          want example.com/ledger/audit, example.com/ledger/journal, example.com/ledger/money
-  PASS   2.2s  $0.00041  Which packages import example.com/shop/catalog?
+  PASS   2.3s  $0.00039  Which packages import example.com/shop/catalog?
          got  example.com/shop/orders
          want example.com/shop/orders
-  PASS   2.6s  $0.00044  Which packages in example.com/shop import example.com/shop/orders?
+  PASS   2.6s  $0.00045  Which packages in example.com/shop import example.com/shop/orders?
          got  example.com/shop/checkout | example.com/shop/cmd/shopd
          want example.com/shop/checkout, example.com/shop/cmd/shopd
-  PASS   2.2s  $0.00042  What is the qualified name of the function Format in example.com/shop?
+  PASS   2.8s  $0.00047  What is the qualified name of the function Format in example.com/shop?
          got  example.com/shop/receipt.Format
          want example.com/shop/receipt.Format
-  PASS   8.5s  $0.00155  Which packages in example.com/shop import nothing from example.com/ledger, counting only non-test files?
+  PASS   9.2s  $0.00166  Which packages in example.com/shop import nothing from example.com/ledger, counting only non-test files?
          got  example.com/shop/api | example.com/shop/checkout | example.com/shop/cmd/shopd | example.com/shop/internal/db
          want example.com/shop/api, example.com/shop/checkout, example.com/shop/cmd/shopd, example.com/shop/internal/db
-  PASS  16.2s  $0.00257  Which functions in example.com/shop reach example.com/ledger/journal.Post only through other functions, without calling it directly?
-         got  example.com/shop/checkout.Run | example.com/shop/api.Handle | example.com/shop/cmd/shopd.main | example.com...
+  FAIL   9.5s  $0.00174  Which functions in example.com/shop reach example.com/ledger/journal.Post only through other functions, without calling it directly?
+         got  example.com/shop/checkout.Run | example.com/shop/api.Handle | example.com/shop/cmd/shopd.main
          want example.com/shop/api.Handle, example.com/shop/checkout.Run, example.com/shop/cmd/shopd.main, example.com/sh...
-  PASS   7.1s  $0.00140  Which functions call example.com/shop/internal/db.Save, directly or through other functions?
+         Rows: 3 of 4 rows, missing example.com/shop/refunds.Issue
+  PASS   7.3s  $0.00143  Which functions call example.com/shop/internal/db.Save, directly or through other functions?
          got  example.com/shop/orders.Place | example.com/shop/payments.Charge | example.com/shop/checkout.Run | example....
          want example.com/shop/api.Handle, example.com/shop/checkout.Run, example.com/shop/cmd/shopd.main, example.com/sh...
-  PASS   8.3s  $0.00160  Which packages in example.com/ledger does example.com/shop/api depend on, directly or through other packages?
+  PASS  11.1s  $0.00176  Which packages in example.com/ledger does example.com/shop/api depend on, directly or through other packages?
          got  example.com/ledger/journal | example.com/ledger/money
          want example.com/ledger/journal, example.com/ledger/money
 
-+ answer check passed 15 of 15, +5 on the step before.
-This step cost $0.01380, and the walk has spent $0.03883.
++ answer check passed 14 of 15, +4 on the step before. That's one run of a live model, so the change may be noise.
+This step cost $0.01272, and the walk has spent $0.03706.
 ```
 
 ### 5. The table
@@ -302,9 +302,11 @@ This step cost $0.01380, and the walk has spent $0.03883.
 ```
 codeq: 15 cases
 step            pass   change  usd/correct  sec/correct  
-tools only      10/15          $0.00079     4.78         
-+ instructions  10/15  +0      $0.00087     5.02         
-+ stuck policy  10/15  +0      $0.00084     4.79         
-+ answer check  15/15  +5      $0.00092     5.47         
+tools only      8/15           $0.0010      5.88         
++ instructions  13/15  ~+5     $0.00060     3.40         
++ stuck policy  10/15  ~-3     $0.00083     4.61         
++ answer check  14/15  ~+4     $0.00091     5.10         
+
+~ one run of a live model shows no spread, so the change may be noise. Running each case more than once measures it.
 ```
 

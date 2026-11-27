@@ -92,10 +92,12 @@ LIVE=haiku` re-renders it from `walk-haiku.json` with no model calls.
 ```
 step            pass  change  usd/correct  sec/correct
 tools + policy  5/8           $0.0013      13.18
-+ docs          5/8   +0      $0.0016      14.88
-+ citations     7/8   +2      $0.0014      12.05
-+ policy guard  7/8   +0      $0.0016      14.58
-+ handoff       8/8   +1      $0.0017      13.06
++ docs          5/8   ~+0     $0.0016      14.88
++ citations     7/8   ~+2     $0.0014      12.05
++ policy guard  7/8   ~+0     $0.0016      14.58
++ handoff       8/8   ~+1     $0.0017      13.06
+
+~ one run of a live model shows no spread, so the change may be noise. Running each case more than once measures it.
 ```
 
 - Haiku follows the two-line policy summary from the first step. It turned

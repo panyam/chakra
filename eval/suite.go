@@ -198,6 +198,12 @@ type Suite struct {
 	// the next repeat, and each CaseReport says which repeat it came from.
 	Repeats int
 
+	// Live says the model's answers can vary from one run to the next, as
+	// a hosted model's do. A scripted stand-in answers the same way every
+	// time, and leaves it false. A ladder table uses it to mark a change
+	// that one run of a live model can't resolve (#398).
+	Live bool
+
 	// OnCase, when set, hears each case as it finishes, with its index in
 	// Cases, before the next one starts. A long run can print progress
 	// with it. It runs on the goroutine that called Run.
@@ -267,6 +273,8 @@ type SuiteReport struct {
 	// Repeats is how many times each case ran. It is 1 for a suite whose
 	// Repeats was 0 or 1.
 	Repeats int `json:"repeats,omitempty"`
+	// Live is the suite's Live.
+	Live bool `json:"live,omitempty"`
 }
 
 // Distinct is the number of cases, counting each once however many times
@@ -313,7 +321,7 @@ func (r SuiteReport) Pass() bool { return r.Failed == 0 }
 // records it in the scores, or RunErr records it for a build failure.
 func (s Suite) Run(ctx context.Context) SuiteReport {
 	repeats := max(s.Repeats, 1)
-	report := SuiteReport{Total: len(s.Cases) * repeats, Repeats: repeats}
+	report := SuiteReport{Total: len(s.Cases) * repeats, Repeats: repeats, Live: s.Live}
 	for run := range repeats {
 		s.runOnce(ctx, run, &report)
 	}

@@ -1105,6 +1105,7 @@ pkg github.com/panyam/chakra/eval, method (Ladder) Run(context.Context, Suite) L
 pkg github.com/panyam/chakra/eval, method (LadderReport) Table() string
 pkg github.com/panyam/chakra/eval, method (Prices) Cost(...map[string]agent.Usage) (float64, bool)
 pkg github.com/panyam/chakra/eval, method (StepReport) Delta() int
+pkg github.com/panyam/chakra/eval, method (StepReport) Resolved() bool
 pkg github.com/panyam/chakra/eval, method (Suite) Run(context.Context) SuiteReport
 pkg github.com/panyam/chakra/eval, method (SuiteCase) Prepare(context.Context, agent.RunnerConfig) (agent.RunnerConfig, Scenario, Setup, error)
 pkg github.com/panyam/chakra/eval, method (SuiteReport) Cost() (float64, bool)
@@ -1190,6 +1191,7 @@ pkg github.com/panyam/chakra/eval, type Step struct, Driver Driver
 pkg github.com/panyam/chakra/eval, type Step struct, Name string
 pkg github.com/panyam/chakra/eval, type StepReport struct
 pkg github.com/panyam/chakra/eval, type StepReport struct, Before int
+pkg github.com/panyam/chakra/eval, type StepReport struct, BeforeRuns []int
 pkg github.com/panyam/chakra/eval, type StepReport struct, Err string
 pkg github.com/panyam/chakra/eval, type StepReport struct, Report SuiteReport
 pkg github.com/panyam/chakra/eval, type StepReport struct, Step string
@@ -1197,6 +1199,7 @@ pkg github.com/panyam/chakra/eval, type Suite struct
 pkg github.com/panyam/chakra/eval, type Suite struct, Cases []SuiteCase
 pkg github.com/panyam/chakra/eval, type Suite struct, Config agent.RunnerConfig
 pkg github.com/panyam/chakra/eval, type Suite struct, Driver Driver
+pkg github.com/panyam/chakra/eval, type Suite struct, Live bool
 pkg github.com/panyam/chakra/eval, type Suite struct, ModelName string
 pkg github.com/panyam/chakra/eval, type Suite struct, OnCase func(int, CaseReport)
 pkg github.com/panyam/chakra/eval, type Suite struct, Prices Prices
@@ -1210,6 +1213,7 @@ pkg github.com/panyam/chakra/eval, type SuiteCase struct, User func(agent.Provid
 pkg github.com/panyam/chakra/eval, type SuiteReport struct
 pkg github.com/panyam/chakra/eval, type SuiteReport struct, Cases []CaseReport
 pkg github.com/panyam/chakra/eval, type SuiteReport struct, Failed int
+pkg github.com/panyam/chakra/eval, type SuiteReport struct, Live bool
 pkg github.com/panyam/chakra/eval, type SuiteReport struct, Passed int
 pkg github.com/panyam/chakra/eval, type SuiteReport struct, Repeats int
 pkg github.com/panyam/chakra/eval, type SuiteReport struct, Total int
