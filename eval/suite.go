@@ -192,6 +192,12 @@ type Suite struct {
 	// Driver runs each case's scenario. Nil means RunScenario.
 	Driver Driver
 
+	// Repeats runs every case this many times, so a report can show how
+	// much a model's result varies from run to run (#365). Zero or one runs
+	// each case once. Run goes through all the cases once before starting
+	// the next repeat, and each CaseReport says which repeat it came from.
+	Repeats int
+
 	// OnCase, when set, hears each case as it finishes, with its index in
 	// Cases, before the next one starts. A long run can print progress
 	// with it. It runs on the goroutine that called Run.
@@ -206,6 +212,9 @@ type CaseReport struct {
 	Case   string  `json:"case"`
 	Scores []Score `json:"scores"`
 	Pass   bool    `json:"pass"`
+	// Run is the repeat this report came from, counting from 0. It is
+	// always 0 when Suite.Repeats is 0 or 1.
+	Run int `json:"run,omitempty"`
 	// RunErr is set when the harness could not run this case (an invalid
 	// config, a failed Setup, a case with no turns); when set, no scorers
 	// ran and Pass is false.
@@ -246,11 +255,52 @@ type CaseReport struct {
 // one of them inverted. Each CaseReport keeps its per-scorer verdicts with
 // their names, so a per-dimension rollup only adds code over data already
 // here and needs no re-plumbing. See issue 1060.
+//
+// With Suite.Repeats above one, Cases holds a report per case per repeat,
+// and Passed, Failed and Total count all of them. PassesPerRun, PassAtK and
+// Distinct break those counts down by repeat and by case.
 type SuiteReport struct {
 	Cases  []CaseReport `json:"cases"`
 	Passed int          `json:"passed"`
 	Failed int          `json:"failed"`
 	Total  int          `json:"total"`
+	// Repeats is how many times each case ran. It is 1 for a suite whose
+	// Repeats was 0 or 1.
+	Repeats int `json:"repeats,omitempty"`
+}
+
+// Distinct is the number of cases, counting each once however many times
+// it ran.
+func (r SuiteReport) Distinct() int {
+	if r.Repeats <= 1 {
+		return r.Total
+	}
+	return r.Total / r.Repeats
+}
+
+// PassesPerRun counts the passing cases in each repeat, in repeat order. A
+// suite that ran once gives one count.
+func (r SuiteReport) PassesPerRun() []int {
+	out := make([]int, max(r.Repeats, 1))
+	for _, c := range r.Cases {
+		if c.Pass && c.Run < len(out) {
+			out[c.Run]++
+		}
+	}
+	return out
+}
+
+// PassAtK counts the cases that passed in at least one repeat. With k
+// repeats it is pass@k, and it shows whether a model can reach an answer at
+// all, as against reaching it every time.
+func (r SuiteReport) PassAtK() int {
+	passed := map[string]bool{}
+	for _, c := range r.Cases {
+		if c.Pass {
+			passed[c.Case] = true
+		}
+	}
+	return len(passed)
 }
 
 // Pass reports whether every case passed.
@@ -262,9 +312,18 @@ func (r SuiteReport) Pass() bool { return r.Failed == 0 }
 // whole suite either. It reaches each case through the Runner. NoError
 // records it in the scores, or RunErr records it for a build failure.
 func (s Suite) Run(ctx context.Context) SuiteReport {
-	report := SuiteReport{Total: len(s.Cases)}
+	repeats := max(s.Repeats, 1)
+	report := SuiteReport{Total: len(s.Cases) * repeats, Repeats: repeats}
+	for run := range repeats {
+		s.runOnce(ctx, run, &report)
+	}
+	return report
+}
+
+// runOnce runs every case once, as repeat run, adding to report.
+func (s Suite) runOnce(ctx context.Context, run int, report *SuiteReport) {
 	for i, sc := range s.Cases {
-		cr := CaseReport{Case: sc.Scenario.Name, Pass: true}
+		cr := CaseReport{Case: sc.Scenario.Name, Pass: true, Run: run}
 
 		fail := func(format string, args ...any) {
 			cr.RunErr = fmt.Sprintf(format, args...)
@@ -344,7 +403,6 @@ func (s Suite) Run(ctx context.Context) SuiteReport {
 		}
 		s.heard(i, cr)
 	}
-	return report
 }
 
 // heard passes a finished case to OnCase, when it is set.

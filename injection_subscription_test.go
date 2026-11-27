@@ -89,3 +89,30 @@ func TestInjectionHintPrecedence(t *testing.T) {
 		})
 	}
 }
+
+// DrainCritical takes the critical turn entries only. Medium entries and
+// session entries stay for the next Drain, which takes them in its usual
+// order (#383).
+func TestDrainCriticalLeavesEverythingElseForDrain(t *testing.T) {
+	p := NewEventInjectionPolicy(EventInjectionConfig{Hints: map[string]ContextHint{
+		"card.moved":   {Priority: "critical", Template: "moved {{card}}"},
+		"page.scroll":  {Template: "scrolled {{to}}"},
+		"page.viewing": {Retention: "session", Priority: "critical", Template: "viewing {{page}}"},
+	}})
+	p.Ingest(evt("s", "page.scroll", `{"to":"bottom"}`))
+	p.Ingest(evt("s", "card.moved", `{"card":"C2"}`))
+	p.Ingest(evt("s", "page.viewing", `{"page":"board"}`))
+	var got []string
+	for _, c := range p.DrainCritical() {
+		got = append(got, c.Text)
+	}
+	if len(got) != 1 || got[0] != "moved C2" {
+		t.Fatalf("DrainCritical = %v, want [moved C2]", got)
+	}
+	if again := p.DrainCritical(); len(again) != 0 {
+		t.Errorf("a second DrainCritical returned %v", again)
+	}
+	if rest := drainedTexts(p); len(rest) != 2 || rest[0] != "scrolled bottom" || rest[1] != "viewing board" {
+		t.Errorf("Drain after DrainCritical = %v, want [scrolled bottom viewing board]", rest)
+	}
+}

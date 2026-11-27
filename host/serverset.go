@@ -48,7 +48,7 @@ func (s *serverSet) canLogin(id string) bool { return s.oauth[id] != nil }
 // It is per-server, like serverSet, but kept separate because the lifecycles
 // differ. Connections come up and go down on the Group's schedule and outlive
 // any single subscription. The streams exist only when the async control
-// plane is on (metaTools), and Close stops them before the Group. Merging the
+// plane is on (eventPlane), and Close stops them before the Group. Merging the
 // two would put a conditional half inside an unconditional whole.
 type streamSet struct {
 	mu   sync.Mutex

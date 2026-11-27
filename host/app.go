@@ -85,8 +85,12 @@ type App struct {
 	approval  *agent.TieredApproval
 	tasks     *taskSet
 	events    *eventSpine
-	metaTools bool
-	turnMu    sync.Mutex
+	// metaTools offers the model the control-plane tools, and only
+	// Config.MetaTools sets it. eventPlane subscribes servers' event
+	// streams, and triggers or configured events set it too (#383).
+	metaTools  bool
+	eventPlane bool
+	turnMu     sync.Mutex
 
 	// ctrl is the in-flight turn's mid-turn control channel, non-nil only
 	// while a single-agent turn is running. InterruptToolCalls sends on it;
@@ -498,9 +502,10 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	// servers connect, so the ready-observer can subscribe a server's event
 	// streams the moment it connects — late servers included. The consumer
 	// goroutine starts later, once the Runner exists; streams buffer until then.
-	app.metaTools = cfg.MetaTools || len(cfg.Triggers) > 0
+	app.metaTools = cfg.MetaTools
+	app.eventPlane = cfg.MetaTools || len(cfg.Triggers) > 0
 	for _, sc := range cfg.Servers {
-		app.metaTools = app.metaTools || len(sc.Events) > 0
+		app.eventPlane = app.eventPlane || len(sc.Events) > 0
 	}
 	app.watchCtx, app.watchStop = context.WithCancel(context.Background())
 	// Before the group starts: a server that is ready at once installs its
@@ -701,7 +706,7 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 		Tools:            runnerTools,
 		InstructionsFunc: app.promptBuilder.Build,
 		MaxSteps:         cfg.MaxSteps,
-		StepStages:       append(stepStages(cfg), app.steerStage()),
+		StepStages:       append(stepStages(cfg), app.steerStage(), app.criticalEventStage()),
 		TracerProvider:   o.tp,
 		MeterProvider:    o.mp,
 		// Only the main Runner sets the tree budget; sub-agent / fan-out /

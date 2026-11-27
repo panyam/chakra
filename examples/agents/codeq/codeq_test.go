@@ -100,7 +100,8 @@ func TestImportAnswersAgreeWithGoList(t *testing.T) {
 }
 
 // Each step passes more on the scripted model, through the real codeserver
-// process.
+// process. The multi-hop questions fail on every step, since no step here
+// breaks a question into hops (mission 395).
 func TestEachStepPassesMore(t *testing.T) {
 	l, stop, err := Ladder(context.Background())
 	if err != nil {
@@ -114,8 +115,14 @@ func TestEachStepPassesMore(t *testing.T) {
 			t.Fatalf("%s: %s", s.Step, s.Err)
 		}
 		got = append(got, s.Report.Passed)
+		for _, c := range s.Report.Cases {
+			i := slices.IndexFunc(questions, func(q question) bool { return q.text == c.Case })
+			if questions[i].tag == multiHop && c.Pass {
+				t.Errorf("%s passed the multi-hop question %q", s.Step, c.Case)
+			}
+		}
 	}
-	if want := []int{5, 8, 9, 10}; !slices.Equal(got, want) {
+	if want := []int{4, 9, 10, 12}; !slices.Equal(got, want) {
 		t.Errorf("passed per step = %v, want %v\n%s", got, want, r.Table())
 	}
 }

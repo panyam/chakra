@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -57,7 +58,8 @@ type StepReport struct {
 }
 
 // Delta is how many more cases this step passed than the step before. It is
-// zero on the first step.
+// zero on the first step. With repeats it counts passes over every repeat,
+// so the table divides it by the repeats.
 func (s StepReport) Delta() int { return s.Report.Passed - s.Before }
 
 // LadderReport is a Ladder's outcome, a StepReport per step in order.
@@ -104,12 +106,15 @@ func (l Ladder) Run(ctx context.Context, s Suite) LadderReport {
 // Table renders the report as a plain-text table, a row per step: cases
 // passed, the change over the step before, dollars per correct answer and
 // seconds per correct answer. A cost or time it can't know prints as "-".
+// When the suite ran each case more than once, the pass cell is the mean
+// over the repeats with the lowest and highest run after it, such as
+// "7.3/10 (6-8)", and the change is the change in that mean.
 // It returns the string and does not print (constraint A4).
 func (r LadderReport) Table() string {
 	var b strings.Builder
 	cases := 0
 	for _, s := range r.Steps {
-		cases = max(cases, s.Report.Total)
+		cases = max(cases, s.Report.Distinct())
 	}
 	fmt.Fprintf(&b, "%s: %d cases\n", r.Ladder, cases)
 	// The reasoning column shows only when some step thought, so a ladder
@@ -133,9 +138,19 @@ func (r LadderReport) Table() string {
 			fmt.Fprintf(w, "%s\t%s%s\n", s.Step, dashes, s.Err)
 			continue
 		}
+		repeats := max(s.Report.Repeats, 1)
+		pass := fmt.Sprintf("%d/%d", s.Report.Passed, s.Report.Total)
 		change := ""
 		if i > 0 {
 			change = fmt.Sprintf("%+d", s.Delta())
+		}
+		if repeats > 1 {
+			runs := s.Report.PassesPerRun()
+			mean := float64(s.Report.Passed) / float64(repeats)
+			pass = fmt.Sprintf("%.1f/%d (%d-%d)", mean, s.Report.Distinct(), slices.Min(runs), slices.Max(runs))
+			if i > 0 {
+				change = fmt.Sprintf("%+.1f", float64(s.Delta())/float64(repeats))
+			}
 		}
 		usd, sec := "-", "-"
 		if d, ok := s.Report.CostPerCorrect(); ok {
@@ -144,7 +159,7 @@ func (r LadderReport) Table() string {
 		if t, ok := s.Report.TimePerCorrect(); ok {
 			sec = fmt.Sprintf("%.2f", t.Seconds())
 		}
-		row := fmt.Sprintf("%s\t%d/%d\t%s\t%s\t%s\t", s.Step, s.Report.Passed, s.Report.Total, change, usd, sec)
+		row := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t", s.Step, pass, change, usd, sec)
 		if thought {
 			think := "-"
 			if n, ok := s.Report.ReasoningPerCorrect(); ok {

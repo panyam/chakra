@@ -4,7 +4,9 @@ An agent that answers questions about Go code through a tool server over MCP
 (#351). It works like Declaire's agentbench chakra arm, which runs
 `agentchat exec` with only Declaire's tools. Here the tool server is
 `cmd/codeserver`, a small MCP server that indexes two modules in `testdata`,
-so CI needs no Declaire checkout.
+so CI needs no Declaire checkout. The shop module has nine packages. Its
+call chains run up to three hops deep, from `api.Handle` through `checkout.Run`
+and `orders.Place` to `journal.Post`.
 
 ## The tool server
 
@@ -31,21 +33,34 @@ the process.
 
 ## The eval
 
-Ten questions in `codeq.go`, shaped like Declaire's bench families. Each
-expects a set of rows, graded by `eval.Rows`: every expected row present,
-and no other row the index knows. Three things trip a model:
+Fifteen questions in `codeq.go`, shaped like Declaire's bench families, each
+with a tag: definition, imports, reverse hop, negation, callers or
+multi-hop. Each expects a set of rows. `eval.Rows` checks that every expected
+row is present and no other row the index knows. `eval.NoError` checks that
+any tool error was recovered by a later call to the same tool. These trip a
+model:
 
 - **Scoping.** "Which packages in example.com/shop import
   example.com/ledger/journal?" `importers` also returns
   `example.com/ledger/audit`, from the other module.
+- **Lookalikes.** Both modules declare a `Format`. Asked for ledger's, `find`
+  returns both, and a model that mentions the shop's fails.
 - **Test files.** "...counting only non-test files?" `importers` returns
   `example.com/shop/payments` marked `(test files only)`.
 - **A bare name.** "Which functions call Save from
   example.com/shop/internal/db?" `callers("Save")` is refused until the
   model qualifies the name, with `find` or by itself.
+- **Negation.** "Which packages in example.com/shop import nothing from
+  example.com/ledger?" No tool answers it directly. The model has to read
+  every package's imports and leave the users out.
+- **Multi-hop.** "Which functions call `db.Save`, directly or through other
+  functions?" `callers` gives one hop, so the model has to call it again on
+  each caller until nothing new turns up. No step in this ladder helps with
+  that. Mission 395 works on breaking a problem into hops (#385, #390).
 
 `TestImportAnswersAgreeWithGoList` re-derives the import questions' rows with
-`go list`, so they can't drift from the fixture.
+`go list`. `TestQuestionAnswersMatchTheIndex` walks the index to re-derive
+the multi-hop and negation answers. So no answer can drift from the fixture.
 
 When an answer has lines holding a row and nothing else, `eval.Rows` grades
 those lines, so a list followed by "audit imports it too, but it's in the
@@ -71,55 +86,70 @@ On the scripted model CI runs:
 ```
 $ make exercise
 on scripted
-codeq: 10 cases
+codeq: 15 cases
 step            pass   change  usd/correct  sec/correct
-tools only      5/10           -            0.00
-+ instructions  8/10   +3      -            0.00
-+ stuck policy  9/10   +1      -            0.00
-+ answer check  10/10  +1      -            0.00
+tools only      4/15           -            0.00
++ instructions  9/15   +5      -            0.00
++ stuck policy  10/15  +1      -            0.00
++ answer check  12/15  +2      -            0.00
 ```
 
-The scripted model has one habit for each step to fix: it keeps every row a
-tool returns, repeats a refused `callers` call, and answers one question in
-prose with short names. So the numbers show the steps are wired, and say
-nothing about a real model.
+The scripted model copies Haiku's habits, one for each step to fix. It keeps
+every row a tool returns, so it names both `Format`s. It repeats a refused
+`callers` call. And it answers some questions in prose, such as a negation
+that names the packages it left out as well. A fourth habit stays. On a
+multi-hop question it stops after one hop, so the three multi-hop cases fail
+on every step. So the numbers show the steps are wired, and say nothing about
+a real model.
 
 ## A live run
 
-On Claude Haiku 5.5 and Sonnet 5.5, on 2026-11-25. [WALK.md](WALK.md) is a
-recorded walk on Haiku, with every case's line and what each step added. It
-re-renders from `walk-haiku.json` with no model calls:
+On Claude Haiku 5.5, on 2026-11-26, with `REPEATS=3`. Each case ran three
+times. The pass column shows the mean, with the lowest and highest run in
+brackets.
+
+```
+$ make exercise LIVE=haiku REPEATS=3
+step            pass             change  usd/correct  sec/correct
+tools only      9.7/15 (9-11)            $0.00084     5.02
++ instructions  10.7/15 (9-12)   +1.0    $0.00081     4.67
++ stuck policy  10.0/15 (9-11)   -0.7    $0.00084     4.82
++ answer check  14.0/15 (14-14)  +4.0    $0.00089     4.97
+```
+
+The bare step fails a third of the cases, and the answer check passes all
+but one. The middle two steps move within the spread, so these runs don't
+tell them apart. Per step:
+
+- **tools only.** Both lookalike questions fail on every run. Haiku gives
+  the right `Format` and then mentions the other module's: "The search also
+  found a `Format` in the other module, `example.com/shop/receipt.Format`".
+  The negation fails on every run, and the multi-hop questions fail on two
+  or three of them.
+- **+ instructions.** The scoping rule fixes the lookalikes on half the
+  runs, and the negation on two of three. The multi-hop questions still
+  fail.
+- **+ stuck policy.** The step fixes no case the instructions left failing.
+  Its numbers sit inside the same spread.
+- **+ answer check.** Sent back for rows alone, Haiku drops the mentions and
+  fixes the negation. It also passes two of the three multi-hop questions
+  on every run. "Which functions
+  in example.com/shop reach journal.Post only through other functions" fails
+  on every run.
+
+[WALK.md](WALK.md) is one recorded walk on Haiku, with every case's line and
+what each step added. In that walk the steps passed 10, 10, 10 and 15, and
+it cost $0.039. It re-renders from `walk-haiku.json` with no model calls:
 `make walk-md LIVE=haiku` in this directory.
 
+Gemini 3.5 Flash-Lite passed 12 and 13 of 15 on the first two steps in one
+run, and failed every multi-hop case. Its later steps hit the free tier's
+limit of 500 requests a day, so they have no numbers here.
 
-```
-$ make exercise LIVE=haiku
-on haiku
-codeq: 10 cases
-step            pass   change  usd/correct  sec/correct
-tools only      10/10          $0.00027     1.73
-+ instructions  10/10  +0      $0.00030     1.82
-+ stuck policy  10/10  +0      $0.00031     1.86
-+ answer check  10/10  +0      $0.00057     3.30
-
-on sonnet
-codeq: 10 cases
-step            pass   change  usd/correct  sec/correct
-tools only      10/10          $0.0053      1.87
-+ instructions  10/10  +0      $0.0056      2.10
-+ stuck policy  10/10  +0      $0.0056      2.42
-+ answer check  10/10  +0      $0.0101      4.19
-```
-
-Both models pass everything with tools alone. Each step after that costs
-more and passes nothing more, and the answer check nearly doubles the cost,
-since it sends most prose answers back for a second reply. On Declaire's
-bench, scoping failures came from large real repos with many lookalike
-rows. These two modules are too small to trip a current hosted model.
-
-Runs vary, too. An earlier run of the same ladder had Haiku answer "catalog
-and orders" by short name on one step, which failed. A step's row is one run
-per case.
+The first version of this eval had ten questions over a smaller fixture.
+Haiku and Sonnet passed all ten with tools alone, so no step could show a
+gain (#365). The lookalike `Format`, the negation and the multi-hop
+questions are the cases that make Haiku fail.
 
 Set `CASES=1` to print each failing case with its scores and the model's
 answer.

@@ -22,7 +22,9 @@ gocurrent), and nesting keeps them out of the lean `chakra` module.
   `REPL` drives an interactive loop; `Close` tears down.
 - **Meta-tools** (`metatools.go`): host-local tools that let the model manage
   its own async work (`subscribe_events`, `create_trigger`, `list_tasks`,
-  `cancel_task`, and friends), installed under source id `host`.
+  `cancel_task`, and friends), installed under source id `host`. Only
+  `metaTools: true` offers them. Configured events and triggers subscribe to
+  event streams without offering the model these tools (#383).
 - **Surface seams**: terminal elicitation UI (`elicit.go`) and rendering
   (`render.go`). Swap these for a different surface.
 - **Subscriptions and background tasks** (`subscription.go`, `tasks_bg.go`):

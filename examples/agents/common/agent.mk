@@ -45,8 +45,8 @@ walk-md: ## Render walk-<LIVE>.json to WALK.md, with no model calls
 	@$(walk) --doc md --from $(CURDIR)/walk-$(LIVE).json > $(CURDIR)/WALK.md
 	@echo "wrote WALK.md"
 
-exercise: ## Run the whole ladder and print its table (CASES=1 prints failing cases)
-	@cd $(AGENTS_DIR) && go run ./cmd/exercise -agent $(AGENT) $(if $(CASES),-cases) $(if $(QUIET),-quiet) $(live_flags)
+exercise: ## Run the whole ladder and print its table (CASES=1 prints failing cases, REPEATS=3 runs each case 3 times)
+	@cd $(AGENTS_DIR) && go run ./cmd/exercise -agent $(AGENT) $(if $(CASES),-cases) $(if $(QUIET),-quiet) $(if $(REPEATS),-repeats $(REPEATS)) $(live_flags)
 
 chat: ## Chat with the ladder's last step in agentchat (LIVE picks the connection)
 	@cfg="$(AGENTS_DIR)/.chat-$(AGENT).json" && \

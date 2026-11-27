@@ -19,7 +19,7 @@ func Agent() common.Agent {
 			"+ page tools":       "Tools to read the board and change it, and a line in the prompt saying to read before changing.",
 			"+ page events":      "The page sends each user action to the App with App.Deliver. The host's injection policy puts it in the next turn's context, as a sentence the event's hint templates.",
 			"+ trigger":          "A trigger on card.moved with to=Done starts a turn by itself: check the card's checklist, and move it back if items are open.",
-			"+ mid-turn notes":   "The host injects events at turn start only. A session step stage tells the agent, before each model call, what the user changed since the turn began.",
+			"+ critical events":  "The host injects events at turn start. The page now marks its events priority critical, so the host also passes one the user sends mid-turn before the agent's next model call.",
 			"+ stale-edit guard": "Tool middleware refuses an edit to a card the user changed after the agent last read the board, and tells the agent what changed. The refusal is a free result, so it costs no step.",
 		},
 	}

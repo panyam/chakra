@@ -58,6 +58,12 @@ price, and a name it lacks is an error that lists the ones it has. A
 connection's `price` prices the run. Cached input tokens bill at its
 `cachedInput` rate, or at the input rate when it has none.
 
+A live model gives different answers from run to run, so one run can move a
+step by a case or two either way. `REPEATS=3` runs each case three times. The
+pass column then shows the mean, out of the distinct cases, with the lowest
+and highest run in brackets, such as `10.7/15 (9-12)`. Two steps whose
+ranges overlap haven't been told apart.
+
 A profile holds only a `connections` block. This one has Claude Haiku 5.5 and
 Sonnet 5.5, with prices per million tokens:
 
@@ -120,8 +126,9 @@ Two checks come before any code, and the plan records both.
   bare step should fail a good share of the cases, and the last step should
   plausibly pass them. If the bare step already passes nearly everything, the
   ladder can't show a step helping, so make the eval harder before building
-  it. codeq skipped this check, and Haiku passed 10 of 10 on every step
-  (#365). The run costs a few cents.
+  it. codeq skipped this check at first, and Haiku passed 10 of 10 on every
+  step (#365). Run it with `REPEATS=3`, so a step's spread shows. The run
+  costs a few cents.
 - **Name each step's hook point.** List the steps, and give each one its
   point from [`docs/HOOKS.md`](../../docs/HOOKS.md): turn start, each model
   call, each tool call, turn end, or events. A step with no matching point

@@ -97,9 +97,12 @@ type Config struct {
 	// streams.
 	Triggers []TriggerConfig `json:"triggers,omitempty"`
 
-	// MetaTools exposes the async control-plane tools to the model
-	// (subscribe_events, create_trigger, list_tasks, cancel_task, ...).
-	// Auto-implied when any server has events or triggers configured.
+	// MetaTools offers the model the async control-plane tools:
+	// subscribe_events, unsubscribe, list_subscriptions, create_trigger,
+	// remove_trigger, list_triggers, list_tasks and cancel_task. Only this
+	// field turns them on. Configured events and triggers subscribe to
+	// servers' event streams without offering them, so a model can't remove
+	// the trigger it runs on (#383).
 	MetaTools bool `json:"metaTools,omitempty"`
 
 	// TaskGraceSec is how long a task-backed tool call runs inline before it

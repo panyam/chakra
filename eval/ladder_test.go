@@ -214,3 +214,36 @@ func TestStepDriverRunsItsStepAndLaterOnes(t *testing.T) {
 		t.Errorf("passes = %d, %d; want only + b to pass", r.Steps[1].Report.Passed, r.Steps[3].Report.Passed)
 	}
 }
+
+// With repeats, each case runs that many times. The report counts passes
+// per repeat and the cases that passed at least once, and the table shows
+// the mean pass with the lowest and highest run.
+func TestRepeatsRunEachCaseAndTheTableShowsTheSpread(t *testing.T) {
+	// Run by run: a and b pass, then only b, then both again.
+	answers := []string{"right", "right", "wrong", "right", "right", "right"}
+	i := 0
+	scripted := &replyProvider{reply: func(agent.ProviderRequest) agent.StubTurn {
+		a := answers[i]
+		i++
+		return agent.StubTurn{Text: a}
+	}}
+	l := Ladder{
+		Name:  "r",
+		Steps: []Step{{Name: "only"}},
+		Cases: []SuiteCase{
+			Single(Case{Name: "a", Input: "q"}, ExactMatch("right")),
+			Single(Case{Name: "b", Input: "q"}, ExactMatch("right")),
+		},
+	}
+	r := l.Run(context.Background(), Suite{Config: agent.RunnerConfig{Provider: scripted}, Repeats: 3})
+	rep := r.Steps[0].Report
+	if rep.Total != 6 || rep.Passed != 5 || rep.Distinct() != 2 || rep.PassAtK() != 2 {
+		t.Fatalf("total %d passed %d distinct %d pass@k %d, want 6, 5, 2, 2", rep.Total, rep.Passed, rep.Distinct(), rep.PassAtK())
+	}
+	if got := rep.PassesPerRun(); len(got) != 3 || got[0] != 2 || got[1] != 1 || got[2] != 2 {
+		t.Errorf("passes per run = %v, want [2 1 2]", got)
+	}
+	if tbl := r.Table(); !strings.Contains(tbl, "r: 2 cases") || !strings.Contains(tbl, "1.7/2 (1-2)") {
+		t.Errorf("table:\n%s\nwant 2 cases and a pass cell of 1.7/2 (1-2)", tbl)
+	}
+}
