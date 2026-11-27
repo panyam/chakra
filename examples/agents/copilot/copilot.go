@@ -25,12 +25,14 @@ import (
 // Instructions is the agent's system prompt on every step.
 const Instructions = "You are the co-pilot in a kanban board app. The board has three columns: To do, Doing and Done. Help the user with their board, and keep replies short."
 
-// pageRules is what the page-tools step adds to the prompt.
-const pageRules = `
+// PageRules is what the page-tools step adds to the prompt. The browser
+// page in web/ uses it too.
+const PageRules = `
 You can read the board and change it with your tools. Read the board before you change it.`
 
-// doneCheck is the trigger's instructions: the proactive turn's prompt.
-const doneCheck = "A card just landed in Done. Read the board and check that card's checklist. If any item is still open, move the card back to Doing and highlight it, and tell the user which items are open. If every item is done, leave the card where it is."
+// DoneCheck is the trigger's instructions, the proactive turn's prompt.
+// The browser page in web/ uses it too.
+const DoneCheck = "A card just landed in Done. Read the board and check that card's checklist. If any item is still open, move the card back to Doing and highlight it, and tell the user which items are open. If every item is done, leave the card where it is."
 
 // session is one case: what the user says and does, and what the board
 // should look like afterwards.
@@ -123,7 +125,7 @@ func Ladder(context.Context) (eval.Ladder, func(), error) {
 			{Name: "chat only", Driver: b.driver(wiring{})},
 			{Name: "+ page tools", Configure: func(cfg agent.RunnerConfig) (agent.RunnerConfig, error) {
 				cfg.Tools = tools
-				cfg.Instructions += "\n" + pageRules
+				cfg.Instructions += "\n" + PageRules
 				return cfg, nil
 			}},
 			{Name: "+ page events", Driver: b.driver(wiring{events: true})},
@@ -177,7 +179,7 @@ func (b *board) driver(w wiring) eval.Driver {
 		}
 		if w.triggers {
 			hc.Triggers = []host.TriggerConfig{{Server: "page", Event: "card.moved", Filter: map[string]string{"to": "Done"},
-				Instructions: doneCheck, Label: "done-check"}}
+				Instructions: DoneCheck, Label: "done-check"}}
 		}
 		rec := &recorder{name: sc.Name, b: b}
 		opts := []host.AppOption{host.WithProvider(cfg.Provider), host.WithObserver(rec)}

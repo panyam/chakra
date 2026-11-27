@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>copilot board</title>
+<script type="module" src="{{AGENT}}/static/chakra-chat.js"></script>
+<style>
+  :root { --bg: #f6f6f4; --col: #ecebe7; --card: #fff; --ink: #222; --muted: #6b6b6b; --mark: #ffe36e; --accent: #3a6ea5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #18181a; --col: #232326; --card: #2e2e32; --ink: #eee; --muted: #a0a0a0; --mark: #8a6d00; --accent: #7aa7d8; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  main { display: grid; grid-template-columns: 1fr 420px; gap: 16px; padding: 16px; height: 100vh; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; height: auto; } }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  .hint { color: var(--muted); margin: 0 0 12px; }
+  #board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; align-content: start; }
+  .column { background: var(--col); border-radius: 8px; padding: 8px; min-height: 240px; }
+  .column h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 4px 4px 8px; }
+  .column.over { outline: 2px dashed var(--accent); }
+  .card { background: var(--card); border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; cursor: grab;
+          box-shadow: 0 1px 2px rgba(0,0,0,.12); transition: background .3s; }
+  .card.highlighted { background: var(--mark); }
+  .card .id { color: var(--muted); font-size: 12px; margin-right: 4px; }
+  .card ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 12px; }
+  .card li.done { text-decoration: line-through; }
+  chakra-chat { display: block; height: calc(100vh - 32px); }
+</style>
+</head>
+<body>
+<main>
+<section>
+  <h1>Board</h1>
+  <p class="hint">Drag a card to move it. Double-click a card to rename it. Turn on "Let the agent use this page" in the chat so the co-pilot can see the board.</p>
+  <div id="board"></div>
+</section>
+<chakra-chat id="chat" server-url="{{AGENT}}" profile="copilot" room-join="/rooms/join"></chakra-chat>
+</main>
+<script type="module" src="board.js"></script>
+</body>
+</html>
