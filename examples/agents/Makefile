@@ -11,8 +11,8 @@ help: ## List these targets, and each agent's
 
 AGENTS := $(patsubst %/Makefile,%,$(wildcard */Makefile))
 
-exercise: ## Run every agent's ladder and print its table (LIVE=<connection> CASES=1 QUIET=1)
-	@go run ./cmd/exercise $(if $(CASES),-cases) $(if $(QUIET),-quiet) $(if $(LIVE),-live '$(LIVE)' -profile $(profile_path))
+exercise: ## Run every agent's ladder and print its table (LIVE=<connection> CASES=1 QUIET=1 REPEATS=3)
+	@go run ./cmd/exercise $(if $(CASES),-cases) $(if $(QUIET),-quiet) $(if $(REPEATS),-repeats $(REPEATS)) $(if $(LIVE),-live '$(LIVE)' -profile $(profile_path))
 
 profiles: ## List the connections in PROFILE
 	@go run ./cmd/exercise -profiles -profile $(profile_path)

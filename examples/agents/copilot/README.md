@@ -60,17 +60,17 @@ card to Done.
    host's injection policy puts the event in the next turn's context.
 4. **+ trigger.** A host trigger on `card.moved` with `to` = Done starts a
    turn by itself, with instructions to check the card's checklist.
-5. **+ mid-turn notes.** The host injects events at turn start only, so a
-   change the user makes mid-turn waits for the next turn. A session step
-   stage tells the agent before each model call what the user changed since
-   the turn began.
+5. **+ critical events.** The page marks each event `priority: critical`.
+   Other events wait for the next turn's start. The host passes a critical
+   one to the agent before its next model call, mid-turn included, through
+   its `host.critical-events` step stage.
 6. **+ stale-edit guard.** Tool middleware refuses an edit to a card the user
    changed after the agent last read the board, and says what changed. The
    refusal is a free result, so it costs no step. This is #282's question
    about a world changing under the agent. For a page, the existing
    middleware hook answered it, with no new core hook.
 
-Steps 1, 3 and 4 change the host, not the Runner, so they set a step
+Steps 1, 3, 4 and 5 change the host, not the Runner, so they set a step
 `Driver`. The driver builds the App from the step's `RunnerConfig`: the
 tools, middleware, step stages and turn-end hooks go in as an extension.
 
@@ -86,7 +86,7 @@ chat only           0/8           -            -
 + page tools        2/8   +2      -            0.00
 + page events       4/8   +2      -            0.00
 + trigger           6/8   +2      -            0.00
-+ mid-turn notes    7/8   +1      -            0.00
++ critical events   7/8   +1      -            0.00
 + stale-edit guard  8/8   +1      -            0.00
 ```
 
@@ -97,18 +97,18 @@ so the numbers show the steps are wired, and say nothing about a real model.
 
 ## A live run
 
-On Claude Haiku 5.5, on 2026-11-25. [WALK.md](WALK.md) is the recorded walk,
+On Claude Haiku 5.5, on 2026-11-26. [WALK.md](WALK.md) is the recorded walk,
 and `make walk-md LIVE=haiku` re-renders it from `walk-haiku.json` with no
 model calls.
 
 ```
 step                pass  change  usd/correct  sec/correct
 chat only           0/8           -            -
-+ page tools        2/8   +2      $0.0011      5.95
-+ page events       4/8   +2      $0.00061     3.07
-+ trigger           6/8   +2      $0.00094     3.13
-+ mid-turn notes    7/8   +1      $0.00088     2.86
-+ stale-edit guard  8/8   +1      $0.00083     2.80
++ page tools        2/8   +2      $0.0012      6.80
++ page events       4/8   +2      $0.00061     3.14
++ trigger           6/8   +2      $0.00056     2.81
++ critical events   7/8   +1      $0.00058     3.04
++ stale-edit guard  8/8   +1      $0.00047     2.47
 ```
 
 Haiku climbs the same as the scripted model, and each step fixes the case
@@ -119,20 +119,25 @@ it was built for:
   answered that.
 - Without the trigger, a card dropped in Done with open items is left there,
   because no turn runs.
-- Without mid-turn notes, Haiku moved all three Doing cards, C2 included,
-  which the user had just taken back. With them: "I left C2 (Ship v2) alone
-  since you moved it to To do."
+- Without critical events, Haiku moved all three Doing cards, C2 included,
+  which the user had just taken back. With them: "Ship v2 (C2) was already
+  moved to To do, so I left it."
 - Without the guard, Haiku's rename landed on top of the user's. With it: "C7
-  is currently "Launch plan v2", so my rename didn't go through. Should I
-  still rename it?"
-- The walk cost $0.024.
+  is now "Launch plan v2", which you renamed. Do you want me to rename it to
+  "Q3 launch plan" anyway?"
+- The walk cost $0.017.
 
 ## What the build found
 
 - In-process code had no way to know an event it passed to `App.Deliver`
   had been handled, so the next beat raced the proactive turn. `App.Settle`
   now waits for every delivered event and any turn it started.
-- The host injects events at turn start only. Step 5 carries mid-turn
-  changes with its own step stage.
-- One trigger in config gives the model the host's eight meta-tools, such as
-  `create_trigger` and `remove_trigger`, beside the page tools.
+- The host injected events at turn start only, so the first version of step
+  5 was a stage in this example. Now the host passes an event marked
+  `priority: critical` before each model call (#383).
+- One trigger in config used to give the model the host's eight meta-tools,
+  such as `create_trigger`, beside the page tools. Now only `metaTools:
+  true` offers them (#383).
+- `App.Deliver` only queues an event. A user action timed for the gap
+  between two model calls could reach the host after the second call began,
+  so the page waits on `App.Settle` after each action.

@@ -1,7 +1,7 @@
 // Package codeq is an agent that answers questions about Go code through a
 // tool server over MCP (#351). The server, cmd/codeserver, indexes two small
 // modules in testdata, example.com/shop and example.com/ledger, and runs as
-// its own process. The eval asks ten questions whose answers are rows:
+// its own process. The eval asks fifteen questions whose answers are rows:
 // import paths, or qualified names such as example.com/shop/orders.Place.
 package codeq
 
@@ -30,29 +30,52 @@ Use packages for a module's packages, imports for what one package imports, impo
 When a question says "in <module>", leave out every row from other modules.
 When a question says "non-test", leave out rows marked (test files only).`
 
-// question is one case: its text and the rows a right answer names.
+// question is one case: its text, the rows a right answer names, and its
+// tag. The tag names the kind of lookup the question needs, so a router can
+// send each kind to a different model (#365).
 type question struct {
 	text string
 	want []string
+	tag  string
 }
 
+// The tags.
+const (
+	definition = "definition"
+	imports    = "imports"
+	reverseHop = "reverse hop"
+	negation   = "negation"
+	callers    = "callers"
+	multiHop   = "multi-hop"
+)
+
 var questions = []question{
-	{"What is the qualified name of the function Format?", []string{"example.com/ledger/money.Format"}},
-	{"What is the qualified name of the type Amount?", []string{"example.com/ledger/money.Amount"}},
+	{"What is the qualified name of the function Format in example.com/ledger?", []string{"example.com/ledger/money.Format"}, definition},
+	{"What is the qualified name of the type Amount?", []string{"example.com/ledger/money.Amount"}, definition},
 	{"Which packages does example.com/shop/orders import?",
-		[]string{"example.com/ledger/journal", "example.com/ledger/money", "example.com/shop/catalog", "example.com/shop/internal/db"}},
+		[]string{"example.com/ledger/journal", "example.com/ledger/money", "example.com/shop/catalog", "example.com/shop/internal/db"}, imports},
 	{"Which packages in example.com/shop import example.com/ledger/money, counting only non-test files?",
-		[]string{"example.com/shop/catalog", "example.com/shop/orders"}},
+		[]string{"example.com/shop/catalog", "example.com/shop/orders", "example.com/shop/receipt"}, reverseHop},
 	{"Which packages in example.com/shop import example.com/ledger/journal?",
-		[]string{"example.com/shop/orders", "example.com/shop/payments"}},
+		[]string{"example.com/shop/orders", "example.com/shop/payments", "example.com/shop/refunds"}, reverseHop},
 	{"Which functions in example.com/shop call example.com/ledger/journal.Post?",
-		[]string{"example.com/shop/orders.Place", "example.com/shop/payments.Charge"}},
+		[]string{"example.com/shop/orders.Place", "example.com/shop/payments.Charge"}, callers},
 	{"Which functions call Save from example.com/shop/internal/db?",
-		[]string{"example.com/shop/orders.Place", "example.com/shop/payments.Charge"}},
+		[]string{"example.com/shop/orders.Place", "example.com/shop/payments.Charge"}, callers},
 	{"Which packages make up the module example.com/ledger?",
-		[]string{"example.com/ledger/audit", "example.com/ledger/journal", "example.com/ledger/money"}},
-	{"Which packages import example.com/shop/catalog?", []string{"example.com/shop/orders"}},
-	{"Which packages in example.com/shop import example.com/shop/orders?", []string{"example.com/shop/cmd/shopd"}},
+		[]string{"example.com/ledger/audit", "example.com/ledger/journal", "example.com/ledger/money"}, imports},
+	{"Which packages import example.com/shop/catalog?", []string{"example.com/shop/orders"}, reverseHop},
+	{"Which packages in example.com/shop import example.com/shop/orders?",
+		[]string{"example.com/shop/checkout", "example.com/shop/cmd/shopd"}, reverseHop},
+	{"What is the qualified name of the function Format in example.com/shop?", []string{"example.com/shop/receipt.Format"}, definition},
+	{"Which packages in example.com/shop import nothing from example.com/ledger, counting only non-test files?",
+		[]string{"example.com/shop/api", "example.com/shop/checkout", "example.com/shop/cmd/shopd", "example.com/shop/internal/db"}, negation},
+	{"Which functions in example.com/shop reach example.com/ledger/journal.Post only through other functions, without calling it directly?",
+		[]string{"example.com/shop/api.Handle", "example.com/shop/checkout.Run", "example.com/shop/cmd/shopd.main", "example.com/shop/refunds.Issue"}, multiHop},
+	{"Which functions call example.com/shop/internal/db.Save, directly or through other functions?",
+		[]string{"example.com/shop/api.Handle", "example.com/shop/checkout.Run", "example.com/shop/cmd/shopd.main", "example.com/shop/orders.Place", "example.com/shop/payments.Charge"}, multiHop},
+	{"Which packages in example.com/ledger does example.com/shop/api depend on, directly or through other packages?",
+		[]string{"example.com/ledger/journal", "example.com/ledger/money"}, multiHop},
 }
 
 // Fixture is the directory holding the two modules, found through the go
@@ -96,7 +119,7 @@ func Start(ctx context.Context) (c *client.Client, ix *Index, stop func(), err e
 	return c, ix, func() { c.Close(); os.RemoveAll(dir) }, nil
 }
 
-// Ladder starts the tool server and returns codeq's four steps over its ten
+// Ladder starts the tool server and returns codeq's four steps over its fifteen
 // questions. The caller runs stop once the ladder has run.
 func Ladder(ctx context.Context) (l eval.Ladder, stop func(), err error) {
 	c, ix, stop, err := Start(ctx)
@@ -112,7 +135,7 @@ func Ladder(ctx context.Context) (l eval.Ladder, stop func(), err error) {
 		others := slices.DeleteFunc(slices.Clone(among), func(r string) bool {
 			return strings.Contains(q.text, r) || slices.ContainsFunc(q.want, func(w string) bool { return strings.HasPrefix(w, r+".") })
 		})
-		cs = append(cs, eval.Single(eval.Case{Name: q.text, Input: q.text}, eval.Rows(q.want, others)))
+		cs = append(cs, eval.Single(eval.Case{Name: q.text, Input: q.text}, eval.Rows(q.want, others), eval.NoError()))
 	}
 	tools := agent.NewClientSource(c)
 	return eval.Ladder{

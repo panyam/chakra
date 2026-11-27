@@ -95,6 +95,15 @@ type OpenAIConfig struct {
 	// whose calls the provider never saw, such as a resumed session's.
 	// connection sets it for type "gemini".
 	ThoughtSignatures bool
+
+	// LateSystemAsUser sends a system message as a user message once the
+	// conversation has started, meaning after the first message that isn't
+	// a system one. Gemini's OpenAI endpoint moves every system message into
+	// its system instructions. So a request whose last message is a system
+	// note, such as a TurnEnd hook's refusal or a step stage's note, ends on
+	// the model's turn, and Gemini refuses it (#365). connection sets it for
+	// type "gemini".
+	LateSystemAsUser bool
 }
 
 // PlaceholderThoughtSignature stands in for a tool call's lost thought
@@ -372,8 +381,14 @@ func (p *OpenAIProvider) buildBody(req ProviderRequest, stream bool) map[string]
 	if instructions != "" {
 		msgs = append(msgs, map[string]any{"role": "system", "content": instructions})
 	}
+	started := false
 	for _, m := range req.Messages {
 		entry := map[string]any{"role": string(m.Role)}
+		if m.Role != RoleSystem {
+			started = true
+		} else if started && p.cfg.LateSystemAsUser {
+			entry["role"] = string(RoleUser)
+		}
 		switch m.Role {
 		case RoleTool:
 			entry["tool_call_id"] = m.ToolCallID

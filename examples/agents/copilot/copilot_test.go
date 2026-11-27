@@ -102,31 +102,19 @@ func TestClockPlaysTimedActionsAroundTheNthCall(t *testing.T) {
 	}
 }
 
-// A user change during a turn reaches the next model call as a note, once.
-// A change between turns doesn't, since page events carry those.
-func TestMidTurnNotesCarryChangesMadeDuringTheTurn(t *testing.T) {
-	b := &board{}
-	b.reset(nil)
-	stage := b.midTurnNotes()
-	run := func() []agent.Message {
-		v, err := stage.Run(context.Background(), agent.StepInfo{}, agent.StepView{})
-		if err != nil {
-			t.Fatal(err)
-		}
-		return v.Messages
+// From step 5 the page marks its events priority "critical", which the
+// host passes to the agent mid-turn. Before it, an event carries only its
+// template, and waits for the next turn.
+func TestCriticalEventsCarryThePriorityHint(t *testing.T) {
+	before := card{ID: "C3", Title: "Update docs", Column: "Doing"}
+	hint := func(critical bool) map[string]any {
+		return event(action{Kind: "move", Card: "C3", To: "To do"}, before, critical).Meta[agent.MetaKeyContextHint].(map[string]any)
 	}
-	b.userDo(action{Kind: "move", Card: "C2", To: "Done"})
-	b.turnStarted()
-	if got := run(); len(got) != 0 {
-		t.Errorf("a change before the turn gave notes %v", got)
+	if h := hint(true); h["priority"] != "critical" || !strings.Contains(h["template"].(string), "The user moved") {
+		t.Errorf("critical hint = %v", h)
 	}
-	b.userDo(action{Kind: "move", Card: "C3", To: "To do"})
-	got := run()
-	if len(got) != 1 || got[0].Role != agent.RoleSystem || !strings.Contains(got[0].Text, "moved C3 (Update docs) from Doing to To do") {
-		t.Errorf("notes = %+v, want one system note about C3", got)
-	}
-	if again := run(); len(again) != 0 {
-		t.Errorf("the note came back on the next call: %v", again)
+	if h := hint(false); h["priority"] != nil {
+		t.Errorf("a plain event has priority %v", h["priority"])
 	}
 }
 

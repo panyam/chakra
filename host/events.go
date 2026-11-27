@@ -30,13 +30,13 @@ func (a *App) onServerEvents(sc ServerConfig) {
 	if c == nil {
 		return
 	}
-	if a.metaTools {
+	if a.eventPlane {
 		if _, ok := c.ServerExtensionCapability(events.ExtensionID); ok {
 			a.discoverEventHints(sc.ID, c)
 			a.watchEventTypes(sc, c)
 		}
 	}
-	if _, err := a.rerunSetup(a.streams.ctx, sc, c, 0); err != nil || !a.metaTools {
+	if _, err := a.rerunSetup(a.streams.ctx, sc, c, 0); err != nil || !a.eventPlane {
 		return
 	}
 	a.subscribeConfigured(sc)
@@ -185,6 +185,24 @@ func (a *App) injectionStage() ContextStage {
 		}
 		return msgs
 	}}
+}
+
+// criticalEventStage brings events marked priority "critical" into the
+// running turn, before each model call (#383). Other events wait for the
+// next turn's start, where injectionStage drains them. The stage is a
+// session one, so a note it adds stays in the turn's record and in history
+// afterwards, as a turn-start note does.
+func (a *App) criticalEventStage() agent.StepStage {
+	return agent.StepStage{
+		Name:  "host.critical-events",
+		Scope: agent.ScopeSession,
+		Run: func(_ context.Context, _ agent.StepInfo, v agent.StepView) (agent.StepView, error) {
+			for _, inj := range a.injection.DrainCritical() {
+				v.Messages = append(v.Messages, agent.Message{Role: agent.RoleSystem, Text: inj.Text})
+			}
+			return v, nil
+		},
+	}
 }
 
 // buildTriggerBindings converts config bindings into policy bindings,

@@ -77,8 +77,6 @@ type board struct {
 	lastRead int
 	// running is true while a turn runs, so a user change is mid-turn.
 	running bool
-	// notes are mid-turn user changes the agent hasn't been told about.
-	notes []string
 	// calls counts the agent's tool calls by name, for the timed actions.
 	calls map[string]int
 	timed []timed
@@ -107,7 +105,7 @@ func (b *board) reset(t []timed) {
 	defer b.mu.Unlock()
 	b.cards = start()
 	b.version, b.lastRead = 1, 0
-	b.changes, b.highlight, b.notes, b.overwrites = nil, nil, nil, nil
+	b.changes, b.highlight, b.overwrites = nil, nil, nil
 	b.running, b.fired = false, 0
 	b.calls = map[string]int{}
 	b.timed = t
@@ -208,9 +206,6 @@ func (b *board) userDo(a action) {
 	}
 	b.version++
 	b.changes = append(b.changes, change{Card: c.ID, Field: field, ByUser: true, During: b.running, Version: b.version})
-	if b.running {
-		b.notes = append(b.notes, "While you were working, the user "+describe(a, before)+".")
-	}
 	deliver := b.deliver
 	b.mu.Unlock()
 	if deliver != nil {
@@ -227,8 +222,10 @@ func describe(a action, before card) string {
 }
 
 // event is the page event for a user action. The template is the hint the
-// page sends with it, so the host injects it as one plain sentence.
-func event(a action, before card) agent.IncomingEvent {
+// page sends with it, so the host injects it as one plain sentence. With
+// critical, the hint also says priority "critical", so the host passes the
+// event to the agent before its next model call, mid-turn included.
+func event(a action, before card, critical bool) agent.IncomingEvent {
 	name, data, tmpl := "card.moved", map[string]string{"card": before.ID, "title": before.Title, "from": before.Column, "to": a.To},
 		"The user moved {{card}} ({{title}}) from {{from}} to {{to}}."
 	if a.Kind == "rename" {
@@ -236,19 +233,23 @@ func event(a action, before card) agent.IncomingEvent {
 			"The user renamed {{card}} from \"{{from}}\" to \"{{to}}\"."
 	}
 	raw, _ := json.Marshal(data)
+	hint := map[string]any{"template": tmpl}
+	if critical {
+		hint["priority"] = "critical"
+	}
 	return agent.IncomingEvent{Server: "page", Name: name, Data: core.NewRawJSON(raw),
-		Meta: map[string]any{agent.MetaKeyContextHint: map[string]any{"template": tmpl}}}
+		Meta: map[string]any{agent.MetaKeyContextHint: hint}}
 }
 
 func (b *board) turnStarted() {
 	b.mu.Lock()
-	b.running, b.notes = true, nil
+	b.running = true
 	b.mu.Unlock()
 }
 
 func (b *board) turnEnded() {
 	b.mu.Lock()
-	b.running, b.notes = false, nil
+	b.running = false
 	b.mu.Unlock()
 }
 
@@ -362,24 +363,6 @@ func (b *board) clock(ctx context.Context, info agent.ToolCallInfo, next agent.T
 		b.userDo(a)
 	}
 	return res, err
-}
-
-// midTurnNotes is step 5: before each model call, a session stage tells the
-// agent what the user changed on the page since the turn began. The host's
-// event injection runs at turn start only, so without this a change made
-// mid-turn reaches the agent on the next turn.
-func (b *board) midTurnNotes() agent.StepStage {
-	return agent.StepStage{Name: "copilot.mid-turn", Scope: agent.ScopeSession,
-		Run: func(_ context.Context, _ agent.StepInfo, v agent.StepView) (agent.StepView, error) {
-			b.mu.Lock()
-			notes := b.notes
-			b.notes = nil
-			b.mu.Unlock()
-			for _, n := range notes {
-				v.Messages = append(v.Messages, agent.Message{Role: agent.RoleSystem, Text: n})
-			}
-			return v, nil
-		}}
 }
 
 // staleGuard is step 6: tool middleware that refuses an edit to a card the

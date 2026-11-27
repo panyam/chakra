@@ -75,10 +75,15 @@ type ChatServer struct {
 
 // Model is what a ladder runs on: a provider, the name its usage is counted
 // under, and prices for that name, or nil when the price is unknown.
+//
+// Repeats runs every case that many times, and the table shows each step's
+// mean pass with its lowest and highest run. Zero or one runs each case
+// once.
 type Model struct {
 	Provider agent.Provider
 	Name     string
 	Prices   eval.Prices
+	Repeats  int
 }
 
 // Climb runs a's ladder on m. It fails only when the ladder can't start.
@@ -96,7 +101,7 @@ func Climb(ctx context.Context, a Agent, m Model, progress io.Writer) (eval.Ladd
 		steps = 8
 	}
 	base := agent.RunnerConfig{Provider: m.Provider, Instructions: a.Instructions, MaxSteps: steps}
-	suite := eval.Suite{Config: base, ModelName: m.Name, Prices: m.Prices}
+	suite := eval.Suite{Config: base, ModelName: m.Name, Prices: m.Prices, Repeats: m.Repeats}
 	if progress != nil {
 		fmt.Fprintf(progress, "%s on %s: %d steps, %d cases each\n", a.Name, m.Name, len(l.Steps), len(l.Cases))
 		for i := range l.Steps {

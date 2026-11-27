@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/panyam/chakra"
 	"github.com/panyam/chakra/eval"
@@ -93,6 +94,9 @@ type wiring struct {
 	events bool
 	// triggers adds the done-check trigger.
 	triggers bool
+	// critical marks the page's events priority "critical", so the host
+	// passes one the user sends mid-turn before the agent's next model call.
+	critical bool
 }
 
 // Ladder is copilot's six steps over its eight sessions.
@@ -124,10 +128,7 @@ func Ladder(context.Context) (eval.Ladder, func(), error) {
 			}},
 			{Name: "+ page events", Driver: b.driver(wiring{events: true})},
 			{Name: "+ trigger", Driver: b.driver(wiring{events: true, triggers: true})},
-			{Name: "+ mid-turn notes", Configure: func(cfg agent.RunnerConfig) (agent.RunnerConfig, error) {
-				cfg.StepStages = append(slices.Clip(cfg.StepStages), b.midTurnNotes())
-				return cfg, nil
-			}},
+			{Name: "+ critical events", Driver: b.driver(wiring{events: true, triggers: true, critical: true})},
 			{Name: "+ stale-edit guard", Configure: func(cfg agent.RunnerConfig) (agent.RunnerConfig, error) {
 				cfg.ToolMiddleware = append(slices.Clip(cfg.ToolMiddleware), b.staleGuard)
 				return cfg, nil
@@ -190,7 +191,17 @@ func (b *board) driver(w wiring) eval.Driver {
 		defer app.Close()
 		if w.events {
 			b.mu.Lock()
-			b.deliver = func(a action, before card) { _ = app.Deliver(ctx, event(a, before)) }
+			// deliver waits until the App has taken the event in. Deliver only
+			// queues it, so without the wait a timed action could miss the
+			// model call it was timed for. A timed move to Done would fire the
+			// trigger, whose turn waits for the running one, so the wait has
+			// a cap.
+			b.deliver = func(a action, before card) {
+				_ = app.Deliver(ctx, event(a, before, w.critical))
+				wait, cancel := context.WithTimeout(ctx, 5*time.Second)
+				defer cancel()
+				_ = app.Settle(wait)
+			}
 			b.mu.Unlock()
 		}
 		for _, bt := range s.beats {

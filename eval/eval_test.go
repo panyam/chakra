@@ -197,6 +197,39 @@ func TestNoErrorCatchesDispatchError(t *testing.T) {
 	}
 }
 
+// A tool error the model recovers from, by calling the same tool again and
+// getting a result, doesn't fail NoError. An error followed only by a
+// different tool's success still does.
+func TestNoErrorPassesWhenALaterCallToTheSameToolSucceeds(t *testing.T) {
+	src := lookupSource(t)
+	if err := agent.AddFunc(src, "get", "gets a known key", func(ctx context.Context, in struct {
+		Key string `json:"key"`
+	}) (string, error) {
+		if in.Key != "x" {
+			return "", errors.New("no key " + in.Key)
+		}
+		return "found", nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	recovered := runCase(t, src, Case{Name: "retry", Input: "get x"},
+		toolCallTurn("c1", "get", `{"key":"X"}`),
+		toolCallTurn("c2", "get", `{"key":"x"}`),
+		agent.StubTurn{Text: "found"},
+	)
+	if s := NoError().Score(recovered); !s.Pass {
+		t.Errorf("a tool error the next call to that tool fixed failed NoError: %+v", s)
+	}
+	elsewhere := runCase(t, src, Case{Name: "other", Input: "get x"},
+		toolCallTurn("c1", "get", `{"key":"X"}`),
+		toolCallTurn("c2", "lookup", `{"key":"x"}`),
+		agent.StubTurn{Text: "value-for-x"},
+	)
+	if s := NoError().Score(elsewhere); s.Pass || !strings.Contains(s.Detail, `"get"`) {
+		t.Errorf("an error only another tool's success followed = %+v, want a fail naming get", s)
+	}
+}
+
 func TestNotDeniedCatchesDenialButNoErrorIgnoresIt(t *testing.T) {
 	// A tool-denied transcript: the approval policy blocked "deploy". The Runner
 	// emits tool-begin then tool-denied (no tool-end, no error).

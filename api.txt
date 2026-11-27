@@ -207,6 +207,7 @@ pkg github.com/panyam/chakra, method (*DeltaAccumulator) Result() *ProviderRespo
 pkg github.com/panyam/chakra, method (*ElicitationCoordinator) Confirm(context.Context, string) (bool, error)
 pkg github.com/panyam/chakra, method (*ElicitationCoordinator) Handler() client.ElicitationHandler
 pkg github.com/panyam/chakra, method (*EventInjectionPolicy) Drain() []InjectedContext
+pkg github.com/panyam/chakra, method (*EventInjectionPolicy) DrainCritical() []InjectedContext
 pkg github.com/panyam/chakra, method (*EventInjectionPolicy) Dropped() int
 pkg github.com/panyam/chakra, method (*EventInjectionPolicy) Ingest(IncomingEvent)
 pkg github.com/panyam/chakra, method (*EventInjectionPolicy) SetHint(string, ContextHint)
@@ -610,6 +611,7 @@ pkg github.com/panyam/chakra, type OpenAIConfig struct, BaseURL string
 pkg github.com/panyam/chakra, type OpenAIConfig struct, ExtraBody map[string]any
 pkg github.com/panyam/chakra, type OpenAIConfig struct, GuidedDialect GuidedDialect
 pkg github.com/panyam/chakra, type OpenAIConfig struct, HTTPClient *http.Client
+pkg github.com/panyam/chakra, type OpenAIConfig struct, LateSystemAsUser bool
 pkg github.com/panyam/chakra, type OpenAIConfig struct, MaxTokens int
 pkg github.com/panyam/chakra, type OpenAIConfig struct, Model string
 pkg github.com/panyam/chakra, type OpenAIConfig struct, NoResponseSchema bool
@@ -1108,7 +1110,10 @@ pkg github.com/panyam/chakra/eval, method (SuiteCase) Prepare(context.Context, a
 pkg github.com/panyam/chakra/eval, method (SuiteReport) Cost() (float64, bool)
 pkg github.com/panyam/chakra/eval, method (SuiteReport) CostPerCorrect() (float64, bool)
 pkg github.com/panyam/chakra/eval, method (SuiteReport) Dimensions() []DimensionReport
+pkg github.com/panyam/chakra/eval, method (SuiteReport) Distinct() int
 pkg github.com/panyam/chakra/eval, method (SuiteReport) Pass() bool
+pkg github.com/panyam/chakra/eval, method (SuiteReport) PassAtK() int
+pkg github.com/panyam/chakra/eval, method (SuiteReport) PassesPerRun() []int
 pkg github.com/panyam/chakra/eval, method (SuiteReport) ReasoningPerCorrect() (int, bool)
 pkg github.com/panyam/chakra/eval, method (SuiteReport) ReasoningTokens() int
 pkg github.com/panyam/chakra/eval, method (SuiteReport) String() string
@@ -1129,6 +1134,7 @@ pkg github.com/panyam/chakra/eval, type CaseReport struct, Case string
 pkg github.com/panyam/chakra/eval, type CaseReport struct, Cost *float64
 pkg github.com/panyam/chakra/eval, type CaseReport struct, Elapsed time.Duration
 pkg github.com/panyam/chakra/eval, type CaseReport struct, Pass bool
+pkg github.com/panyam/chakra/eval, type CaseReport struct, Run int
 pkg github.com/panyam/chakra/eval, type CaseReport struct, RunErr string
 pkg github.com/panyam/chakra/eval, type CaseReport struct, Scores []Score
 pkg github.com/panyam/chakra/eval, type CaseReport struct, SetupElapsed time.Duration
@@ -1194,6 +1200,7 @@ pkg github.com/panyam/chakra/eval, type Suite struct, Driver Driver
 pkg github.com/panyam/chakra/eval, type Suite struct, ModelName string
 pkg github.com/panyam/chakra/eval, type Suite struct, OnCase func(int, CaseReport)
 pkg github.com/panyam/chakra/eval, type Suite struct, Prices Prices
+pkg github.com/panyam/chakra/eval, type Suite struct, Repeats int
 pkg github.com/panyam/chakra/eval, type SuiteCase struct
 pkg github.com/panyam/chakra/eval, type SuiteCase struct, Configure func(agent.RunnerConfig) (agent.RunnerConfig, error)
 pkg github.com/panyam/chakra/eval, type SuiteCase struct, Scenario Scenario
@@ -1204,6 +1211,7 @@ pkg github.com/panyam/chakra/eval, type SuiteReport struct
 pkg github.com/panyam/chakra/eval, type SuiteReport struct, Cases []CaseReport
 pkg github.com/panyam/chakra/eval, type SuiteReport struct, Failed int
 pkg github.com/panyam/chakra/eval, type SuiteReport struct, Passed int
+pkg github.com/panyam/chakra/eval, type SuiteReport struct, Repeats int
 pkg github.com/panyam/chakra/eval, type SuiteReport struct, Total int
 pkg github.com/panyam/chakra/eval, type User func(context.Context, []agent.Message) (string, bool, error)
 pkg github.com/panyam/chakra/eval/agentdojo, const ScoreSecurity

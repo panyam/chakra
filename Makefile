@@ -321,7 +321,7 @@ coding-harness-parity: ## codex exec vs the coding harness, same fixture and mod
 # table. CI runs the same ladders through make test-examples. Each agent has
 # its own targets, such as make tui and make chat, in its directory
 # (examples/agents/README.md). AGENT=codeq runs one agent, and LIVE, PROFILE,
-# CASES and QUIET pass through.
+# CASES, QUIET and REPEATS pass through.
 exercise-agents: ## Run each agent ladder and print its table (AGENT=codeq LIVE=<connection>; more in examples/agents)
 	@$(MAKE) -s -C examples/agents$(if $(AGENT),/$(AGENT)) exercise
 

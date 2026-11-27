@@ -292,6 +292,22 @@ func (p *EventInjectionPolicy) buffer(ev IncomingEvent, h ContextHint) {
 // them. Entries beyond the budget remain buffered for the next drain. When
 // the consent gate denies a restricted event, Drain counts it and drops it.
 func (p *EventInjectionPolicy) Drain() []InjectedContext {
+	return p.drain(false)
+}
+
+// DrainCritical returns only the buffered turn-retention entries whose
+// priority is "critical", and leaves every other entry for the next Drain.
+// A host calls it between model calls, so an event that can't wait, such
+// as the user changing what the agent is editing, reaches the model inside
+// the running turn (#383). Session-retention entries stay out, since Drain
+// re-injects them at every turn start anyway. The consent gate and the
+// budget apply as in Drain.
+func (p *EventInjectionPolicy) DrainCritical() []InjectedContext {
+	return p.drain(true)
+}
+
+// drain is Drain, or DrainCritical when critical is set.
+func (p *EventInjectionPolicy) drain(critical bool) []InjectedContext {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	now := p.cfg.now()
@@ -307,10 +323,18 @@ func (p *EventInjectionPolicy) Drain() []InjectedContext {
 		session bool
 	}
 	cands := make([]cand, 0, len(p.pending)+len(p.session))
-	for _, key := range p.sessOrd {
-		cands = append(cands, cand{ev: p.session[key], session: true})
+	if !critical {
+		for _, key := range p.sessOrd {
+			cands = append(cands, cand{ev: p.session[key], session: true})
+		}
 	}
+	// waiting keeps the pending entries DrainCritical leaves for Drain.
+	var waiting []IncomingEvent
 	for _, ev := range p.pending {
+		if critical && priorityOrDefault(p.hint(ev).Priority) != "critical" {
+			waiting = append(waiting, ev)
+			continue
+		}
 		cands = append(cands, cand{ev: ev})
 	}
 
@@ -335,7 +359,7 @@ func (p *EventInjectionPolicy) Drain() []InjectedContext {
 	})
 
 	var out []InjectedContext
-	p.pending = p.pending[:0]
+	p.pending = append(p.pending[:0], waiting...)
 	for _, rc := range rankedCands {
 		if len(out) >= p.cfg.MaxPerDrain {
 			if !rc.session {

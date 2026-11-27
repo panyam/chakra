@@ -129,16 +129,22 @@ func StepCount(n int) Scorer {
 	})
 }
 
-// NoError passes when the run itself succeeded and no tool failed: no run
-// error, no error event, no tool dispatch error, and no tool result marked
-// IsError. The Runner folds some failures back into the conversation, and
-// those never abort the turn. NoError catches them as well as a hard run
-// error.
+// NoError passes when the run succeeded and every tool error was recovered.
+// It fails on a run error, an error event, or a tool dispatch error, such as
+// a call to a tool that doesn't exist. A tool result marked IsError fails it
+// too, unless a later call to the same tool returned a result without one.
+// That later success means the model fixed its call, as a stuck policy or a
+// helpful error message is meant to make it do (#365). The Runner folds
+// these failures back into the conversation, and none of them aborts the
+// turn, so NoError reads them from the events.
 func NoError() Scorer {
 	return scorerFunc(func(r Result) Score {
 		if r.Err != nil {
 			return boolScore("NoError", false, "run error: "+r.Err.Error())
 		}
+		// failed holds each tool whose latest result was an error.
+		failed := map[string]bool{}
+		var order []string
 		for _, e := range r.Events {
 			switch e.Kind {
 			case agent.EventError:
@@ -146,16 +152,26 @@ func NoError() Scorer {
 			case agent.EventToolError:
 				return boolScore("NoError", false, "tool dispatch error: "+e.Error)
 			case agent.EventToolEnd:
+				name := ""
+				if e.ToolCall != nil {
+					name = e.ToolCall.Name
+				}
 				if e.ToolResult != nil && e.ToolResult.IsError {
-					name := ""
-					if e.ToolCall != nil {
-						name = e.ToolCall.Name
+					if !failed[name] {
+						order = append(order, name)
 					}
-					return boolScore("NoError", false, fmt.Sprintf("tool %q reported an error", name))
+					failed[name] = true
+				} else {
+					failed[name] = false
 				}
 			}
 		}
-		return boolScore("NoError", true, "no run, dispatch, or tool errors")
+		for _, name := range order {
+			if failed[name] {
+				return boolScore("NoError", false, fmt.Sprintf("tool %q reported an error, and no later call to it succeeded", name))
+			}
+		}
+		return boolScore("NoError", true, "no run or dispatch errors, and every tool error was recovered")
 	})
 }
 

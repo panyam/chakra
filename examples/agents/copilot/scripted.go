@@ -45,7 +45,7 @@ var (
 	boardLine   = regexp.MustCompile(`(?m)^(C\d+) \| ([^|]+) \| ([^|]+) \| checklist (\d+)/(\d+)`)
 	movedNote   = regexp.MustCompile(`The user moved (C\d+) \(.*?\) from .*? to (To do|Doing|Done)\.`)
 	renamedNote = regexp.MustCompile(`The user renamed (C\d+) from`)
-	midNote     = regexp.MustCompile(`While you were working, the user (?:moved|renamed) (C\d+)`)
+	userNote    = regexp.MustCompile(`The user (?:moved|renamed) (C\d+)`)
 	moveAsk     = regexp.MustCompile(`Move "(.+)" to (To do|Doing|Done)`)
 	addAsk      = regexp.MustCompile(`Add a card "(.+)" to (To do|Doing|Done)`)
 	everyAsk    = regexp.MustCompile(`Move every card in (To do|Doing|Done) to (To do|Doing|Done)`)
@@ -71,15 +71,20 @@ func (s scripted) reply(req agent.ProviderRequest) agent.StubTurn {
 	// The turn starts at the last user message, or at the trigger's
 	// instructions when a trigger started it.
 	start, trigger := -1, false
-	var notes []string
+	// midTurn holds the notes that arrived after the turn started, which
+	// only the host's critical events send.
+	var notes, midTurn []string
 	for i, m := range req.Messages {
 		switch {
 		case m.Role == agent.RoleUser:
-			start, trigger = i, false
+			start, trigger, midTurn = i, false, nil
 		case m.Role == agent.RoleSystem && strings.Contains(m.Text, "A card just landed in Done"):
-			start, trigger = i, true
+			start, trigger, midTurn = i, true, nil
 		case m.Role == agent.RoleSystem:
 			notes = append(notes, m.Text)
+			if start >= 0 {
+				midTurn = append(midTurn, m.Text)
+			}
 		}
 	}
 	if !slices.ContainsFunc(req.Tools, func(t core.ToolDef) bool { return t.Name == "read_board" }) {
@@ -149,8 +154,8 @@ func (s scripted) reply(req agent.ProviderRequest) agent.StubTurn {
 	case everyAsk.MatchString(asked):
 		m := everyAsk.FindStringSubmatch(asked)
 		var told []string
-		for _, n := range notes {
-			if mm := midNote.FindStringSubmatch(n); mm != nil {
+		for _, n := range midTurn {
+			if mm := userNote.FindStringSubmatch(n); mm != nil {
 				told = append(told, mm[1])
 			}
 		}

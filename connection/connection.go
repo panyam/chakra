@@ -323,6 +323,7 @@ func builtin(c Config, base, key string, onFullHistory func(reason string)) (age
 			NoResponseSchema:  c.ResponseSchema != nil && !*c.ResponseSchema,
 			ExtraBody:         extra,
 			ThoughtSignatures: c.Type == "gemini",
+			LateSystemAsUser:  c.Type == "gemini",
 		})
 	}
 }
