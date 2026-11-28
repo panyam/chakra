@@ -76,4 +76,49 @@ so the turn's `Usage` leaves them out. The ladder counts them through a
 meter on their provider, and each case's `eval.Setup.Spent` reports it. The
 cost column includes them.
 
-TABLE
+## What each step changed
+
+Gemini 3.5 Flash-Lite, each case once, with `make exercise
+LIVE=gemini-flash-lite`. The connection has no price, so the cost column is
+empty:
+
+```
+step              pass   change  usd/correct  sec/correct  reasoning/correct
+search + fetch    12/20          -            28.59        594
++ citation check  12/20  ~+0     -            30.76        634
++ plan slot       13/20  ~+1     -            35.81        398
++ sub-agents      0/20   ~-13    -            -            -
++ critic          0/20   ~+0     -            -            -
++ cost cap        0/20   ~+0     -            -            -
+```
+
+The last three rows didn't run. Gemini's free tier allows 500 requests a
+day per model, and each question on the sub-agents step sends three
+sub-agents. The quota ran out early in that step, and every call after it
+got HTTP 429. So the table shows only the first three steps. On those,
+Flash-Lite fails 8 of 20 with the bare step, and neither the citation check
+nor the plan slot moves it by more than a case.
+
+Claude Haiku 5.5, each case once, with `make exercise LIVE=haiku`:
+
+```
+step              pass   change  usd/correct  sec/correct
+search + fetch    18/20          $0.0023      8.07
++ citation check  18/20  ~+0     $0.0024      9.18
++ plan slot       17/20  ~-1     $0.0037      14.27
++ sub-agents      19/20  ~+2     $0.0145      26.59
++ critic          19/20  ~+0     $0.0219      39.57
++ cost cap        17/20  ~-2     $0.0225      44.05
+```
+
+Haiku answers 18 of 20 with search and fetch alone. No step moves it by
+more than two cases, and one run can't tell a change that small from noise.
+Each step costs more: the sub-agents cost six times as much per correct
+answer as the bare step, and the critic half as much again. Most of
+Haiku's misses on the two hardest questions are turns that ran out of their
+12 steps while paging through pages. The cost cap ended two turns that
+would have answered.
+
+On the stand-in model the ladder climbs 4, 8, 13, 16, 20, 20, one habit
+fixed by each step. `TestEachStepFixesAHabit` checks it, and `scripted.go`
+lists the habits.
