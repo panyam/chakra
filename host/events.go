@@ -121,10 +121,13 @@ func (a *App) Settle(ctx context.Context) error {
 	}
 }
 
-// consumeEvents is the single goroutine that owns the policy pipeline:
-// ingest into injection, evaluate triggers, and run approved proactive
-// turns (serialized against user turns by the turn mutex inside
-// runProactiveTurn).
+// consumeEvents is the single goroutine that owns the policy pipeline. It
+// ingests each event into injection and evaluates the triggers. A firing
+// goes to streams.turns, which runs the proactive turns one at a time, and
+// runProactiveTurn holds turnMu against typed turns. So the consumer keeps
+// ingesting while a trigger's turn runs, and a critical event reaches that
+// turn's next model call (#400). A Settle marker goes through streams.turns
+// too, so it closes only after the turns queued before it.
 func (a *App) consumeEvents(ctx context.Context) {
 	for {
 		select {
@@ -136,13 +139,17 @@ func (a *App) consumeEvents(ctx context.Context) {
 			}
 			if ev.Server == settleServer {
 				if done, ok := a.streams.settles.Load(ev.ID); ok {
-					close(done.(chan struct{}))
+					a.streams.turns.Send(func() { close(done.(chan struct{})) })
 				}
 				continue
 			}
 			a.injection.Ingest(ev)
 			if firing := a.triggers.OnEvent(ev); firing != nil {
-				a.runProactiveTurn(ctx, firing)
+				a.streams.turns.Send(func() {
+					if ctx.Err() == nil {
+						a.runProactiveTurn(ctx, firing)
+					}
+				})
 			}
 			a.streams.consumed.Add(1)
 		}

@@ -363,6 +363,9 @@ func TestDeliverFiresTriggersWithoutOverlap(t *testing.T) {
 	waitFor(t, out, "· trigger: click")
 	waitFor(t, out, "· trigger: cart")
 	waitConsumed(t, app, 2)
+	if err := app.Settle(context.Background()); err != nil {
+		t.Fatal(err)
+	}
 	if m := prov.max.Load(); m != 1 {
 		t.Fatalf("proactive turns overlapped: %d model calls at once", m)
 	}

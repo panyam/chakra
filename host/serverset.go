@@ -77,6 +77,12 @@ type streamSet struct {
 	// drains it. Nil when the async control plane is off.
 	fanIn *gocurrent.FanIn[agent.IncomingEvent]
 
+	// turns runs the consumer's work that has to wait for turnMu: each
+	// trigger's turn, and each Settle marker after the turns before it. It
+	// runs them one at a time, in order, so the consumer keeps reading
+	// events while a trigger's turn runs (#400).
+	turns *gocurrent.Writer[func()]
+
 	// ctx bounds every subscription. It is built before the servers connect,
 	// so the ready-observer can subscribe a late server the moment it
 	// arrives. stop cancels them all.

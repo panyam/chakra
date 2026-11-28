@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/panyam/chakra"
 	"github.com/panyam/mcpkit/core"
@@ -76,5 +77,44 @@ func TestACriticalEventReachesTheNextModelCallMidTurn(t *testing.T) {
 	}
 	if n := len(systemTexts(next, "user moved C2")); n != 1 {
 		t.Errorf("the critical event appears %d times in the next turn, want once, from the record", n)
+	}
+}
+
+// A critical event reaches a trigger's turn as well. Say the user drags C2
+// to Done and the trigger's turn starts. The user then takes C3 back while
+// that turn runs. The next model call in the turn hears about C3 (#400).
+func TestACriticalEventReachesATriggersTurn(t *testing.T) {
+	ts := startTestServer(t)
+	cfg := testConfig(ts.URL)
+	cfg.Triggers = []TriggerConfig{{Event: "card.done", Instructions: "Check the card.", Label: "done-check"}}
+	stub := agent.NewStubProvider(
+		agent.StubTurn{ToolCalls: []agent.ToolCall{{ID: "c1", Name: "no_such_tool", Args: core.NewRawJSON(json.RawMessage(`{}`))}}},
+		agent.StubTurn{Text: "checked"},
+	)
+	prov := &midTurnProvider{StubProvider: stub, deliver: func(app *App) {
+		before := app.streams.consumed.Load()
+		deliverHinted(t, app, "card.moved", map[string]any{"priority": "critical", "template": "user moved {{card}}"}, `{"card":"C3"}`)
+		deadline := time.Now().Add(2 * time.Second)
+		for app.streams.consumed.Load() == before && time.Now().Before(deadline) {
+			time.Sleep(5 * time.Millisecond)
+		}
+	}}
+	app, err := NewApp(cfg, &syncWriter{}, strings.NewReader(""), WithProvider(prov))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	prov.app = app
+
+	deliverHinted(t, app, "card.done", map[string]any{}, `{"card":"C2"}`)
+	if err := app.Settle(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	reqs := stub.Requests()
+	if len(reqs) != 2 {
+		t.Fatalf("model calls in the trigger's turn = %d, want 2", len(reqs))
+	}
+	if n := len(systemTexts(reqs[1], "user moved C3")); n != 1 {
+		t.Errorf("the critical event reached the turn's second call %d times, want once", n)
 	}
 }
