@@ -1,0 +1,35 @@
+url: https://en.wikipedia.org/wiki/Sumburgh_Airport
+title: Sumburgh Airport
+source: wikipedia
+revision: 1381738129 2026-10-24T13:22:10Z
+---
+Sumburgh Airport (IATA: LSI, ICAO: EGPB) is the main airport serving the Shetland Islands, Scotland. It is located on the southern tip of the mainland in the parish of Dunrossness,  20 miles (31 km) south of Lerwick. The airport is owned by Highlands and Islands Airports Limited (HIAL) and served by Loganair.
+
+== History ==
+
+Sumburgh Links was surveyed and the grass strips laid out by Captain E. E. Fresson of Highland Airways in 1936: the airport was opened on 3 June of that year with the inaugural flight from Aberdeen (Kintore) by the De Havilland Dragon Rapide G-ACPN piloted by Fresson himself. It was also one of the first airfields to have RDF facilities, due to the frequency of low cloud and fog and the proximity of Sumburgh Head. The runways were built at the instigation of Capt. Fresson, who had proved to the Navy at Hatston (Orkney) that runways were essential to maintain all-round landing facilities over the winter months. This was taken up by the RAF after the obvious success of the Hatston experiment.
+The former RAF Sumburgh airfield had three runways, two of which, although extended, remain in use by the present airport. The longest was originally 800 yd (730 m), and the shorter ran for 600 yd (550 m) from shoreline to shoreline. No. 404 Squadron operated Beaufighter Mark VI and X aircraft from this station on coastal raids against Axis shipping off the coast of Norway and in the North Sea. The airport is unusual in that it has a 550 m (1,804 ft) helicopter runway as opposed to the usual helipad. The western end of runway 09/27 crosses the A970 road between Sumburgh (including the airport) and the rest of the island; access is controlled by a level crossing with barriers closed whenever a flight is taking off or landing.
+Ownership of the company transferred from the UK Civil Aviation Authority to the Secretary of State for Scotland on 1 April 1995, and subsequently to the Scottish Ministers. HIAL receives subsidies from the Scottish Ministers in accordance with Section 34 of the Civil Aviation Act 1982 and is sponsored by Transport Scotland which is an Executive Agency of the Scottish Government and accountable to Scottish Ministers.
+
+== Airline and destinations ==
+
+=== Passenger ===
+
+=== Cargo ===
+
+== Other tenants ==
+
+The airport is additionally used as a helicopter operational base by the Maritime and Coastguard Agency (His Majesty's Coastguard), Bristow Helicopters and Babcock Mission Critical Services Offshore (SAR and crew change operations).
+
+== Ground transport ==
+The airport is located 25 miles (40 km) by road from Lerwick. Bus service 6, operated by J&DS Halcrow of Cunningsburgh, provides a regular link between the airport and the town seven days per week. In the evening, and on Sundays, the service is run by Lerwick-based operator, R. Robertson & Son.
+
+== Statistics ==
+
+== Incidents and accidents ==
+31 July 1979: Crash of Dan-Air Flight 0034, a Hawker Siddeley 748 series 1 (registration G-BEKF) operating an oil industry support flight. The aircraft failed to become airborne, overshot the runway and continued into the sea. Although 15 passengers and both pilots died, and the aircraft was destroyed, 29 passengers and the flight attendant survived. The accident was due to the elevator gust-lock having become re-engaged, preventing the aircraft from rotating into a flying attitude.
+6 November 1986: British International Helicopters Chinook crash. A Boeing 234LR Chinook helicopter crashed 2.5 miles (4.0 km) east of the airport. Only two people survived, with 45 killed.
+11 June 2006 Air Accidents Investigation Branch recommended a safety audit of City Star Airlines after a serious incident in which a Dornier 328 crew flew close to cliffs and failed to respond correctly to terrain warnings on approach to Sumburgh Airport after a flight from Aberdeen. The aircraft landed safely. The captain involved was suspended and asked to resign after an investigation.
+23 August 2013: A Super Puma AS332 L2, operated by CHC for Total, carrying 16 passengers and two crew from the Borgsten Dolphin oil platform, crashed about 2 miles (3.2 km) west of the airport at 18:17 BST. The UK Air Accidents Investigation Branch identified the lack of effective monitoring of flight instruments as a cause of the crash. Four of those aboard were killed.
+
+=== Notes ===

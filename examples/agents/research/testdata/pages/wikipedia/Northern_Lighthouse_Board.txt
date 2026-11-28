@@ -1,0 +1,61 @@
+url: https://en.wikipedia.org/wiki/Northern_Lighthouse_Board
+title: Northern Lighthouse Board
+source: wikipedia
+revision: 1383337010 2026-11-02T04:48:32Z
+---
+The Northern Lighthouse Board (NLB) is the general lighthouse authority for Scotland and the Isle of Man. It is a non-departmental public body responsible for marine navigation aids around coastal areas.
+
+== History ==
+
+The NLB was formed by an act of the Parliament of Great Britain, the Erection of Lighthouses Act 1786 (26 Geo. 3. c. 101), as the Commissioners of Northern Light Houses, largely at the urging of the lawyer and politician George Dempster ("Honest George"), to oversee the construction and operation of four Scottish lighthouses: Kinnaird Head, North Ronaldsay, Scalpay and Mull of Kintyre, for which they were empowered to borrow up to £1,200 (equivalent to £162,900 in 2025). Until then, the only major lighthouse in Scotland was the coal brazier mounted on the Isle of May in the Firth of Forth, together with some smaller lights in the Firths of the Tay and Clyde. None of the major passages around Scotland, which led through dangerous narrows, were marked.
+The commissioners, whose first president was the Lord Provost of Edinburgh, Sir James Hunter-Blair, advertised for building estimates, but there were no takers. They received an offer of help from Ezekiel Walker of King's Lynn, who had developed a parabolic reflector for the Hunstanton Lighthouse, and sent Thomas Smith, who was making his name in street lighting in Edinburgh and had offered help, to England to learn from him. Smith soon returned and instructed an Edinburgh architect to prepare the plans for four lighthouses.
+
+The £1,200 was spent before the first light at Kinnaird Head was finished, and a further act of Parliament, the Erection of Lighthouses Act 1788 (28 Geo. 3. c. 25), was required which allowed them to start to receive half the lighthouse dues set to be levied on shipping, before all the lights were finished. By the end of 1787 the first light had been installed. At the Mull of Kintyre everything had to be transported by pack horse from Campbeltown, 12 miles away, but it was lit by October 1788. To get to Scalpay in the Outer Hebrides and North Ronaldsay in the Orkney Isles needed boat trips across rough waters for Smith and Mills, the stonemason, but all the same the job was completed by October 1789, to widespread praise. The dues which had originally been set at two shillings per ton of cargo in the 17th century, were now reduced to one penny per ton.
+The commissioners' most famous engineer was Robert Stevenson, whose sons David, Alan, and Thomas followed their father into the profession. The Stevenson dynasty built the majority of the northern lights, in some exceptionally challenging locations. Their lights were some of the engineering masterpieces of their time, notably those at Bell Rock, Skerryvore, and Muckle Flugga.
+Between 1876 and 2005 the Northern Lighthouse Board also maintained foghorns at a number of locations. The last (at Skerryvore) was sounded for the last time on 4 October 2005.
+
+== Operations ==
+The board is based at its Georgian headquarters building in George Street in the centre of Edinburgh, from where it remotely monitors its network. Technical operations are carried out from a base in Oban, Argyll and Bute, where there are maintenance workshops and facilities for the construction of buoys and beacons. The NLB's vessels are also based here.
+Under the terms of the Scotland Act 1998, the NLB is not a devolved body and thus remains directly accountable to the UK Secretary of State for Transport. In practice, there is close co-operation with both the Scottish Government and the Isle of Man Government. The NLB is funded by pooled light dues administered by the UK's Department for Transport, and distributed to the NLB, Trinity House, and the Commissioners of Irish Lights.
+
+== Assets ==
+
+As of 31 March 2024, the NLB operates the following:
+
+=== Navigational devices ===
+Statutory
+
+208 lighthouses, sub-divided as:
+65 with a range of over 15 nautical miles
+143 with a range of under 15 nautical miles
+174 buoys -Lit
+25 unlit beacons - Unlit
+29 radar beacons, sub-divided as:
+22 on lighthouses
+7 on buoys
+51 Automatic identification system units, sub-divided as
+28 on lighthouses (and monitoring an additional 1 unit)
+20 on buoys
+3 Virtual AIS unit
+Contract
+
+2 lighthouses (and 2 in Norwegian waters)
+102 buoys
+3 radar beacons (and 2 in Norwegian waters)
+Local Authority
+
+1214 light stations
+826 buoy stations
+
+== Vessels ==
+The NLB operates two lighthouse tenders/buoy tenders, known by the prefix Northern Lighthouse Vessel, or NLV. NLV Pole Star has been in service since 2000 and is scheduled be replaced by a vessel of the same name in 2026.
+The NLV Pharos was delivered to the depot in Oban on 31 March 2007. This is the tenth Pharos, replacing the ninth Pharos which was sold in September 2006 for use as a fishery protection vessel for South Georgia and the South Sandwich Islands.
+
+== The commissioners ==
+
+Most of the commissioners have always been ex officio appointments. The original commissioners appointed in 1786 were the Scottish law agents of the Crown, the sheriffs of Scotland's coastal counties, and the provosts and lord provosts of Scottish cities and towns with strong mercantile interests. Reform of local government and sheriffdoms have since resulted in changes. Previous commissioners include Richard Vary Campbell.
+The current Commissioners of Northern Lighthouses, as provided by schedule 8 to the Merchant Shipping Act 1995, are the Lord Advocate and the Solicitor General for Scotland; the lords provost of Edinburgh, Glasgow, and Aberdeen, the conveners of the Highland Council and the Argyll and Bute Council; the sheriffs principal of all the sheriffdoms in Scotland; a Manx representative nominated by the Lieutenant Governor of the Isle of Man and appointed by the Secretary of State; and up to five co-opted commissioners.
+
+== Flags ==
+The NLB uses two flags, an ensign and a commissioners' flag. The commissioners' flag, a plain White Ensign with a pre-1801 Union Flag in the canton, defaced with a blue lighthouse in the fly, is the only British flag still in use which incorporates the pre-1801 Union Flag. According to the Northern Lighthouse Board, this came about because the board had a large stock of flags on hand in 1801, and thought it prudent to keep using them; this eventually became tradition. This flag is only flown from vessels with commissioners aboard. The ensign is a Blue Ensign defaced with a white lighthouse in the fly, and is for general use.
+The board's headquarters flies the commissioners' flag, alongside the Saltire and the Isle of Man flag.
