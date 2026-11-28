@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	ssehttp "github.com/panyam/servicekit/http"
@@ -122,10 +123,18 @@ func NewResponsesProvider(cfg ResponsesConfig) (*ResponsesProvider, error) {
 
 // ProviderCapabilities reports a temperature only when ResponsesConfig.Temperature
 // says the model takes one. The Responses API has no seed, no grammar or
-// regex constraint and no sampling penalty, so those are never reported.
+// regex constraint and no sampling penalty, so those are never reported. It
+// reports the reasoning.effort levels the wire defines, ResponsesEfforts.
+// Which of them a model accepts depends on the model, and the vendor's error
+// is the diagnostic.
 func (p *ResponsesProvider) ProviderCapabilities() Capabilities {
-	return Capabilities{Temperature: p.cfg.Temperature}
+	return Capabilities{Temperature: p.cfg.Temperature, Effort: slices.Clone(ResponsesEfforts)}
 }
+
+// ResponsesEfforts lists the reasoning.effort levels ResponsesProvider sends
+// for ProviderRequest.Effort. OpenAIConfig.Efforts takes the same list for
+// OpenAI's chat completions.
+var ResponsesEfforts = []string{EffortNone, "minimal", EffortLow, EffortMedium, EffortHigh}
 
 func (p *ResponsesProvider) check(req ProviderRequest) error {
 	if req.Seed != nil {
@@ -133,6 +142,9 @@ func (p *ResponsesProvider) check(req ProviderRequest) error {
 	}
 	if req.Guided != nil {
 		return fmt.Errorf("%w: Guided (the Responses API has no guided decoding)", ErrUnsupportedParam)
+	}
+	if err := refuseEffort(req.Effort, ResponsesEfforts, "the Responses API"); err != nil {
+		return err
 	}
 	return refusePenalties(req.Penalties, nil, "the Responses API has no sampling penalties")
 }
@@ -324,10 +336,14 @@ func (p *ResponsesProvider) buildBody(req ProviderRequest, input []Message, prev
 	if req.MaxTokens > 0 {
 		body["max_output_tokens"] = req.MaxTokens
 	}
-	if p.cfg.ReasoningEffort != "" || p.cfg.ReasoningSummary != "" {
+	effort := p.cfg.ReasoningEffort
+	if req.Effort != "" {
+		effort = req.Effort
+	}
+	if effort != "" || p.cfg.ReasoningSummary != "" {
 		r := map[string]any{}
-		if p.cfg.ReasoningEffort != "" {
-			r["effort"] = p.cfg.ReasoningEffort
+		if effort != "" {
+			r["effort"] = effort
 		}
 		summary := p.cfg.ReasoningSummary
 		if summary == "" {

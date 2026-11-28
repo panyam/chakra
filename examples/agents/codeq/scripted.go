@@ -37,6 +37,13 @@ func Scripted() agent.Provider { return scripted{} }
 
 type scripted struct{}
 
+// ProviderCapabilities says the stand-in takes any effort the effort ladder
+// asks for. It ignores the effort, so only the requests show a policy's
+// change.
+func (scripted) ProviderCapabilities() agent.Capabilities {
+	return agent.Capabilities{Effort: slices.Clone(effortLevels)}
+}
+
 func (s scripted) Stream(ctx context.Context, req agent.ProviderRequest) (agent.Stream, error) {
 	return agent.NewStubProvider(s.reply(req)).Stream(ctx, req)
 }

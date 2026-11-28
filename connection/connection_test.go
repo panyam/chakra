@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -387,6 +388,31 @@ func TestReasoningEffortReachesTheOpenAIWire(t *testing.T) {
 		}
 		if got != tc.want || (tc.want == "" && effort != nil) {
 			t.Errorf("%s sent reasoning_effort %v, want %q", tc.conn, effort, tc.want)
+		}
+	}
+}
+
+// Gemini and OpenAI connections take a per-request effort, and a
+// connection to another OpenAI-compatible server or a local one takes none
+// (#375).
+func TestEachConnectionTypeReportsItsEffortLevels(t *testing.T) {
+	for _, tc := range []struct {
+		typ  string
+		want []string
+	}{
+		{"gemini", GeminiEfforts},
+		{"openai", agent.ResponsesEfforts},
+		{"openai-responses", agent.ResponsesEfforts},
+		{"deepseek", nil},
+		{"llamacpp", nil},
+		{"anthropic", nil},
+	} {
+		p, err := Build(Config{Type: tc.typ, BaseURL: "http://127.0.0.1:1", Model: "m", APIKey: "k"})
+		if err != nil {
+			t.Fatalf("%s: %v", tc.typ, err)
+		}
+		if got := agent.CapabilitiesOf(p).Effort; !slices.Equal(got, tc.want) {
+			t.Errorf("%s: Capabilities.Effort = %v, want %v", tc.typ, got, tc.want)
 		}
 	}
 }

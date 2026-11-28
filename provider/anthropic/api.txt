@@ -14,3 +14,4 @@ pkg github.com/panyam/chakra/provider/anthropic, type Provider struct
 pkg github.com/panyam/chakra/provider/anthropic, type ThinkingStats struct
 pkg github.com/panyam/chakra/provider/anthropic, type ThinkingStats struct, Dropped int
 pkg github.com/panyam/chakra/provider/anthropic, type ThinkingStats struct, Resent int
+pkg github.com/panyam/chakra/provider/anthropic, var Efforts

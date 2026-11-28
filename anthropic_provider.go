@@ -519,5 +519,8 @@ func anthropicCheck(req ProviderRequest) error {
 	if req.Guided != nil {
 		return fmt.Errorf("%w: Guided (the Anthropic Messages API has no decoding constraint)", ErrUnsupportedParam)
 	}
+	if req.Effort != "" {
+		return fmt.Errorf("%w: Effort (AnthropicProvider sends no thinking settings; provider/anthropic sends effort)", ErrUnsupportedParam)
+	}
 	return refusePenalties(req.Penalties, nil, "the Anthropic Messages API has no sampling penalties")
 }
