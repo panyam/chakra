@@ -216,3 +216,34 @@ func TestPricesChargeCachedInputAtTheCachedRate(t *testing.T) {
 		t.Errorf("Cost = %v, %v; want %v (no cached rate bills cached tokens at Input)", got, ok, want)
 	}
 }
+
+// A case's Setup.Spent reports what its sub-agents spent, which the turn's
+// own Usage leaves out, and the case's usage and cost count it.
+func TestSetupSpentAddsToTheCaseUsage(t *testing.T) {
+	spent := 0
+	suite := Suite{
+		Config:    agent.RunnerConfig{Provider: agent.NewStubProvider(usageTurn("done", 300, 100))},
+		ModelName: "answerer",
+		Prices:    Prices{"answerer": {Input: 1, Output: 2}},
+		Cases: []SuiteCase{{
+			Scenario: Scenario{Name: "delegates", Turns: []string{"go"}},
+			Setup: func(context.Context) (Setup, error) {
+				return Setup{Spent: func() map[string]agent.Usage {
+					spent++
+					return map[string]agent.Usage{"": {InputTokens: 700, OutputTokens: 400}}
+				}}, nil
+			},
+			Scorers: func(agent.Provider) []Scorer { return []Scorer{ExactMatch("done")} },
+		}},
+	}
+	c := suite.Run(context.Background()).Cases[0]
+	if spent != 1 {
+		t.Fatalf("Spent ran %d times, want 1", spent)
+	}
+	if got := c.Usage["answerer"]; got.InputTokens != 1000 || got.OutputTokens != 500 {
+		t.Errorf("usage = %+v, want the turn's and the sub-agents' summed", c.Usage)
+	}
+	if c.Cost == nil || math.Abs(*c.Cost-0.002) > 1e-9 {
+		t.Errorf("cost = %v, want $0.002 for 1000 input and 500 output tokens", c.Cost)
+	}
+}
