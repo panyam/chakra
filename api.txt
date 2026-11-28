@@ -17,6 +17,10 @@ pkg github.com/panyam/chakra, const DispositionForbidden CallDisposition
 pkg github.com/panyam/chakra, const DispositionReadOnly CallDisposition
 pkg github.com/panyam/chakra, const DispositionReversible CallDisposition
 pkg github.com/panyam/chakra, const DispositionUnknown CallDisposition
+pkg github.com/panyam/chakra, const EffortHigh
+pkg github.com/panyam/chakra, const EffortLow
+pkg github.com/panyam/chakra, const EffortMedium
+pkg github.com/panyam/chakra, const EffortNone
 pkg github.com/panyam/chakra, const EventCompaction EventKind
 pkg github.com/panyam/chakra, const EventError EventKind
 pkg github.com/panyam/chakra, const EventPlan EventKind
@@ -367,6 +371,7 @@ pkg github.com/panyam/chakra, type CallClass struct, Key string
 pkg github.com/panyam/chakra, type CallClass struct, Reason string
 pkg github.com/panyam/chakra, type CallDisposition int
 pkg github.com/panyam/chakra, type Capabilities struct
+pkg github.com/panyam/chakra, type Capabilities struct, Effort []string
 pkg github.com/panyam/chakra, type Capabilities struct, Guided []string
 pkg github.com/panyam/chakra, type Capabilities struct, Penalties []string
 pkg github.com/panyam/chakra, type Capabilities struct, Seed bool
@@ -513,6 +518,7 @@ pkg github.com/panyam/chakra, type FreeResultError struct, Text string
 pkg github.com/panyam/chakra, type FuncOption func(*core.ToolDef)
 pkg github.com/panyam/chakra, type FuncSource struct
 pkg github.com/panyam/chakra, type GenerationParams struct
+pkg github.com/panyam/chakra, type GenerationParams struct, Effort string
 pkg github.com/panyam/chakra, type GenerationParams struct, MaxTokens int
 pkg github.com/panyam/chakra, type GenerationParams struct, Penalties *SamplingPenalties
 pkg github.com/panyam/chakra, type GenerationParams struct, Seed *int
@@ -608,6 +614,7 @@ pkg github.com/panyam/chakra, type OllamaConfig struct, Model string
 pkg github.com/panyam/chakra, type OpenAIConfig struct
 pkg github.com/panyam/chakra, type OpenAIConfig struct, APIKey string
 pkg github.com/panyam/chakra, type OpenAIConfig struct, BaseURL string
+pkg github.com/panyam/chakra, type OpenAIConfig struct, Efforts []string
 pkg github.com/panyam/chakra, type OpenAIConfig struct, ExtraBody map[string]any
 pkg github.com/panyam/chakra, type OpenAIConfig struct, GuidedDialect GuidedDialect
 pkg github.com/panyam/chakra, type OpenAIConfig struct, HTTPClient *http.Client
@@ -647,6 +654,7 @@ pkg github.com/panyam/chakra, type ProviderHealth struct, ConsecutiveFailures in
 pkg github.com/panyam/chakra, type ProviderHealth struct, LastError string
 pkg github.com/panyam/chakra, type ProviderHealth struct, LastFailureAt time.Time
 pkg github.com/panyam/chakra, type ProviderRequest struct
+pkg github.com/panyam/chakra, type ProviderRequest struct, Effort string
 pkg github.com/panyam/chakra, type ProviderRequest struct, Guided *GuidedDecoding
 pkg github.com/panyam/chakra, type ProviderRequest struct, Instructions string
 pkg github.com/panyam/chakra, type ProviderRequest struct, MaxTokens int
@@ -1017,6 +1025,7 @@ pkg github.com/panyam/chakra, var ErrTurnStopped
 pkg github.com/panyam/chakra, var ErrUnknownSlot
 pkg github.com/panyam/chakra, var ErrUnknownTool
 pkg github.com/panyam/chakra, var ErrUnsupportedParam
+pkg github.com/panyam/chakra, var ResponsesEfforts
 pkg github.com/panyam/chakra, var ToolChoiceAuto
 pkg github.com/panyam/chakra, var ToolChoiceNone
 pkg github.com/panyam/chakra, var ToolChoiceRequired
@@ -1080,6 +1089,7 @@ pkg github.com/panyam/chakra/connection, type ThinkingHint struct
 pkg github.com/panyam/chakra/connection, type ThinkingHint struct, CloseTag string
 pkg github.com/panyam/chakra/connection, type ThinkingHint struct, OpenTag string
 pkg github.com/panyam/chakra/connection, type Types map[string]Builder
+pkg github.com/panyam/chakra/connection, var GeminiEfforts
 pkg github.com/panyam/chakra/eval, func Contains(string) Scorer
 pkg github.com/panyam/chakra/eval, func ExactMatch(string) Scorer
 pkg github.com/panyam/chakra/eval, func Final([]Result) Result

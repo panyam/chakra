@@ -25,6 +25,7 @@ make note                # the same as notebook cells, so you can scroll back an
 make note LIVE=haiku     # on a real model
 make exercise            # run the whole ladder and print its table
 make exercise CASES=1    # also print each failing case and its answer
+make exercise LADDER=effort LIVE=gemini-flash-lite  # codeq's other ladder: one effort policy per step
 make chat LIVE=sonnet    # chat with the last step in agentchat
 make help                # everything else: walk, serve, record, walk-md, profiles, test
 ```

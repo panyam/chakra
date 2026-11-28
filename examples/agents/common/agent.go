@@ -29,6 +29,10 @@ type Agent struct {
 	// share, such as a tool server, and stop releases it once the ladder has
 	// run. stop is never nil when err is nil.
 	Ladder func(ctx context.Context) (l eval.Ladder, stop func(), err error)
+	// Ladders holds other ladders over the same eval, by name, such as
+	// codeq's "effort". The exercise runs one only when asked, with -ladder
+	// or make exercise LADDER=<name>.
+	Ladders map[string]func(ctx context.Context) (l eval.Ladder, stop func(), err error)
 	// Instructions is the system prompt every step starts from.
 	Instructions string
 	// Scripted is the stand-in model CI runs the ladder on.
@@ -49,6 +53,20 @@ type Agent struct {
 	// default pieces, and can put its own sections and steps between them.
 	// Nil means DefaultWalk.
 	Walk func(d *demokit.Demo, w *Walker)
+}
+
+// WithLadder returns a with its ladder called name in place of Ladder. An
+// empty name returns a as it is.
+func (a Agent) WithLadder(name string) (Agent, error) {
+	if name == "" {
+		return a, nil
+	}
+	l, ok := a.Ladders[name]
+	if !ok {
+		return a, fmt.Errorf("agents: %s has no ladder %q. It has %s", a.Name, name, strings.Join(slices.Sorted(maps.Keys(a.Ladders)), ", "))
+	}
+	a.Ladder = l
+	return a, nil
 }
 
 // Static adapts a ladder that starts nothing to Agent.Ladder.

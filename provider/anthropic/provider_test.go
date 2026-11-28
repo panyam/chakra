@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -168,6 +169,33 @@ func TestMaxTokensAndEffort(t *testing.T) {
 	p.Generate(context.Background(), agent.ProviderRequest{Messages: conversation().Messages[:1]})
 	if (*body)["max_tokens"] != float64(defaultMaxTokens) || (*body)["output_config"] != nil {
 		t.Errorf("defaults: max_tokens %v, output_config %v", (*body)["max_tokens"], (*body)["output_config"])
+	}
+}
+
+// A request's Effort replaces Config.Effort for that call, and a level the
+// API doesn't take, such as "none", is refused before anything is sent
+// (#375).
+func TestARequestsEffortWinsAndNoneIsRefused(t *testing.T) {
+	ts, body, hits := capture(t, "text/event-stream", okStream)
+	p, _ := New(client(ts.URL), Config{Model: "m", Effort: "medium"})
+	if got := agent.CapabilitiesOf(p).Effort; !slices.Contains(got, agent.EffortHigh) || slices.Contains(got, agent.EffortNone) {
+		t.Errorf("Capabilities.Effort = %v", got)
+	}
+	ctx := context.Background()
+	if _, err := p.Generate(ctx, agent.ProviderRequest{Messages: conversation().Messages[:1], Effort: agent.EffortHigh}); err != nil {
+		t.Fatal(err)
+	}
+	if oc, _ := (*body)["output_config"].(map[string]any); oc["effort"] != "high" {
+		t.Errorf("output_config = %v, want effort high", (*body)["output_config"])
+	}
+	before := hits.Load()
+	_, gerr := p.Generate(ctx, agent.ProviderRequest{Messages: conversation().Messages[:1], Effort: agent.EffortNone})
+	_, serr := p.Stream(ctx, agent.ProviderRequest{Messages: conversation().Messages[:1], Effort: agent.EffortNone})
+	if !errors.Is(gerr, agent.ErrUnsupportedParam) || !errors.Is(serr, agent.ErrUnsupportedParam) {
+		t.Errorf("Effort none: %v / %v, want ErrUnsupportedParam", gerr, serr)
+	}
+	if hits.Load() != before {
+		t.Errorf("a refused request reached the server")
 	}
 }
 

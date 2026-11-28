@@ -115,10 +115,23 @@ func New(client *sdk.Client, cfg Config) (*Provider, error) {
 	return &Provider{client: client, cfg: cfg, thinking: newThinkingStore(thinkingStoreCap)}, nil
 }
 
-// ProviderCapabilities reports nothing. The Messages API takes no seed, no
-// grammar and no sampling penalty, and since API version 2026-10-21 it
-// answers 400 to a temperature on every model.
-func (p *Provider) ProviderCapabilities() agent.Capabilities { return agent.Capabilities{} }
+// ProviderCapabilities reports the effort levels, Efforts, and nothing
+// else. The Messages API takes no seed, no grammar and no sampling penalty,
+// and since API version 2026-10-21 it answers 400 to a temperature on every
+// model.
+func (p *Provider) ProviderCapabilities() agent.Capabilities {
+	return agent.Capabilities{Effort: slices.Clone(Efforts)}
+}
+
+// Efforts lists the ProviderRequest.Effort levels the provider sends as
+// output_config.effort (#375). A request's Effort replaces Config.Effort for
+// that call. agent.EffortNone isn't one, since each model turns thinking off
+// in its own way, and some can't. Which levels a model accepts depends on
+// the model, and the API's error is the diagnostic. Changing the effort
+// between calls of one conversation invalidates the prompt cache from the
+// messages on, so a policy that changes it every step pays full input price
+// on each.
+var Efforts = []string{agent.EffortLow, agent.EffortMedium, agent.EffortHigh, "xhigh", "max"}
 
 // check refuses each request field the API would reject or has no place
 // for, before anything is sent.
@@ -132,6 +145,8 @@ func check(req agent.ProviderRequest) error {
 		return fmt.Errorf("%w: Guided (the Messages API has no decoding constraint)", agent.ErrUnsupportedParam)
 	case req.Penalties != nil && !(agent.Capabilities{}).CanPenalize(req.Penalties):
 		return fmt.Errorf("%w: Penalties (the Messages API has no sampling penalties)", agent.ErrUnsupportedParam)
+	case req.Effort != "" && !slices.Contains(Efforts, req.Effort):
+		return fmt.Errorf("%w: Effort %q (output_config.effort takes %s)", agent.ErrUnsupportedParam, req.Effort, strings.Join(Efforts, ", "))
 	}
 	return nil
 }
@@ -165,8 +180,12 @@ func (p *Provider) params(req agent.ProviderRequest, names agent.ToolNames) (bui
 	if req.Instructions != "" {
 		out.System = []sdk.TextBlockParam{{Text: req.Instructions}}
 	}
-	if p.cfg.Effort != "" {
-		out.OutputConfig.Effort = sdk.OutputConfigEffort(p.cfg.Effort)
+	effort := p.cfg.Effort
+	if req.Effort != "" {
+		effort = req.Effort
+	}
+	if effort != "" {
+		out.OutputConfig.Effort = sdk.OutputConfigEffort(effort)
 	}
 	for _, td := range req.Tools {
 		schema, err := inputSchema(td.InputSchema)

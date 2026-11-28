@@ -27,6 +27,7 @@ func main() {
 	quiet := flag.Bool("quiet", false, "print only the tables, not each step and case as it runs")
 	repeats := flag.Int("repeats", 1, "run every case this many times, and show each step's mean pass with its range")
 	profiles := flag.Bool("profiles", false, "list the connections in -profile and exit")
+	ladder := flag.String("ladder", "", "run -agent's other ladder by this name, such as codeq's effort")
 	chat := flag.String("chat-config", "", "write an agentchat config for -agent, using -profile's connections, to this path and exit")
 	flag.Parse()
 
@@ -59,7 +60,14 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(2)
 		}
+		if a, err = a.WithLadder(*ladder); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(2)
+		}
 		list = []common.Agent{a}
+	} else if *ladder != "" {
+		fmt.Fprintln(os.Stderr, "exercise: -ladder needs -agent, the agent whose ladder it is")
+		os.Exit(2)
 	}
 	if *live != "" && *profile == "" {
 		fmt.Fprintln(os.Stderr, "exercise: -live needs -profile, the agentchat config that defines it")

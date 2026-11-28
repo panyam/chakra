@@ -92,6 +92,9 @@ type Config struct {
 	// module's anthropic provider ignore it. A binary that
 	// routes "anthropic" through Anthropic's SDK (Types) sends it as
 	// output_config.effort there, and the root module's provider ignores it.
+	// It is the connection's default. A request that sets
+	// agent.ProviderRequest.Effort replaces it for that call, on the types
+	// whose provider reports the level in Capabilities.Effort (#375).
 	ReasoningEffort string `json:"reasoningEffort,omitempty"`
 
 	// Temperature overrides whether this connection's model takes a
@@ -315,6 +318,16 @@ func builtin(c Config, base, key string, onFullHistory func(reason string)) (age
 		if c.ReasoningEffort != "" {
 			extra = map[string]any{"reasoning_effort": c.ReasoningEffort}
 		}
+		// OpenAI's reasoning models and Gemini read reasoning_effort per
+		// request (#375). Other OpenAI-compatible servers may not, so their
+		// connections send no ProviderRequest.Effort.
+		var efforts []string
+		switch c.Type {
+		case "openai":
+			efforts = agent.ResponsesEfforts
+		case "gemini":
+			efforts = GeminiEfforts
+		}
 		return agent.NewOpenAIProvider(agent.OpenAIConfig{
 			BaseURL:           base,
 			Model:             c.Model,
@@ -322,11 +335,18 @@ func builtin(c Config, base, key string, onFullHistory func(reason string)) (age
 			NoTemperature:     c.Temperature != nil && !*c.Temperature,
 			NoResponseSchema:  c.ResponseSchema != nil && !*c.ResponseSchema,
 			ExtraBody:         extra,
+			Efforts:           efforts,
 			ThoughtSignatures: c.Type == "gemini",
 			LateSystemAsUser:  c.Type == "gemini",
 		})
 	}
 }
+
+// GeminiEfforts lists the reasoning_effort levels a "gemini" connection
+// sends for agent.ProviderRequest.Effort. Gemini's OpenAI endpoint maps each
+// to a thinking budget. Which ones a model takes depends on the model:
+// Gemini 3.5 Flash-Lite answers 400 to "none" and takes "minimal".
+var GeminiEfforts = []string{agent.EffortNone, "minimal", agent.EffortLow, agent.EffortMedium, agent.EffortHigh}
 
 // BuildEmbedder builds an agent.Embedder from an embedder connection, the
 // counterpart of Build for the embedder role. Embeddings are an OpenAI-wire

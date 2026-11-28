@@ -152,7 +152,35 @@ type ProviderRequest struct {
 	// ResponseSchema asks Generate for structured output conforming to
 	// this JSON Schema when set. Stream ignores it.
 	ResponseSchema core.RawJSON `json:"responseSchema,omitempty"`
+
+	// Effort says how hard the model should think on this call, such as
+	// EffortLow or EffortHigh (#375). Empty keeps the connection's own
+	// setting, such as connection.Config.ReasoningEffort. Set it on a turn
+	// through RunnerConfig.Generation or TurnRequest.Generation, or on one
+	// step through StepView.Generation.
+	//
+	// Capabilities.Effort lists the levels a provider sends. A provider
+	// refuses any other level with ErrUnsupportedParam before sending, since
+	// a dropped effort would change what the loop gets back without saying
+	// so. A level means what the vendor says it means. OpenAI, Gemini and
+	// Anthropic each define their own low and high.
+	Effort string `json:"effort,omitempty"`
 }
+
+// The effort levels most providers share. A provider may send others, such
+// as Anthropic's "xhigh", and Capabilities.Effort lists what it sends.
+const (
+	// EffortNone asks the model not to think. Gemini and OpenAI's newer
+	// reasoning models read it. Anthropic models differ in how thinking
+	// turns off, so provider/anthropic refuses it.
+	EffortNone = "none"
+	// EffortLow asks for little thinking.
+	EffortLow = "low"
+	// EffortMedium asks for the vendor's middle setting.
+	EffortMedium = "medium"
+	// EffortHigh asks for the most thinking most models offer.
+	EffortHigh = "high"
+)
 
 // GenerationParams hold the model-facing generation knobs for a turn. They
 // are the subset of ProviderRequest that says *how* to generate rather than
@@ -209,6 +237,13 @@ type GenerationParams struct {
 	// Check CapabilitiesOf(provider).CanPenalize first. Full contract on
 	// SamplingPenalties.
 	Penalties *SamplingPenalties `json:"penalties,omitempty"`
+
+	// Effort says how hard the model should think. Empty keeps the
+	// connection's setting. A step stage that wants more thought on a repair
+	// than on a first draft sets it per call through StepView.Generation.
+	// Check CapabilitiesOf(provider).Effort first. Full contract on
+	// ProviderRequest.Effort.
+	Effort string `json:"effort,omitempty"`
 }
 
 // merge returns p overlaid with over: each field of over that is set wins,
@@ -228,6 +263,9 @@ func (p GenerationParams) merge(over GenerationParams) GenerationParams {
 	if over.Seed != nil {
 		out.Seed = over.Seed
 	}
+	if over.Effort != "" {
+		out.Effort = over.Effort
+	}
 	out.Penalties = p.Penalties.merge(over.Penalties)
 	return out
 }
@@ -240,6 +278,7 @@ func (p GenerationParams) applyTo(req *ProviderRequest) {
 	req.ToolChoice = p.ToolChoice
 	req.Seed = p.Seed
 	req.Penalties = p.Penalties
+	req.Effort = p.Effort
 }
 
 // SamplingPenalties discourage a model from repeating itself (#276). Picture
@@ -425,6 +464,22 @@ type Capabilities struct {
 	// Penalties lists which SamplingPenalties kinds the provider sends, out
 	// of PenaltyRepeat, PenaltyFrequency, PenaltyPresence and PenaltyDRY.
 	Penalties []string
+	// Effort lists the ProviderRequest.Effort levels the provider sends,
+	// such as EffortLow and EffortHigh. Empty means it sends none, and it
+	// refuses any request that sets one.
+	Effort []string
+}
+
+// refuseEffort returns ErrUnsupportedParam when e is set and not in
+// levels. who names the wire for the message.
+func refuseEffort(e string, levels []string, who string) error {
+	if e == "" || slices.Contains(levels, e) {
+		return nil
+	}
+	if len(levels) == 0 {
+		return fmt.Errorf("%w: Effort %q (%s sends no effort)", ErrUnsupportedParam, e, who)
+	}
+	return fmt.Errorf("%w: Effort %q (%s sends %s)", ErrUnsupportedParam, e, who, strings.Join(levels, ", "))
 }
 
 // CanPenalize reports whether every kind s sets is in c.Penalties. A nil s
@@ -492,6 +547,7 @@ func (c Capabilities) intersect(o Capabilities) Capabilities {
 		Seed:        c.Seed && o.Seed,
 		Temperature: c.Temperature && o.Temperature,
 		Penalties:   both(c.Penalties, o.Penalties),
+		Effort:      both(c.Effort, o.Effort),
 	}
 }
 

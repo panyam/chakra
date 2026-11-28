@@ -1,6 +1,9 @@
 package codeq
 
 import (
+	"context"
+
+	"github.com/panyam/chakra/eval"
 	"github.com/panyam/chakra/examples/agents/common"
 	"github.com/panyam/demokit"
 )
@@ -10,6 +13,7 @@ func Agent() common.Agent {
 	return common.Agent{
 		Name:         "codeq",
 		Ladder:       Ladder,
+		Ladders:      map[string]func(context.Context) (eval.Ladder, func(), error){"effort": EffortLadder},
 		Instructions: Instructions,
 		Scripted:     Scripted,
 		Chat:         chat,

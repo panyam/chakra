@@ -70,6 +70,15 @@ type OpenAIConfig struct {
 	// ErrUnsupportedParam. An unknown kind fails NewOpenAIProvider.
 	Penalties []string
 
+	// Efforts lists the ProviderRequest.Effort levels the endpoint takes as
+	// reasoning_effort, which OpenAI's reasoning models and Gemini's OpenAI
+	// endpoint read (#375). Nil takes none, since most OpenAI-compatible
+	// servers ignore the field. A request's Effort outside the list is
+	// refused with ErrUnsupportedParam. A request's Effort replaces any
+	// reasoning_effort in ExtraBody, which is the connection's default.
+	// connection sets it for types "openai" and "gemini".
+	Efforts []string
+
 	// MaxTokens is sent as max_tokens on a request that sets no
 	// ProviderRequest.MaxTokens. 0 sends none, and the server's own limit
 	// applies. OpenAI's is the model's; llama.cpp's and Ollama's is none, so
@@ -180,9 +189,10 @@ func NewOpenAIProvider(cfg OpenAIConfig) (*OpenAIProvider, error) {
 // OpenAIConfig.NoTemperature says the model refuses one. It reports the
 // guided kinds that its GuidedDialect encodes. llama.cpp gets grammar and
 // JSON schema, vLLM gets all three, Ollama gets JSON schema, and no dialect
-// gets none. It reports the penalty kinds in OpenAIConfig.Penalties.
+// gets none. It reports the penalty kinds in OpenAIConfig.Penalties, and the
+// effort levels in OpenAIConfig.Efforts.
 func (p *OpenAIProvider) ProviderCapabilities() Capabilities {
-	c := Capabilities{Seed: true, Temperature: !p.cfg.NoTemperature, Penalties: slices.Clone(p.cfg.Penalties)}
+	c := Capabilities{Seed: true, Temperature: !p.cfg.NoTemperature, Penalties: slices.Clone(p.cfg.Penalties), Effort: slices.Clone(p.cfg.Efforts)}
 	switch p.cfg.GuidedDialect {
 	case GuidedDialectLlamaCpp:
 		c.Guided = []string{GuidedGrammar, GuidedJSONSchema}
@@ -198,6 +208,9 @@ func (p *OpenAIProvider) ProviderCapabilities() Capabilities {
 // before anything is sent.
 func (p *OpenAIProvider) check(req ProviderRequest) error {
 	if err := refusePenalties(req.Penalties, p.cfg.Penalties, "this endpoint takes "+strings.Join(p.cfg.Penalties, ", ")); err != nil {
+		return err
+	}
+	if err := refuseEffort(req.Effort, p.cfg.Efforts, "this endpoint"); err != nil {
 		return err
 	}
 	if req.Guided == nil {
@@ -455,6 +468,9 @@ func (p *OpenAIProvider) buildBody(req ProviderRequest, stream bool) map[string]
 	}
 	if req.Seed != nil {
 		body["seed"] = *req.Seed
+	}
+	if req.Effort != "" {
+		body["reasoning_effort"] = req.Effort
 	}
 	if pen := req.Penalties; pen != nil {
 		for k, v := range map[string]any{
