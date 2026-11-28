@@ -151,7 +151,10 @@ rename it.
 
 `web/` is a module of its own, since the relay needs massrelay. Its test runs
 a Go page in the same room, with a stub model, and checks the mid-turn rename
-and the trigger.
+and the trigger. A browser test drives the real page too:
+`surfaces/web/web/e2e/copilot-board.e2e.ts` drags C2 to Done and checks that
+the trigger's turn moves it back (#400). It runs the server with `-stub`, a
+scripted model in `web/stub.go`, and `make test-web-e2e` runs it in CI.
 
 ## What the build found
 
@@ -167,6 +170,8 @@ and the trigger.
 - `App.Deliver` only queues an event. A user action timed for the gap
   between two model calls could reach the host after the second call began,
   so the page waits on `App.Settle` after each action.
-- A trigger's turn runs on the goroutine that reads events, so an event the
-  user sends during that turn waits until it ends, critical or not. The web
-  test checks the mid-turn rename in a typed turn for that reason.
+- A trigger's turn ran on the goroutine that reads events, so an event the
+  user sent during that turn waited until it ended, critical or not. Now a
+  worker runs the trigger turns one at a time, and the reader keeps reading.
+  A critical event reaches a trigger's turn before its next model call
+  (#400).
