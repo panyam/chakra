@@ -517,6 +517,8 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 	app.streams.fanIn = gocurrent.NewFanIn[agent.IncomingEvent]()
 	app.streams.local = make(chan agent.IncomingEvent, 64)
 	app.streams.fanIn.Add(app.streams.local)
+	app.streams.turns = gocurrent.NewWriter(func(work func()) error { work(); return nil },
+		gocurrent.WithInputBuffer[func()](16))
 
 	app.servers.group.Start(context.Background())
 	// Block only for the servers marked required; the rest keep connecting in
@@ -798,9 +800,9 @@ func NewApp(cfg *Config, out io.Writer, in io.Reader, opts ...AppOption) (*App, 
 }
 
 // Close stops event streams, closes every extension, and disconnects every
-// server.
+// server. It stops the streams first, so no trigger's turn is running when
+// the extensions close.
 func (a *App) Close() {
-	a.closeExtensions()
 	if a.watchStop != nil {
 		a.watchStop()
 	}
@@ -816,6 +818,12 @@ func (a *App) Close() {
 	if a.streams.fanIn != nil {
 		a.streams.fanIn.Stop()
 	}
+	// Stop waits for the turn in progress, which streams.stop has canceled.
+	// A firing still queued sees the canceled context and runs no turn.
+	if a.streams.turns != nil {
+		a.streams.turns.Stop()
+	}
+	a.closeExtensions()
 	for _, bt := range a.tasks.all() {
 		bt.Cancel(context.Background())
 	}

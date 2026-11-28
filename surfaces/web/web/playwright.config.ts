@@ -32,5 +32,14 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
     },
+    {
+      // Copilot's kanban board (#400): the app on 8095 and agentweb on 8094,
+      // on a scripted model that answers the done-check trigger.
+      command: "go run . -stub -app-addr 127.0.0.1:8095 -agent-addr 127.0.0.1:8094",
+      cwd: "../../../examples/agents/copilot/web",
+      url: "http://127.0.0.1:8095/",
+      reuseExistingServer: !process.env.CI,
+      timeout: 180_000,
+    },
   ],
 });
