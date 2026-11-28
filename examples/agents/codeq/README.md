@@ -174,6 +174,60 @@ questions are the cases that make Haiku fail.
 Set `CASES=1` to print each failing case with its scores and the model's
 answer.
 
+## How hard the model thinks
+
+A first draft might need little thought, and a repair after a refused answer
+more. `make exercise LADDER=effort` runs a second ladder over the full agent,
+every step above, with one effort policy per step (#375). A request stage sets
+each call's `GenerationParams.Effort`, and the provider sends it as the
+vendor's own field. Each step replaces the policy before it, so a row compares
+two policies.
+
+- **connection's effort.** No policy, so the connection's `reasoningEffort`
+  applies. The profile sets `medium` for Gemini.
+- **effort minimal, low, high.** The same level on every call.
+- **high on repair.** Low until the answer check refuses an answer in the
+  turn, then high.
+
+The first step checks the connection sends `minimal`, `low` and `high`, and
+stops the ladder with one error if it doesn't. A `gemini` or `openai`
+connection does. An `anthropic` connection builds the SDK-free provider,
+which sends no effort.
+
+On Gemini 3.5 Flash-Lite, one run of each case, on 2026-11-27:
+
+```
+$ make exercise LADDER=effort LIVE=gemini-flash-lite
+step                 pass   change  usd/correct  sec/correct  reasoning/correct
+connection's effort  18/20          -            11.81        1297
+effort none          0/20   ~-18    -            -            -
+effort low           11/20  ~+11    -            32.42        0
+effort high          20/20  ~+9     -            12.73        1733
+high on repair       11/20  ~-9     -            25.44        0
+
+~ one run of a live model shows no spread, so the change may be noise. Running each case more than once measures it.
+```
+
+The second step was "effort none" in that run. Gemini answered every call
+with HTTP 400, since Flash-Lite can't turn thinking off, so its 0/20 measures
+nothing. The ladder now asks for `minimal` there, which Flash-Lite takes.
+
+In this one run, effort moves the table more than any step of codeq's own
+ladder moved it on Haiku.
+
+- **low.** Gemini reported no reasoning tokens at all, and nine cases
+  failed. Eight of them are multi-hop questions, which need a walk.
+- **high.** Every case passed, at 1733 reasoning tokens per correct answer,
+  a third more than medium's 1297. It also took less time per correct
+  answer than low did, since low's failing turns ran long.
+- **high on repair** scored the same as low and reported no reasoning. So no
+  call in that step asked for high, and the answer check never refused an
+  answer. On this eval Gemini needs the thinking on its first draft.
+
+The profile gives Gemini no price, so the dollar column is empty. The
+`minimal` row and a `REPEATS=3` run wait on the free tier's 500 requests a
+day, which this run used up.
+
 ## Chatting with it
 
 `make chat LIVE=sonnet`, in this directory, opens agentchat with the last step's
