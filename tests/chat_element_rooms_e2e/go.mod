@@ -60,7 +60,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/panyam/gocurrent v0.1.3 // indirect
+	github.com/panyam/gocurrent v0.1.4 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
 	github.com/panyam/massrelay v0.3.7 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents v0.8.23 // indirect

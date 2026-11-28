@@ -69,7 +69,7 @@ require (
 	github.com/panyam/chakra/ext/files v0.3.10
 	github.com/panyam/chakra/host v0.3.10
 	github.com/panyam/chakra/provider/anthropic v0.3.10
-	github.com/panyam/gocurrent v0.1.3 // indirect
+	github.com/panyam/gocurrent v0.1.4 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
 	github.com/panyam/mcpkit v0.8.23
 	github.com/panyam/servicekit v0.2.5 // indirect

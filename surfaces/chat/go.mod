@@ -113,7 +113,7 @@ require (
 	github.com/panyam/chakra/provider/anthropic v0.3.10 // indirect
 	github.com/panyam/chakra/store/gorm v0.3.10
 	github.com/panyam/chakra/store/redis v0.3.10 // indirect
-	github.com/panyam/gocurrent v0.1.3 // indirect
+	github.com/panyam/gocurrent v0.1.4 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
 	github.com/panyam/mcpkit/experimental/ext/events v0.8.23 // indirect
 	github.com/panyam/mcpkit/experimental/ext/events/clients/go v0.8.23 // indirect

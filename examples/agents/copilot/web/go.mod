@@ -84,7 +84,7 @@ require (
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/panyam/demokit v0.0.33 // indirect
-	github.com/panyam/gocurrent v0.1.3 // indirect
+	github.com/panyam/gocurrent v0.1.4 // indirect
 	github.com/panyam/goutils v0.1.13 // indirect
 	github.com/panyam/massrelay v0.3.7 // indirect
 	github.com/panyam/mcpkit/experimental/ext/agents v0.8.23 // indirect
