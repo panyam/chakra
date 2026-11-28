@@ -1,0 +1,62 @@
+url: https://en.wikipedia.org/wiki/Bell_Rock_Lighthouse
+title: Bell Rock Lighthouse
+source: wikipedia
+revision: 1380939089 2026-10-18T22:44:56Z
+---
+The Bell Rock Lighthouse, off the coast of Angus, Scotland, is the world's oldest working sea-washed lighthouse. It was built between 1807 and 1810 by Robert Stevenson on the Bell Rock (also known as Inchcape) in the North Sea, 11 miles (18 km) east of the Firth of Tay. Standing 35 metres (115 ft) tall, its light is visible from 35 statute miles (56 km) inland.
+The masonry work on which the lighthouse rests was constructed to such a high standard that it has not been replaced or adapted in 200 years. The lamps and reflectors were replaced in 1843; the original ones are now in the lighthouse at Cape Bonavista, Newfoundland, where they are currently on display. The working of the lighthouse has been automated since 24 October 1988. The Northern Lighthouse Board, which has had its headquarters at 84 George Street in Edinburgh since 1832, remotely monitors the light.
+The lighthouse previously operated in tandem with a shore station, the Bell Rock Signal Tower, built in 1813 at the mouth of Arbroath harbour. Today this building houses the Signal Tower Museum, a visitor centre that offers a detailed history of the lighthouse.
+Because of the engineering challenges that were overcome to build the lighthouse, it has been described as one of the Seven Wonders of the Industrial World.
+
+== History ==
+According to legend, Bell Rock got its name because, in the 14th century, the Abbot of Arbroath had had a warning bell installed on it, which was stolen a year later by a Dutch pirate. (This legend is immortalised in "The Inchcape Rock", a poem by the 19th-century poet Robert Southey.)
+Before the construction of the lighthouse, the rock had caused many shipwrecks because, except for a few hours a day at low tide, it lies just below the surface of the sea. By the turn of the 19th century, it was estimated that, in a typical winter, as many as six ships were wrecked on the rock. (In one storm, seventy ships had been lost off the east coast of Scotland.)
+
+=== Planning ===
+In 1799, the Masters of Trinity House in Leith (who oversaw most of the shipping issues on the eastern coast) determined to build a light on the Bell Rock, due to the high numbers of losses. They commissioned Scottish engineer Robert Stevenson to devise a design for a lighthouse on the Bell Rock, but the proposal was shelved due to concerns about cost, the relatively radical nature of the proposed design and Stevenson's relative youth. The cost would be borne by the east coast towns (as it was not only Dundee ships being lost).
+However, after the warship HMS York was wrecked on the rock in 1804 (and all aboard perished)—causing a furore in Parliament—Stevenson sent his design to the renowned engineer John Rennie. Rennie approved the design and cost estimate, which led to the passage of the Cape Rock Lighthouse (Scotland) Act 1806 (46 Geo. 3. c. 132) approving the proposal and enabling construction to begin.
+The Northern Lighthouse Board awarded Rennie the contract to design and build the lighthouse and appointed Stevenson as chief assistant. The design was based on the earlier Eddystone Lighthouse, which had been designed by John Smeaton, and which Stevenson had visited and studied in detail in 1801—it too was built on an offshore reef using interlocking stones. The Bell Rock lighthouse contained several newer features, such as the rotating lights alternating between red and white that were designed by the carpenter Francis Watt. Stevenson's written account of the work gave little or no credit to Rennie, and questions about "[t]he apportionment of responsibility for this work led to prolonged disputes between their respective descendants, but it is now certain that while Stevenson designed the lighthouse in the main, Rennie's role too was significant."
+
+=== Construction ===
+
+In 1807, Stevenson hired 60 men (including a blacksmith so that the pickaxes used to cut the foundations could be re-sharpened on site) to build the lighthouse. Stevenson did not want to use black powder as it might have damaged the rock on which the lighthouse was to stand. The workers set sail for the rock on 17 August 1807, and would  be away for two months. While initially some workers had been reluctant to agree to work even on the Sabbath in order to complete the lighthouse on time and on budget, in the end, all but four of the workers agreed to do it, and even those four (who were stonemasons) eventually also worked on Sundays.
+Because the rock was covered by water for 20 hours each day (up to 12 feet (3.7 m) of water at high tide), the men lived at first  on a ship moored 1 mile (2 km) off the rock, requiring the workers to row out to the rock and back in boats each day, which was time-consuming, and at one point, one of the boats went adrift and was lost. So the workers’ first task was to build a beacon house on tall wooden struts on the reef surrounding the rock, with places for up to 15 men, so that workers would have a place to stay on site. The foundations and beacon legs were raised during the first season. Then, in the winter, work at the rock was paused as stonemasons cut rocks for the lighthouse out of Cairngall granite.
+In early 1808, work at the rock resumed. The beacon house barracks was completed and the first three courses of stone for the lighthouse were laid.  In the whole of this second season only 80 hours of building work took place on the rock. During this time, while the beacon house barracks were still under construction, a young worker was knocked unconscious by a buoy ring and drowned. As he had been the primary breadwinner for his family, Stevenson offered the now-vacant position to his younger brother, Alexander Scott, who accepted.
+
+In September 1808, John Bonnyman, a stonemason, had to have a finger amputated following an accident with the beam crane on the Rock; as recompense for this mishap he was later appointed one of the first lighthouse keepers.
+Stevenson was frustrated by a visit from Rennie, in 1809, whom he saw as interfering with his work. As a strategy to ward off further visits, he wrote Rennie a total of 82 letters, asking detailed questions about a large range of construction issues (including what type of window putty and locks to use). Rennie replied in detail to every letter, but Stevenson largely ignored the replies.
+In June 1809, one of the principal builders, Michael Wishart, was caught beneath a crane when it collapsed, and his feet were severely injured, preventing him from working further on the project.  He asked Stevenson if he could be appointed lighthouse keeper and he ultimately took up a position as assistant keeper in 1811.
+Work stopped on 22 August 1809, by which time a large part of the tower had been completed.
+In January 1810, Stevenson's twins died of whooping cough, and a fortnight later his youngest daughter Janet also died of this disease.  Rennie wrote Stevenson a consoling letter. During this final period of construction the lighthouse became something of a tourist attraction. Many people were anxious to see the completion of the tallest off-shore lighthouse in the world. In this final season, while the men were staying in the beacon house, a 7-hour storm struck. Worker Charles Henderson was lost, and his body was never found. Work was finally completed after having consumed about 2500 granite stones, all drawn by one horse, Bassey.
+Ultimately, the project came in 50 percent above the original estimate of £42,000 (2009: £2,090,000) budget. Since the construction of the lighthouse the only recorded shipwrecks have been that of HMS Argyll during wartime blackouts in 1915 and the Banff-registered cargo vessel Rosecraig that ran aground in fog on the evening of 21 September 1908, and sank. Her seven crew members were saved.
+
+=== Operation ===
+The tower was automated in 1988. Superintendence and management of the light remains the responsibility of the Northern Lighthouse Board, as part of their responsibility for Scotland and the Isle of Man. For example in 2025 they sought planning permission to repair the access path from the helipad across the rock to the lighthouse.
+
+== Incidents ==
+
+=== Loss of HMS Argyll ===
+
+The lighthouse on the rock had been ordered to switch its lights off during the First World War for fear of assisting German U-boats in their operations, and the light was only turned on by special permission. On 28 October 1915 while in view of the lighthouse, HMS Argyll under the command of Captain James Tancred sent a signal requesting the light to be turned on. The ship proceeded on its course believing the signal had been received, but it had not and the light was not switched on. Soon afterwards, Argyll ran aground, suffering extensive damage to much of the hull. Two destroyers—HMS Hornet and HMS Jackal—assisted in the rescue of her crew. Despite the damage, there were no fatalities among her crew. After all valuable items onboard had been salvaged, including her 6-inch (150 mm) guns, she was blown up by the naval salvage team. In 1970, her two large propellers were recovered by divers and sold for scrap.
+
+=== 1955 helicopter accident ===
+
+On 15 December 1955, RAF Bristol Sycamore helicopter XG501, crewed by Flight Sergeant P. A. Beart and Sergeant E. F. Hall, departed from RAF Leuchars at 09:35 to perform a sea-winching exercise at the Bell Rock lighthouse. At approximately 10:00, the helicopter's tail rotor struck the anemometer on the top of the lighthouse, and as a result the aircraft crashed into the sea. The incident was witnessed by the crew of a second helicopter that immediately transmitted a distress call and flew to the scene of the crash. In response to the distress signal, four aircraft, a further two Sycamore helicopters, an RAF rescue launch and three lifeboats searched the area, recovering the body of XG501's navigator; the body of the pilot was not recovered. The lighthouse was damaged, including the loss of its light, but its keepers were uninjured. Owing to bad weather, the lighthouse could not be repaired until after 20 December, when conditions permitted the delivery of supplies.
+
+== Bell Rock Races ==
+Several sailing clubs including Forth Corinthian at Granton and the East Lothian Yacht Club at North Berwick have used the Bell Rock and its lighthouse as a marker for yacht racing, typically attempted by amateur sailors in cruising yachts and running through the night. Between 1973 and 2001, the course formed part of the Forth Yacht Clubs Association's Forth Offshore Group.
+
+== In music and literature ==
+Scottish musician Alastair McDonald re-worded a traditional song called The Mermaid's Tale, and set the scene on Bell Rock instead of the Eddystone light. The first verse runs:
+
+My father was the keeper of the Bell Rock Light
+And he married a mermaid one dark night
+And from this union there came three
+A codling and a kipper and the other was me
+Arbroath musician Ian Lamb also slightly reworked the melody for the traditional song "Come All Ye Tramps and Hawkers" and wrote "The Bell Rock Light" to mark the lighthouse's bicentenary in 2011. The first verse runs:
+
+We left the town of old Arbroath and set out on the sea
+The wind blew from the east that day it proved cold company
+The Inchcape Reef was our plain aim where many lives were lost
+Countless ships had hit the rock at dreadful human cost
+R. M. Ballantyne's novel The Lighthouse (1865) is centred on the construction of the Bell Rock Lighthouse.

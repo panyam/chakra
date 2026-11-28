@@ -1,0 +1,10 @@
+url: https://en.wikipedia.org/wiki/Helliar_Holm
+title: Helliar Holm
+source: wikipedia
+revision: 1368576218 2026-08-09T22:23:29Z
+---
+Helliar Holm is an uninhabited island off the coast of Shapinsay in the Orkney Islands, Scotland. It is home to a 42-foot-tall (13 m) lighthouse, which was built in 1893 and automated in 1967. It is a tidal island that used to be connected to Shapinsay. It is still possible to walk across from the mainland during very low tides.
+The island also has the ruins of a broch, cairn and chapel.
+In the Orkneyinga Saga it is referred to as both "Hellisey" and "Eller Holm" and John of Fordun refers to it as "Helene-holm".
+
+== Gallery ==

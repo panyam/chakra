@@ -118,6 +118,13 @@ type Setup struct {
 	// Suite.Prices prices it like the turns' usage, and it is reported as
 	// CaseReport.SetupUsage.
 	Usage map[string]agent.Usage
+
+	// Spent, when set, is called once the case's turns have run, whether
+	// they failed or not. It returns what the run spent on model calls the
+	// turns' own Usage leaves out, keyed as Usage is. A sub-agent's calls
+	// are such calls, and so is a turn-end hook that asks a model. The
+	// suite adds it to CaseReport.Usage, so the case's cost counts it.
+	Spent func() map[string]agent.Usage
 }
 
 // Prices maps a model name to its connection.Price, the same price a
@@ -232,8 +239,9 @@ type CaseReport struct {
 
 	// Usage sums the tokens of every turn in the scenario, by model name.
 	// For a one-question benchmark that is the question's turn. It leaves
-	// out sub-agents, as TurnResult.Usage does, and it leaves out the
-	// judge, whose tokens are the cost of grading and not of the agent.
+	// out sub-agents, as TurnResult.Usage does, unless the case's
+	// Setup.Spent reports them. It leaves out the judge, whose tokens are
+	// the cost of grading and not of the agent.
 	// Models that spent nothing are left out, so the map is empty for a
 	// provider that reports no usage.
 	Usage map[string]agent.Usage `json:"usage,omitempty"`
@@ -369,6 +377,9 @@ func (s Suite) runOnce(ctx context.Context, run int, report *SuiteReport) {
 				byModel = map[string]agent.Usage{"": r.Turn.Usage}
 			}
 			cr.Usage = s.addUsage(cr.Usage, byModel)
+		}
+		if st.Spent != nil {
+			cr.Usage = s.addUsage(cr.Usage, st.Spent())
 		}
 		if err != nil {
 			fail("%v", err)

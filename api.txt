@@ -1193,6 +1193,7 @@ pkg github.com/panyam/chakra/eval, type Scorer interface, Score(Result) Score
 pkg github.com/panyam/chakra/eval, type Setup struct
 pkg github.com/panyam/chakra/eval, type Setup struct, History []agent.Message
 pkg github.com/panyam/chakra/eval, type Setup struct, Instructions string
+pkg github.com/panyam/chakra/eval, type Setup struct, Spent func() map[string]agent.Usage
 pkg github.com/panyam/chakra/eval, type Setup struct, Tools agent.ToolSource
 pkg github.com/panyam/chakra/eval, type Setup struct, Usage map[string]agent.Usage
 pkg github.com/panyam/chakra/eval, type Step struct

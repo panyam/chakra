@@ -1,0 +1,7 @@
+url: https://en.wikipedia.org/wiki/Noup_Head_Lighthouse
+title: Noup Head Lighthouse
+source: wikipedia
+revision: 1075814342 2022-03-07T20:45:25Z
+---
+Noup Head Lighthouse lies on the north west headland of the isle of Westray, in Orkney, Scotland.  It was constructed by David A Stevenson in 1898 for the Northern Lighthouse Board.
+The lighthouse became automatic in 1964 and was converted to wind and solar power using a solar array in 2000.
